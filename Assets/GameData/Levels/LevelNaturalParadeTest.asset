@@ -1,0 +1,89 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5b0d9d07915ade0a58fba81655b19cb0, type: 3}
+  m_Name: LevelNaturalParadeTest
+  m_EditorClassIdentifier: 
+  id: level_test_natural_parade
+  displayName: "TEST \u2014 Natural Parade"
+  levelNumber: 17
+  levelGoal: 'Debug sandbox: cliff, ridge tower and mountain bunker side by side'
+  enemyGroups:
+  - definition: {fileID: 11400000, guid: e2f345bdab5634c49a5e289daed390f3, type: 2}
+    count: 3
+    anchorX: 19
+    anchorZ: 0
+    standingOnStructureId: 
+    advancePerTurn: 0
+  structures:
+  - id: player_tank
+    definition: {fileID: 11400000, guid: 5d4cd70c32b12f2429c5cbd2a376b2ba, type: 2}
+    x: -14
+    y: 0
+    z: 0
+    collapseWith: 
+    restsOn: 
+    standWidth: -1
+    hasStandWidth: 0
+    hpScale: 1
+  - id: n_cliff
+    definition: {fileID: 11400000, guid: 97b14f3e77b68fb7abe5419af7fae1ab, type: 2}
+    x: -4.5
+    y: 0
+    z: 0
+    collapseWith: 
+    restsOn: 
+    standWidth: -1
+    hasStandWidth: 0
+    hpScale: 1
+  - id: n_ridge
+    definition: {fileID: 11400000, guid: f1381b0aeb7660fb6b5d11c7c3b7b350, type: 2}
+    x: 0.2
+    y: 0
+    z: 0
+    collapseWith: 
+    restsOn: 
+    standWidth: -1
+    hasStandWidth: 0
+    hpScale: 1
+  - id: n_mtn
+    definition: {fileID: 11400000, guid: 96c53e04c1e2e50778f909b147a957bc, type: 2}
+    x: 4.8
+    y: 0
+    z: 0
+    collapseWith: 
+    restsOn: 
+    standWidth: -1
+    hasStandWidth: 0
+    hpScale: 1
+  playerGroups:
+  - definition: {fileID: 11400000, guid: 42221a45b5be3eb57b1b2bd28b9aaac0, type: 2}
+    count: 2
+    anchorX: -5.6
+    anchorZ: 2.6
+    standingOnStructureId: 
+    advancePerTurn: 0
+  - definition: {fileID: 11400000, guid: 42221a45b5be3eb57b1b2bd28b9aaac0, type: 2}
+    count: 2
+    anchorX: 5.6
+    anchorZ: 2.6
+    standingOnStructureId: 
+    advancePerTurn: 0
+  background: {fileID: 11400000, guid: ceacd19c49b3bcc34a39d64e003283c3, type: 2}
+  heliChance: 0
+  props: []
+  levelBase: 0
+  deployBudget: 0
+  bossPhases: []
+  windAccelZ: 0
+  reinforcementWaves: []
+  staticCamera: 0
+  isTestLevel: 1

@@ -1,0 +1,24 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1ee3b25b030832876ac636c4c05c33f0, type: 3}
+  m_Name: ValleyFront
+  m_EditorClassIdentifier: 
+  id: stage_valley
+  displayName: Valley Front
+  tagline: Patrols, garrisons and the first fortified positions
+  levels:
+  - {fileID: 11400000, guid: 2e279103f6cb9a49e9c9e671913d041e, type: 2}
+  - {fileID: 11400000, guid: 10007778b5275b9fb85bbe6f1ccd0f16, type: 2}
+  - {fileID: 11400000, guid: 6d5d15852a6b97386b010dc15a1e896d, type: 2}
+  starsToUnlock: 0
+  unlockRewardId: sniper
+  completionCoinBonus: 0

@@ -1,0 +1,27 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: cd4401bbbade9741fbcbcc65aa6b210d, type: 3}
+  m_Name: ShieldBearer
+  m_EditorClassIdentifier: 
+  id: shield_bearer
+  displayName: Shield Bearer
+  modelAsset: models/unit_shield.glb
+  gunModelAsset: models/gun_mg.glb
+  maxHp: 40
+  damage: 4
+  projectileType: 0
+  bulletVariant: 0
+  projectilesPerVolley: 1
+  splashRadius: 0
+  structureDamageMultiplier: 0.25
+  meleeDamage: 12
+  renderScale: 1

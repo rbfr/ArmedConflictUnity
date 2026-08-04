@@ -40,7 +40,7 @@ be broken up on the way across rather than transliterated whole.
 
 ### `data/` — 2,586 LOC, the one area that gets BETTER
 
-12 levels, 9 unit classes, 12 structures, 7 backgrounds, 5 stages. Exactly one file
+12 campaign levels (29 total incl. test rigs), 9 base unit classes (22 incl. Enemy* variants), 13 base structures (18 incl. variants), 7 backgrounds, 4 stages. Exactly one file
 (`BackgroundDefinition.kt`) imports anything Android — a Compose `Color`.
 
 As ScriptableObjects this gets an inspector for free, which is the one place Unity is genuinely
@@ -90,7 +90,7 @@ Not one of these is a feature. They are the cost of hand-writing a renderer agai
 
 | area | estimate | confidence |
 |---|---|---|
-| `data/` → ScriptableObjects (incl. 29 levels) | 3-4 days | good |
+| `data/` → ScriptableObjects (incl. 29 levels) | ~~3-4 days~~ **DONE — under a day** | measured |
 | `game/` → C# (3,418-line ViewModel dominates) | 8-12 days | medium |
 | `ui/` rebuild in Unity UI | 8-12 days | **low** — hardest to estimate, most tedious |
 | scene/rendering layer (replaces SceneHost) | 4-6 days | medium — Steps 2-4 already did the hard parts |

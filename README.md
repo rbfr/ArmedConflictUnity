@@ -35,7 +35,8 @@ rewritten. Roughly 6-9 weeks.
 ## Layout
 
 ```
-Assets/Editor/    headless project config, scene builders, APK build (-executeMethod)
+Assets/Editor/    headless project config, scene builders, APK build, data importer
+Assets/GameData/  imported ScriptableObjects (units, structures, levels, backgrounds, stages)
 Assets/Scripts/   runtime: camera solve, coordinate convention, per-step probes
 Assets/Models/    GLBs copied from the Android repo, imported via glTFast
 ```
@@ -53,3 +54,23 @@ DISPLAY=:1 $U -batchmode -quit -projectPath . -executeMethod SpikeBuild.Android 
 ```
 
 `DISPLAY=:1` is required — Unity Hub core-dumps without an X connection even with `--headless`.
+
+## Data pipeline
+
+`data/` is ported, and it is a PIPELINE rather than a transcription — the Android build is still
+the shipping build and its data keeps moving, so a one-time hand port would be wrong the first
+time a level anchor changed.
+
+```bash
+python3 tools/export_kotlin_data.py ~/AndroidStudioProjects/ArmedConflict -o data.json
+DISPLAY=:1 $UNITY -batchmode -quit -projectPath . -executeMethod DataImporter.Import -logFile -
+```
+
+The exporter parses the narrow, regular subset of Kotlin these definition files use and REFUSES
+LOUDLY on anything else; the importer refuses to run at all if the exporter reported unparsed
+definitions. Re-import preserves asset GUIDs, so scene references survive.
+
+Imported: 22 units, 18 structures, 7 backgrounds, 21 levels, 4 stages.
+Not imported: the 8 roster/grouping sandbox levels (L21-L28), which Kotlin generates from a
+helper function rather than declaring as data — they need `rosterSandbox` ported. All are test
+rigs (`isTestLevel`), excluded from star totals.

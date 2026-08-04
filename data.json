@@ -1,0 +1,4602 @@
+{
+ "units": {
+  "Rifleman": {
+   "__ctor": "UnitDefinition",
+   "id": "rifleman",
+   "displayName": "Rifleman",
+   "modelAsset": "models/unit_rifleman.glb",
+   "gunModelAsset": "models/placeholder_gun.glb",
+   "maxHp": 32,
+   "damage": 8,
+   "structureDamageMultiplier": 0.25
+  },
+  "EnemyRifleman": {
+   "__ctor": "Rifleman.copy",
+   "id": "enemy_rifleman",
+   "displayName": "Enemy Rifleman"
+  },
+  "HeavyRifleman": {
+   "__ctor": "Rifleman.copy",
+   "id": "heavy_rifleman",
+   "displayName": "Heavy Rifleman",
+   "modelAsset": "models/unit_hero.glb",
+   "maxHp": 64,
+   "damage": 8,
+   "renderScale": 1.9
+  },
+  "EnemyHeavyRifleman": {
+   "__ctor": "HeavyRifleman.copy",
+   "id": "enemy_heavy_rifleman",
+   "displayName": "Enemy Heavy Rifleman"
+  },
+  "Sniper": {
+   "__ctor": "UnitDefinition",
+   "id": "sniper",
+   "displayName": "Sniper",
+   "modelAsset": "models/unit_sniper.glb",
+   "gunModelAsset": "models/gun_sniper.glb",
+   "maxHp": 8,
+   "damage": 16,
+   "structureDamageMultiplier": 0.25,
+   "bulletVariant": {
+    "__ref": "BulletVariant.Sniper"
+   }
+  },
+  "EnemySniper": {
+   "__ctor": "Sniper.copy",
+   "id": "enemy_sniper",
+   "displayName": "Enemy Sniper"
+  },
+  "MachineGunner": {
+   "__ctor": "UnitDefinition",
+   "id": "machine_gunner",
+   "displayName": "Machine Gunner",
+   "modelAsset": "models/unit_mg.glb",
+   "gunModelAsset": "models/gun_mg.glb",
+   "maxHp": 40,
+   "damage": 4,
+   "projectilesPerVolley": 3,
+   "structureDamageMultiplier": 0.25,
+   "bulletVariant": {
+    "__ref": "BulletVariant.MachineGun"
+   }
+  },
+  "EnemyMachineGunner": {
+   "__ctor": "MachineGunner.copy",
+   "id": "enemy_machine_gunner",
+   "displayName": "Enemy Machine Gunner"
+  },
+  "RocketTrooper": {
+   "__ctor": "UnitDefinition",
+   "id": "rocket_trooper",
+   "displayName": "Rocket Trooper",
+   "modelAsset": "models/unit_rocket.glb",
+   "gunModelAsset": "models/gun_rocket.glb",
+   "maxHp": 24,
+   "damage": 4,
+   "projectileType": {
+    "__ref": "ProjectileType.Rocket"
+   },
+   "structureDamageMultiplier": 6.0
+  },
+  "EnemyRocketTrooper": {
+   "__ctor": "RocketTrooper.copy",
+   "id": "enemy_rocket_trooper",
+   "displayName": "Enemy Rocket Trooper"
+  },
+  "Grenadier": {
+   "__ctor": "UnitDefinition",
+   "id": "grenadier",
+   "displayName": "Grenadier",
+   "modelAsset": "models/unit_grenadier.glb",
+   "gunModelAsset": "models/gun_launcher.glb",
+   "maxHp": 24,
+   "damage": 6,
+   "projectileType": {
+    "__ref": "ProjectileType.Grenade"
+   },
+   "splashRadius": 0.9
+  },
+  "EnemyGrenadier": {
+   "__ctor": "Grenadier.copy",
+   "id": "enemy_grenadier",
+   "displayName": "Enemy Grenadier"
+  },
+  "ShieldBearer": {
+   "__ctor": "UnitDefinition",
+   "id": "shield_bearer",
+   "displayName": "Shield Bearer",
+   "modelAsset": "models/unit_shield.glb",
+   "gunModelAsset": "models/gun_mg.glb",
+   "maxHp": 40,
+   "damage": 4,
+   "meleeDamage": 12,
+   "structureDamageMultiplier": 0.25
+  },
+  "EnemyShieldBearer": {
+   "__ctor": "ShieldBearer.copy",
+   "id": "enemy_shield_bearer",
+   "displayName": "Enemy Shield Bearer"
+  },
+  "MortarTeam": {
+   "__ctor": "UnitDefinition",
+   "id": "mortar_team",
+   "displayName": "Mortar Team",
+   "modelAsset": "models/unit_mortar.glb",
+   "gunModelAsset": "models/gun_launcher.glb",
+   "maxHp": 20,
+   "damage": 8,
+   "projectileType": {
+    "__ref": "ProjectileType.Shell"
+   },
+   "splashRadius": 1.2,
+   "structureDamageMultiplier": 2.0
+  },
+  "Marksman": {
+   "__ctor": "UnitDefinition",
+   "id": "marksman",
+   "displayName": "Marksman",
+   "modelAsset": "models/unit_marksman.glb",
+   "gunModelAsset": "models/gun_marksman.glb",
+   "maxHp": 16,
+   "damage": 20,
+   "structureDamageMultiplier": 0.5,
+   "bulletVariant": {
+    "__ref": "BulletVariant.Sniper"
+   }
+  },
+  "Engineer": {
+   "__ctor": "UnitDefinition",
+   "id": "engineer",
+   "displayName": "Engineer",
+   "modelAsset": "models/unit_engineer.glb",
+   "gunModelAsset": "models/gun_launcher.glb",
+   "maxHp": 48,
+   "damage": 6,
+   "projectileType": {
+    "__ref": "ProjectileType.Grenade"
+   },
+   "splashRadius": 0.5,
+   "structureDamageMultiplier": 3.0
+  },
+  "FirebaseCommander": {
+   "__ctor": "HeavyRifleman.copy",
+   "id": "firebase_commander",
+   "displayName": "Firebase Commander",
+   "maxHp": 180,
+   "damage": 10
+  },
+  "NestCommander": {
+   "__ctor": "Sniper.copy",
+   "id": "nest_commander",
+   "displayName": "Nest Commander",
+   "maxHp": 100,
+   "damage": 22
+  },
+  "CityHallGuardian": {
+   "__ctor": "RocketTrooper.copy",
+   "id": "city_hall_guardian",
+   "displayName": "City Hall Guardian",
+   "maxHp": 220,
+   "damage": 8,
+   "structureDamageMultiplier": 8.0
+  },
+  "FrostlineCommander": {
+   "__ctor": "HeavyRifleman.copy",
+   "id": "frostline_commander",
+   "displayName": "Frostline Commander",
+   "maxHp": 200,
+   "damage": 12
+  },
+  "CitadelSovereign": {
+   "__ctor": "HeavyRifleman.copy",
+   "id": "citadel_sovereign",
+   "displayName": "Citadel Sovereign",
+   "maxHp": 260,
+   "damage": 14
+  }
+ },
+ "structures": {
+  "Outpost": {
+   "__method": "scaled",
+   "__on": {
+    "__ctor": "StructureDefinition",
+    "id": "outpost",
+    "hitWidth": 1.3,
+    "displayName": "Outpost",
+    "modelAsset": "models/outpost.glb",
+    "damageChunks": [
+     {
+      "__ctor": "DamageChunk",
+      "pieces": 4,
+      "__positional": [
+       0.0,
+       0.203,
+       0.48,
+       1.04,
+       0.136,
+       0.246
+      ]
+     },
+     {
+      "__ctor": "DamageChunk",
+      "pieces": 2,
+      "__positional": [
+       -0.064,
+       0.54,
+       -0.208,
+       1.056,
+       0.12,
+       0.832
+      ]
+     },
+     {
+      "__ctor": "DamageChunk",
+      "pieces": 2,
+      "__positional": [
+       0.512,
+       0.2,
+       0.188,
+       0.256,
+       0.4,
+       0.264
+      ]
+     }
+    ],
+    "deckY": 0.56,
+    "maxHp": 36,
+    "size": 0.8,
+    "modelAbsoluteScale": true,
+    "flagMount": {
+     "__ctor": "FlagMount",
+     "offsetX": 0.26,
+     "offsetY": 0.56,
+     "model": "models/flag_pennant.glb",
+     "scale": 0.9
+    }
+   },
+   "__args": {},
+   "__safe": false
+  },
+  "PlayerTank": {
+   "__ctor": "StructureDefinition",
+   "id": "player_tank",
+   "hitWidth": 1.8,
+   "displayName": "Tank",
+   "modelAsset": "models/placeholder_tank.glb",
+   "maxHp": 999,
+   "size": 0.6,
+   "isPlayerSide": true,
+   "standWidth": 0.5,
+   "modelScaleUnits": 1.5,
+   "cannon": {
+    "__ctor": "CannonSpec",
+    "damage": 32,
+    "splashRadius": 0.8,
+    "structureDamageMultiplier": 3.0,
+    "muzzleOffsetX": 1.08,
+    "muzzleOffsetY": 0.72,
+    "ammoPerBattle": 3
+   }
+  },
+  "GarrisonPost": {
+   "__method": "scaled",
+   "__on": {
+    "__ctor": "StructureDefinition",
+    "id": "garrison_post",
+    "hitWidth": 1.5,
+    "displayName": "Garrison Post",
+    "modelAsset": "models/garrison_post.glb",
+    "damageChunks": [
+     {
+      "__ctor": "DamageChunk",
+      "pieces": 2,
+      "__positional": [
+       0.0,
+       1.5,
+       -0.425,
+       0.15,
+       0.25,
+       0.031
+      ]
+     },
+     {
+      "__ctor": "DamageChunk",
+      "pieces": 1,
+      "__positional": [
+       0.0,
+       1.031,
+       0.519,
+       1.5,
+       0.062,
+       0.062
+      ]
+     },
+     {
+      "__ctor": "DamageChunk",
+      "pieces": 2,
+      "__positional": [
+       -0.475,
+       0.45,
+       0.513,
+       0.225,
+       0.7,
+       0.1
+      ]
+     },
+     {
+      "__ctor": "DamageChunk",
+      "pieces": 2,
+      "__positional": [
+       0.0,
+       0.45,
+       0.513,
+       0.225,
+       0.7,
+       0.1
+      ]
+     },
+     {
+      "__ctor": "DamageChunk",
+      "pieces": 2,
+      "__positional": [
+       0.475,
+       0.45,
+       0.513,
+       0.225,
+       0.7,
+       0.1
+      ]
+     }
+    ],
+    "maxHp": 54,
+    "size": 1.0,
+    "modelAbsoluteScale": true,
+    "standWidth": 1.25,
+    "flagMount": {
+     "__ctor": "FlagMount",
+     "offsetX": 0.45,
+     "offsetY": 1.0
+    }
+   },
+   "__args": {},
+   "__safe": false
+  },
+  "WatchTower": {
+   "__method": "scaled",
+   "__on": {
+    "__ctor": "StructureDefinition",
+    "id": "watch_tower",
+    "hitWidth": 0.7,
+    "displayName": "Watch Tower",
+    "modelAsset": "models/watch_tower.glb",
+    "damageChunks": [
+     {
+      "__ctor": "DamageChunk",
+      "pieces": 1,
+      "__positional": [
+       0.0,
+       0.55,
+       -0.2,
+       0.458,
+       0.418,
+       0.04
+      ]
+     },
+     {
+      "__ctor": "DamageChunk",
+      "pieces": 1,
+      "__positional": [
+       0.0,
+       0.55,
+       -0.2,
+       0.458,
+       0.418,
+       0.04
+      ]
+     },
+     {
+      "__ctor": "DamageChunk",
+      "pieces": 1,
+      "__positional": [
+       0.0,
+       0.55,
+       0.2,
+       0.458,
+       0.418,
+       0.04
+      ]
+     },
+     {
+      "__ctor": "DamageChunk",
+      "pieces": 1,
+      "__positional": [
+       0.0,
+       0.55,
+       0.2,
+       0.458,
+       0.418,
+       0.04
+      ]
+     }
+    ],
+    "maxHp": 36,
+    "size": 1.5,
+    "modelAbsoluteScale": true
+   },
+   "__args": {},
+   "__safe": false
+  },
+  "BarracksBlock": {
+   "__method": "scaled",
+   "__on": {
+    "__ctor": "StructureDefinition",
+    "id": "barracks_block",
+    "hitWidth": 1.0,
+    "displayName": "Barracks",
+    "modelAsset": "models/barracks.glb",
+    "damageChunks": [
+     {
+      "__ctor": "DamageChunk",
+      "pieces": 3,
+      "__positional": [
+       0.0,
+       1.015,
+       -0.27,
+       0.508,
+       0.37,
+       0.068
+      ]
+     },
+     {
+      "__ctor": "DamageChunk",
+      "pieces": 1,
+      "__positional": [
+       0.0,
+       0.685,
+       0.28,
+       1.0,
+       0.07,
+       0.07
+      ]
+     },
+     {
+      "__ctor": "DamageChunk",
+      "pieces": 1,
+      "__positional": [
+       -0.465,
+       0.685,
+       0.0,
+       0.07,
+       0.07,
+       0.55
+      ]
+     },
+     {
+      "__ctor": "DamageChunk",
+      "pieces": 1,
+      "__positional": [
+       0.465,
+       0.685,
+       0.0,
+       0.07,
+       0.07,
+       0.55
+      ]
+     },
+     {
+      "__ctor": "DamageChunk",
+      "pieces": 1,
+      "__positional": [
+       -0.3,
+       0.44,
+       0.285,
+       0.18,
+       0.12,
+       0.03
+      ]
+     },
+     {
+      "__ctor": "DamageChunk",
+      "pieces": 1,
+      "__positional": [
+       0.3,
+       0.44,
+       0.285,
+       0.18,
+       0.12,
+       0.03
+      ]
+     },
+     {
+      "__ctor": "DamageChunk",
+      "pieces": 1,
+      "__positional": [
+       -0.475,
+       0.34,
+       0.0,
+       0.05,
+       0.44,
+       0.46
+      ]
+     },
+     {
+      "__ctor": "DamageChunk",
+      "pieces": 1,
+      "__positional": [
+       0.475,
+       0.34,
+       0.0,
+       0.05,
+       0.44,
+       0.46
+      ]
+     }
+    ],
+    "maxHp": 60,
+    "size": 0.65,
+    "modelAbsoluteScale": true,
+    "standWidth": 0.9,
+    "flagMount": null
+   },
+   "__args": {},
+   "__safe": false
+  },
+  "CommandBunker": {
+   "__method": "scaled",
+   "__on": {
+    "__ctor": "StructureDefinition",
+    "id": "command_bunker",
+    "hitWidth": 1.0,
+    "displayName": "Command Bunker",
+    "modelAsset": "models/bunker.glb",
+    "damageChunks": [
+     {
+      "__ctor": "DamageChunk",
+      "pieces": 4,
+      "__positional": [
+       -0.0,
+       0.513,
+       0.24,
+       0.7,
+       0.045,
+       0.09
+      ]
+     },
+     {
+      "__ctor": "DamageChunk",
+      "pieces": 5,
+      "__positional": [
+       0.0,
+       0.472,
+       0.24,
+       0.88,
+       0.045,
+       0.09
+      ]
+     },
+     {
+      "__ctor": "DamageChunk",
+      "pieces": 1,
+      "__positional": [
+       -0.5,
+       0.18,
+       0.0,
+       0.343,
+       0.39,
+       0.57
+      ]
+     },
+     {
+      "__ctor": "DamageChunk",
+      "pieces": 1,
+      "__positional": [
+       -0.24,
+       0.19,
+       0.29,
+       0.42,
+       0.34,
+       0.05
+      ]
+     },
+     {
+      "__ctor": "DamageChunk",
+      "pieces": 1,
+      "__positional": [
+       0.24,
+       0.19,
+       0.29,
+       0.42,
+       0.34,
+       0.05
+      ]
+     },
+     {
+      "__ctor": "DamageChunk",
+      "pieces": 1,
+      "__positional": [
+       0.0,
+       0.3,
+       0.325,
+       0.3,
+       0.06,
+       0.03
+      ]
+     }
+    ],
+    "maxHp": 100,
+    "size": 0.45,
+    "modelAbsoluteScale": true,
+    "standWidth": 0.85,
+    "flagMount": {
+     "__ctor": "FlagMount",
+     "offsetX": 0.3,
+     "offsetY": 0.45,
+     "model": "models/flag_standard.glb"
+    }
+   },
+   "__args": {},
+   "__safe": false
+  },
+  "TowerBase": {
+   "__method": "scaled",
+   "__on": {
+    "__ctor": "StructureDefinition",
+    "id": "tower_base",
+    "hitWidth": 0.6,
+    "displayName": "Tower Base",
+    "modelAsset": "models/tower_base.glb",
+    "damageChunks": [
+     {
+      "__ctor": "DamageChunk",
+      "pieces": 1,
+      "__positional": [
+       -0.29,
+       0.22,
+       0.26,
+       0.125,
+       0.406,
+       0.09
+      ]
+     },
+     {
+      "__ctor": "DamageChunk",
+      "pieces": 1,
+      "__positional": [
+       0.29,
+       0.22,
+       0.26,
+       0.125,
+       0.406,
+       0.09
+      ]
+     },
+     {
+      "__ctor": "DamageChunk",
+      "pieces": 1,
+      "__positional": [
+       -0.29,
+       0.22,
+       -0.26,
+       0.125,
+       0.406,
+       0.09
+      ]
+     },
+     {
+      "__ctor": "DamageChunk",
+      "pieces": 1,
+      "__positional": [
+       0.29,
+       0.22,
+       -0.26,
+       0.125,
+       0.406,
+       0.09
+      ]
+     }
+    ],
+    "maxHp": 54,
+    "size": 0.8,
+    "modelAbsoluteScale": true
+   },
+   "__args": {},
+   "__safe": false
+  },
+  "TowerPlatform": {
+   "__method": "scaled",
+   "__on": {
+    "__ctor": "StructureDefinition",
+    "id": "tower_platform",
+    "hitWidth": 0.65,
+    "displayName": "Tower Platform",
+    "modelAsset": "models/tower_platform.glb",
+    "maxHp": 36,
+    "size": 0.5,
+    "modelAbsoluteScale": true
+   },
+   "__args": {},
+   "__safe": false
+  },
+  "FortressTierUnscaled": {
+   "__ctor": "StructureDefinition",
+   "id": "fortress_tier",
+   "hitWidth": 1.7,
+   "displayName": "Fortress Tier",
+   "modelAsset": "models/fortress_tier.glb",
+   "damageChunks": [
+    {
+     "__ctor": "DamageChunk",
+     "pieces": 5,
+     "__positional": [
+      0.0,
+      0.845,
+      0.12,
+      1.36,
+      0.09,
+      0.1
+     ]
+    },
+    {
+     "__ctor": "DamageChunk",
+     "pieces": 1,
+     "__positional": [
+      0.0,
+      0.825,
+      0.125,
+      1.72,
+      0.05,
+      0.05
+     ]
+    },
+    {
+     "__ctor": "DamageChunk",
+     "pieces": 1,
+     "__positional": [
+      0.0,
+      0.2,
+      0.165,
+      1.6,
+      0.05,
+      0.04
+     ]
+    },
+    {
+     "__ctor": "DamageChunk",
+     "pieces": 2,
+     "__positional": [
+      -0.55,
+      0.42,
+      0.165,
+      0.495,
+      0.6,
+      0.08
+     ]
+    },
+    {
+     "__ctor": "DamageChunk",
+     "pieces": 2,
+     "__positional": [
+      0.0,
+      0.42,
+      0.165,
+      0.495,
+      0.6,
+      0.08
+     ]
+    },
+    {
+     "__ctor": "DamageChunk",
+     "pieces": 2,
+     "__positional": [
+      0.55,
+      0.42,
+      0.165,
+      0.495,
+      0.6,
+      0.08
+     ]
+    }
+   ],
+   "maxHp": 85,
+   "size": 0.8,
+   "modelAbsoluteScale": true,
+   "standWidth": 1.2,
+   "deckStandZOffset": -0.075
+  },
+  "FortressTierWide": {
+   "__method": "scaled",
+   "__on": {
+    "__ctor": "FortressTierUnscaled.copy",
+    "id": "fortress_tier_wide",
+    "hitWidth": 2.4,
+    "modelAsset": "models/fortress_tier_wide.glb",
+    "damageChunks": [
+     {
+      "__ctor": "DamageChunk",
+      "pieces": 8,
+      "__positional": [
+       -0.0,
+       0.845,
+       0.44,
+       2.26,
+       0.09,
+       0.1
+      ]
+     },
+     {
+      "__ctor": "DamageChunk",
+      "pieces": 1,
+      "__positional": [
+       0.0,
+       0.825,
+       0.445,
+       2.42,
+       0.05,
+       0.05
+      ]
+     },
+     {
+      "__ctor": "DamageChunk",
+      "pieces": 1,
+      "__positional": [
+       0.0,
+       0.2,
+       0.485,
+       2.3,
+       0.05,
+       0.04
+      ]
+     },
+     {
+      "__ctor": "DamageChunk",
+      "pieces": 2,
+      "__positional": [
+       -0.9,
+       0.42,
+       0.485,
+       0.5,
+       0.6,
+       0.08
+      ]
+     },
+     {
+      "__ctor": "DamageChunk",
+      "pieces": 2,
+      "__positional": [
+       -0.3,
+       0.42,
+       0.485,
+       0.5,
+       0.6,
+       0.08
+      ]
+     },
+     {
+      "__ctor": "DamageChunk",
+      "pieces": 2,
+      "__positional": [
+       0.3,
+       0.42,
+       0.485,
+       0.5,
+       0.6,
+       0.08
+      ]
+     },
+     {
+      "__ctor": "DamageChunk",
+      "pieces": 2,
+      "__positional": [
+       0.9,
+       0.42,
+       0.485,
+       0.5,
+       0.6,
+       0.08
+      ]
+     }
+    ],
+    "maxHp": 100,
+    "standWidth": 1.8,
+    "deckStandZOffset": 0.24
+   },
+   "__args": {},
+   "__safe": false
+  },
+  "FortressTierSmall": {
+   "__method": "scaled",
+   "__on": {
+    "__ctor": "FortressTierUnscaled.copy",
+    "id": "fortress_tier_small",
+    "hitWidth": 1.0,
+    "modelAsset": "models/fortress_tier_small.glb",
+    "damageChunks": [
+     {
+      "__ctor": "DamageChunk",
+      "pieces": 3,
+      "__positional": [
+       0.0,
+       0.845,
+       -0.44,
+       0.76,
+       0.09,
+       0.1
+      ]
+     },
+     {
+      "__ctor": "DamageChunk",
+      "pieces": 1,
+      "__positional": [
+       0.0,
+       0.825,
+       -0.195,
+       1.02,
+       0.05,
+       0.05
+      ]
+     },
+     {
+      "__ctor": "DamageChunk",
+      "pieces": 1,
+      "__positional": [
+       0.0,
+       0.2,
+       -0.155,
+       0.9,
+       0.05,
+       0.04
+      ]
+     },
+     {
+      "__ctor": "DamageChunk",
+      "pieces": 2,
+      "__positional": [
+       -0.2,
+       0.42,
+       -0.155,
+       0.36,
+       0.6,
+       0.08
+      ]
+     },
+     {
+      "__ctor": "DamageChunk",
+      "pieces": 2,
+      "__positional": [
+       0.2,
+       0.42,
+       -0.155,
+       0.36,
+       0.6,
+       0.08
+      ]
+     }
+    ],
+    "maxHp": 70,
+    "standWidth": 0.8,
+    "deckStandZOffset": -0.32,
+    "flagMount": {
+     "__ctor": "FlagMount",
+     "offsetX": 0.34,
+     "offsetY": 0.8,
+     "model": "models/flag_standard.glb",
+     "scale": 1.25
+    }
+   },
+   "__args": {},
+   "__safe": false
+  },
+  "PlayerFortressTier": {
+   "__ctor": "FortressTier.copy",
+   "id": "player_fortress_tier",
+   "isPlayerSide": true
+  },
+  "PlayerFortressTierWide": {
+   "__ctor": "FortressTierWide.copy",
+   "id": "player_fortress_tier_wide",
+   "isPlayerSide": true
+  },
+  "PlayerFortressTierSmall": {
+   "__ctor": "FortressTierSmall.copy",
+   "id": "player_fortress_tier_small",
+   "isPlayerSide": true
+  },
+  "CommsTower": {
+   "__method": "scaled",
+   "__on": {
+    "__ctor": "StructureDefinition",
+    "id": "comms_tower",
+    "hitWidth": 0.36,
+    "displayName": "Comms Tower",
+    "modelAsset": "models/comms_tower.glb",
+    "maxHp": 26,
+    "size": 2.0,
+    "modelAbsoluteScale": true,
+    "standWidth": 0.3
+   },
+   "__args": {},
+   "__safe": false
+  },
+  "CliffOutcrop": {
+   "__method": "scaled",
+   "__on": {
+    "__ctor": "StructureDefinition",
+    "id": "cliff_outcrop",
+    "hitWidth": 1.1,
+    "displayName": "Cliff Outcrop",
+    "modelAsset": "models/cliff_outcrop.glb",
+    "damageChunks": [
+     {
+      "__ctor": "DamageChunk",
+      "pieces": 2,
+      "__positional": [
+       0.39,
+       0.08,
+       0.207,
+       0.348,
+       0.228,
+       0.215
+      ]
+     },
+     {
+      "__ctor": "DamageChunk",
+      "pieces": 1,
+      "__positional": [
+       -0.42,
+       0.62,
+       0.2,
+       0.256,
+       0.212,
+       0.22
+      ]
+     },
+     {
+      "__ctor": "DamageChunk",
+      "pieces": 1,
+      "__positional": [
+       0.4,
+       0.66,
+       0.14,
+       0.272,
+       0.226,
+       0.24
+      ]
+     }
+    ],
+    "maxHp": 48,
+    "size": 1.2,
+    "modelAbsoluteScale": true,
+    "standWidth": 0.75
+   },
+   "__args": {},
+   "__safe": false
+  },
+  "RidgeWatchtower": {
+   "__method": "scaled",
+   "__on": {
+    "__ctor": "StructureDefinition",
+    "id": "ridge_watchtower",
+    "hitWidth": 0.8,
+    "displayName": "Ridge Watchtower",
+    "modelAsset": "models/ridge_watchtower.glb",
+    "damageChunks": [
+     {
+      "__ctor": "DamageChunk",
+      "pieces": 1,
+      "__positional": [
+       0.0,
+       1.86,
+       0.02,
+       0.66,
+       0.12,
+       0.54
+      ]
+     },
+     {
+      "__ctor": "DamageChunk",
+      "pieces": 2,
+      "__positional": [
+       0.24,
+       2.05,
+       -0.22,
+       0.16,
+       0.34,
+       0.035
+      ]
+     },
+     {
+      "__ctor": "DamageChunk",
+      "pieces": 1,
+      "__positional": [
+       -0.52,
+       0.12,
+       0.18,
+       0.306,
+       0.258,
+       0.24
+      ]
+     }
+    ],
+    "maxHp": 42,
+    "size": 1.8,
+    "modelAbsoluteScale": true,
+    "standWidth": 0.5
+   },
+   "__args": {},
+   "__safe": false
+  },
+  "MountainBunker": {
+   "__method": "scaled",
+   "__on": {
+    "__ctor": "StructureDefinition",
+    "id": "mountain_bunker",
+    "hitWidth": 0.9,
+    "displayName": "Mountain Bunker",
+    "modelAsset": "models/mountain_bunker.glb",
+    "damageChunks": [
+     {
+      "__ctor": "DamageChunk",
+      "pieces": 1,
+      "__positional": [
+       0.0,
+       0.47,
+       0.32,
+       0.44,
+       0.07,
+       0.05
+      ]
+     },
+     {
+      "__ctor": "DamageChunk",
+      "pieces": 3,
+      "__positional": [
+       0.0,
+       0.045,
+       0.34,
+       0.56,
+       0.08,
+       0.1
+      ]
+     },
+     {
+      "__ctor": "DamageChunk",
+      "pieces": 1,
+      "__positional": [
+       -0.4,
+       0.58,
+       0.14,
+       0.242,
+       0.228,
+       0.2
+      ]
+     }
+    ],
+    "maxHp": 72,
+    "size": 0.6,
+    "modelAbsoluteScale": true,
+    "standWidth": 0.4
+   },
+   "__args": {},
+   "__safe": false
+  }
+ },
+ "backgrounds": {
+  "Forest": {
+   "__ctor": "BackgroundDefinition",
+   "skyTop": {
+    "__ctor": "Color",
+    "__args": [
+     4283076825
+    ]
+   },
+   "skyHorizon": {
+    "__ctor": "Color",
+    "__args": [
+     4290961394
+    ]
+   },
+   "groundColor": {
+    "__ctor": "Color",
+    "__args": [
+     4283399228
+    ]
+   },
+   "groundNear": {
+    "__ctor": "Color",
+    "__args": [
+     4285373520
+    ]
+   },
+   "horizonAccent": {
+    "__ctor": "Color",
+    "__args": [
+     4289253772
+    ]
+   },
+   "silhouetteFar": {
+    "__ctor": "Color",
+    "__args": [
+     4287872160
+    ]
+   },
+   "silhouetteNear": {
+    "__ctor": "Color",
+    "__args": [
+     4282346820
+    ]
+   },
+   "style": {
+    "__ref": "SilhouetteStyle.Forest"
+   }
+  },
+  "Mountains": {
+   "__ctor": "BackgroundDefinition",
+   "skyTop": {
+    "__ctor": "Color",
+    "__args": [
+     4282154948
+    ]
+   },
+   "skyHorizon": {
+    "__ctor": "Color",
+    "__args": [
+     4291354863
+    ]
+   },
+   "groundColor": {
+    "__ctor": "Color",
+    "__args": [
+     4288445780
+    ]
+   },
+   "groundNear": {
+    "__ctor": "Color",
+    "__args": [
+     4290485360
+    ]
+   },
+   "horizonAccent": {
+    "__ctor": "Color",
+    "__args": [
+     4293055148
+    ]
+   },
+   "silhouetteFar": {
+    "__ctor": "Color",
+    "__args": [
+     4289380564
+    ]
+   },
+   "silhouetteNear": {
+    "__ctor": "Color",
+    "__args": [
+     4284445064
+    ]
+   },
+   "style": {
+    "__ref": "SilhouetteStyle.Mountains"
+   }
+  },
+  "Ocean": {
+   "__ctor": "BackgroundDefinition",
+   "skyTop": {
+    "__ctor": "Color",
+    "__args": [
+     4282287822
+    ]
+   },
+   "skyHorizon": {
+    "__ctor": "Color",
+    "__args": [
+     4291553012
+    ]
+   },
+   "groundColor": {
+    "__ctor": "Color",
+    "__args": [
+     4291408259
+    ]
+   },
+   "groundNear": {
+    "__ctor": "Color",
+    "__args": [
+     4292724635
+    ]
+   },
+   "horizonAccent": {
+    "__ctor": "Color",
+    "__args": [
+     4294967295
+    ]
+   },
+   "silhouetteFar": {
+    "__ctor": "Color",
+    "__args": [
+     4281237424
+    ]
+   },
+   "silhouetteNear": {
+    "__ctor": "Color",
+    "__args": [
+     4283873500
+    ]
+   },
+   "style": {
+    "__ref": "SilhouetteStyle.Ocean"
+   }
+  },
+  "Desert": {
+   "__ctor": "BackgroundDefinition",
+   "skyTop": {
+    "__ctor": "Color",
+    "__args": [
+     4283341526
+    ]
+   },
+   "skyHorizon": {
+    "__ctor": "Color",
+    "__args": [
+     4294238392
+    ]
+   },
+   "groundColor": {
+    "__ctor": "Color",
+    "__args": [
+     4291536746
+    ]
+   },
+   "groundNear": {
+    "__ctor": "Color",
+    "__args": [
+     4292919432
+    ]
+   },
+   "horizonAccent": {
+    "__ctor": "Color",
+    "__args": [
+     4294963920
+    ]
+   },
+   "silhouetteFar": {
+    "__ctor": "Color",
+    "__args": [
+     4292656786
+    ]
+   },
+   "silhouetteNear": {
+    "__ctor": "Color",
+    "__args": [
+     4289036113
+    ]
+   },
+   "style": {
+    "__ref": "SilhouetteStyle.Desert"
+   }
+  },
+  "Winter": {
+   "__ctor": "BackgroundDefinition",
+   "skyTop": {
+    "__ctor": "Color",
+    "__args": [
+     4284129500
+    ]
+   },
+   "skyHorizon": {
+    "__ctor": "Color",
+    "__args": [
+     4292669177
+    ]
+   },
+   "groundColor": {
+    "__ctor": "Color",
+    "__args": [
+     4293324791
+    ]
+   },
+   "groundNear": {
+    "__ctor": "Color",
+    "__args": [
+     4294376190
+    ]
+   },
+   "horizonAccent": {
+    "__ctor": "Color",
+    "__args": [
+     4294967295
+    ]
+   },
+   "silhouetteFar": {
+    "__ctor": "Color",
+    "__args": [
+     4289513694
+    ]
+   },
+   "silhouetteNear": {
+    "__ctor": "Color",
+    "__args": [
+     4285502130
+    ]
+   },
+   "style": {
+    "__ref": "SilhouetteStyle.Winter"
+   },
+   "snowfall": true
+  },
+  "CityRuins": {
+   "__ctor": "BackgroundDefinition",
+   "skyTop": {
+    "__ctor": "Color",
+    "__args": [
+     4284320441
+    ]
+   },
+   "skyHorizon": {
+    "__ctor": "Color",
+    "__args": [
+     4292857010
+    ]
+   },
+   "groundColor": {
+    "__ctor": "Color",
+    "__args": [
+     4288583052
+    ]
+   },
+   "groundNear": {
+    "__ctor": "Color",
+    "__args": [
+     4290096290
+    ]
+   },
+   "horizonAccent": {
+    "__ctor": "Color",
+    "__args": [
+     4292134064
+    ]
+   },
+   "silhouetteFar": {
+    "__ctor": "Color",
+    "__args": [
+     4290491048
+    ]
+   },
+   "silhouetteNear": {
+    "__ctor": "Color",
+    "__args": [
+     4283911238
+    ]
+   },
+   "style": {
+    "__ref": "SilhouetteStyle.City"
+   }
+  },
+  "MountainsDusk": {
+   "__ctor": "BackgroundDefinition",
+   "skyTop": {
+    "__ctor": "Color",
+    "__args": [
+     4284387264
+    ]
+   },
+   "skyHorizon": {
+    "__ctor": "Color",
+    "__args": [
+     4294429584
+    ]
+   },
+   "groundColor": {
+    "__ctor": "Color",
+    "__args": [
+     4289365852
+    ]
+   },
+   "groundNear": {
+    "__ctor": "Color",
+    "__args": [
+     4291273076
+    ]
+   },
+   "horizonAccent": {
+    "__ctor": "Color",
+    "__args": [
+     4294958246
+    ]
+   },
+   "silhouetteFar": {
+    "__ctor": "Color",
+    "__args": [
+     4291407772
+    ]
+   },
+   "silhouetteNear": {
+    "__ctor": "Color",
+    "__args": [
+     4286341721
+    ]
+   },
+   "style": {
+    "__ref": "SilhouetteStyle.Mountains"
+   }
+  }
+ },
+ "levels": {
+  "Level1": {
+   "__ctor": "LevelDefinition",
+   "id": "level_1",
+   "displayName": "Patrol Encounter",
+   "levelNumber": 1,
+   "levelGoal": "Wipe out the enemy patrol and take their outpost",
+   "background": {
+    "__ref": "BackgroundDefinitions.Mountains"
+   },
+   "structures": [
+    {
+     "__ctor": "StructurePlacement",
+     "x": -9.5,
+     "y": 0.0,
+     "z": 0.0,
+     "__positional": [
+      "player_tank",
+      {
+       "__ref": "StructureDefinitions.PlayerTank"
+      }
+     ]
+    },
+    {
+     "__ctor": "StructurePlacement",
+     "x": 7.0,
+     "y": 0.0,
+     "z": 0.0,
+     "__positional": [
+      "outpost",
+      {
+       "__ref": "StructureDefinitions.Outpost"
+      }
+     ]
+    }
+   ],
+   "playerGroups": [
+    {
+     "__ctor": "EnemyGroup",
+     "count": 2,
+     "anchorX": -9.5,
+     "anchorZ": 0.12,
+     "standingOnStructureId": "player_tank",
+     "__positional": [
+      {
+       "__ref": "UnitDefinitions.Rifleman"
+      }
+     ]
+    },
+    {
+     "__ctor": "EnemyGroup",
+     "count": 8,
+     "anchorX": -7.0,
+     "__positional": [
+      {
+       "__ref": "UnitDefinitions.Rifleman"
+      }
+     ]
+    }
+   ],
+   "enemyGroups": [
+    {
+     "__ctor": "EnemyGroup",
+     "count": 6,
+     "anchorX": 4.5,
+     "__positional": [
+      {
+       "__ref": "UnitDefinitions.EnemyRifleman"
+      }
+     ]
+    },
+    {
+     "__ctor": "EnemyGroup",
+     "count": 3,
+     "anchorX": 7.0,
+     "anchorZ": 0.12,
+     "standingOnStructureId": "outpost",
+     "__positional": [
+      {
+       "__ref": "UnitDefinitions.EnemyRifleman"
+      }
+     ]
+    }
+   ],
+   "props": [
+    {
+     "__ctor": "PropPlacement",
+     "x": -6.4,
+     "z": 0.3,
+     "scale": 0.8,
+     "__positional": [
+      "models/sandbags.glb"
+     ]
+    }
+   ],
+   "levelBase": 40,
+   "deployBudget": 8
+  },
+  "Level2": {
+   "__ctor": "LevelDefinition",
+   "id": "level_2",
+   "displayName": "Garrison Post",
+   "levelNumber": 2,
+   "levelGoal": "Bring down the firing platform \u2014 the garrison falls with it",
+   "background": {
+    "__ref": "BackgroundDefinitions.Forest"
+   },
+   "structures": [
+    {
+     "__ctor": "StructurePlacement",
+     "x": -9.5,
+     "y": 0.0,
+     "z": 0.0,
+     "__positional": [
+      "player_tank",
+      {
+       "__ref": "StructureDefinitions.PlayerTank"
+      }
+     ]
+    },
+    {
+     "__ctor": "StructurePlacement",
+     "x": 6.5,
+     "y": 0.0,
+     "z": 0.0,
+     "__positional": [
+      "post",
+      {
+       "__ref": "StructureDefinitions.GarrisonPost"
+      }
+     ]
+    }
+   ],
+   "playerGroups": [
+    {
+     "__ctor": "EnemyGroup",
+     "count": 2,
+     "anchorX": -9.5,
+     "anchorZ": 0.12,
+     "standingOnStructureId": "player_tank",
+     "__positional": [
+      {
+       "__ref": "UnitDefinitions.Rifleman"
+      }
+     ]
+    },
+    {
+     "__ctor": "EnemyGroup",
+     "count": 8,
+     "anchorX": -7.0,
+     "__positional": [
+      {
+       "__ref": "UnitDefinitions.Rifleman"
+      }
+     ]
+    }
+   ],
+   "enemyGroups": [
+    {
+     "__ctor": "EnemyGroup",
+     "count": 5,
+     "anchorX": 3.0,
+     "__positional": [
+      {
+       "__ref": "UnitDefinitions.EnemyRifleman"
+      }
+     ]
+    },
+    {
+     "__ctor": "EnemyGroup",
+     "count": 6,
+     "anchorX": 6.5,
+     "anchorZ": 0.12,
+     "standingOnStructureId": "post",
+     "__positional": [
+      {
+       "__ref": "UnitDefinitions.EnemyRifleman"
+      }
+     ]
+    }
+   ],
+   "props": [
+    {
+     "__ctor": "PropPlacement",
+     "x": 1.6,
+     "z": 0.4,
+     "scale": 0.9,
+     "__positional": [
+      "models/barbed_wire.glb"
+     ]
+    }
+   ],
+   "levelBase": 50,
+   "deployBudget": 8
+  },
+  "Level3": {
+   "__ctor": "LevelDefinition",
+   "id": "level_3",
+   "displayName": "Watchpost Ridge",
+   "levelNumber": 3,
+   "levelGoal": "Silence the ridge \u2014 bunker and watch tower both",
+   "background": {
+    "__ref": "BackgroundDefinitions.MountainsDusk"
+   },
+   "structures": [
+    {
+     "__ctor": "StructurePlacement",
+     "x": -9.5,
+     "y": 0.0,
+     "z": 0.0,
+     "__positional": [
+      "player_tank",
+      {
+       "__ref": "StructureDefinitions.PlayerTank"
+      }
+     ]
+    },
+    {
+     "__ctor": "StructurePlacement",
+     "x": 3.8,
+     "y": 0.0,
+     "z": 0.0,
+     "__positional": [
+      "bunker",
+      {
+       "__ref": "StructureDefinitions.CommandBunker"
+      }
+     ]
+    },
+    {
+     "__ctor": "StructurePlacement",
+     "x": 8.0,
+     "y": 0.0,
+     "z": 0.0,
+     "__positional": [
+      "tower",
+      {
+       "__ref": "StructureDefinitions.WatchTower"
+      }
+     ]
+    }
+   ],
+   "playerGroups": [
+    {
+     "__ctor": "EnemyGroup",
+     "count": 2,
+     "anchorX": -9.5,
+     "anchorZ": 0.12,
+     "standingOnStructureId": "player_tank",
+     "__positional": [
+      {
+       "__ref": "UnitDefinitions.Rifleman"
+      }
+     ]
+    },
+    {
+     "__ctor": "EnemyGroup",
+     "count": 6,
+     "anchorX": -7.2,
+     "__positional": [
+      {
+       "__ref": "UnitDefinitions.Rifleman"
+      }
+     ]
+    },
+    {
+     "__ctor": "EnemyGroup",
+     "count": 2,
+     "anchorX": -5.6,
+     "__positional": [
+      {
+       "__ref": "UnitDefinitions.Grenadier"
+      }
+     ]
+    }
+   ],
+   "enemyGroups": [
+    {
+     "__ctor": "EnemyGroup",
+     "count": 4,
+     "anchorX": 1.0,
+     "__positional": [
+      {
+       "__ref": "UnitDefinitions.EnemyRifleman"
+      }
+     ]
+    },
+    {
+     "__ctor": "EnemyGroup",
+     "count": 4,
+     "anchorX": 3.8,
+     "anchorZ": 0.12,
+     "standingOnStructureId": "bunker",
+     "__positional": [
+      {
+       "__ref": "UnitDefinitions.EnemyRifleman"
+      }
+     ]
+    },
+    {
+     "__ctor": "EnemyGroup",
+     "count": 3,
+     "anchorX": 8.0,
+     "anchorZ": 0.12,
+     "standingOnStructureId": "tower",
+     "__positional": [
+      {
+       "__ref": "UnitDefinitions.EnemySniper"
+      }
+     ]
+    }
+   ],
+   "props": [
+    {
+     "__ctor": "PropPlacement",
+     "x": 0.2,
+     "z": 0.35,
+     "scale": 0.9,
+     "__positional": [
+      "models/sandbags.glb"
+     ]
+    }
+   ],
+   "levelBase": 60,
+   "deployBudget": 12
+  },
+  "Level4": {
+   "__ctor": "LevelDefinition",
+   "id": "level_4",
+   "displayName": "Barracks Line",
+   "levelNumber": 4,
+   "levelGoal": "Clear the barracks and drop the comms mast",
+   "background": {
+    "__ref": "BackgroundDefinitions.Winter"
+   },
+   "structures": [
+    {
+     "__ctor": "StructurePlacement",
+     "x": -9.5,
+     "y": 0.0,
+     "z": 0.0,
+     "__positional": [
+      "player_tank",
+      {
+       "__ref": "StructureDefinitions.PlayerTank"
+      }
+     ]
+    },
+    {
+     "__ctor": "StructurePlacement",
+     "x": 4.8,
+     "y": 0.0,
+     "z": 0.0,
+     "__positional": [
+      "barracks",
+      {
+       "__ref": "StructureDefinitions.BarracksBlock"
+      }
+     ]
+    },
+    {
+     "__ctor": "StructurePlacement",
+     "x": 8.6,
+     "y": 0.0,
+     "z": 0.0,
+     "__positional": [
+      "mast",
+      {
+       "__ref": "StructureDefinitions.CommsTower"
+      }
+     ]
+    }
+   ],
+   "playerGroups": [
+    {
+     "__ctor": "EnemyGroup",
+     "count": 2,
+     "anchorX": -9.5,
+     "anchorZ": 0.12,
+     "standingOnStructureId": "player_tank",
+     "__positional": [
+      {
+       "__ref": "UnitDefinitions.Rifleman"
+      }
+     ]
+    },
+    {
+     "__ctor": "EnemyGroup",
+     "count": 6,
+     "anchorX": -7.2,
+     "__positional": [
+      {
+       "__ref": "UnitDefinitions.Rifleman"
+      }
+     ]
+    },
+    {
+     "__ctor": "EnemyGroup",
+     "count": 2,
+     "anchorX": -5.6,
+     "__positional": [
+      {
+       "__ref": "UnitDefinitions.RocketTrooper"
+      }
+     ]
+    }
+   ],
+   "enemyGroups": [
+    {
+     "__ctor": "EnemyGroup",
+     "count": 5,
+     "anchorX": 1.2,
+     "__positional": [
+      {
+       "__ref": "UnitDefinitions.EnemyRifleman"
+      }
+     ]
+    },
+    {
+     "__ctor": "EnemyGroup",
+     "count": 4,
+     "anchorX": 4.8,
+     "anchorZ": 0.12,
+     "standingOnStructureId": "barracks",
+     "__positional": [
+      {
+       "__ref": "UnitDefinitions.EnemyMachineGunner"
+      }
+     ]
+    },
+    {
+     "__ctor": "EnemyGroup",
+     "count": 2,
+     "anchorX": 8.6,
+     "anchorZ": 0.12,
+     "standingOnStructureId": "mast",
+     "__positional": [
+      {
+       "__ref": "UnitDefinitions.EnemySniper"
+      }
+     ]
+    }
+   ],
+   "props": [
+    {
+     "__ctor": "PropPlacement",
+     "x": -0.4,
+     "z": 0.4,
+     "scale": 0.9,
+     "__positional": [
+      "models/barbed_wire.glb"
+     ]
+    }
+   ],
+   "levelBase": 90,
+   "deployBudget": 12
+  },
+  "Level5": {
+   "__ctor": "LevelDefinition",
+   "id": "level_5",
+   "displayName": "Tower Assault",
+   "levelNumber": 5,
+   "levelGoal": "Cut the tower's legs \u2014 what stands on it falls with it",
+   "background": {
+    "__ref": "BackgroundDefinitions.Desert"
+   },
+   "structures": [
+    {
+     "__ctor": "StructurePlacement",
+     "x": -9.5,
+     "y": 0.0,
+     "z": 0.0,
+     "__positional": [
+      "player_tank",
+      {
+       "__ref": "StructureDefinitions.PlayerTank"
+      }
+     ]
+    },
+    {
+     "__ctor": "StructurePlacement",
+     "x": 1.8,
+     "y": 0.0,
+     "z": 0.0,
+     "__positional": [
+      "bunker",
+      {
+       "__ref": "StructureDefinitions.CommandBunker"
+      }
+     ]
+    },
+    {
+     "__ctor": "StructurePlacement",
+     "x": 6.8,
+     "y": 0.0,
+     "z": 0.0,
+     "__positional": [
+      "tow_base",
+      {
+       "__ref": "StructureDefinitions.TowerBase"
+      }
+     ]
+    },
+    {
+     "__ctor": "StructurePlacement",
+     "x": 6.8,
+     "y": 0.8,
+     "z": 0.0,
+     "restsOn": "tow_base",
+     "__positional": [
+      "tow_top",
+      {
+       "__ref": "StructureDefinitions.TowerPlatform"
+      }
+     ]
+    }
+   ],
+   "playerGroups": [
+    {
+     "__ctor": "EnemyGroup",
+     "count": 2,
+     "anchorX": -9.5,
+     "anchorZ": 0.12,
+     "standingOnStructureId": "player_tank",
+     "__positional": [
+      {
+       "__ref": "UnitDefinitions.Rifleman"
+      }
+     ]
+    },
+    {
+     "__ctor": "EnemyGroup",
+     "count": 5,
+     "anchorX": -7.4,
+     "__positional": [
+      {
+       "__ref": "UnitDefinitions.Rifleman"
+      }
+     ]
+    },
+    {
+     "__ctor": "EnemyGroup",
+     "count": 2,
+     "anchorX": -5.9,
+     "__positional": [
+      {
+       "__ref": "UnitDefinitions.Grenadier"
+      }
+     ]
+    },
+    {
+     "__ctor": "EnemyGroup",
+     "count": 1,
+     "anchorX": -4.6,
+     "__positional": [
+      {
+       "__ref": "UnitDefinitions.Sniper"
+      }
+     ]
+    }
+   ],
+   "enemyGroups": [
+    {
+     "__ctor": "EnemyGroup",
+     "count": 4,
+     "anchorX": -1.0,
+     "__positional": [
+      {
+       "__ref": "UnitDefinitions.EnemyRifleman"
+      }
+     ]
+    },
+    {
+     "__ctor": "EnemyGroup",
+     "count": 4,
+     "anchorX": 1.8,
+     "anchorZ": 0.12,
+     "standingOnStructureId": "bunker",
+     "__positional": [
+      {
+       "__ref": "UnitDefinitions.EnemyRifleman"
+      }
+     ]
+    },
+    {
+     "__ctor": "EnemyGroup",
+     "count": 3,
+     "anchorX": 6.8,
+     "anchorZ": 0.12,
+     "standingOnStructureId": "tow_top",
+     "__positional": [
+      {
+       "__ref": "UnitDefinitions.EnemyMachineGunner"
+      }
+     ]
+    }
+   ],
+   "levelBase": 110,
+   "deployBudget": 13
+  },
+  "Level6": {
+   "__ctor": "LevelDefinition",
+   "id": "level_6",
+   "displayName": "The Keep",
+   "levelNumber": 6,
+   "levelGoal": "Bring down the keep \u2014 every tier rests on the one below",
+   "background": {
+    "__ref": "BackgroundDefinitions.Winter"
+   },
+   "structures": [
+    {
+     "__ctor": "StructurePlacement",
+     "x": -10.5,
+     "y": 0.0,
+     "z": 0.0,
+     "__positional": [
+      "player_tank",
+      {
+       "__method": "let",
+       "__on": {
+        "__ref": "StructureDefinitions.PlayerTank"
+       },
+       "__param": "tank",
+       "__body": {
+        "__ctor": "tank.copy",
+        "cannon": {
+         "__method": "copy",
+         "__on": {
+          "__ref": "tank.cannon"
+         },
+         "__args": {
+          "ammoPerBattle": 6
+         },
+         "__safe": true
+        }
+       }
+      }
+     ]
+    },
+    {
+     "__ctor": "StructurePlacement",
+     "x": 6.5,
+     "y": 0.0,
+     "z": 0.0,
+     "__positional": [
+      "keep_base",
+      {
+       "__ref": "StructureDefinitions.FortressTierWide"
+      }
+     ]
+    },
+    {
+     "__ctor": "StructurePlacement",
+     "x": 6.5,
+     "y": 0.8,
+     "z": 0.0,
+     "restsOn": "keep_base",
+     "__positional": [
+      "keep_mid",
+      {
+       "__ref": "StructureDefinitions.FortressTier"
+      }
+     ]
+    },
+    {
+     "__ctor": "StructurePlacement",
+     "x": 6.5,
+     "y": 1.6,
+     "z": 0.0,
+     "restsOn": "keep_mid",
+     "__positional": [
+      "keep_top",
+      {
+       "__ref": "StructureDefinitions.FortressTierSmall"
+      }
+     ]
+    }
+   ],
+   "playerGroups": [
+    {
+     "__ctor": "EnemyGroup",
+     "count": 2,
+     "anchorX": -10.5,
+     "anchorZ": 0.12,
+     "standingOnStructureId": "player_tank",
+     "__positional": [
+      {
+       "__ref": "UnitDefinitions.Rifleman"
+      }
+     ]
+    },
+    {
+     "__ctor": "EnemyGroup",
+     "count": 6,
+     "anchorX": -8.0,
+     "__positional": [
+      {
+       "__ref": "UnitDefinitions.Rifleman"
+      }
+     ]
+    },
+    {
+     "__ctor": "EnemyGroup",
+     "count": 2,
+     "anchorX": -6.4,
+     "__positional": [
+      {
+       "__ref": "UnitDefinitions.RocketTrooper"
+      }
+     ]
+    },
+    {
+     "__ctor": "EnemyGroup",
+     "count": 1,
+     "anchorX": -5.2,
+     "__positional": [
+      {
+       "__ref": "UnitDefinitions.MortarTeam"
+      }
+     ]
+    }
+   ],
+   "enemyGroups": [
+    {
+     "__ctor": "EnemyGroup",
+     "count": 4,
+     "anchorX": 1.0,
+     "__positional": [
+      {
+       "__ref": "UnitDefinitions.EnemyRifleman"
+      }
+     ]
+    },
+    {
+     "__ctor": "EnemyGroup",
+     "count": 8,
+     "anchorX": 6.5,
+     "anchorZ": 0.12,
+     "standingOnStructureId": "keep_base",
+     "__positional": [
+      {
+       "__ref": "UnitDefinitions.EnemyRifleman"
+      }
+     ]
+    },
+    {
+     "__ctor": "EnemyGroup",
+     "count": 5,
+     "anchorX": 6.5,
+     "anchorZ": 0.12,
+     "standingOnStructureId": "keep_mid",
+     "__positional": [
+      {
+       "__ref": "UnitDefinitions.EnemyMachineGunner"
+      }
+     ]
+    },
+    {
+     "__ctor": "EnemyGroup",
+     "count": 3,
+     "anchorX": 6.5,
+     "anchorZ": 0.12,
+     "standingOnStructureId": "keep_top",
+     "__positional": [
+      {
+       "__ref": "UnitDefinitions.EnemySniper"
+      }
+     ]
+    }
+   ],
+   "props": [
+    {
+     "__ctor": "PropPlacement",
+     "x": -1.2,
+     "z": 0.4,
+     "scale": 0.9,
+     "__positional": [
+      "models/barbed_wire.glb"
+     ]
+    }
+   ],
+   "levelBase": 150,
+   "deployBudget": 16
+  },
+  "Level7": {
+   "__ctor": "LevelDefinition",
+   "id": "level_7",
+   "displayName": "Ash Boulevard",
+   "levelNumber": 7,
+   "levelGoal": "Break the assault before it reaches your line",
+   "background": {
+    "__ref": "BackgroundDefinitions.CityRuins"
+   },
+   "structures": [
+    {
+     "__ctor": "StructurePlacement",
+     "x": -9.5,
+     "y": 0.0,
+     "z": 0.0,
+     "__positional": [
+      "player_tank",
+      {
+       "__ref": "StructureDefinitions.PlayerTank"
+      }
+     ]
+    },
+    {
+     "__ctor": "StructurePlacement",
+     "x": 4.8,
+     "y": 0.0,
+     "z": 0.0,
+     "__positional": [
+      "block",
+      {
+       "__ref": "StructureDefinitions.BarracksBlock"
+      }
+     ]
+    },
+    {
+     "__ctor": "StructurePlacement",
+     "x": 8.6,
+     "y": 0.0,
+     "z": 0.0,
+     "__positional": [
+      "checkpoint",
+      {
+       "__ref": "StructureDefinitions.Outpost"
+      }
+     ]
+    }
+   ],
+   "playerGroups": [
+    {
+     "__ctor": "EnemyGroup",
+     "count": 2,
+     "anchorX": -9.5,
+     "anchorZ": 0.12,
+     "standingOnStructureId": "player_tank",
+     "__positional": [
+      {
+       "__ref": "UnitDefinitions.Rifleman"
+      }
+     ]
+    },
+    {
+     "__ctor": "EnemyGroup",
+     "count": 6,
+     "anchorX": -7.2,
+     "__positional": [
+      {
+       "__ref": "UnitDefinitions.Rifleman"
+      }
+     ]
+    },
+    {
+     "__ctor": "EnemyGroup",
+     "count": 2,
+     "anchorX": -5.6,
+     "__positional": [
+      {
+       "__ref": "UnitDefinitions.Grenadier"
+      }
+     ]
+    }
+   ],
+   "enemyGroups": [
+    {
+     "__ctor": "EnemyGroup",
+     "count": 5,
+     "anchorX": 0.0,
+     "advancePerTurn": 1.1,
+     "__positional": [
+      {
+       "__ref": "UnitDefinitions.EnemyShieldBearer"
+      }
+     ]
+    },
+    {
+     "__ctor": "EnemyGroup",
+     "count": 4,
+     "anchorX": 1.2,
+     "__positional": [
+      {
+       "__ref": "UnitDefinitions.EnemyRifleman"
+      }
+     ]
+    },
+    {
+     "__ctor": "EnemyGroup",
+     "count": 4,
+     "anchorX": 4.8,
+     "anchorZ": 0.12,
+     "standingOnStructureId": "block",
+     "__positional": [
+      {
+       "__ref": "UnitDefinitions.EnemyMachineGunner"
+      }
+     ]
+    },
+    {
+     "__ctor": "EnemyGroup",
+     "count": 3,
+     "anchorX": 8.6,
+     "anchorZ": 0.12,
+     "standingOnStructureId": "checkpoint",
+     "__positional": [
+      {
+       "__ref": "UnitDefinitions.EnemyRifleman"
+      }
+     ]
+    }
+   ],
+   "props": [
+    {
+     "__ctor": "PropPlacement",
+     "x": -1.5,
+     "z": 0.4,
+     "scale": 1.0,
+     "slowsAdvance": true,
+     "halfWidth": 1.2,
+     "__positional": [
+      "models/barbed_wire.glb"
+     ]
+    }
+   ],
+   "levelBase": 160,
+   "deployBudget": 14
+  },
+  "Level8": {
+   "__ctor": "LevelDefinition",
+   "id": "level_8",
+   "displayName": "Emberfall",
+   "levelNumber": 8,
+   "levelGoal": "Read the wind and level the garrison",
+   "background": {
+    "__ref": "BackgroundDefinitions.CityRuins"
+   },
+   "structures": [
+    {
+     "__ctor": "StructurePlacement",
+     "x": -9.5,
+     "y": 0.0,
+     "z": 0.0,
+     "__positional": [
+      "player_tank",
+      {
+       "__ref": "StructureDefinitions.PlayerTank"
+      }
+     ]
+    },
+    {
+     "__ctor": "StructurePlacement",
+     "x": 6.0,
+     "y": 0.0,
+     "z": 0.0,
+     "__positional": [
+      "post",
+      {
+       "__ref": "StructureDefinitions.GarrisonPost"
+      }
+     ]
+    },
+    {
+     "__ctor": "StructurePlacement",
+     "x": 9.2,
+     "y": 0.0,
+     "z": 0.0,
+     "__positional": [
+      "mast",
+      {
+       "__ref": "StructureDefinitions.CommsTower"
+      }
+     ]
+    }
+   ],
+   "playerGroups": [
+    {
+     "__ctor": "EnemyGroup",
+     "count": 2,
+     "anchorX": -9.5,
+     "anchorZ": 0.12,
+     "standingOnStructureId": "player_tank",
+     "__positional": [
+      {
+       "__ref": "UnitDefinitions.Rifleman"
+      }
+     ]
+    },
+    {
+     "__ctor": "EnemyGroup",
+     "count": 6,
+     "anchorX": -7.2,
+     "__positional": [
+      {
+       "__ref": "UnitDefinitions.Rifleman"
+      }
+     ]
+    },
+    {
+     "__ctor": "EnemyGroup",
+     "count": 2,
+     "anchorX": -5.6,
+     "__positional": [
+      {
+       "__ref": "UnitDefinitions.Marksman"
+      }
+     ]
+    }
+   ],
+   "enemyGroups": [
+    {
+     "__ctor": "EnemyGroup",
+     "count": 5,
+     "anchorX": 1.0,
+     "__positional": [
+      {
+       "__ref": "UnitDefinitions.EnemyRifleman"
+      }
+     ]
+    },
+    {
+     "__ctor": "EnemyGroup",
+     "count": 3,
+     "anchorX": 3.2,
+     "__positional": [
+      {
+       "__ref": "UnitDefinitions.EnemyRocketTrooper"
+      }
+     ]
+    },
+    {
+     "__ctor": "EnemyGroup",
+     "count": 6,
+     "anchorX": 6.0,
+     "anchorZ": 0.12,
+     "standingOnStructureId": "post",
+     "__positional": [
+      {
+       "__ref": "UnitDefinitions.EnemyRifleman"
+      }
+     ]
+    },
+    {
+     "__ctor": "EnemyGroup",
+     "count": 2,
+     "anchorX": 9.2,
+     "anchorZ": 0.12,
+     "standingOnStructureId": "mast",
+     "__positional": [
+      {
+       "__ref": "UnitDefinitions.EnemySniper"
+      }
+     ]
+    }
+   ],
+   "windAccelZ": 1.0,
+   "levelBase": 175,
+   "deployBudget": 15
+  },
+  "Level9": {
+   "__ctor": "LevelDefinition",
+   "id": "level_9",
+   "displayName": "City Hall",
+   "levelNumber": 9,
+   "levelGoal": "Take the hall \u2014 and whatever comes out of it",
+   "background": {
+    "__ref": "BackgroundDefinitions.CityRuins"
+   },
+   "structures": [
+    {
+     "__ctor": "StructurePlacement",
+     "x": -10.5,
+     "y": 0.0,
+     "z": 0.0,
+     "__positional": [
+      "player_tank",
+      {
+       "__ref": "StructureDefinitions.PlayerTank"
+      }
+     ]
+    },
+    {
+     "__ctor": "StructurePlacement",
+     "x": 6.2,
+     "y": 0.0,
+     "z": 0.0,
+     "__positional": [
+      "hall_base",
+      {
+       "__ref": "StructureDefinitions.FortressTierWide"
+      }
+     ]
+    },
+    {
+     "__ctor": "StructurePlacement",
+     "x": 6.2,
+     "y": 0.8,
+     "z": 0.0,
+     "restsOn": "hall_base",
+     "__positional": [
+      "hall_top",
+      {
+       "__ref": "StructureDefinitions.FortressTier"
+      }
+     ]
+    }
+   ],
+   "playerGroups": [
+    {
+     "__ctor": "EnemyGroup",
+     "count": 2,
+     "anchorX": -10.5,
+     "anchorZ": 0.12,
+     "standingOnStructureId": "player_tank",
+     "__positional": [
+      {
+       "__ref": "UnitDefinitions.Rifleman"
+      }
+     ]
+    },
+    {
+     "__ctor": "EnemyGroup",
+     "count": 6,
+     "anchorX": -8.0,
+     "__positional": [
+      {
+       "__ref": "UnitDefinitions.Rifleman"
+      }
+     ]
+    },
+    {
+     "__ctor": "EnemyGroup",
+     "count": 2,
+     "anchorX": -6.4,
+     "__positional": [
+      {
+       "__ref": "UnitDefinitions.RocketTrooper"
+      }
+     ]
+    },
+    {
+     "__ctor": "EnemyGroup",
+     "count": 1,
+     "anchorX": -5.2,
+     "__positional": [
+      {
+       "__ref": "UnitDefinitions.MortarTeam"
+      }
+     ]
+    }
+   ],
+   "enemyGroups": [
+    {
+     "__ctor": "EnemyGroup",
+     "count": 4,
+     "anchorX": 1.0,
+     "__positional": [
+      {
+       "__ref": "UnitDefinitions.EnemyRifleman"
+      }
+     ]
+    },
+    {
+     "__ctor": "EnemyGroup",
+     "count": 2,
+     "anchorX": 2.8,
+     "__positional": [
+      {
+       "__ref": "UnitDefinitions.EnemyHeavyRifleman"
+      }
+     ]
+    },
+    {
+     "__ctor": "EnemyGroup",
+     "count": 8,
+     "anchorX": 6.2,
+     "anchorZ": 0.12,
+     "standingOnStructureId": "hall_base",
+     "__positional": [
+      {
+       "__ref": "UnitDefinitions.EnemyRifleman"
+      }
+     ]
+    },
+    {
+     "__ctor": "EnemyGroup",
+     "count": 5,
+     "anchorX": 6.2,
+     "anchorZ": 0.12,
+     "standingOnStructureId": "hall_top",
+     "__positional": [
+      {
+       "__ref": "UnitDefinitions.EnemyMachineGunner"
+      }
+     ]
+    }
+   ],
+   "bossPhases": [
+    {
+     "__ctor": "BossPhaseTrigger",
+     "triggerStructureIds": [
+      "hall_top"
+     ],
+     "spawnGroups": [
+      {
+       "__ctor": "EnemyGroup",
+       "count": 1,
+       "anchorX": 4.0,
+       "__positional": [
+        {
+         "__ref": "UnitDefinitions.CityHallGuardian"
+        }
+       ]
+      },
+      {
+       "__ctor": "EnemyGroup",
+       "count": 3,
+       "anchorX": 2.0,
+       "advancePerTurn": 1.2,
+       "__positional": [
+        {
+         "__ref": "UnitDefinitions.EnemyShieldBearer"
+        }
+       ]
+      }
+     ],
+     "announcement": "The City Hall Guardian emerges!"
+    }
+   ],
+   "props": [
+    {
+     "__ctor": "PropPlacement",
+     "x": -0.6,
+     "z": 0.35,
+     "scale": 0.9,
+     "__positional": [
+      "models/sandbags.glb"
+     ]
+    }
+   ],
+   "levelBase": 200,
+   "deployBudget": 17
+  },
+  "Level10": {
+   "__ctor": "LevelDefinition",
+   "id": "level_10",
+   "displayName": "Frozen Approach",
+   "levelNumber": 10,
+   "levelGoal": "Hold the pass \u2014 a second column is on the road",
+   "background": {
+    "__ref": "BackgroundDefinitions.Winter"
+   },
+   "structures": [
+    {
+     "__ctor": "StructurePlacement",
+     "x": -9.5,
+     "y": 0.0,
+     "z": 0.0,
+     "__positional": [
+      "player_tank",
+      {
+       "__ref": "StructureDefinitions.PlayerTank"
+      }
+     ]
+    },
+    {
+     "__ctor": "StructurePlacement",
+     "x": 5.6,
+     "y": 0.0,
+     "z": 0.0,
+     "__positional": [
+      "emplacement",
+      {
+       "__ref": "StructureDefinitions.MountainBunker"
+      }
+     ]
+    },
+    {
+     "__ctor": "StructurePlacement",
+     "x": 8.8,
+     "y": 0.0,
+     "z": 0.0,
+     "__positional": [
+      "outcrop",
+      {
+       "__ref": "StructureDefinitions.CliffOutcrop"
+      }
+     ]
+    }
+   ],
+   "playerGroups": [
+    {
+     "__ctor": "EnemyGroup",
+     "count": 2,
+     "anchorX": -9.5,
+     "anchorZ": 0.12,
+     "standingOnStructureId": "player_tank",
+     "__positional": [
+      {
+       "__ref": "UnitDefinitions.Rifleman"
+      }
+     ]
+    },
+    {
+     "__ctor": "EnemyGroup",
+     "count": 6,
+     "anchorX": -7.2,
+     "__positional": [
+      {
+       "__ref": "UnitDefinitions.Rifleman"
+      }
+     ]
+    },
+    {
+     "__ctor": "EnemyGroup",
+     "count": 2,
+     "anchorX": -5.6,
+     "__positional": [
+      {
+       "__ref": "UnitDefinitions.Engineer"
+      }
+     ]
+    }
+   ],
+   "enemyGroups": [
+    {
+     "__ctor": "EnemyGroup",
+     "count": 5,
+     "anchorX": 1.2,
+     "__positional": [
+      {
+       "__ref": "UnitDefinitions.EnemyRifleman"
+      }
+     ]
+    },
+    {
+     "__ctor": "EnemyGroup",
+     "count": 2,
+     "anchorX": 5.6,
+     "anchorZ": 0.12,
+     "standingOnStructureId": "emplacement",
+     "__positional": [
+      {
+       "__ref": "UnitDefinitions.EnemyMachineGunner"
+      }
+     ]
+    },
+    {
+     "__ctor": "EnemyGroup",
+     "count": 3,
+     "anchorX": 8.8,
+     "anchorZ": 0.12,
+     "standingOnStructureId": "outcrop",
+     "__positional": [
+      {
+       "__ref": "UnitDefinitions.EnemySniper"
+      }
+     ]
+    }
+   ],
+   "reinforcementWaves": [
+    {
+     "__ctor": "ReinforcementWave",
+     "arrivesOnTurn": 4,
+     "spawnGroups": [
+      {
+       "__ctor": "EnemyGroup",
+       "count": 2,
+       "anchorX": 3.0,
+       "__positional": [
+        {
+         "__ref": "UnitDefinitions.EnemyHeavyRifleman"
+        }
+       ]
+      },
+      {
+       "__ctor": "EnemyGroup",
+       "count": 4,
+       "anchorX": 1.5,
+       "__positional": [
+        {
+         "__ref": "UnitDefinitions.EnemyRifleman"
+        }
+       ]
+      }
+     ],
+     "announcement": "Frost Legion reinforcements!",
+     "telegraphText": "A column is moving up the ridge road"
+    }
+   ],
+   "levelBase": 210,
+   "deployBudget": 16
+  },
+  "Level11": {
+   "__ctor": "LevelDefinition",
+   "id": "level_11",
+   "displayName": "Anvil Ridge",
+   "levelNumber": 11,
+   "levelGoal": "Clear the ridge and keep the sky off your line",
+   "background": {
+    "__ref": "BackgroundDefinitions.MountainsDusk"
+   },
+   "structures": [
+    {
+     "__ctor": "StructurePlacement",
+     "x": -9.5,
+     "y": 0.0,
+     "z": 0.0,
+     "__positional": [
+      "player_tank",
+      {
+       "__ref": "StructureDefinitions.PlayerTank"
+      }
+     ]
+    },
+    {
+     "__ctor": "StructurePlacement",
+     "x": 5.8,
+     "y": 0.0,
+     "z": 0.0,
+     "__positional": [
+      "post",
+      {
+       "__ref": "StructureDefinitions.GarrisonPost"
+      }
+     ]
+    },
+    {
+     "__ctor": "StructurePlacement",
+     "x": 9.0,
+     "y": 0.0,
+     "z": 0.0,
+     "__positional": [
+      "ridge",
+      {
+       "__ref": "StructureDefinitions.RidgeWatchtower"
+      }
+     ]
+    }
+   ],
+   "playerGroups": [
+    {
+     "__ctor": "EnemyGroup",
+     "count": 2,
+     "anchorX": -9.5,
+     "anchorZ": 0.12,
+     "standingOnStructureId": "player_tank",
+     "__positional": [
+      {
+       "__ref": "UnitDefinitions.Rifleman"
+      }
+     ]
+    },
+    {
+     "__ctor": "EnemyGroup",
+     "count": 5,
+     "anchorX": -7.4,
+     "__positional": [
+      {
+       "__ref": "UnitDefinitions.Rifleman"
+      }
+     ]
+    },
+    {
+     "__ctor": "EnemyGroup",
+     "count": 3,
+     "anchorX": -5.9,
+     "__positional": [
+      {
+       "__ref": "UnitDefinitions.MachineGunner"
+      }
+     ]
+    }
+   ],
+   "enemyGroups": [
+    {
+     "__ctor": "EnemyGroup",
+     "count": 5,
+     "anchorX": 1.2,
+     "__positional": [
+      {
+       "__ref": "UnitDefinitions.EnemyRifleman"
+      }
+     ]
+    },
+    {
+     "__ctor": "EnemyGroup",
+     "count": 3,
+     "anchorX": 2.8,
+     "advancePerTurn": 1.0,
+     "__positional": [
+      {
+       "__ref": "UnitDefinitions.EnemyShieldBearer"
+      }
+     ]
+    },
+    {
+     "__ctor": "EnemyGroup",
+     "count": 6,
+     "anchorX": 5.8,
+     "anchorZ": 0.12,
+     "standingOnStructureId": "post",
+     "__positional": [
+      {
+       "__ref": "UnitDefinitions.EnemyRifleman"
+      }
+     ]
+    },
+    {
+     "__ctor": "EnemyGroup",
+     "count": 2,
+     "anchorX": 9.0,
+     "anchorZ": 0.12,
+     "standingOnStructureId": "ridge",
+     "__positional": [
+      {
+       "__ref": "UnitDefinitions.EnemySniper"
+      }
+     ]
+    }
+   ],
+   "heliChance": 0.35,
+   "levelBase": 225,
+   "deployBudget": 17
+  },
+  "Level12": {
+   "__ctor": "LevelDefinition",
+   "id": "level_12",
+   "displayName": "Frostline Command",
+   "levelNumber": 12,
+   "levelGoal": "Break Frostline Command and both its commanders",
+   "background": {
+    "__ref": "BackgroundDefinitions.Winter"
+   },
+   "structures": [
+    {
+     "__ctor": "StructurePlacement",
+     "x": -10.5,
+     "y": 0.0,
+     "z": 0.0,
+     "__positional": [
+      "player_tank",
+      {
+       "__ref": "StructureDefinitions.PlayerTank"
+      }
+     ]
+    },
+    {
+     "__ctor": "StructurePlacement",
+     "x": 1.6,
+     "y": 0.0,
+     "z": 0.0,
+     "__positional": [
+      "mtn_bunker",
+      {
+       "__ref": "StructureDefinitions.MountainBunker"
+      }
+     ]
+    },
+    {
+     "__ctor": "StructurePlacement",
+     "x": 6.4,
+     "y": 0.0,
+     "z": 0.0,
+     "__positional": [
+      "cmd_base",
+      {
+       "__ref": "StructureDefinitions.FortressTierWide"
+      }
+     ]
+    },
+    {
+     "__ctor": "StructurePlacement",
+     "x": 6.4,
+     "y": 0.8,
+     "z": 0.0,
+     "restsOn": "cmd_base",
+     "__positional": [
+      "cmd_top",
+      {
+       "__ref": "StructureDefinitions.FortressTierSmall"
+      }
+     ]
+    }
+   ],
+   "playerGroups": [
+    {
+     "__ctor": "EnemyGroup",
+     "count": 2,
+     "anchorX": -10.5,
+     "anchorZ": 0.12,
+     "standingOnStructureId": "player_tank",
+     "__positional": [
+      {
+       "__ref": "UnitDefinitions.Rifleman"
+      }
+     ]
+    },
+    {
+     "__ctor": "EnemyGroup",
+     "count": 6,
+     "anchorX": -8.0,
+     "__positional": [
+      {
+       "__ref": "UnitDefinitions.Rifleman"
+      }
+     ]
+    },
+    {
+     "__ctor": "EnemyGroup",
+     "count": 2,
+     "anchorX": -6.4,
+     "__positional": [
+      {
+       "__ref": "UnitDefinitions.RocketTrooper"
+      }
+     ]
+    },
+    {
+     "__ctor": "EnemyGroup",
+     "count": 1,
+     "anchorX": -5.2,
+     "__positional": [
+      {
+       "__ref": "UnitDefinitions.MortarTeam"
+      }
+     ]
+    }
+   ],
+   "enemyGroups": [
+    {
+     "__ctor": "EnemyGroup",
+     "count": 4,
+     "anchorX": 0.2,
+     "__positional": [
+      {
+       "__ref": "UnitDefinitions.EnemyRifleman"
+      }
+     ]
+    },
+    {
+     "__ctor": "EnemyGroup",
+     "count": 2,
+     "anchorX": 1.6,
+     "anchorZ": 0.12,
+     "standingOnStructureId": "mtn_bunker",
+     "__positional": [
+      {
+       "__ref": "UnitDefinitions.EnemyMachineGunner"
+      }
+     ]
+    },
+    {
+     "__ctor": "EnemyGroup",
+     "count": 8,
+     "anchorX": 6.4,
+     "anchorZ": 0.12,
+     "standingOnStructureId": "cmd_base",
+     "__positional": [
+      {
+       "__ref": "UnitDefinitions.EnemyRifleman"
+      }
+     ]
+    },
+    {
+     "__ctor": "EnemyGroup",
+     "count": 3,
+     "anchorX": 6.4,
+     "anchorZ": 0.12,
+     "standingOnStructureId": "cmd_top",
+     "__positional": [
+      {
+       "__ref": "UnitDefinitions.EnemyHeavyRifleman"
+      }
+     ]
+    }
+   ],
+   "bossPhases": [
+    {
+     "__ctor": "BossPhaseTrigger",
+     "triggerStructureIds": [
+      "mtn_bunker"
+     ],
+     "spawnGroups": [
+      {
+       "__ctor": "EnemyGroup",
+       "count": 1,
+       "anchorX": 8.8,
+       "__positional": [
+        {
+         "__ref": "UnitDefinitions.NestCommander"
+        }
+       ]
+      },
+      {
+       "__ctor": "EnemyGroup",
+       "count": 2,
+       "anchorX": 8.8,
+       "__positional": [
+        {
+         "__ref": "UnitDefinitions.EnemySniper"
+        }
+       ]
+      }
+     ],
+     "announcement": "The Nest Commander takes the high wall!"
+    },
+    {
+     "__ctor": "BossPhaseTrigger",
+     "triggerStructureIds": [
+      "cmd_top"
+     ],
+     "spawnGroups": [
+      {
+       "__ctor": "EnemyGroup",
+       "count": 1,
+       "anchorX": 5.0,
+       "__positional": [
+        {
+         "__ref": "UnitDefinitions.FrostlineCommander"
+        }
+       ]
+      },
+      {
+       "__ctor": "EnemyGroup",
+       "count": 4,
+       "anchorX": 2.4,
+       "advancePerTurn": 1.2,
+       "__positional": [
+        {
+         "__ref": "UnitDefinitions.EnemyShieldBearer"
+        }
+       ]
+      }
+     ],
+     "announcement": "Frostline Commander leads the counter-charge!"
+    }
+   ],
+   "props": [
+    {
+     "__ctor": "PropPlacement",
+     "x": -2.0,
+     "z": 0.4,
+     "scale": 1.0,
+     "slowsAdvance": true,
+     "halfWidth": 1.2,
+     "__positional": [
+      "models/barbed_wire.glb"
+     ]
+    }
+   ],
+   "staticCamera": true,
+   "levelBase": 250,
+   "deployBudget": 18
+  },
+  "LevelTierCollapseTest": {
+   "__ctor": "LevelDefinition",
+   "id": "level_test_tier_collapse",
+   "displayName": "TEST \u2014 Tier Collapse",
+   "levelNumber": 13,
+   "levelGoal": "Debug sandbox: bring the tiers down and watch how they fall",
+   "background": {
+    "__ref": "BackgroundDefinitions.Winter"
+   },
+   "isTestLevel": true,
+   "structures": [
+    {
+     "__ctor": "StructurePlacement",
+     "x": -6.5,
+     "y": 0.0,
+     "z": 0.0,
+     "__positional": [
+      "player_tank",
+      {
+       "__ref": "StructureDefinitions.PlayerTank"
+      }
+     ]
+    },
+    {
+     "__ctor": "StructurePlacement",
+     "x": 7.5,
+     "y": 0.0,
+     "z": 0.0,
+     "__positional": [
+      "tier1",
+      {
+       "__ref": "StructureDefinitions.FortressTierWide"
+      }
+     ]
+    },
+    {
+     "__ctor": "StructurePlacement",
+     "x": 7.5,
+     "y": 0.8,
+     "z": 0.0,
+     "restsOn": "tier1",
+     "__positional": [
+      "tier2",
+      {
+       "__ref": "StructureDefinitions.FortressTier"
+      }
+     ]
+    },
+    {
+     "__ctor": "StructurePlacement",
+     "x": 7.5,
+     "y": 1.6,
+     "z": 0.0,
+     "restsOn": "tier2",
+     "__positional": [
+      "tier3",
+      {
+       "__ref": "StructureDefinitions.FortressTierSmall"
+      }
+     ]
+    }
+   ],
+   "playerGroups": [
+    {
+     "__ctor": "EnemyGroup",
+     "count": 2,
+     "anchorX": -10.0,
+     "anchorZ": 0.12,
+     "standingOnStructureId": "player_tank",
+     "__positional": [
+      {
+       "__ref": "UnitDefinitions.Rifleman"
+      }
+     ]
+    },
+    {
+     "__ctor": "EnemyGroup",
+     "count": 6,
+     "anchorX": -7.5,
+     "__positional": [
+      {
+       "__ref": "UnitDefinitions.RocketTrooper"
+      }
+     ]
+    },
+    {
+     "__ctor": "EnemyGroup",
+     "count": 4,
+     "anchorX": -6.0,
+     "__positional": [
+      {
+       "__ref": "UnitDefinitions.Grenadier"
+      }
+     ]
+    }
+   ],
+   "enemyGroups": [
+    {
+     "__ctor": "EnemyGroup",
+     "count": 5,
+     "anchorX": 7.5,
+     "anchorZ": 0.12,
+     "standingOnStructureId": "tier1",
+     "__positional": [
+      {
+       "__ref": "UnitDefinitions.EnemyMachineGunner"
+      }
+     ]
+    },
+    {
+     "__ctor": "EnemyGroup",
+     "count": 4,
+     "anchorX": 7.5,
+     "anchorZ": 0.12,
+     "standingOnStructureId": "tier2",
+     "__positional": [
+      {
+       "__ref": "UnitDefinitions.EnemyGrenadier"
+      }
+     ]
+    },
+    {
+     "__ctor": "EnemyGroup",
+     "count": 3,
+     "anchorX": 7.5,
+     "anchorZ": 0.12,
+     "standingOnStructureId": "tier3",
+     "__positional": [
+      {
+       "__ref": "UnitDefinitions.EnemySniper"
+      }
+     ]
+    },
+    {
+     "__ctor": "EnemyGroup",
+     "count": 3,
+     "anchorX": 19.0,
+     "__positional": [
+      {
+       "__ref": "UnitDefinitions.CitadelSovereign"
+      }
+     ]
+    }
+   ],
+   "levelBase": 0
+  },
+  "LevelUnitParadeTest": {
+   "__ctor": "LevelDefinition",
+   "id": "level_test_unit_parade",
+   "displayName": "TEST \u2014 Unit Parade",
+   "levelNumber": 14,
+   "levelGoal": "Debug sandbox: every class side by side; shield bearers charge and die",
+   "background": {
+    "__ref": "BackgroundDefinitions.Winter"
+   },
+   "isTestLevel": true,
+   "structures": [
+    {
+     "__ctor": "StructurePlacement",
+     "x": -6.5,
+     "y": 0.0,
+     "z": 0.0,
+     "__positional": [
+      "player_tank",
+      {
+       "__ref": "StructureDefinitions.PlayerTank"
+      }
+     ]
+    }
+   ],
+   "playerGroups": [
+    {
+     "__ctor": "EnemyGroup",
+     "count": 1,
+     "anchorX": -2.2,
+     "anchorZ": 0.7,
+     "__positional": [
+      {
+       "__ref": "UnitDefinitions.MortarTeam"
+      }
+     ]
+    },
+    {
+     "__ctor": "EnemyGroup",
+     "count": 1,
+     "anchorX": -1.1,
+     "anchorZ": 0.7,
+     "__positional": [
+      {
+       "__ref": "UnitDefinitions.Grenadier"
+      }
+     ]
+    },
+    {
+     "__ctor": "EnemyGroup",
+     "count": 1,
+     "anchorX": 0.0,
+     "anchorZ": 0.7,
+     "__positional": [
+      {
+       "__ref": "UnitDefinitions.HeavyRifleman"
+      }
+     ]
+    },
+    {
+     "__ctor": "EnemyGroup",
+     "count": 1,
+     "anchorX": 1.1,
+     "anchorZ": 0.7,
+     "__positional": [
+      {
+       "__ref": "UnitDefinitions.Engineer"
+      }
+     ]
+    },
+    {
+     "__ctor": "EnemyGroup",
+     "count": 1,
+     "anchorX": 2.2,
+     "anchorZ": 0.7,
+     "__positional": [
+      {
+       "__ref": "UnitDefinitions.Rifleman"
+      }
+     ]
+    },
+    {
+     "__ctor": "EnemyGroup",
+     "count": 1,
+     "anchorX": -1.65,
+     "anchorZ": -0.7,
+     "__positional": [
+      {
+       "__ref": "UnitDefinitions.MachineGunner"
+      }
+     ]
+    },
+    {
+     "__ctor": "EnemyGroup",
+     "count": 1,
+     "anchorX": -0.55,
+     "anchorZ": -0.7,
+     "__positional": [
+      {
+       "__ref": "UnitDefinitions.Sniper"
+      }
+     ]
+    },
+    {
+     "__ctor": "EnemyGroup",
+     "count": 1,
+     "anchorX": 0.55,
+     "anchorZ": -0.7,
+     "__positional": [
+      {
+       "__ref": "UnitDefinitions.RocketTrooper"
+      }
+     ]
+    },
+    {
+     "__ctor": "EnemyGroup",
+     "count": 1,
+     "anchorX": 1.65,
+     "anchorZ": -0.7,
+     "__positional": [
+      {
+       "__ref": "UnitDefinitions.Marksman"
+      }
+     ]
+    }
+   ],
+   "enemyGroups": [
+    {
+     "__ctor": "EnemyGroup",
+     "count": 4,
+     "anchorX": 5.0,
+     "advancePerTurn": 2.6,
+     "__positional": [
+      {
+       "__ref": "UnitDefinitions.EnemyShieldBearer"
+      }
+     ]
+    },
+    {
+     "__ctor": "EnemyGroup",
+     "count": 3,
+     "anchorX": 7.0,
+     "advancePerTurn": 2.6,
+     "__positional": [
+      {
+       "__ref": "UnitDefinitions.EnemyShieldBearer"
+      }
+     ]
+    },
+    {
+     "__ctor": "EnemyGroup",
+     "count": 3,
+     "anchorX": 10.0,
+     "__positional": [
+      {
+       "__ref": "UnitDefinitions.CitadelSovereign"
+      }
+     ]
+    }
+   ],
+   "levelBase": 0
+  },
+  "LevelStructureParadeTest": {
+   "__ctor": "LevelDefinition",
+   "id": "level_test_structure_parade",
+   "displayName": "TEST \u2014 Structure Parade",
+   "levelNumber": 15,
+   "levelGoal": "Debug sandbox: every structure side by side, height-sorted in two rows",
+   "background": {
+    "__ref": "BackgroundDefinitions.Winter"
+   },
+   "isTestLevel": true,
+   "structures": [
+    {
+     "__ctor": "StructurePlacement",
+     "x": -14.0,
+     "y": 0.0,
+     "z": 0.0,
+     "__positional": [
+      "player_tank",
+      {
+       "__ref": "StructureDefinitions.PlayerTank"
+      }
+     ]
+    },
+    {
+     "__ctor": "StructurePlacement",
+     "x": -6.0,
+     "y": 0.0,
+     "z": 0.0,
+     "__positional": [
+      "p_bunker",
+      {
+       "__ref": "StructureDefinitions.CommandBunker"
+      }
+     ]
+    },
+    {
+     "__ctor": "StructurePlacement",
+     "x": -1.0,
+     "y": 0.0,
+     "z": 0.0,
+     "__positional": [
+      "p_barracks",
+      {
+       "__ref": "StructureDefinitions.BarracksBlock"
+      }
+     ]
+    },
+    {
+     "__ctor": "StructurePlacement",
+     "x": 4.5,
+     "y": 0.0,
+     "z": 0.0,
+     "__positional": [
+      "p_garrison",
+      {
+       "__ref": "StructureDefinitions.GarrisonPost"
+      }
+     ]
+    }
+   ],
+   "playerGroups": [
+    {
+     "__ctor": "EnemyGroup",
+     "count": 2,
+     "anchorX": -6.9,
+     "anchorZ": 2.6,
+     "__positional": [
+      {
+       "__ref": "UnitDefinitions.Rifleman"
+      }
+     ]
+    },
+    {
+     "__ctor": "EnemyGroup",
+     "count": 2,
+     "anchorX": 6.9,
+     "anchorZ": 2.6,
+     "__positional": [
+      {
+       "__ref": "UnitDefinitions.Rifleman"
+      }
+     ]
+    }
+   ],
+   "enemyGroups": [
+    {
+     "__ctor": "EnemyGroup",
+     "count": 3,
+     "anchorX": 19.0,
+     "__positional": [
+      {
+       "__ref": "UnitDefinitions.CitadelSovereign"
+      }
+     ]
+    }
+   ],
+   "levelBase": 0
+  },
+  "LevelStructureParadeTestB": {
+   "__ctor": "LevelDefinition",
+   "id": "level_test_structure_parade_b",
+   "displayName": "TEST \u2014 Structure Parade II",
+   "levelNumber": 16,
+   "levelGoal": "Debug sandbox: towers, natural cover and the assembled fortress",
+   "background": {
+    "__ref": "BackgroundDefinitions.Winter"
+   },
+   "isTestLevel": true,
+   "structures": [
+    {
+     "__ctor": "StructurePlacement",
+     "x": -14.0,
+     "y": 0.0,
+     "z": 0.0,
+     "__positional": [
+      "player_tank",
+      {
+       "__ref": "StructureDefinitions.PlayerTank"
+      }
+     ]
+    },
+    {
+     "__ctor": "StructurePlacement",
+     "x": -5.5,
+     "y": 0.0,
+     "z": 0.0,
+     "__positional": [
+      "q_comms",
+      {
+       "__ref": "StructureDefinitions.CommsTower"
+      }
+     ]
+    },
+    {
+     "__ctor": "StructurePlacement",
+     "x": -2.5,
+     "y": 0.0,
+     "z": 0.0,
+     "__positional": [
+      "q_watch",
+      {
+       "__ref": "StructureDefinitions.WatchTower"
+      }
+     ]
+    },
+    {
+     "__ctor": "StructurePlacement",
+     "x": 3.5,
+     "y": 0.0,
+     "z": 0.0,
+     "__positional": [
+      "q_ftwide",
+      {
+       "__ref": "StructureDefinitions.FortressTierWide"
+      }
+     ]
+    },
+    {
+     "__ctor": "StructurePlacement",
+     "x": 3.5,
+     "y": 0.8,
+     "z": 0.0,
+     "restsOn": "q_ftwide",
+     "__positional": [
+      "q_ftmid",
+      {
+       "__ref": "StructureDefinitions.FortressTier"
+      }
+     ]
+    },
+    {
+     "__ctor": "StructurePlacement",
+     "x": 3.5,
+     "y": 1.6,
+     "z": 0.0,
+     "restsOn": "q_ftmid",
+     "__positional": [
+      "q_ftsmall",
+      {
+       "__ref": "StructureDefinitions.FortressTierSmall"
+      }
+     ]
+    }
+   ],
+   "playerGroups": [
+    {
+     "__ctor": "EnemyGroup",
+     "count": 2,
+     "anchorX": -6.3,
+     "anchorZ": 2.6,
+     "__positional": [
+      {
+       "__ref": "UnitDefinitions.Rifleman"
+      }
+     ]
+    },
+    {
+     "__ctor": "EnemyGroup",
+     "count": 2,
+     "anchorX": 6.3,
+     "anchorZ": 2.6,
+     "__positional": [
+      {
+       "__ref": "UnitDefinitions.Rifleman"
+      }
+     ]
+    }
+   ],
+   "enemyGroups": [
+    {
+     "__ctor": "EnemyGroup",
+     "count": 3,
+     "anchorX": 19.0,
+     "__positional": [
+      {
+       "__ref": "UnitDefinitions.CitadelSovereign"
+      }
+     ]
+    }
+   ],
+   "levelBase": 0
+  },
+  "LevelNaturalParadeTest": {
+   "__ctor": "LevelDefinition",
+   "id": "level_test_natural_parade",
+   "displayName": "TEST \u2014 Natural Parade",
+   "levelNumber": 17,
+   "levelGoal": "Debug sandbox: cliff, ridge tower and mountain bunker side by side",
+   "background": {
+    "__ref": "BackgroundDefinitions.MountainsDusk"
+   },
+   "isTestLevel": true,
+   "structures": [
+    {
+     "__ctor": "StructurePlacement",
+     "x": -14.0,
+     "y": 0.0,
+     "z": 0.0,
+     "__positional": [
+      "player_tank",
+      {
+       "__ref": "StructureDefinitions.PlayerTank"
+      }
+     ]
+    },
+    {
+     "__ctor": "StructurePlacement",
+     "x": -4.5,
+     "y": 0.0,
+     "z": 0.0,
+     "__positional": [
+      "n_cliff",
+      {
+       "__ref": "StructureDefinitions.CliffOutcrop"
+      }
+     ]
+    },
+    {
+     "__ctor": "StructurePlacement",
+     "x": 0.2,
+     "y": 0.0,
+     "z": 0.0,
+     "__positional": [
+      "n_ridge",
+      {
+       "__ref": "StructureDefinitions.RidgeWatchtower"
+      }
+     ]
+    },
+    {
+     "__ctor": "StructurePlacement",
+     "x": 4.8,
+     "y": 0.0,
+     "z": 0.0,
+     "__positional": [
+      "n_mtn",
+      {
+       "__ref": "StructureDefinitions.MountainBunker"
+      }
+     ]
+    }
+   ],
+   "playerGroups": [
+    {
+     "__ctor": "EnemyGroup",
+     "count": 2,
+     "anchorX": -5.6,
+     "anchorZ": 2.6,
+     "__positional": [
+      {
+       "__ref": "UnitDefinitions.Rifleman"
+      }
+     ]
+    },
+    {
+     "__ctor": "EnemyGroup",
+     "count": 2,
+     "anchorX": 5.6,
+     "anchorZ": 2.6,
+     "__positional": [
+      {
+       "__ref": "UnitDefinitions.Rifleman"
+      }
+     ]
+    }
+   ],
+   "enemyGroups": [
+    {
+     "__ctor": "EnemyGroup",
+     "count": 3,
+     "anchorX": 19.0,
+     "__positional": [
+      {
+       "__ref": "UnitDefinitions.CitadelSovereign"
+      }
+     ]
+    }
+   ],
+   "levelBase": 0
+  },
+  "LevelOutpostTowerParadeTest": {
+   "__ctor": "LevelDefinition",
+   "id": "level_test_outpost_tower_parade",
+   "displayName": "TEST \u2014 Outpost & Tower",
+   "levelNumber": 18,
+   "levelGoal": "Debug sandbox: outpost and the assembled two-part tower",
+   "background": {
+    "__ref": "BackgroundDefinitions.Winter"
+   },
+   "isTestLevel": true,
+   "structures": [
+    {
+     "__ctor": "StructurePlacement",
+     "x": -14.0,
+     "y": 0.0,
+     "z": 0.0,
+     "__positional": [
+      "player_tank",
+      {
+       "__ref": "StructureDefinitions.PlayerTank"
+      }
+     ]
+    },
+    {
+     "__ctor": "StructurePlacement",
+     "x": -3.4,
+     "y": 0.0,
+     "z": 0.0,
+     "__positional": [
+      "o_outpost",
+      {
+       "__ref": "StructureDefinitions.Outpost"
+      }
+     ]
+    },
+    {
+     "__ctor": "StructurePlacement",
+     "x": 3.2,
+     "y": 0.0,
+     "z": 0.0,
+     "__positional": [
+      "o_towbase",
+      {
+       "__ref": "StructureDefinitions.TowerBase"
+      }
+     ]
+    },
+    {
+     "__ctor": "StructurePlacement",
+     "x": 3.2,
+     "y": 0.8,
+     "z": 0.0,
+     "restsOn": "o_towbase",
+     "__positional": [
+      "o_towtop",
+      {
+       "__ref": "StructureDefinitions.TowerPlatform"
+      }
+     ]
+    }
+   ],
+   "playerGroups": [
+    {
+     "__ctor": "EnemyGroup",
+     "count": 2,
+     "anchorX": -4.6,
+     "anchorZ": 2.6,
+     "__positional": [
+      {
+       "__ref": "UnitDefinitions.Rifleman"
+      }
+     ]
+    },
+    {
+     "__ctor": "EnemyGroup",
+     "count": 2,
+     "anchorX": 4.6,
+     "anchorZ": 2.6,
+     "__positional": [
+      {
+       "__ref": "UnitDefinitions.Rifleman"
+      }
+     ]
+    }
+   ],
+   "enemyGroups": [
+    {
+     "__ctor": "EnemyGroup",
+     "count": 3,
+     "anchorX": 19.0,
+     "__positional": [
+      {
+       "__ref": "UnitDefinitions.CitadelSovereign"
+      }
+     ]
+    }
+   ],
+   "levelBase": 0
+  },
+  "LevelDemolitionTest": {
+   "__ctor": "LevelDefinition",
+   "id": "level_test_demolition",
+   "displayName": "TEST \u2014 Demolition",
+   "levelNumber": 19,
+   "levelGoal": "Debug sandbox: flatten a structure in one volley and watch it come down",
+   "background": {
+    "__ref": "BackgroundDefinitions.Winter"
+   },
+   "isTestLevel": true,
+   "structures": [
+    {
+     "__ctor": "StructurePlacement",
+     "x": -9.5,
+     "y": 0.0,
+     "z": 0.0,
+     "__positional": [
+      "player_tank",
+      {
+       "__ref": "StructureDefinitions.PlayerTank"
+      }
+     ]
+    },
+    {
+     "__ctor": "StructurePlacement",
+     "x": 3.0,
+     "y": 0.0,
+     "z": 0.0,
+     "__positional": [
+      "d_tower",
+      {
+       "__ref": "StructureDefinitions.WatchTower"
+      }
+     ]
+    },
+    {
+     "__ctor": "StructurePlacement",
+     "x": 6.5,
+     "y": 0.0,
+     "z": 0.0,
+     "__positional": [
+      "d_post",
+      {
+       "__ref": "StructureDefinitions.GarrisonPost"
+      }
+     ]
+    }
+   ],
+   "playerGroups": [
+    {
+     "__ctor": "EnemyGroup",
+     "count": 4,
+     "anchorX": -7.2,
+     "__positional": [
+      {
+       "__ref": "UnitDefinitions.RocketTrooper"
+      }
+     ]
+    },
+    {
+     "__ctor": "EnemyGroup",
+     "count": 2,
+     "anchorX": -5.9,
+     "__positional": [
+      {
+       "__ref": "UnitDefinitions.Engineer"
+      }
+     ]
+    },
+    {
+     "__ctor": "EnemyGroup",
+     "count": 2,
+     "anchorX": -4.9,
+     "__positional": [
+      {
+       "__ref": "UnitDefinitions.MortarTeam"
+      }
+     ]
+    }
+   ],
+   "enemyGroups": [
+    {
+     "__ctor": "EnemyGroup",
+     "count": 3,
+     "anchorX": 19.0,
+     "__positional": [
+      {
+       "__ref": "UnitDefinitions.CitadelSovereign"
+      }
+     ]
+    }
+   ],
+   "levelBase": 0
+  },
+  "LevelBastionLayoutTest": {
+   "__ctor": "LevelDefinition",
+   "id": "level_test_bastion_layout",
+   "displayName": "TEST \u2014 Bastion Layout",
+   "levelNumber": 20,
+   "levelGoal": "Debug sandbox: stepped bastion, garrison rows, two heroes at the foot",
+   "background": {
+    "__ref": "BackgroundDefinitions.MountainsDusk"
+   },
+   "isTestLevel": true,
+   "structures": [
+    {
+     "__ctor": "StructurePlacement",
+     "x": -10.5,
+     "y": 0.0,
+     "z": 0.0,
+     "__positional": [
+      "player_tank",
+      {
+       "__ref": "StructureDefinitions.PlayerTank"
+      }
+     ]
+    },
+    {
+     "__ctor": "StructurePlacement",
+     "x": 3.2,
+     "y": 0.0,
+     "z": 0.0,
+     "__positional": [
+      "wing_l",
+      {
+       "__ref": "StructureDefinitions.FortressTierSmall"
+      }
+     ]
+    },
+    {
+     "__ctor": "StructurePlacement",
+     "x": 9.8,
+     "y": 0.0,
+     "z": 0.0,
+     "__positional": [
+      "wing_r",
+      {
+       "__ref": "StructureDefinitions.FortressTierSmall"
+      }
+     ]
+    },
+    {
+     "__ctor": "StructurePlacement",
+     "x": 6.5,
+     "y": 0.0,
+     "z": 0.0,
+     "__positional": [
+      "bas_base",
+      {
+       "__ref": "StructureDefinitions.FortressTierWide"
+      }
+     ]
+    },
+    {
+     "__ctor": "StructurePlacement",
+     "x": 6.5,
+     "y": 0.8,
+     "z": 0.0,
+     "restsOn": "bas_base",
+     "__positional": [
+      "bas_mid",
+      {
+       "__ref": "StructureDefinitions.FortressTier"
+      }
+     ]
+    },
+    {
+     "__ctor": "StructurePlacement",
+     "x": 5.4,
+     "y": 1.6,
+     "z": 0.0,
+     "restsOn": "bas_mid",
+     "__positional": [
+      "top_l",
+      {
+       "__ref": "StructureDefinitions.FortressTierSmall"
+      }
+     ]
+    },
+    {
+     "__ctor": "StructurePlacement",
+     "x": 7.6,
+     "y": 1.6,
+     "z": 0.0,
+     "restsOn": "bas_mid",
+     "__positional": [
+      "top_r",
+      {
+       "__ref": "StructureDefinitions.FortressTierSmall"
+      }
+     ]
+    }
+   ],
+   "playerGroups": [
+    {
+     "__ctor": "EnemyGroup",
+     "count": 2,
+     "anchorX": -10.5,
+     "anchorZ": 0.12,
+     "standingOnStructureId": "player_tank",
+     "__positional": [
+      {
+       "__ref": "UnitDefinitions.Rifleman"
+      }
+     ]
+    },
+    {
+     "__ctor": "EnemyGroup",
+     "count": 6,
+     "anchorX": -8.0,
+     "__positional": [
+      {
+       "__ref": "UnitDefinitions.Rifleman"
+      }
+     ]
+    },
+    {
+     "__ctor": "EnemyGroup",
+     "count": 2,
+     "anchorX": -6.4,
+     "__positional": [
+      {
+       "__ref": "UnitDefinitions.RocketTrooper"
+      }
+     ]
+    }
+   ],
+   "enemyGroups": [
+    {
+     "__ctor": "EnemyGroup",
+     "count": 3,
+     "anchorX": 3.2,
+     "anchorZ": 0.12,
+     "standingOnStructureId": "wing_l",
+     "__positional": [
+      {
+       "__ref": "UnitDefinitions.EnemyRifleman"
+      }
+     ]
+    },
+    {
+     "__ctor": "EnemyGroup",
+     "count": 3,
+     "anchorX": 9.8,
+     "anchorZ": 0.12,
+     "standingOnStructureId": "wing_r",
+     "__positional": [
+      {
+       "__ref": "UnitDefinitions.EnemyRifleman"
+      }
+     ]
+    },
+    {
+     "__ctor": "EnemyGroup",
+     "count": 8,
+     "anchorX": 6.5,
+     "anchorZ": 0.12,
+     "standingOnStructureId": "bas_base",
+     "__positional": [
+      {
+       "__ref": "UnitDefinitions.EnemyRifleman"
+      }
+     ]
+    },
+    {
+     "__ctor": "EnemyGroup",
+     "count": 5,
+     "anchorX": 6.5,
+     "anchorZ": 0.12,
+     "standingOnStructureId": "bas_mid",
+     "__positional": [
+      {
+       "__ref": "UnitDefinitions.EnemyMachineGunner"
+      }
+     ]
+    },
+    {
+     "__ctor": "EnemyGroup",
+     "count": 3,
+     "anchorX": 5.4,
+     "anchorZ": 0.12,
+     "standingOnStructureId": "top_l",
+     "__positional": [
+      {
+       "__ref": "UnitDefinitions.EnemySniper"
+      }
+     ]
+    },
+    {
+     "__ctor": "EnemyGroup",
+     "count": 3,
+     "anchorX": 7.6,
+     "anchorZ": 0.12,
+     "standingOnStructureId": "top_r",
+     "__positional": [
+      {
+       "__ref": "UnitDefinitions.EnemySniper"
+      }
+     ]
+    },
+    {
+     "__ctor": "EnemyGroup",
+     "count": 2,
+     "anchorX": 0.6,
+     "anchorZ": 1.0,
+     "__positional": [
+      {
+       "__ref": "UnitDefinitions.EnemyHeavyRifleman"
+      }
+     ]
+    },
+    {
+     "__ctor": "EnemyGroup",
+     "count": 2,
+     "anchorX": -1.0,
+     "anchorZ": 1.0,
+     "__positional": [
+      {
+       "__ref": "UnitDefinitions.EnemyRifleman"
+      }
+     ]
+    }
+   ],
+   "levelBase": 0
+  },
+  "LevelDamageMarksTest": {
+   "__ctor": "LevelDefinition",
+   "id": "level_test_damage_marks",
+   "displayName": "TEST \u2014 Damage Marks",
+   "levelNumber": 29,
+   "levelGoal": "Debug sandbox: pound one wall and watch it shed piece by piece",
+   "background": {
+    "__ref": "BackgroundDefinitions.Winter"
+   },
+   "isTestLevel": true,
+   "structures": [
+    {
+     "__ctor": "StructurePlacement",
+     "x": -9.5,
+     "y": 0.0,
+     "z": 0.0,
+     "__positional": [
+      "player_tank",
+      {
+       "__method": "let",
+       "__on": {
+        "__ref": "StructureDefinitions.PlayerTank"
+       },
+       "__param": "tank",
+       "__body": {
+        "__ctor": "tank.copy",
+        "cannon": {
+         "__method": "copy",
+         "__on": {
+          "__ref": "tank.cannon"
+         },
+         "__args": {
+          "ammoPerBattle": 999
+         },
+         "__safe": true
+        }
+       }
+      }
+     ]
+    },
+    {
+     "__ctor": "StructurePlacement",
+     "x": 6.5,
+     "y": 0.0,
+     "z": 0.0,
+     "hpScale": 4.0,
+     "__positional": [
+      "dm_wall",
+      {
+       "__ref": "StructureDefinitions.FortressTierWide"
+      }
+     ]
+    }
+   ],
+   "playerGroups": [
+    {
+     "__ctor": "EnemyGroup",
+     "count": 2,
+     "anchorX": -8.0,
+     "__positional": [
+      {
+       "__ref": "UnitDefinitions.Grenadier"
+      }
+     ]
+    },
+    {
+     "__ctor": "EnemyGroup",
+     "count": 1,
+     "anchorX": -7.2,
+     "__positional": [
+      {
+       "__ref": "UnitDefinitions.RocketTrooper"
+      }
+     ]
+    }
+   ],
+   "enemyGroups": [
+    {
+     "__ctor": "EnemyGroup",
+     "count": 2,
+     "anchorX": 19.0,
+     "__positional": [
+      {
+       "__ref": "UnitDefinitions.CitadelSovereign"
+      }
+     ]
+    }
+   ],
+   "levelBase": 0
+  }
+ },
+ "stages": {
+  "ValleyFront": {
+   "__ctor": "StageDefinition",
+   "id": "stage_valley",
+   "displayName": "Valley Front",
+   "tagline": "Patrols, garrisons and the first fortified positions",
+   "levels": [
+    {
+     "__ref": "LevelDefinitions.Level1"
+    },
+    {
+     "__ref": "LevelDefinitions.Level2"
+    },
+    {
+     "__ref": "LevelDefinitions.Level3"
+    }
+   ],
+   "starsToUnlock": 0,
+   "unlockRewardId": "sniper"
+  },
+  "EnemyStronghold": {
+   "__ctor": "StageDefinition",
+   "id": "stage_stronghold",
+   "displayName": "Enemy Stronghold",
+   "tagline": "Towers, bunkers and a keep \u2014 bring the big guns",
+   "levels": [
+    {
+     "__ref": "LevelDefinitions.Level4"
+    },
+    {
+     "__ref": "LevelDefinitions.Level5"
+    },
+    {
+     "__ref": "LevelDefinitions.Level6"
+    }
+   ],
+   "starsToUnlock": 4,
+   "unlockRewardId": "rocket_trooper"
+  },
+  "AshfallCity": {
+   "__ctor": "StageDefinition",
+   "id": "stage_city",
+   "displayName": "Ashfall City",
+   "tagline": "Street assaults, shifting wind and whatever is guarding the hall",
+   "levels": [
+    {
+     "__ref": "LevelDefinitions.Level7"
+    },
+    {
+     "__ref": "LevelDefinitions.Level8"
+    },
+    {
+     "__ref": "LevelDefinitions.Level9"
+    }
+   ],
+   "starsToUnlock": 8,
+   "unlockRewardId": "engineer"
+  },
+  "Frostline": {
+   "__ctor": "StageDefinition",
+   "id": "stage_frostline",
+   "displayName": "Frostline",
+   "tagline": "Reinforced columns, gunships, and the Legion's command post",
+   "levels": [
+    {
+     "__ref": "LevelDefinitions.Level10"
+    },
+    {
+     "__ref": "LevelDefinitions.Level11"
+    },
+    {
+     "__ref": "LevelDefinitions.Level12"
+    }
+   ],
+   "starsToUnlock": 12,
+   "unlockRewardId": "mortar_team"
+  }
+ },
+ "levelOrder": [
+  {
+   "__ref": "Level1"
+  },
+  {
+   "__ref": "Level2"
+  },
+  {
+   "__ref": "Level3"
+  },
+  {
+   "__ref": "Level4"
+  },
+  {
+   "__ref": "Level5"
+  },
+  {
+   "__ref": "Level6"
+  },
+  {
+   "__ref": "Level7"
+  },
+  {
+   "__ref": "Level8"
+  },
+  {
+   "__ref": "Level9"
+  },
+  {
+   "__ref": "Level10"
+  },
+  {
+   "__ref": "Level11"
+  },
+  {
+   "__ref": "Level12"
+  },
+  {
+   "__ref": "LevelTierCollapseTest"
+  },
+  {
+   "__ref": "LevelUnitParadeTest"
+  },
+  {
+   "__ref": "LevelStructureParadeTest"
+  },
+  {
+   "__ref": "LevelStructureParadeTestB"
+  },
+  {
+   "__ref": "LevelNaturalParadeTest"
+  },
+  {
+   "__ref": "LevelOutpostTowerParadeTest"
+  },
+  {
+   "__ref": "LevelDemolitionTest"
+  },
+  {
+   "__ref": "LevelBastionLayoutTest"
+  },
+  {
+   "__ref": "LevelRosterSmall"
+  },
+  {
+   "__ref": "LevelRosterMedium"
+  },
+  {
+   "__ref": "LevelRosterLarge"
+  },
+  {
+   "__ref": "LevelRosterSmallVsLg"
+  },
+  {
+   "__ref": "LevelRosterLargeVsSm"
+  },
+  {
+   "__ref": "LevelGroupingOne"
+  },
+  {
+   "__ref": "LevelGroupingTwo"
+  },
+  {
+   "__ref": "LevelGroupingSeven"
+  },
+  {
+   "__ref": "LevelDamageMarksTest"
+  }
+ ],
+ "stageOrder": [
+  {
+   "__ref": "ValleyFront"
+  },
+  {
+   "__ref": "EnemyStronghold"
+  },
+  {
+   "__ref": "AshfallCity"
+  },
+  {
+   "__ref": "Frostline"
+  }
+ ],
+ "unparsed": []
+}

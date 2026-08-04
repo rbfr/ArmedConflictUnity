@@ -1,0 +1,89 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5b0d9d07915ade0a58fba81655b19cb0, type: 3}
+  m_Name: LevelOutpostTowerParadeTest
+  m_EditorClassIdentifier: 
+  id: level_test_outpost_tower_parade
+  displayName: "TEST \u2014 Outpost & Tower"
+  levelNumber: 18
+  levelGoal: 'Debug sandbox: outpost and the assembled two-part tower'
+  enemyGroups:
+  - definition: {fileID: 11400000, guid: e2f345bdab5634c49a5e289daed390f3, type: 2}
+    count: 3
+    anchorX: 19
+    anchorZ: 0
+    standingOnStructureId: 
+    advancePerTurn: 0
+  structures:
+  - id: player_tank
+    definition: {fileID: 11400000, guid: 5d4cd70c32b12f2429c5cbd2a376b2ba, type: 2}
+    x: -14
+    y: 0
+    z: 0
+    collapseWith: 
+    restsOn: 
+    standWidth: -1
+    hasStandWidth: 0
+    hpScale: 1
+  - id: o_outpost
+    definition: {fileID: 11400000, guid: 9e4a843ea184e52d38fc6e753a77a825, type: 2}
+    x: -3.4
+    y: 0
+    z: 0
+    collapseWith: 
+    restsOn: 
+    standWidth: -1
+    hasStandWidth: 0
+    hpScale: 1
+  - id: o_towbase
+    definition: {fileID: 11400000, guid: 317e2cd76dce7a9cfa56a62635184cbc, type: 2}
+    x: 3.2
+    y: 0
+    z: 0
+    collapseWith: 
+    restsOn: 
+    standWidth: -1
+    hasStandWidth: 0
+    hpScale: 1
+  - id: o_towtop
+    definition: {fileID: 11400000, guid: a289ee6ee076f6213a44bbffcb15cc90, type: 2}
+    x: 3.2
+    y: 0.8
+    z: 0
+    collapseWith: 
+    restsOn: o_towbase
+    standWidth: -1
+    hasStandWidth: 0
+    hpScale: 1
+  playerGroups:
+  - definition: {fileID: 11400000, guid: 42221a45b5be3eb57b1b2bd28b9aaac0, type: 2}
+    count: 2
+    anchorX: -4.6
+    anchorZ: 2.6
+    standingOnStructureId: 
+    advancePerTurn: 0
+  - definition: {fileID: 11400000, guid: 42221a45b5be3eb57b1b2bd28b9aaac0, type: 2}
+    count: 2
+    anchorX: 4.6
+    anchorZ: 2.6
+    standingOnStructureId: 
+    advancePerTurn: 0
+  background: {fileID: 11400000, guid: 3fa14de554194d444b3254b308e3bb7f, type: 2}
+  heliChance: 0
+  props: []
+  levelBase: 0
+  deployBudget: 0
+  bossPhases: []
+  windAccelZ: 0
+  reinforcementWaves: []
+  staticCamera: 0
+  isTestLevel: 1

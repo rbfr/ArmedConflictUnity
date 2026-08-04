@@ -1,0 +1,66 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d3e2303ed6015478fbc5210d418f8914, type: 3}
+  m_Name: Outpost
+  m_EditorClassIdentifier: 
+  id: outpost
+  displayName: Outpost
+  modelAsset: models/outpost.glb
+  maxHp: 90
+  size: 2
+  isPlayerSide: 0
+  modelAbsoluteScale: 1
+  modelScaleUnits: 2.5
+  standWidth: 1.5
+  deckStandZOffset: 0
+  hitWidth: 3.25
+  hasHitWidth: 1
+  deckY: 1.4
+  hasDeckY: 1
+  worldScale: 2.5
+  cannon:
+    damage: 0
+    splashRadius: 0
+    structureDamageMultiplier: 0
+    muzzleOffsetX: 0
+    muzzleOffsetY: 0
+    velocityBoost: 1.12
+    ammoPerBattle: 2
+  hasCannon: 0
+  flagMount:
+    offsetX: 0.65
+    offsetY: 1.4
+    model: models/flag_pennant.glb
+    scale: 2.25
+  hasFlagMount: 1
+  damageChunks:
+  - offsetX: 0
+    offsetY: 0.5075
+    offsetZ: 1.1999999
+    sizeX: 2.6
+    sizeY: 0.34000003
+    sizeZ: 0.615
+    pieces: 4
+  - offsetX: -0.16000001
+    offsetY: 1.35
+    offsetZ: -0.52
+    sizeX: 2.6399999
+    sizeY: 0.29999998
+    sizeZ: 2.08
+    pieces: 2
+  - offsetX: 1.2800001
+    offsetY: 0.5
+    offsetZ: 0.46999997
+    sizeX: 0.64000005
+    sizeY: 1
+    sizeZ: 0.65999997
+    pieces: 2

@@ -1,0 +1,113 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5b0d9d07915ade0a58fba81655b19cb0, type: 3}
+  m_Name: LevelTierCollapseTest
+  m_EditorClassIdentifier: 
+  id: level_test_tier_collapse
+  displayName: "TEST \u2014 Tier Collapse"
+  levelNumber: 13
+  levelGoal: 'Debug sandbox: bring the tiers down and watch how they fall'
+  enemyGroups:
+  - definition: {fileID: 11400000, guid: 0cc2a054cb1b0b38086ae4f985d09207, type: 2}
+    count: 5
+    anchorX: 7.5
+    anchorZ: 0.12
+    standingOnStructureId: tier1
+    advancePerTurn: 0
+  - definition: {fileID: 11400000, guid: c7126b62e544121fe916bb99493e2264, type: 2}
+    count: 4
+    anchorX: 7.5
+    anchorZ: 0.12
+    standingOnStructureId: tier2
+    advancePerTurn: 0
+  - definition: {fileID: 11400000, guid: db1f649e9127f6c1b8ed266c10d64185, type: 2}
+    count: 3
+    anchorX: 7.5
+    anchorZ: 0.12
+    standingOnStructureId: tier3
+    advancePerTurn: 0
+  - definition: {fileID: 11400000, guid: e2f345bdab5634c49a5e289daed390f3, type: 2}
+    count: 3
+    anchorX: 19
+    anchorZ: 0
+    standingOnStructureId: 
+    advancePerTurn: 0
+  structures:
+  - id: player_tank
+    definition: {fileID: 11400000, guid: 5d4cd70c32b12f2429c5cbd2a376b2ba, type: 2}
+    x: -6.5
+    y: 0
+    z: 0
+    collapseWith: 
+    restsOn: 
+    standWidth: -1
+    hasStandWidth: 0
+    hpScale: 1
+  - id: tier1
+    definition: {fileID: 11400000, guid: 6be4025f7b305743f9d8b1a40fed76d9, type: 2}
+    x: 7.5
+    y: 0
+    z: 0
+    collapseWith: 
+    restsOn: 
+    standWidth: -1
+    hasStandWidth: 0
+    hpScale: 1
+  - id: tier2
+    definition: {fileID: 0}
+    x: 7.5
+    y: 0.8
+    z: 0
+    collapseWith: 
+    restsOn: tier1
+    standWidth: -1
+    hasStandWidth: 0
+    hpScale: 1
+  - id: tier3
+    definition: {fileID: 11400000, guid: 404b91b6136391ed2a3e6a523323aecb, type: 2}
+    x: 7.5
+    y: 1.6
+    z: 0
+    collapseWith: 
+    restsOn: tier2
+    standWidth: -1
+    hasStandWidth: 0
+    hpScale: 1
+  playerGroups:
+  - definition: {fileID: 11400000, guid: 42221a45b5be3eb57b1b2bd28b9aaac0, type: 2}
+    count: 2
+    anchorX: -10
+    anchorZ: 0.12
+    standingOnStructureId: player_tank
+    advancePerTurn: 0
+  - definition: {fileID: 11400000, guid: 78df349efe93c4808aaf91ecd66e5ee7, type: 2}
+    count: 6
+    anchorX: -7.5
+    anchorZ: 0
+    standingOnStructureId: 
+    advancePerTurn: 0
+  - definition: {fileID: 11400000, guid: 5cd89868ef7ce0884a623d1199a379f2, type: 2}
+    count: 4
+    anchorX: -6
+    anchorZ: 0
+    standingOnStructureId: 
+    advancePerTurn: 0
+  background: {fileID: 11400000, guid: 3fa14de554194d444b3254b308e3bb7f, type: 2}
+  heliChance: 0
+  props: []
+  levelBase: 0
+  deployBudget: 0
+  bossPhases: []
+  windAccelZ: 0
+  reinforcementWaves: []
+  staticCamera: 0
+  isTestLevel: 1

@@ -1,0 +1,24 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1ee3b25b030832876ac636c4c05c33f0, type: 3}
+  m_Name: EnemyStronghold
+  m_EditorClassIdentifier: 
+  id: stage_stronghold
+  displayName: Enemy Stronghold
+  tagline: "Towers, bunkers and a keep \u2014 bring the big guns"
+  levels:
+  - {fileID: 11400000, guid: 7639fd788b95975ab8eb6df851cdc9da, type: 2}
+  - {fileID: 11400000, guid: 3ff93ebdc2163fc9d960414d27ed9744, type: 2}
+  - {fileID: 11400000, guid: a9187127c89d645ec8455f7ffac3d030, type: 2}
+  starsToUnlock: 4
+  unlockRewardId: rocket_trooper
+  completionCoinBonus: 0

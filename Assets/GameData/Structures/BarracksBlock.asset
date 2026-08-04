@@ -1,0 +1,101 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d3e2303ed6015478fbc5210d418f8914, type: 3}
+  m_Name: BarracksBlock
+  m_EditorClassIdentifier: 
+  id: barracks_block
+  displayName: Barracks
+  modelAsset: models/barracks.glb
+  maxHp: 150
+  size: 1.625
+  isPlayerSide: 0
+  modelAbsoluteScale: 1
+  modelScaleUnits: 2.5
+  standWidth: 2.25
+  deckStandZOffset: 0
+  hitWidth: 2.5
+  hasHitWidth: 1
+  deckY: -1
+  hasDeckY: 0
+  worldScale: 2.5
+  cannon:
+    damage: 0
+    splashRadius: 0
+    structureDamageMultiplier: 0
+    muzzleOffsetX: 0
+    muzzleOffsetY: 0
+    velocityBoost: 1.12
+    ammoPerBattle: 2
+  hasCannon: 0
+  flagMount:
+    offsetX: 0
+    offsetY: 0
+    model: models/flag.glb
+    scale: 1
+  hasFlagMount: 0
+  damageChunks:
+  - offsetX: 0
+    offsetY: 2.5375
+    offsetZ: -0.675
+    sizeX: 1.27
+    sizeY: 0.925
+    sizeZ: 0.17000002
+    pieces: 3
+  - offsetX: 0
+    offsetY: 1.7125
+    offsetZ: 0.7
+    sizeX: 2.5
+    sizeY: 0.175
+    sizeZ: 0.175
+    pieces: 1
+  - offsetX: -1.1625
+    offsetY: 1.7125
+    offsetZ: 0
+    sizeX: 0.175
+    sizeY: 0.175
+    sizeZ: 1.375
+    pieces: 1
+  - offsetX: 1.1625
+    offsetY: 1.7125
+    offsetZ: 0
+    sizeX: 0.175
+    sizeY: 0.175
+    sizeZ: 1.375
+    pieces: 1
+  - offsetX: -0.75
+    offsetY: 1.1
+    offsetZ: 0.7125
+    sizeX: 0.45000002
+    sizeY: 0.29999998
+    sizeZ: 0.074999996
+    pieces: 1
+  - offsetX: 0.75
+    offsetY: 1.1
+    offsetZ: 0.7125
+    sizeX: 0.45000002
+    sizeY: 0.29999998
+    sizeZ: 0.074999996
+    pieces: 1
+  - offsetX: -1.1875
+    offsetY: 0.85
+    offsetZ: 0
+    sizeX: 0.125
+    sizeY: 1.1
+    sizeZ: 1.15
+    pieces: 1
+  - offsetX: 1.1875
+    offsetY: 0.85
+    offsetZ: 0
+    sizeX: 0.125
+    sizeY: 1.1
+    sizeZ: 1.15
+    pieces: 1

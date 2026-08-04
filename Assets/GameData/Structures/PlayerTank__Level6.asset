@@ -1,0 +1,45 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d3e2303ed6015478fbc5210d418f8914, type: 3}
+  m_Name: PlayerTank
+  m_EditorClassIdentifier: 
+  id: player_tank
+  displayName: Tank
+  modelAsset: models/placeholder_tank.glb
+  maxHp: 999
+  size: 0.6
+  isPlayerSide: 1
+  modelAbsoluteScale: 0
+  modelScaleUnits: 1.5
+  standWidth: 0.5
+  deckStandZOffset: 0
+  hitWidth: 1.8
+  hasHitWidth: 1
+  deckY: -1
+  hasDeckY: 0
+  worldScale: 1
+  cannon:
+    damage: 32
+    splashRadius: 0.8
+    structureDamageMultiplier: 3
+    muzzleOffsetX: 1.08
+    muzzleOffsetY: 0.72
+    velocityBoost: 1.12
+    ammoPerBattle: 6
+  hasCannon: 1
+  flagMount:
+    offsetX: 0
+    offsetY: 0
+    model: models/flag.glb
+    scale: 1
+  hasFlagMount: 0
+  damageChunks: []

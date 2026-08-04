@@ -1,0 +1,24 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1ee3b25b030832876ac636c4c05c33f0, type: 3}
+  m_Name: Frostline
+  m_EditorClassIdentifier: 
+  id: stage_frostline
+  displayName: Frostline
+  tagline: Reinforced columns, gunships, and the Legion's command post
+  levels:
+  - {fileID: 11400000, guid: d917509b85e9737e8a54a3ae84cc7b1e, type: 2}
+  - {fileID: 11400000, guid: 247253aff6f4ca35e891d93b0dabefed, type: 2}
+  - {fileID: 11400000, guid: e0791e75362d90896b4bc05f255393a0, type: 2}
+  starsToUnlock: 12
+  unlockRewardId: mortar_team
+  completionCoinBonus: 0

@@ -1,0 +1,167 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5b0d9d07915ade0a58fba81655b19cb0, type: 3}
+  m_Name: LevelBastionLayoutTest
+  m_EditorClassIdentifier: 
+  id: level_test_bastion_layout
+  displayName: "TEST \u2014 Bastion Layout"
+  levelNumber: 20
+  levelGoal: 'Debug sandbox: stepped bastion, garrison rows, two heroes at the foot'
+  enemyGroups:
+  - definition: {fileID: 11400000, guid: b51688fb293b69e5cab2885bcaa975b8, type: 2}
+    count: 3
+    anchorX: 3.2
+    anchorZ: 0.12
+    standingOnStructureId: wing_l
+    advancePerTurn: 0
+  - definition: {fileID: 11400000, guid: b51688fb293b69e5cab2885bcaa975b8, type: 2}
+    count: 3
+    anchorX: 9.8
+    anchorZ: 0.12
+    standingOnStructureId: wing_r
+    advancePerTurn: 0
+  - definition: {fileID: 11400000, guid: b51688fb293b69e5cab2885bcaa975b8, type: 2}
+    count: 8
+    anchorX: 6.5
+    anchorZ: 0.12
+    standingOnStructureId: bas_base
+    advancePerTurn: 0
+  - definition: {fileID: 11400000, guid: 0cc2a054cb1b0b38086ae4f985d09207, type: 2}
+    count: 5
+    anchorX: 6.5
+    anchorZ: 0.12
+    standingOnStructureId: bas_mid
+    advancePerTurn: 0
+  - definition: {fileID: 11400000, guid: db1f649e9127f6c1b8ed266c10d64185, type: 2}
+    count: 3
+    anchorX: 5.4
+    anchorZ: 0.12
+    standingOnStructureId: top_l
+    advancePerTurn: 0
+  - definition: {fileID: 11400000, guid: db1f649e9127f6c1b8ed266c10d64185, type: 2}
+    count: 3
+    anchorX: 7.6
+    anchorZ: 0.12
+    standingOnStructureId: top_r
+    advancePerTurn: 0
+  - definition: {fileID: 11400000, guid: 75e1a253a474334eb8576862998ca8e1, type: 2}
+    count: 2
+    anchorX: 0.6
+    anchorZ: 1
+    standingOnStructureId: 
+    advancePerTurn: 0
+  - definition: {fileID: 11400000, guid: b51688fb293b69e5cab2885bcaa975b8, type: 2}
+    count: 2
+    anchorX: -1
+    anchorZ: 1
+    standingOnStructureId: 
+    advancePerTurn: 0
+  structures:
+  - id: player_tank
+    definition: {fileID: 11400000, guid: 5d4cd70c32b12f2429c5cbd2a376b2ba, type: 2}
+    x: -10.5
+    y: 0
+    z: 0
+    collapseWith: 
+    restsOn: 
+    standWidth: -1
+    hasStandWidth: 0
+    hpScale: 1
+  - id: wing_l
+    definition: {fileID: 11400000, guid: 404b91b6136391ed2a3e6a523323aecb, type: 2}
+    x: 3.2
+    y: 0
+    z: 0
+    collapseWith: 
+    restsOn: 
+    standWidth: -1
+    hasStandWidth: 0
+    hpScale: 1
+  - id: wing_r
+    definition: {fileID: 11400000, guid: 404b91b6136391ed2a3e6a523323aecb, type: 2}
+    x: 9.8
+    y: 0
+    z: 0
+    collapseWith: 
+    restsOn: 
+    standWidth: -1
+    hasStandWidth: 0
+    hpScale: 1
+  - id: bas_base
+    definition: {fileID: 11400000, guid: 6be4025f7b305743f9d8b1a40fed76d9, type: 2}
+    x: 6.5
+    y: 0
+    z: 0
+    collapseWith: 
+    restsOn: 
+    standWidth: -1
+    hasStandWidth: 0
+    hpScale: 1
+  - id: bas_mid
+    definition: {fileID: 0}
+    x: 6.5
+    y: 0.8
+    z: 0
+    collapseWith: 
+    restsOn: bas_base
+    standWidth: -1
+    hasStandWidth: 0
+    hpScale: 1
+  - id: top_l
+    definition: {fileID: 11400000, guid: 404b91b6136391ed2a3e6a523323aecb, type: 2}
+    x: 5.4
+    y: 1.6
+    z: 0
+    collapseWith: 
+    restsOn: bas_mid
+    standWidth: -1
+    hasStandWidth: 0
+    hpScale: 1
+  - id: top_r
+    definition: {fileID: 11400000, guid: 404b91b6136391ed2a3e6a523323aecb, type: 2}
+    x: 7.6
+    y: 1.6
+    z: 0
+    collapseWith: 
+    restsOn: bas_mid
+    standWidth: -1
+    hasStandWidth: 0
+    hpScale: 1
+  playerGroups:
+  - definition: {fileID: 11400000, guid: 42221a45b5be3eb57b1b2bd28b9aaac0, type: 2}
+    count: 2
+    anchorX: -10.5
+    anchorZ: 0.12
+    standingOnStructureId: player_tank
+    advancePerTurn: 0
+  - definition: {fileID: 11400000, guid: 42221a45b5be3eb57b1b2bd28b9aaac0, type: 2}
+    count: 6
+    anchorX: -8
+    anchorZ: 0
+    standingOnStructureId: 
+    advancePerTurn: 0
+  - definition: {fileID: 11400000, guid: 78df349efe93c4808aaf91ecd66e5ee7, type: 2}
+    count: 2
+    anchorX: -6.4
+    anchorZ: 0
+    standingOnStructureId: 
+    advancePerTurn: 0
+  background: {fileID: 11400000, guid: ceacd19c49b3bcc34a39d64e003283c3, type: 2}
+  heliChance: 0
+  props: []
+  levelBase: 0
+  deployBudget: 0
+  bossPhases: []
+  windAccelZ: 0
+  reinforcementWaves: []
+  staticCamera: 0
+  isTestLevel: 1
