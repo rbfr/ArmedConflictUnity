@@ -128,6 +128,81 @@ public static class PortSelfTest
             Check(d2 < 1e-6f, "swept segment catches a target passed BETWEEN two ticks");
         }
 
+        // --- GameState / entities
+        {
+            // Records must behave like Kotlin data classes: `with` = copy(), value equality.
+            var u = new UnitEntity(1, null, 1f, 0f, 0f, 32, true);
+            var moved = u with { X = 5f };
+            Check(u.X == 1f, "`with` does not mutate the original (copy semantics)");
+            Check(moved.X == 5f && moved.Hp == 32, "`with` carries unchanged fields through");
+            Check(u == new UnitEntity(1, null, 1f, 0f, 0f, 32, true), "records compare by value");
+            Check(u != moved, "records with different values are unequal");
+            Check(u.KnockbackAge == -1f, "knockback defaults to inactive (-1), not 0");
+
+            // MaxHp defaults to Hp by construction — the fix for hpScale placements whose
+            // damage fraction was taken against the DEFINITION's maxHp and went negative.
+            var s4 = new StructureEntity(1, null, 0f, 0f, 0f, 340);
+            Near(s4.HpFraction, 1f, 1e-6f, "a fresh structure reads full health");
+            var hurt = s4 with { Hp = 170 };
+            Near(hurt.HpFraction, 0.5f, 1e-6f, "damage is a fraction of the PLACEMENT's max hp");
+            var scaled = new StructureEntity(2, null, 0f, 0f, 0f, 1360) { MaxHp = 1360 };
+            Near(scaled.HpFraction, 1f, 1e-6f, "a 4x hpScale placement still reads 1.0 at full health");
+            Check(StructureDamage.ShedChunkCount(scaled.HpFraction, 3) == 0,
+                  "a 4x placement sheds NOTHING at full health (the negative-fraction bug)");
+
+            // Shed curve: first group after ~1/(n+1) of the damage, last just before death.
+            Check(StructureDamage.ShedChunkCount(1.0f, 3) == 0, "full health sheds nothing");
+            Check(StructureDamage.ShedChunkCount(0.0f, 3) == 3, "destroyed sheds every group");
+            Check(StructureDamage.ShedChunkCount(0.5f, 3) == 2, "half health sheds two of three");
+            Check(StructureDamage.ShedChunkCount(-0.5f, 3) == 3, "over-damage clamps, never exceeds");
+
+            // IsVisuallyIdle — both traps that permanently disabled it in the Android build.
+            var idle = new GameState
+            {
+                Phase = GamePhase.Playing,
+                TurnPhase = TurnPhase.Aiming,
+            };
+            Check(idle.IsVisuallyIdle, "an empty playing/aiming state is visually idle");
+
+            var withRubble = idle with
+            {
+                Debris = new List<DebrisPiece>
+                {
+                    new(1, "x", false, 0, 0, 0, 0, 0, 0, 0, 0.2f, float.MaxValue) { Asleep = true },
+                },
+            };
+            Check(withRubble.IsVisuallyIdle,
+                  "SLEEPING rubble does not block idle (it persists for the whole level)");
+
+            var withLiveDebris = idle with
+            {
+                Debris = new List<DebrisPiece>
+                {
+                    new(1, "x", false, 0, 0, 0, 0, 0, 0, 0, 0.2f, 1f),
+                },
+            };
+            Check(!withLiveDebris.IsVisuallyIdle, "moving debris DOES block idle");
+
+            var settledWreck = idle with
+            {
+                Wrecks = new List<WreckEntity>
+                {
+                    new(1, "x", 0, 0, 0, 1, 1) { Age = GameState.WreckCollapseSeconds },
+                },
+            };
+            Check(settledWreck.IsVisuallyIdle,
+                  "a wreck past the COLLAPSE WINDOW does not block idle forever");
+
+            var collapsing = idle with
+            {
+                Wrecks = new List<WreckEntity> { new(1, "x", 0, 0, 0, 1, 1) { Age = 0.1f } },
+            };
+            Check(!collapsing.IsVisuallyIdle, "a still-collapsing wreck DOES block idle");
+
+            var gliding = idle with { CameraFollowXVelocity = 0.5f };
+            Check(!gliding.IsVisuallyIdle, "a camera still gliding blocks idle");
+        }
+
         Debug.Log($"[PortSelfTest] {(failed == 0 ? "ALL PASS" : $"{failed} FAILURES")}\n{Log}");
         if (failed > 0 && Application.isBatchMode) EditorApplication.Exit(1);
     }

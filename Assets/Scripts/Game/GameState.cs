@@ -1,0 +1,204 @@
+using System.Collections.Generic;
+using UnityEngine;
+using ArmedConflict.Data;
+
+namespace ArmedConflict.Game
+{
+    public enum GamePhase { Preview, Playing, Victory, Defeat }
+    public enum TurnSide { Player, Enemy }
+
+    public enum TurnPhase
+    {
+        PlayerScout,   // camera pans to the enemy side so the player sees the layout before aiming
+        Aiming,
+        EnemyWindup,
+        Resolving,
+    }
+
+    /// <summary>
+    /// Port of GameState.kt — the immutable state the whole tick operates on.
+    ///
+    /// A `record`, so `with` is Kotlin's `copy()` and value equality is preserved. Note the
+    /// Android build put this behind a StateFlow that conflated by equality, which is what made
+    /// a single never-settling float catastrophically expensive (see SpringFollow's rest
+    /// deadband). Unity has no StateFlow, so that particular blast radius is gone — but the
+    /// deadband stays, because a resting value should be bit-identical tick to tick regardless.
+    ///
+    /// Collections are exposed as IReadOnlyList: `with` gives shallow copies, so a mutable list
+    /// shared between two states would let a "previous" state change underneath the tick.
+    /// </summary>
+    public record GameState
+    {
+        // ---- level identity -------------------------------------------------------------
+        public int BattleId { get; init; }
+        public string LevelId { get; init; } = "";
+        public string LevelDisplayName { get; init; } = "";
+        public string LevelGoal { get; init; } = "";
+        public int LevelNumber { get; init; } = 1;
+        public int TotalLevels { get; init; } = 5;
+        public BackgroundDefinitionSO Background { get; init; }
+        public IReadOnlyList<PropPlacement> Props { get; init; } = new List<PropPlacement>();
+
+        // ---- progression / results ------------------------------------------------------
+        public int InitialPlayerCount { get; init; }
+        public bool PlayerMarchInProgress { get; init; }
+        public bool ReinforcementsSent { get; init; }
+        public int StarsEarned { get; init; }
+        public int CoinsEarned { get; init; }
+        public string CoinsBonusTag { get; init; }
+        public string UnitUnlockedName { get; init; }
+
+        // ---- entities -------------------------------------------------------------------
+        public IReadOnlyList<UnitEntity> PlayerUnits { get; init; } = new List<UnitEntity>();
+        public IReadOnlyList<UnitEntity> EnemyUnits { get; init; } = new List<UnitEntity>();
+        public IReadOnlyList<StructureEntity> Structures { get; init; } = new List<StructureEntity>();
+        public IReadOnlyList<ProjectileEntity> Projectiles { get; init; } = new List<ProjectileEntity>();
+        public IReadOnlyList<ExplosionEntity> Explosions { get; init; } = new List<ExplosionEntity>();
+        public IReadOnlyList<ScorchMark> Scorches { get; init; } = new List<ScorchMark>();
+        public IReadOnlyList<WreckEntity> Wrecks { get; init; } = new List<WreckEntity>();
+        public IReadOnlyList<DebrisPiece> Debris { get; init; } = new List<DebrisPiece>();
+        public IReadOnlyList<ImpactEntity> Impacts { get; init; } = new List<ImpactEntity>();
+        public IReadOnlyList<DyingUnitEntity> DyingUnits { get; init; } = new List<DyingUnitEntity>();
+        public IReadOnlyList<SkirmishEntity> Skirmishes { get; init; } = new List<SkirmishEntity>();
+        public HelicopterEntity Helicopter { get; init; }
+
+        // ---- BOUNDED round-robin slot pools ---------------------------------------------
+        // Never monotonic ids: the Android renderer's zero-disposal registries would grow
+        // without limit and accumulate per-frame callbacks, which was a real lag bug. Kept on
+        // the port because the id BANDS also guarantee raw ids stay globally unique for
+        // hit-tracking, which the tick depends on independently of any renderer.
+        public int NextScorchSlot { get; init; }
+        public int NextRubbleSlot { get; init; }
+        public int NextDebrisSlot { get; init; }
+        public int NextBulletSlot { get; init; }
+        public int NextRocketSlot { get; init; }
+        public int NextGrenadeSlot { get; init; }
+        public int NextShellSlot { get; init; }
+        public int NextExplosionSlot { get; init; }
+
+        // ---- turn flow ------------------------------------------------------------------
+        public GamePhase Phase { get; init; } = GamePhase.Preview;
+        public TurnSide TurnSide { get; init; } = TurnSide.Player;
+        public TurnPhase TurnPhase { get; init; } = TurnPhase.Aiming;
+        public float EnemyAimTimer { get; init; }
+        public float TurnHandoverDelay { get; init; }
+        public int TurnNumber { get; init; } = 1;
+
+        // ---- player armament ------------------------------------------------------------
+        public int TankShellsRemaining { get; init; }
+        public bool CannonArmed { get; init; } = true;
+        public IReadOnlyDictionary<ConsumableType, int> LoadedConsumables { get; init; }
+            = new Dictionary<ConsumableType, int>();
+        public bool AirstrikeArmed { get; init; }
+        public bool SmokeScreenArmed { get; init; }
+        public bool OverwatchFlareArmed { get; init; }
+        public AmmoType SelectedAmmo { get; init; } = AmmoType.Standard;
+        public IReadOnlyCollection<int> BurningEnemyIds { get; init; } = new HashSet<int>();
+
+        // ---- events ---------------------------------------------------------------------
+        public IReadOnlyCollection<int> TriggeredBossPhases { get; init; } = new HashSet<int>();
+        public string BossAnnouncement { get; init; }
+        public float BossAnnouncementTimer { get; init; }
+        public IReadOnlyCollection<int> TriggeredReinforcementWaves { get; init; } = new HashSet<int>();
+        public float WindAccelZ { get; init; }
+        public string WindShiftAnnouncement { get; init; }
+        public float WindShiftAnnouncementTimer { get; init; }
+
+        // ---- tallies --------------------------------------------------------------------
+        public IReadOnlyDictionary<int, Vector3> EnemyAimVelocities { get; init; }
+            = new Dictionary<int, Vector3>();
+        public int LastPlayerVolleyKills { get; init; }
+        public int LastEnemyVolleyKills { get; init; }
+        public int TotalPlayerKills { get; init; }
+        public int TotalEnemyKills { get; init; }
+        public int TotalWoundedHits { get; init; }
+        public int TotalGroundImpacts { get; init; }
+        public int TotalStructureImpacts { get; init; }
+        public int TotalHeliHits { get; init; }
+        public int TotalHeliCrashes { get; init; }
+
+        // ---- camera ---------------------------------------------------------------------
+        // Everything here is computed IN THE TICK, never in a UI coroutine, so the camera and
+        // the projectiles it tracks advance atomically in one state. A separate follow loop
+        // beats against the tick clock and makes projectiles jitter on screen.
+        public float ShakeIntensity { get; init; }
+        public float? CameraFollowX { get; init; }
+        /// <summary>SpringFollow velocity for CameraFollowX — carried tick to tick so a
+        /// retargeted chase stays continuous instead of snapping. Reset to 0 whenever
+        /// CameraFollowX resets.</summary>
+        public float CameraFollowXVelocity { get; init; }
+        public float? CameraFollowZ { get; init; }
+        public float CameraFollowZVelocity { get; init; }
+
+        /// <summary>
+        /// Sticky once a REAL gameplay helicopter has been active, reserving camera margin for
+        /// its hover spot. Deliberately never resets mid-battle even if the heli retreats or
+        /// crashes: a one-time pull-out reads as "the camera noticed something", whereas a
+        /// margin that arrives, leaves and returns reads as broken.
+        /// </summary>
+        public bool HeliEverActive { get; init; }
+
+        /// <summary>
+        /// Separate, much slower blend for the heli margin's width contribution. HeliEverActive
+        /// flipping true often lands on the same tick as an unrelated zoom transition, and the
+        /// normal ~0.12s camera smoothing compresses the pair into one lurch (measured: a
+        /// ~3.4-unit swing became ~7.9). Its own long smooth time spreads the margin's arrival
+        /// so it cannot compound with whatever else the zoom is doing.
+        /// </summary>
+        public float HeliMarginBlend { get; init; }
+        public float HeliMarginBlendVelocity { get; init; }
+
+        /// <summary>
+        /// Stable per-level anchors — the mean x of each side's INITIAL roster, computed once at
+        /// load and never recomputed as units die. A live mean would drift and reintroduce
+        /// exactly the per-tick jitter the camera architecture exists to prevent.
+        /// </summary>
+        public float PlayerCamXAnchor { get; init; } = -6f;
+        public float EnemyCamXAnchor { get; init; } = 6f;
+
+        /// <summary>
+        /// A ZOOM CEILING ONLY. It used to pin camera X as well, which disabled the whole
+        /// per-phase choreography and left each phase sizing its zoom about a centre the camera
+        /// wasn't using — cropping the subject instead of framing it.
+        /// </summary>
+        public bool StaticCamera { get; init; }
+        public float StaticCamZ { get; init; } = 19f;
+
+        public float? VolleyCenterX { get; init; }
+        public float VolleyCenterXVelocity { get; init; }
+
+        // ---- derived --------------------------------------------------------------------
+
+        /// <summary>
+        /// True when nothing on screen is MOVING. Two traps are baked into this, both of which
+        /// silently disabled it permanently in the Android build:
+        ///
+        /// SLEEPING debris does not count — structure rubble persists for the whole level, so
+        /// `Debris.Count == 0` would be false forever the moment anything was destroyed.
+        ///
+        /// Wrecks are tested against the COLLAPSE WINDOW, not an arbitrary timeout. A wreck's
+        /// age stops advancing once it passes WreckCollapseSeconds, so it freezes at ~0.55 and
+        /// any threshold above that is never satisfied again.
+        /// </summary>
+        public bool IsVisuallyIdle
+        {
+            get
+            {
+                if (Phase != GamePhase.Playing || TurnPhase != TurnPhase.Aiming) return false;
+                if (Projectiles.Count > 0 || Explosions.Count > 0) return false;
+                if (DyingUnits.Count > 0 || Skirmishes.Count > 0) return false;
+                foreach (var d in Debris) if (!d.Asleep) return false;
+                foreach (var w in Wrecks) if (w.Age < WreckCollapseSeconds) return false;
+                foreach (var e in EnemyUnits) if (e.AdvanceRemaining > 0f) return false;
+                foreach (var p in PlayerUnits) if (p.MarchTargetX != null) return false;
+                // A camera still settling: SpringFollow carries velocity, and a rate change
+                // mid-glide is exactly where a judder would be most visible.
+                if (Mathf.Abs(CameraFollowXVelocity) > 1e-3f) return false;
+                if (Mathf.Abs(CameraFollowZVelocity) > 1e-3f) return false;
+                return true;
+            }
+        }
+
+        public const float WreckCollapseSeconds = 0.55f;
+    }
+}

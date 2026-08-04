@@ -86,6 +86,11 @@ compiles" is not evidence a port is faithful:
 DISPLAY=:1 $UNITY -batchmode -quit -projectPath . -executeMethod PortSelfTest.Run -logFile -
 ```
 
-Still to port: `GameState` (624 LOC), `ProgressStore`/`EconomyStore` (persistence rewrite), and
-`GameViewModel` (3,418 LOC — the single biggest item in the migration, and worth breaking up on
-the way across rather than transliterating whole).
+`GameState` and its entity types are ported as C# `record`s, so `with` is Kotlin's `copy()` and
+value equality carries over — the immutable-state architecture survives intact. Note Unity
+6000.0 compiles at C# 9: plain `record` works, `record class` (C# 10) does not, and `init`
+accessors need the one-line `IsExternalInit` shim in `Assets/Scripts/Game/`.
+
+Still to port: `ProgressStore`/`EconomyStore` (persistence rewrite) and `GameViewModel`
+(3,418 LOC — the single biggest item in the migration, and worth breaking up on the way across
+rather than transliterating whole).
