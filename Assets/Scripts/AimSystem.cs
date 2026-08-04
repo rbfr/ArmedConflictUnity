@@ -1,4 +1,5 @@
 using UnityEngine;
+using ArmedConflict.Game;
 
 /// <summary>
 /// Port of the aim power scale. These two constants are DERIVED FROM LEVEL GEOMETRY and must be

@@ -1,0 +1,83 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5b0d9d07915ade0a58fba81655b19cb0, type: 3}
+  m_Name: LevelRosterSmallVsLg
+  m_EditorClassIdentifier: 
+  id: level_test_roster_24
+  displayName: "TEST \u2014 Roster S v L"
+  levelNumber: 24
+  levelGoal: 'Sandbox: 6 v 26, 2 v 5 squads'
+  enemyGroups:
+  - definition: {fileID: 11400000, guid: b51688fb293b69e5cab2885bcaa975b8, type: 2}
+    count: 6
+    anchorX: 3.1
+    anchorZ: 0
+    standingOnStructureId: 
+    advancePerTurn: 0
+  - definition: {fileID: 11400000, guid: b51688fb293b69e5cab2885bcaa975b8, type: 2}
+    count: 5
+    anchorX: 4.8
+    anchorZ: 0
+    standingOnStructureId: 
+    advancePerTurn: 0
+  - definition: {fileID: 11400000, guid: 0cc2a054cb1b0b38086ae4f985d09207, type: 2}
+    count: 5
+    anchorX: 6.5
+    anchorZ: 0
+    standingOnStructureId: 
+    advancePerTurn: 0
+  - definition: {fileID: 11400000, guid: b51688fb293b69e5cab2885bcaa975b8, type: 2}
+    count: 5
+    anchorX: 8.2
+    anchorZ: 0
+    standingOnStructureId: 
+    advancePerTurn: 0
+  - definition: {fileID: 11400000, guid: c7126b62e544121fe916bb99493e2264, type: 2}
+    count: 5
+    anchorX: 9.9
+    anchorZ: 0
+    standingOnStructureId: 
+    advancePerTurn: 0
+  structures:
+  - id: player_tank
+    definition: {fileID: 11400000, guid: 5d4cd70c32b12f2429c5cbd2a376b2ba, type: 2}
+    x: -10.5
+    y: 0
+    z: 0
+    collapseWith: 
+    restsOn: 
+    standWidth: -1
+    hasStandWidth: 0
+    hpScale: 1
+  playerGroups:
+  - definition: {fileID: 11400000, guid: 42221a45b5be3eb57b1b2bd28b9aaac0, type: 2}
+    count: 3
+    anchorX: -8.35
+    anchorZ: 0
+    standingOnStructureId: 
+    advancePerTurn: 0
+  - definition: {fileID: 11400000, guid: 42221a45b5be3eb57b1b2bd28b9aaac0, type: 2}
+    count: 3
+    anchorX: -6.65
+    anchorZ: 0
+    standingOnStructureId: 
+    advancePerTurn: 0
+  background: {fileID: 11400000, guid: 3fa14de554194d444b3254b308e3bb7f, type: 2}
+  heliChance: 0
+  props: []
+  levelBase: 0
+  deployBudget: 0
+  bossPhases: []
+  windAccelZ: 0
+  reinforcementWaves: []
+  staticCamera: 0
+  isTestLevel: 1

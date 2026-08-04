@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Text;
 using UnityEngine;
+using ArmedConflict.Game;
 
 /// <summary>
 /// UNITY_SPIKE.md Step 4 — one drag-aimed shot.
