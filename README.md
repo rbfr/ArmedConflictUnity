@@ -20,8 +20,12 @@ kill criteria, and `GODOT_SPIKE.md` for the alternative under consideration.
 All four steps pass. Details, including the calibration traps found along the way, are in
 `SPIKE_RESULTS.md`.
 
-Still open before a go/no-go: GLES3 is unverified (Vulkan is first in the API list), and the SRP
-Batcher's draw-call collapse is unconfirmed (needs the editor Frame Debugger).
+**Unity was chosen on 2026-08-04.** Godot was considered and dropped without spiking.
+
+Both graphics APIs (Vulkan and GLES3) are verified on the device. The SRP Batcher's mechanism
+remains unconfirmed — wall-clock frame time cannot resolve it on Android, where the swap is tied
+to the display — but draw-call headroom is not in question: 3,101 renderers, 25x the real scene,
+render inside one 120Hz vsync quantum.
 
 `MIGRATION_SCOPE.md` inventories what a FULL port would cost — the 90% the spike deliberately
 did not touch. Short version: 13,270 lines of Kotlin, of which 7,851 port mechanically, 2,798

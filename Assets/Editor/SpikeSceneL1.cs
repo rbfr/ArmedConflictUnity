@@ -153,6 +153,10 @@ public static class SpikeSceneL1
             foreach (var r in shot.GetComponentsInChildren<MeshRenderer>())
                 r.sharedMaterial = r.gameObject.name.StartsWith("accent") ? shellNose : shellBody;
 
+            // BatcherProbe is deliberately NOT attached here. It uncaps the frame rate and
+            // toggles global SRP-batching state, which contaminates any interactive
+            // measurement sharing the scene — it made a drag report 66.7ms while running at
+            // 118fps. Attach it only in a dedicated measurement scene.
             var battle = camGo.AddComponent<Step4Battle>();
             var so = new SerializedObject(battle);
             so.FindProperty("cam").objectReferenceValue = cam;

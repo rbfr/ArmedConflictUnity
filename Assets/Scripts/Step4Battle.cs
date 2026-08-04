@@ -291,6 +291,7 @@ public class Step4Battle : MonoBehaviour
             $"worst idle {worstIdleDt * 1000f:F1} ms\n" +
             $"drag #{dragCount}: worst {thisDragWorst * 1000f:F1} ms (>20ms x{thisDragLong})\n" +
             $"all-time drag worst {worstDragDt * 1000f:F1} ms over {dragLongFrames} long frames\n" +
+            $"{BatcherProbe.Result}\n" +
             $"aim {power}\n{lastShot}\n{selfTest}", style);
     }
 }

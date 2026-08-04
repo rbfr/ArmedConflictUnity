@@ -23,6 +23,35 @@ public static class SpikeSetup
     const string RendererPath = SettingsDir + "/SpikeRenderer.asset";
     const string PipelinePath = SettingsDir + "/SpikePipeline.asset";
 
+    /// <summary>
+    /// Reverses the graphics API order so GLES3 is used instead of Vulkan. Step 1 tests BOTH
+    /// APIs on this PowerVR GPU, but with Vulkan first GLES3 never exercises — it is only
+    /// reached on a device where Vulkan is unavailable.
+    /// </summary>
+    public static void UseGles3First()
+    {
+        PlayerSettings.SetUseDefaultGraphicsAPIs(BuildTarget.Android, false);
+        PlayerSettings.SetGraphicsAPIs(BuildTarget.Android, new[]
+        {
+            GraphicsDeviceType.OpenGLES3,
+            GraphicsDeviceType.Vulkan,
+        });
+        AssetDatabase.SaveAssets();
+        Debug.Log("[SpikeSetup] graphics APIs now GLES3, Vulkan");
+    }
+
+    public static void UseVulkanFirst()
+    {
+        PlayerSettings.SetUseDefaultGraphicsAPIs(BuildTarget.Android, false);
+        PlayerSettings.SetGraphicsAPIs(BuildTarget.Android, new[]
+        {
+            GraphicsDeviceType.Vulkan,
+            GraphicsDeviceType.OpenGLES3,
+        });
+        AssetDatabase.SaveAssets();
+        Debug.Log("[SpikeSetup] graphics APIs now Vulkan, GLES3");
+    }
+
     /// <summary>Applies player settings only, without recreating the pipeline assets.</summary>
     public static void ApplyAppId()
     {

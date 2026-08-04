@@ -15,8 +15,16 @@ version=Vulkan 1.1.0 [1.634.2906]  srp=SpikePipeline
 The PowerVR driver line was the spike's biggest day-one risk (a live suspect in some of the
 stranger Filament behaviour the Android build has fought). Unity on Vulkan is clean on it.
 
-**GLES3 is still unverified.** Vulkan is first in the API list, so GLES3 only exercises where
-Vulkan is unavailable. Proving it needs a second build with the order reversed.
+**GLES3 also verified (2026-08-04)**, by building with the API order reversed:
+
+```
+[Batcher] gfx=OpenGLES3  medianFrame 8.331ms  (120 fps)
+[Step4] fired 82% at 45.0deg -> HIT unit 2 at x=4.40 hp=24 (flight 2.66s)
+```
+
+Full scene renders, physics and collision work, no errors. **Both graphics APIs are clean on
+this PowerVR GPU** — the API-stability kill criterion is fully retired, not half retired.
+The build is restored to Vulkan-first.
 
 ## Step 2 — the camera solve: PASS
 
@@ -81,9 +89,31 @@ bug that cost three separate investigations on Filament.
 The four-tone unit split (`skin*` / `trim*` / `accent*` / uniform) works as ordinary glTF
 materials assigned at build time — no runtime node-name override needed.
 
-**Not yet verified:** that the SRP Batcher is collapsing the per-material draw calls. `UnityStats`
-is editor-only and the Frame Debugger needs the editor GUI. 60 fps with headroom says it is not a
-problem; it does not confirm the mechanism.
+**Draw calls: enormous headroom, mechanism still unconfirmed.**
+
+Attempted on device by toggling `GraphicsSettings.useScriptableRenderPipelineBatching` at runtime
+and measuring median frame time, since `UnityStats` is editor-only and the Frame Debugger needs
+the editor GUI. **The approach does not work on Android**, and the reason is worth recording: the
+swap is tied to the display, so wall-clock frame time only ever lands on multiples of the panel
+period. Every result was quantised.
+
+```
+     19 units (125 renderers):  ON 8.333ms | OFF 8.333ms   <- 1 quantum, both
+  3,101 renderers (24 clones):  ON 8.333ms | OFF 8.333ms   <- STILL 1 quantum
+ ~20,000 renderers (160 clones): ON 25.035ms | OFF 16.670ms <- 3 quanta vs 2
+```
+
+The last row is ordering, not magnitude, and is not evidence the batcher is harmful — it is
+evidence the stopwatch has 8.33ms granularity. The mechanism needs the editor Frame Debugger.
+
+What this DID establish, and it is the practically important half: **3,101 renderers — 25x the
+real L1 scene — render inside a single 120Hz vsync quantum on this device.** Draw-call count is
+nowhere near being this game's problem, whatever the batcher is or is not doing.
+
+Two traps worth carrying: `Application.targetFrameRate = -1` on Android means PLATFORM DEFAULT,
+which measured as exactly 30fps and hid everything — use an explicit high number. And a probe
+that uncaps the frame rate and toggles global batching state must not share a scene with an
+interactive test; it made a drag report 66.7ms while the app ran at 118fps.
 
 ### The handedness bug — found, and worth the doc's warning
 
