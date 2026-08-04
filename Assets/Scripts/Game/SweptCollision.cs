@@ -38,12 +38,30 @@ namespace ArmedConflict.Game
         /// endpoint when the segment is ~zero-length (a round's very first tick).
         /// </summary>
         public static float SegmentDistanceSq(float ax, float ay, float bx, float by, float px, float py)
+            => ClosestPointOnSegment(ax, ay, bx, by, px, py, out _, out _);
+
+        /// <summary>
+        /// Closest point on the segment to (px,py), plus the squared distance to it.
+        ///
+        /// The POINT matters as much as the distance: a detonation is placed at the contact
+        /// point along this tick's flight path, not at the projectile's tick-end position, which
+        /// may have overshot well past the target. Splash blasts are centred there for the same
+        /// reason — otherwise a fast round's blast lands behind whatever it hit.
+        /// </summary>
+        public static float ClosestPointOnSegment(float ax, float ay, float bx, float by,
+                                                  float px, float py, out float cx, out float cy)
         {
             float abx = bx - ax, aby = by - ay;
             float lenSq = abx * abx + aby * aby;
-            if (lenSq < 0.0001f) return DistanceSq(px, py, ax, ay);
+            if (lenSq < 0.0001f)
+            {
+                cx = ax; cy = ay;
+                return DistanceSq(px, py, ax, ay);
+            }
             float t = Mathf.Clamp01(((px - ax) * abx + (py - ay) * aby) / lenSq);
-            return DistanceSq(px, py, ax + abx * t, ay + aby * t);
+            cx = ax + abx * t;
+            cy = ay + aby * t;
+            return DistanceSq(px, py, cx, cy);
         }
 
         /// <summary>Structures collide as an axis-aligned box matching their real footprint.</summary>

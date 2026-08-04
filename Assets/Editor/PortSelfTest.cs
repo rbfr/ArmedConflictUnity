@@ -351,6 +351,107 @@ public static class PortSelfTest
             }
         }
 
+        // --- CollisionSystem: the RESOLUTION ORDER, which is where the behaviour lives
+        {
+            var unitDef = ScriptableObject.CreateInstance<UnitDefinitionSO>();
+            unitDef.id = "t"; unitDef.maxHp = 32; unitDef.damage = 8;
+            var wallDef = ScriptableObject.CreateInstance<StructureDefinitionSO>();
+            wallDef.id = "wall"; wallDef.maxHp = 100; wallDef.size = 2f;
+            wallDef.hasHitWidth = true; wallDef.hitWidth = 2.4f; wallDef.isPlayerSide = false;
+
+            UnitEntity Enemy(int id, float x, float y, int hp = 32)
+                => new(id, unitDef, x, y, 0f, hp, false);
+            ProjectileEntity Shot(int id, float fromX, float fromY, float toX, float toY,
+                                  float splash = 0f, int dmg = 8)
+                => new(id, toX, toY, 0f, toX - fromX, toY - fromY, 0f, dmg, true)
+                   { PrevX = fromX, PrevY = fromY, PrevZ = 0f, SplashRadius = splash };
+
+            // A UNIT IN FRONT OF A WALL takes the round. Resolving structures first "shielded"
+            // any ground unit inside a wide structure's AABB, so front-rank defenders read as
+            // taking direct hits that dealt no damage.
+            var wall = new StructureEntity(100, wallDef, 5f, 1f, 0f, 100);
+            var inFront = Enemy(1, 5f, 0.3f);
+            var r1 = CollisionSystem.ResolveHits(
+                new[] { Shot(1, 5f, 3f, 5f, 0.3f) }, new[] { inFront },
+                new List<UnitEntity>(), new[] { wall });
+            Check(r1.UnitDamage.ContainsKey(1), "a unit standing inside a wall's box still takes the hit");
+            Check(!r1.StructureDamage.ContainsKey(100), "the wall behind it takes NO damage");
+
+            // A shot that strikes no unit is blocked by the wall.
+            var r2 = CollisionSystem.ResolveHits(
+                new[] { Shot(2, 5f, 3f, 5f, 1f) }, new List<UnitEntity>(),
+                new List<UnitEntity>(), new[] { wall });
+            Check(r2.StructureDamage.TryGetValue(100, out int wd) && wd == 8,
+                  "a shot hitting nothing but the wall damages it");
+
+            // OWN-SIDE structures never block — a garrison fires clean over its own fortress.
+            var playerWallDef = ScriptableObject.CreateInstance<StructureDefinitionSO>();
+            playerWallDef.id = "pw"; playerWallDef.size = 2f; playerWallDef.isPlayerSide = true;
+            playerWallDef.hasHitWidth = true; playerWallDef.hitWidth = 2.4f;
+            var ownWall = new StructureEntity(101, playerWallDef, 5f, 1f, 0f, 100);
+            var r3 = CollisionSystem.ResolveHits(
+                new[] { Shot(3, 5f, 3f, 5f, 1f) }, new List<UnitEntity>(),
+                new List<UnitEntity>(), new[] { ownWall });
+            Check(r3.StructureDamage.Count == 0, "a player shot passes through a PLAYER structure");
+
+            // Damage accumulates against CURRENT hp, not maxHp: a half-health unit must not
+            // soak a fresh unit's worth of hits.
+            var half = Enemy(2, 0f, 0.3f, hp: 8);
+            var r4 = CollisionSystem.ResolveHits(
+                new[] { Shot(4, 0f, 3f, 0f, 0.3f), Shot(5, 0f, 3f, 0f, 0.3f) },
+                new[] { half }, new List<UnitEntity>(), new List<StructureEntity>());
+            Check(r4.UnitDamage[2] == 8, "a second round does not pile onto an already-dead unit");
+            Check(r4.HitProjectileIds.Count == 1, "the second round is left free to fly on");
+
+            // The detonation lands at the CONTACT POINT, not the overshot tick-end position.
+            var far = Enemy(3, 0f, 0.5f);
+            var overshoot = Shot(6, 0f, 4f, 0f, -4f);
+            var r5 = CollisionSystem.ResolveHits(new[] { overshoot }, new[] { far },
+                                                 new List<UnitEntity>(), new List<StructureEntity>());
+            Check(r5.Detonations.Count == 1, "the swept hit produces one detonation");
+            Near(r5.Detonations[0].Y, 0.5f, 0.05f,
+                 "detonation sits at the contact point, not the tick-end position");
+
+            // Splash damages everyone in radius including the trigger target, and marks them
+            // for the knockback hop; a plain bullet marks nobody.
+            var a = Enemy(4, 0f, 0.3f); var b = Enemy(5, 0.6f, 0.3f); var c = Enemy(6, 4f, 0.3f);
+            var r6 = CollisionSystem.ResolveHits(
+                new[] { Shot(7, 0f, 3f, 0f, 0.3f, splash: 1.5f) },
+                new[] { a, b, c }, new List<UnitEntity>(), new List<StructureEntity>());
+            Check(r6.UnitDamage.ContainsKey(4) && r6.UnitDamage.ContainsKey(5),
+                  "splash catches the trigger target and its neighbour");
+            Check(!r6.UnitDamage.ContainsKey(6), "splash does not reach outside its radius");
+            Check(r6.ExplosiveHitUnitIds.Contains(5), "splash victims are marked for knockback");
+            Check(r1.ExplosiveHitUnitIds.Count == 0, "a plain bullet marks nobody for knockback");
+
+            // A splash weapon detonates on the ground rather than wasting into the dirt.
+            var ground = new ProjectileEntity(8, 2f, -0.1f, 0f, 0f, -5f, 0f, 8, true)
+                { PrevX = 2f, PrevY = 0.4f, SplashRadius = 1.5f };
+            var near = Enemy(7, 2.5f, 0.3f);
+            var r7 = CollisionSystem.ResolveHits(new[] { ground }, new[] { near },
+                                                 new List<UnitEntity>(), new List<StructureEntity>());
+            Check(r7.Detonations.Count == 1 && r7.Detonations[0].IsGroundBurst,
+                  "a splash round that hits nothing detonates on the ground");
+            Check(r7.UnitDamage.ContainsKey(7), "a ground burst still damages units in radius");
+
+            // Collapse propagation, transitively up a stack.
+            var tierDef = ScriptableObject.CreateInstance<StructureDefinitionSO>();
+            tierDef.id = "tier"; tierDef.size = 1f;
+            var t1 = new StructureEntity(1, tierDef, 0f, 0f, 0f, 10);
+            var t2 = new StructureEntity(2, tierDef, 0f, 1f, 0f, 10) { RestsOnId = 1 };
+            var t3 = new StructureEntity(3, tierDef, 0f, 2f, 0f, 10) { RestsOnId = 2 };
+            var linked = new StructureEntity(4, tierDef, 5f, 0f, 0f, 10) { CollapseWith = 1 };
+            var collapsed = CollisionSystem.PropagateCollapse(
+                new[] { t2, t3, linked }, new[] { 1 });
+            Check(collapsed.Contains(2) && collapsed.Contains(3),
+                  "destroying the base collapses the whole stack transitively");
+            Check(collapsed.Contains(4), "an explicit collapseWith partner comes down too");
+
+            var independent = new StructureEntity(5, tierDef, 9f, 0f, 0f, 10);
+            var c2 = CollisionSystem.PropagateCollapse(new[] { independent }, new[] { 1 });
+            Check(!c2.Contains(5), "an unrelated structure is left standing");
+        }
+
         Debug.Log($"[PortSelfTest] {(failed == 0 ? "ALL PASS" : $"{failed} FAILURES")}\n{Log}");
         if (failed > 0 && Application.isBatchMode) EditorApplication.Exit(1);
     }
