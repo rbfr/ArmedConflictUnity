@@ -452,6 +452,77 @@ public static class PortSelfTest
             Check(!c2.Contains(5), "an unrelated structure is left standing");
         }
 
+        // --- ProjectileSystem: stepping, culling, and above all the ORDER
+        {
+            var unitDef = ScriptableObject.CreateInstance<UnitDefinitionSO>();
+            unitDef.id = "t"; unitDef.maxHp = 32; unitDef.damage = 8;
+
+            var flying = new ProjectileEntity(1, 0f, 5f, 0f, 4f, 0f, 0f, 8, true);
+            var stepped = ProjectileSystem.StepAll(new[] { flying }, 1f / 60f, 0f);
+            Check(stepped.Count == 1, "stepping preserves the round");
+            Check(stepped[0].PrevX == 0f && stepped[0].PrevY == 5f,
+                  "the pre-step position is recorded as Prev (the swept collision segment)");
+            Check(stepped[0].X > 0f, "horizontal motion advances");
+            Check(stepped[0].Vy < 0f, "gravity is applied to vertical velocity");
+            Near(stepped[0].Age, 1f / 60f, 1e-6f, "age accumulates by dt");
+
+            Check(ProjectileSystem.ClampDt(1f) == ProjectileSystem.MaxTickSeconds,
+                  "a huge dt is clamped (never sub-stepped — hence swept collision)");
+
+            // THE ORDERING GUARANTEE: a round that crosses y=0 THROUGH a target on the same tick
+            // must register the hit. Cull runs last and honours the hit set, so the round is
+            // removed as a hit rather than silently vanishing into the floor.
+            var target = new UnitEntity(1, unitDef, 0f, 0.2f, 0f, 32, false);
+            var plunging = new ProjectileEntity(2, 0f, -0.3f, 0f, 0f, -8f, 0f, 8, true)
+                { PrevX = 0f, PrevY = 0.6f, PrevZ = 0f };
+            var hits = CollisionSystem.ResolveHits(new[] { plunging }, new[] { target },
+                                                   new List<UnitEntity>(), new List<StructureEntity>());
+            Check(hits.UnitDamage.ContainsKey(1),
+                  "a round crossing the floor THROUGH a target still registers the hit");
+            var afterCull = ProjectileSystem.Cull(new[] { plunging }, hits.HitProjectileIds,
+                                                  new List<UnitEntity>(), new[] { target },
+                                                  new List<StructureEntity>());
+            Check(afterCull.Count == 0, "and is then culled as a hit, not as a floor miss");
+
+            // A round that reaches the floor having hit nothing is a ground impact, then culled.
+            var missed = new ProjectileEntity(3, 1f, -0.1f, 0f, 0f, -8f, 0f, 8, true)
+                { PrevX = 1f, PrevY = 0.5f };
+            var noHits = new HashSet<int>();
+            var ground = ProjectileSystem.GroundImpacts(new[] { missed }, noHits);
+            Check(ground.Count == 1, "a round that reached the floor is a ground impact");
+            Check(ProjectileSystem.Cull(new[] { missed }, noHits, new List<UnitEntity>(),
+                                        new List<UnitEntity>(), new List<StructureEntity>()).Count == 0,
+                  "and is culled");
+            Check(ProjectileSystem.GroundImpacts(new[] { missed }, new HashSet<int> { 3 }).Count == 0,
+                  "a round that HIT something is not also counted as a ground impact");
+
+            // Side bounds: an overshoot can never hit anything, and must not hold the phase open.
+            var player = new UnitEntity(2, unitDef, -8f, 0f, 0f, 32, true);
+            var enemy = new UnitEntity(3, unitDef, 8f, 0f, 0f, 32, false);
+            var overshot = new ProjectileEntity(4, 50f, 5f, 0f, 9f, 0f, 0f, 8, true);
+            var inField = new ProjectileEntity(5, 3f, 5f, 0f, 9f, 0f, 0f, 8, true);
+            var kept = ProjectileSystem.Cull(new[] { overshot, inField }, noHits,
+                                             new[] { player }, new[] { enemy },
+                                             new List<StructureEntity>());
+            Check(kept.Count == 1 && kept[0].Id == 5, "a round far past the enemy is culled");
+
+            var behind = new ProjectileEntity(6, -50f, 5f, 0f, -9f, 0f, 0f, 8, false);
+            Check(ProjectileSystem.Cull(new[] { behind }, noHits, new[] { player }, new[] { enemy },
+                                        new List<StructureEntity>()).Count == 0,
+                  "a round far behind the player is culled too");
+
+            // Explosions: advance, then survive exactly ONE extra tick at progress 1.
+            var boom = new ExplosionEntity(1, 0f, 0f, 0f) { Progress = 0.9f };
+            var t1 = ProjectileSystem.AdvanceExplosions(new[] { boom }, 0.2f);
+            Check(t1.Count == 1 && Mathf.Approximately(t1[0].Progress, 1f),
+                  "an explosion reaching the end is HELD for one extra tick at progress 1");
+            var t2 = ProjectileSystem.AdvanceExplosions(t1, 0.2f);
+            Check(t2.Count == 0, "and is removed on the tick after that");
+            var mid = ProjectileSystem.AdvanceExplosions(
+                new[] { new ExplosionEntity(2, 0f, 0f, 0f) { Progress = 0.1f } }, 0.2f);
+            Check(mid.Count == 1 && mid[0].Progress > 0.1f, "an unfinished explosion keeps advancing");
+        }
+
         Debug.Log($"[PortSelfTest] {(failed == 0 ? "ALL PASS" : $"{failed} FAILURES")}\n{Log}");
         if (failed > 0 && Application.isBatchMode) EditorApplication.Exit(1);
     }

@@ -105,7 +105,8 @@ Kotlin's documented behaviour rather than transliterated whole.
 | level construction (`buildUnits`, `buildInitialState`) | ~250 | **done** — `LevelBuilder` |
 | aim + fire (`aimVelocity`, `onAimDragUpdate`, `onAimRelease`, `testAutoFire`) | ~350 | Step 4 covers the drag/solve path; the volley remains |
 | tick: combat core (`resolveHits`, collapse propagation) | ~200 | **done** — `CollisionSystem` |
-| tick: everything else (lines 1604-3376) | ~1,570 | projectile stepping, turn flow, cosmetic decay, camera |
+| tick: projectile stepping + culling | ~120 | **done** — `ProjectileSystem` |
+| tick: everything else | ~1,450 | turn flow, cosmetic decay, camera choreography, heli |
 | ragdolls + knockback (`ragdollFrom`, `applyDamageAndKnockback`) | ~160 | not started |
 | consumables + reinforcements | ~120 | not started |
 | battle lifecycle (`startBattle`, `jumpToLevel`, `restart`, `nextLevel`) | ~50 | not started |
