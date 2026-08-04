@@ -523,6 +523,63 @@ public static class PortSelfTest
             Check(mid.Count == 1 && mid[0].Progress > 0.1f, "an unfinished explosion keeps advancing");
         }
 
+        // --- TurnFlow
+        {
+            // Win/loss: structures are a damage objective, never a win condition.
+            Check(TurnFlow.ResolvePhase(0, 5) == GamePhase.Defeat, "no player units = defeat");
+            Check(TurnFlow.ResolvePhase(5, 0) == GamePhase.Victory, "no enemy units = victory");
+            Check(TurnFlow.ResolvePhase(5, 5) == GamePhase.Playing, "both alive = still playing");
+            Check(TurnFlow.ResolvePhase(0, 0) == GamePhase.Defeat,
+                  "a mutual wipe resolves as DEFEAT — the player check comes first");
+
+            // Stars: readable thresholds, not a formula.
+            Check(TurnFlow.StarsFor(10, 10) == 3, "no losses = 3 stars");
+            Check(TurnFlow.StarsFor(8, 10) == 3, "losing under a quarter still = 3 stars");
+            Check(TurnFlow.StarsFor(7, 10) == 2, "losing more than a quarter = 2 stars");
+            Check(TurnFlow.StarsFor(4, 10) == 2, "at 40% survival = 2 stars");
+            Check(TurnFlow.StarsFor(3, 10) == 1, "below 40% survival = 1 star");
+            Check(TurnFlow.StarsFor(1, 0) == 1, "a zero initial count cannot divide by zero");
+
+            // Volley gating — the door gunner and melee blocks come FIRST.
+            Check(TurnFlow.EvaluateVolley(3, 3, 0f, TurnSide.Player, 0, 0) == TurnFlow.VolleyGate.Busy,
+                  "rounds still in the air keep the volley busy");
+            Check(TurnFlow.EvaluateVolley(0, 3, 0f, TurnSide.Player, 0, 0) == TurnFlow.VolleyGate.JustLanded,
+                  "the volley emptying this tick starts the post-volley pause");
+            Check(TurnFlow.EvaluateVolley(0, 0, 0.8f, TurnSide.Player, 0, 0) == TurnFlow.VolleyGate.Pausing,
+                  "the pause runs down before handover");
+            Check(TurnFlow.EvaluateVolley(0, 0, 0f, TurnSide.Player, 0, 0) == TurnFlow.VolleyGate.ReadyToHandOver,
+                  "an empty sky and an expired pause hands the turn over");
+            Check(TurnFlow.EvaluateVolley(0, 0, 0f, TurnSide.Enemy, 2, 0) == TurnFlow.VolleyGate.Busy,
+                  "a door gunner mid-burst blocks handover even with an empty sky");
+            Check(TurnFlow.EvaluateVolley(0, 0, 0f, TurnSide.Player, 2, 0) == TurnFlow.VolleyGate.ReadyToHandOver,
+                  "the gunner block applies to the ENEMY turn only");
+            Check(TurnFlow.EvaluateVolley(0, 0, 0f, TurnSide.Player, 0, 1) == TurnFlow.VolleyGate.Busy,
+                  "an unresolved melee skirmish blocks handover");
+
+            // Victory award — the ORDERING contract, end to end through the real stores.
+            var lvl = ScriptableObject.CreateInstance<LevelDefinitionSO>();
+            lvl.id = "turnflow_level"; lvl.levelBase = 100;
+            ProgressStore.AllLevels = new List<LevelDefinitionSO> { lvl };
+            ProgressStore.ResetAll();
+
+            var first = TurnFlow.AwardVictory(lvl, survivors: 10, initialCount: 10);
+            Check(first.Stars == 3, "a clean win awards 3 stars");
+            Check(first.BonusTag == "Daily Bonus!",
+                  "the daily bonus overwrites the tag — only one banner is shown");
+            Check(first.Coins == 450 + 50, "first 3-star clear + daily = 450 + 50");
+            Check(ProgressStore.BestStars(lvl.id) == 3, "the star result is recorded");
+
+            var second = TurnFlow.AwardVictory(lvl, survivors: 10, initialCount: 10);
+            Check(second.Coins == 200, "a repeat clear pays the multiplier only, daily spent");
+            Check(second.BonusTag == null, "and carries no bonus banner");
+
+            ProgressStore.ResetAll();
+            Check(TurnFlow.AwardDefeat(lvl) == 15, "defeat still pays 15% of base");
+
+            ProgressStore.ResetAll();
+            ProgressStore.AllLevels = new List<LevelDefinitionSO>();
+        }
+
         Debug.Log($"[PortSelfTest] {(failed == 0 ? "ALL PASS" : $"{failed} FAILURES")}\n{Log}");
         if (failed > 0 && Application.isBatchMode) EditorApplication.Exit(1);
     }
