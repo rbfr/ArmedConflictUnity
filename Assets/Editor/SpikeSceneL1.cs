@@ -13,6 +13,11 @@ using UnityEngine;
 public static class SpikeSceneL1
 {
     const string ScenePath = "Assets/Scenes/Step3_L1.unity";
+    const string Step4Path = "Assets/Scenes/Step4_Shot.unity";
+
+    // Enemy unit transforms + their GAME-space (x,y), collected for the Step 4 collision set.
+    static readonly List<Transform> EnemyUnits = new();
+    static readonly List<Vector2> EnemyXY = new();
 
     // Carried from CLAUDE.md — derived values, not taste.
     const float UnitScaleUnits = 0.48f;                       // UnitGeometry.UNIT_SCALE_UNITS
@@ -41,8 +46,13 @@ public static class SpikeSceneL1
         return result;
     }
 
-    public static void Build()
+    public static void Build() => BuildScene(step4: false);
+    public static void BuildStep4() => BuildScene(step4: true);
+
+    static void BuildScene(bool step4)
     {
+        EnemyUnits.Clear();
+        EnemyXY.Clear();
         var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
 
         var mats = new ToneMaterials();
@@ -110,19 +120,54 @@ public static class SpikeSceneL1
         cam.nearClipPlane = 0.1f;
         cam.farClipPlane = 300f;
 
-        var probe = camGo.AddComponent<Step3Probe>();
-        var so = new SerializedObject(probe);
-        so.FindProperty("cam").objectReferenceValue = cam;
-        so.FindProperty("expectedUnits").intValue = built;
-        so.FindProperty("gameCamX").floatValue = 6.0f;
-        so.FindProperty("camZ").floatValue = 11f;
-        so.ApplyModifiedProperties();
+        string path;
+        if (!step4)
+        {
+            var probe = camGo.AddComponent<Step3Probe>();
+            var so = new SerializedObject(probe);
+            so.FindProperty("cam").objectReferenceValue = cam;
+            so.FindProperty("expectedUnits").intValue = built;
+            so.FindProperty("gameCamX").floatValue = 6.0f;
+            so.FindProperty("camZ").floatValue = 11f;
+            so.ApplyModifiedProperties();
+            path = ScenePath;
+        }
+        else
+        {
+            // The round: a small sphere, unlit-bright so it reads against both ground and sky.
+            var shot = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            shot.name = "Projectile";
+            shot.transform.localScale = Vector3.one * 0.22f;
+            Object.DestroyImmediate(shot.GetComponent<Collider>());  // collision is ours, not Unity's
+            var shotMat = new Material(Shader.Find("Universal Render Pipeline/Unlit"))
+            { color = new Color(1f, 0.86f, 0.35f) };
+            AssetDatabase.CreateAsset(shotMat, "Assets/Materials/Projectile.mat");
+            shot.GetComponent<MeshRenderer>().sharedMaterial = shotMat;
 
-        EditorSceneManager.SaveScene(scene, ScenePath);
-        EditorBuildSettings.scenes = new[] { new EditorBuildSettingsScene(ScenePath, true) };
+            var battle = camGo.AddComponent<Step4Battle>();
+            var so = new SerializedObject(battle);
+            so.FindProperty("cam").objectReferenceValue = cam;
+            so.FindProperty("projectile").objectReferenceValue = shot.transform;
+            so.FindProperty("restCamX").floatValue = -7f;
+            so.FindProperty("camZ").floatValue = 11f;
+            var units = so.FindProperty("enemyUnits");
+            var xy = so.FindProperty("enemyXY");
+            units.arraySize = EnemyUnits.Count;
+            xy.arraySize = EnemyXY.Count;
+            for (int i = 0; i < EnemyUnits.Count; i++)
+            {
+                units.GetArrayElementAtIndex(i).objectReferenceValue = EnemyUnits[i];
+                xy.GetArrayElementAtIndex(i).vector2Value = EnemyXY[i];
+            }
+            so.ApplyModifiedProperties();
+            path = Step4Path;
+        }
+
+        EditorSceneManager.SaveScene(scene, path);
+        EditorBuildSettings.scenes = new[] { new EditorBuildSettingsScene(path, true) };
         AssetDatabase.SaveAssets();
 
-        Debug.Log($"[SpikeL1] built {ScenePath} units={built}\n" + string.Join("\n", report.Take(30)));
+        Debug.Log($"[SpikeL1] built {path} units={built} enemies={EnemyXY.Count}");
     }
 
     static int Squad(GameObject unitPrefab, GameObject gunPrefab, Transform parent,
@@ -136,6 +181,7 @@ public static class SpikeSceneL1
             NormalizeLongestAxis(go, UnitScaleUnits);
             Tone(go, player ? mats.PlayerUniform : mats.EnemyUniform,
                      player ? mats.PlayerGear : mats.EnemyGear, mats.Skin, report);
+            if (!player) { EnemyUnits.Add(go.transform); EnemyXY.Add(new Vector2(spots[i].x, y)); }
 
             var gun = Place(gunPrefab, GameSpace.ToUnity(spots[i].x, y, spots[i].y), parent, $"{tag}_{i}_gun");
             NormalizeLongestAxis(gun, GunScaleUnits);

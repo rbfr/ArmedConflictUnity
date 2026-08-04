@@ -15,9 +15,13 @@ kill criteria, and `GODOT_SPIKE.md` for the alternative under consideration.
 | 1 — renderer sanity | renders on this PowerVR GPU, steady 60 fps, clean logcat | **PASS** (Vulkan) |
 | 2 — the camera solve | the locked ground-line solve survives a different engine | **PASS** |
 | 3 — 19 units + structure | 60 fps, and no unit missing head/arms/gun | **PASS** |
-| 4 — one drag-aimed shot | trajectory + swept collision, continuous drag at 60 fps | not started |
+| 4 — one drag-aimed shot | trajectory + swept collision, continuous drag at 60 fps | **PASS** |
 
-Details, including the two calibration traps found along the way, are in `SPIKE_RESULTS.md`.
+All four steps pass. Details, including the calibration traps found along the way, are in
+`SPIKE_RESULTS.md`.
+
+Still open before a go/no-go: GLES3 is unverified (Vulkan is first in the API list), and the SRP
+Batcher's draw-call collapse is unconfirmed (needs the editor Frame Debugger).
 
 ## Layout
 

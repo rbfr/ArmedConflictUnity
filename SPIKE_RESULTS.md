@@ -103,6 +103,75 @@ This lives in ONE place (`GameSpace.ToUnity`) so it cannot be half-applied. Ever
 doc lists as needing an audit — `xSign`, gun offsets, `gunRotZ = 180 - gunAngle`,
 `CAMERA_MIDFIELD_X`, `CAMERA_ENEMY_LEAN_X`, per-level x placement — must route through it.
 
+## Step 4 — one drag-aimed shot: PASS
+
+`TrajectoryPhysics` and the swept-segment collision ported and run in the TICK, not in Unity's
+Rigidbody system — the same locked call as the Android build. `Application.targetFrameRate = 60`,
+one steady rate, never varied by game state.
+
+### Landing accuracy
+
+Full-power 45-degree shot, integrated landing vs the analytic `v^2/g`:
+
+```
+dt=8.33ms  (120Hz):  landed=20.1970  analytic=20.2500  err=-0.262%
+dt=16.67ms  (60Hz):  landed=20.1439  analytic=20.2500  err=-0.524%
+dt=33.33ms  (30Hz):  landed=20.0373  analytic=20.2500  err=-1.050%
+```
+
+Error is exactly LINEAR in dt, which is what semi-implicit Euler predicts: the discretised
+flight time is short by dt, so the shot lands short by roughly `vx * dt / 2` at the interpolated
+ground crossing. At 60Hz that is 0.106 world units on a 20-unit shot — about a quarter of the
+0.380 hit radius. This is a property of the integrator, not of the port: the Android build has
+the same behaviour by construction.
+
+**This reproduces CLAUDE.md's documented dt sensitivity.** That note says a smaller dt makes
+shots land "0.15-0.35% longer". Here 60Hz -> 120Hz is -0.524% -> -0.262%, i.e. **0.262% longer** —
+inside the documented band. Independent confirmation the integrator ported faithfully.
+
+Measuring this needs care: reporting the first sample BELOW ground measures the overshoot, which
+grows with dt and cancels most of the integrator's own error. That made 30Hz and 60Hz runs look
+identical (20.1526 vs 20.1525) before the crossing was interpolated.
+
+### Aim scale
+
+```
+maxRange45=20.25   L1 separation=16.50   -> REACHABLE
+drag= 10.0u -> speed=3.840  ( 43%)  angle=45.0deg
+drag= 23.4u -> speed=8.986  (100%)  angle=45.0deg
+drag= 40.0u -> speed=9.000  (100%)  angle=45.0deg
+drag= 80.0u -> speed=9.000  (100%)  angle=45.0deg
+hitRadius=0.3803
+```
+
+Speed saturates at MaxAimMagnitude rather than growing invisibly past the readout's 100% — the
+clamp lives in `AimVelocity`, which the preview and the shot both call, so the hint cannot
+describe a different round than the one that flies. Hit radius matches the Kotlin's ~0.38.
+
+### The gesture — the criterion this whole spike is about
+
+```
+worst frame DURING DRAG: 17.1 ms   (target 16.67 ms)
+```
+
+No rate transition under the finger, no hitch. The Android build's sluggishness was an aim drag
+spending its first ~400ms at 30Hz while the panel caught up; there is no equivalent here.
+
+Caveat: measured with synthetic gestures (`adb shell input swipe`), not a real finger. The frame
+time is objective, but "feels continuous" wants a human hand on the glass.
+
+### Shot -> impact -> damage
+
+```
+fired 80% at 45.0deg -> predicted x=4.42
+HIT unit 0 at x=3.85 y=0.53 hp=24 (flight 2.61s)
+HIT unit 0 ... hp=16 / hp=8 / hp=0 KILLED
+```
+
+Predicted landing 4.42 against unit 0's actual x of 3.89 — the swept check catches the round on
+the descending arc before it reaches the floor, which is the behaviour the sweep exists for.
+Four rifle hits at 8 damage against 32 HP kills, matching `UnitDefinitions.Rifleman`.
+
 ## Environment notes
 
 - `unityhub --headless install-modules -m android` STALLS on an interactive child-module prompt
@@ -110,3 +179,5 @@ doc lists as needing an audit — `xSign`, gun offsets, `gunRotZ = 180 - gunAngl
 - URP 17.0.4 ships bundled with the editor and resolves offline; glTFast comes from the registry.
 - The Pixel locks itself during long builds and a locked device backgrounds the app before
   `Start()` runs — which reads as "no output" rather than as a lock.
+- The WIRELESS adb transport drops during long builds; the USB transport (`57121FDCQ005LC`)
+  survived every drop. Prefer USB for a long session.
