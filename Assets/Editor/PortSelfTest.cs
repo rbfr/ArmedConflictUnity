@@ -4,6 +4,7 @@ using System.Text;
 using UnityEditor;
 using UnityEngine;
 using ArmedConflict.Game;
+using ArmedConflict.Data;
 
 /// <summary>
 /// Behavioural checks on the ported game/ modules. "It compiles" is not evidence a port is
@@ -201,6 +202,89 @@ public static class PortSelfTest
 
             var gliding = idle with { CameraFollowXVelocity = 0.5f };
             Check(!gliding.IsVisuallyIdle, "a camera still gliding blocks idle");
+        }
+
+        // --- ProgressStore / EconomyStore (persistence)
+        {
+            var lvl = ScriptableObject.CreateInstance<LevelDefinitionSO>();
+            lvl.id = "selftest_level"; lvl.levelBase = 100; lvl.isTestLevel = false;
+            var testRig = ScriptableObject.CreateInstance<LevelDefinitionSO>();
+            testRig.id = "selftest_rig"; testRig.levelBase = 100; testRig.isTestLevel = true;
+            ProgressStore.AllLevels = new List<LevelDefinitionSO> { lvl, testRig };
+            ProgressStore.ResetAll();
+
+            Check(ProgressStore.BestStars(lvl.id) == 0, "a fresh level has no stars");
+            Check(ProgressStore.RecordStars(lvl.id, 2), "recording a first result sets a best");
+            Check(!ProgressStore.RecordStars(lvl.id, 1), "a WORSE run does not overwrite the best");
+            Check(ProgressStore.BestStars(lvl.id) == 2, "the best survives a worse run");
+            Check(ProgressStore.RecordStars(lvl.id, 3), "a better run does set a new best");
+
+            ProgressStore.RecordStars(testRig.id, 3);
+            Check(ProgressStore.TotalStars() == 3,
+                  "TEST levels are excluded from the total (they must never unlock a stage)");
+
+            // Coins
+            ProgressStore.ResetAll();
+            ProgressStore.AddCoins(100);
+            Check(ProgressStore.Coins() == 100, "coins accumulate");
+            Check(!ProgressStore.SpendCoins(101), "cannot overspend");
+            Check(ProgressStore.Coins() == 100, "a failed spend does not deduct");
+            Check(ProgressStore.SpendCoins(60) && ProgressStore.Coins() == 40, "a valid spend deducts");
+
+            // Set storage — the delimited-string replacement for getStringSet.
+            ProgressStore.ResetAll();
+            Check(ProgressStore.IsUnitUnlocked("rifleman"), "Rifleman is unlocked without being stored");
+            Check(!ProgressStore.IsUnitUnlocked("sniper"), "other units start locked");
+            ProgressStore.UnlockUnit("sniper");
+            ProgressStore.UnlockUnit("grenadier");
+            ProgressStore.UnlockUnit("sniper");
+            Check(ProgressStore.UnlockedUnitIds().Count == 2, "unlocking twice does not duplicate");
+            Check(ProgressStore.IsUnitUnlocked("sniper") && ProgressStore.IsUnitUnlocked("grenadier"),
+                  "multiple unlocks round-trip through one stored string");
+
+            // Ammo: locked types must never be returned as selected.
+            ProgressStore.ResetAll();
+            Check(ProgressStore.SelectedAmmo() == AmmoType.Standard, "ammo defaults to Standard");
+            ProgressStore.SetSelectedAmmo(AmmoType.Incendiary);
+            Check(ProgressStore.SelectedAmmo() == AmmoType.Standard,
+                  "a LOCKED ammo type never comes back as selected");
+            ProgressStore.UnlockAmmo(AmmoType.Incendiary);
+            Check(ProgressStore.SelectedAmmo() == AmmoType.Incendiary,
+                  "once unlocked, the stored selection is honoured");
+
+            // Victory payout — the ORDERING trap.
+            ProgressStore.ResetAll();
+            var first = EconomyStore.GrantVictoryPayout(lvl, starsEarned: 3, previousBestStars: 0);
+            Check(first.FirstClear && first.First3Star, "a first 3-star clear pays both bonuses");
+            Check(first.Coins == 200 + 100 + 150, "first 3-star = 2.0x base + base + 1.5x base");
+
+            var repeat = EconomyStore.GrantVictoryPayout(lvl, starsEarned: 3, previousBestStars: 3);
+            Check(!repeat.FirstClear && !repeat.First3Star, "a repeat clear pays no bonuses");
+            Check(repeat.Coins == 200, "a repeat 3-star pays the multiplier only");
+
+            var twoStar = EconomyStore.GrantVictoryPayout(lvl, starsEarned: 2, previousBestStars: 1);
+            Check(twoStar.Coins == 150, "a 2-star repeat pays 1.5x base");
+            Check(EconomyStore.GrantDefeatPayout(lvl) == 15, "defeat still pays 15% of base");
+
+            // Milestones: one call may cross several thresholds, and must pay each exactly once.
+            ProgressStore.ResetAll();
+            var levels = new List<LevelDefinitionSO>();
+            for (int i = 0; i < 20; i++)
+            {
+                var l = ScriptableObject.CreateInstance<LevelDefinitionSO>();
+                l.id = $"ms_{i}"; l.levelBase = 10;
+                levels.Add(l);
+            }
+            ProgressStore.AllLevels = levels;
+            ProgressStore.ResetAll();
+            foreach (var l in levels) ProgressStore.RecordStars(l.id, 3);   // 60 stars
+            var crossed = EconomyStore.CheckMilestones();
+            Check(crossed.Count == 2, "60 stars crosses BOTH the 25 and 50 milestones in one call");
+            Check(EconomyStore.CheckMilestones().Count == 0,
+                  "milestones are idempotent — a second call pays nothing");
+
+            ProgressStore.ResetAll();
+            ProgressStore.AllLevels = new List<LevelDefinitionSO>();
         }
 
         Debug.Log($"[PortSelfTest] {(failed == 0 ? "ALL PASS" : $"{failed} FAILURES")}\n{Log}");
