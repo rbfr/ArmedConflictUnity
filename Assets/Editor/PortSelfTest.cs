@@ -287,6 +287,70 @@ public static class PortSelfTest
             ProgressStore.AllLevels = new List<LevelDefinitionSO>();
         }
 
+        // --- LevelBuilder, against the REAL imported L1 asset
+        {
+            var l1 = AssetDatabase.LoadAssetAtPath<LevelDefinitionSO>("Assets/GameData/Levels/Level1.asset");
+            if (l1 == null) { Check(false, "Level1 asset present"); }
+            else
+            {
+                var st = LevelBuilder.BuildInitialState(l1, battleId: 1, totalLevels: 29,
+                                                        random: new System.Random(7));
+                Check(st.PlayerUnits.Count == 10, $"L1 builds 10 player units (2 on tank + 8 line)");
+                Check(st.EnemyUnits.Count == 9, "L1 builds 9 enemy units (6 line + 3 garrison)");
+                Check(st.Structures.Count == 2, "L1 builds 2 structures");
+                Check(st.Phase == GamePhase.Preview, "a new battle starts in Preview");
+
+                // Id bands must not collide — the tick relies on globally unique ids.
+                var allIds = st.PlayerUnits.Select(u => u.Id)
+                    .Concat(st.EnemyUnits.Select(u => u.Id))
+                    .Concat(st.Structures.Select(s2 => s2.Id)).ToList();
+                Check(allIds.Distinct().Count() == allIds.Count, "unit and structure ids never collide");
+
+                // The garrison must stand on the outpost's measured deck, not on `size`.
+                var outpost = st.Structures.First(s2 => s2.Definition.id == "outpost");
+                var garrison = st.EnemyUnits.Where(u => u.StandingOnStructureId != null).ToList();
+                Check(garrison.Count == 3, "3 enemies are garrisoned on the outpost");
+                float deck = 0.560f * 2.5f;   // deckY already scaled at import
+                foreach (var g in garrison)
+                    Near(g.Y, deck, 1e-3f, "garrison stands on the measured deckY, not on size");
+
+                // Ground units stand at y=0.
+                Check(st.EnemyUnits.Where(u => u.StandingOnStructureId == null).All(u => u.Y == 0f),
+                      "ground units stand at y = 0");
+
+                // Garrison must sit ON the deck horizontally too.
+                float halfDeck = outpost.Definition.standWidth / 2f;
+                foreach (var g in garrison)
+                    Check(Mathf.Abs(g.X - outpost.X) <= halfDeck + 1e-3f,
+                          "garrison is clamped onto the deck horizontally");
+
+                // Structure entity y centres the collision box on the placement.
+                Near(outpost.Y, 0f * outpost.Definition.worldScale + outpost.Definition.size / 2f,
+                     1e-4f, "structure y centres its box on the placement");
+
+                // hpScale carries into MaxHp so damage fractions have the right denominator.
+                Check(st.Structures.All(s2 => s2.MaxHp == s2.Hp), "structures start at full health");
+                Check(st.Structures.All(s2 => Mathf.Approximately(s2.HpFraction, 1f)),
+                      "every structure reads fraction 1.0 at build time");
+
+                // Camera anchors are the INITIAL means, and the sides are on opposite sides.
+                Check(st.PlayerCamXAnchor < 0f && st.EnemyCamXAnchor > 0f,
+                      "camera anchors put the player left and the enemy right (game space)");
+                Near(st.PlayerCamXAnchor, st.PlayerUnits.Average(u => u.X), 1e-4f,
+                     "player anchor is the mean of the initial roster");
+
+                // The tank's cannon ammo becomes the battle's shell count.
+                Check(st.TankShellsRemaining > 0, "the player tank contributes its cannon shells");
+
+                Check(st.Helicopter == null, "no helicopter while HeliEnabled is false");
+
+                // Determinism: same seed, same layout. Formation jitter must not leak randomness.
+                var again = LevelBuilder.BuildInitialState(l1, 1, 29, new System.Random(7));
+                Check(again.PlayerUnits.Select(u => u.X).SequenceEqual(st.PlayerUnits.Select(u => u.X)),
+                      "the same seed rebuilds an identical formation");
+            }
+        }
+
         Debug.Log($"[PortSelfTest] {(failed == 0 ? "ALL PASS" : $"{failed} FAILURES")}\n{Log}");
         if (failed > 0 && Application.isBatchMode) EditorApplication.Exit(1);
     }

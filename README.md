@@ -94,3 +94,20 @@ accessors need the one-line `IsExternalInit` shim in `Assets/Scripts/Game/`.
 Still to port: `ProgressStore`/`EconomyStore` (persistence rewrite) and `GameViewModel`
 (3,418 LOC — the single biggest item in the migration, and worth breaking up on the way across
 rather than transliterating whole).
+
+### GameViewModel — sliced, in progress
+
+`GameViewModel.kt` is 3,418 lines and is being ported in slices, each verified against the
+Kotlin's documented behaviour rather than transliterated whole.
+
+| slice | Kotlin | status |
+|---|---|---|
+| level construction (`buildUnits`, `buildInitialState`) | ~250 | **done** — `LevelBuilder` |
+| aim + fire (`aimVelocity`, `onAimDragUpdate`, `onAimRelease`, `testAutoFire`) | ~350 | Step 4 covers the drag/solve path; the volley remains |
+| **the tick** (lines 1604-3376) | **1,772** | not started — the bulk of the work |
+| ragdolls + knockback (`ragdollFrom`, `applyDamageAndKnockback`) | ~160 | not started |
+| consumables + reinforcements | ~120 | not started |
+| battle lifecycle (`startBattle`, `jumpToLevel`, `restart`, `nextLevel`) | ~50 | not started |
+
+The tick is itself sliceable: projectile stepping, collision resolution, turn flow, cosmetic
+decay (debris/wrecks/ragdolls), and camera choreography are largely independent of one another.
