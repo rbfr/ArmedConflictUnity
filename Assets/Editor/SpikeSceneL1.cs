@@ -134,15 +134,24 @@ public static class SpikeSceneL1
         }
         else
         {
-            // The round: a small sphere, unlit-bright so it reads against both ground and sky.
-            var shot = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-            shot.name = "Projectile";
-            shot.transform.localScale = Vector3.one * 0.22f;
-            Object.DestroyImmediate(shot.GetComponent<Collider>());  // collision is ours, not Unity's
-            var shotMat = new Material(Shader.Find("Universal Render Pipeline/Unlit"))
-            { color = new Color(1f, 0.86f, 0.35f) };
-            AssetDatabase.CreateAsset(shotMat, "Assets/Materials/Projectile.mat");
-            shot.GetComponent<MeshRenderer>().sharedMaterial = shotMat;
+            // The real tank round (projectile_shell.glb), replacing the placeholder sphere.
+            // Two tones, matching SceneHost: an UNLIT hot-brass body so the round stays bright
+            // against both dark sky and pale ground regardless of scene lighting, and a lit
+            // dark nose on accent_ShellNose.
+            var shot = Place(Load("projectile_shell"), Vector3.zero, null, "Projectile");
+            shot.transform.localScale = Vector3.one * 0.34f;   // SceneHost: Scale(0.34f)
+
+            var shellBody = new Material(Shader.Find("Universal Render Pipeline/Unlit"))
+            { color = new Color(0.910f, 0.816f, 0.541f) };     // 0xFFE8D08A
+            AssetDatabase.CreateAsset(shellBody, "Assets/Materials/ShellBody.mat");
+            var shellNose = new Material(Shader.Find("Universal Render Pipeline/Lit"))
+            { color = new Color(0.20f, 0.20f, 0.23f) };
+            shellNose.SetFloat("_Metallic", 0.5f);
+            shellNose.SetFloat("_Smoothness", 0.5f);
+            AssetDatabase.CreateAsset(shellNose, "Assets/Materials/ShellNose.mat");
+
+            foreach (var r in shot.GetComponentsInChildren<MeshRenderer>())
+                r.sharedMaterial = r.gameObject.name.StartsWith("accent") ? shellNose : shellBody;
 
             var battle = camGo.AddComponent<Step4Battle>();
             var so = new SerializedObject(battle);

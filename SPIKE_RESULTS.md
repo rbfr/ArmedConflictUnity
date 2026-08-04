@@ -150,15 +150,33 @@ describe a different round than the one that flies. Hit radius matches the Kotli
 
 ### The gesture — the criterion this whole spike is about
 
+Seven consecutive drags, ~42 frames each (~295 drag frames total), measured PER GESTURE:
+
 ```
-worst frame DURING DRAG: 17.1 ms   (target 16.67 ms)
+drag #1 frames= 5  worst=16.7ms  >20ms x0
+drag #2 frames=42  worst=33.4ms  >20ms x1
+drag #3 frames=41  worst=16.7ms  >20ms x0
+drag #4 frames=43  worst=33.3ms  >20ms x1
+drag #5 frames=42  worst=17.3ms  >20ms x0
+drag #6 frames=42  worst=16.8ms  >20ms x0
+drag #7 frames=42  worst=16.8ms  >20ms x0
 ```
 
-No rate transition under the finger, no hitch. The Android build's sluggishness was an aim drag
-spending its first ~400ms at 30Hz while the panel caught up; there is no equivalent here.
+**Five of seven drags are completely clean at 16.7-17.3ms. Two single dropped frames across
+~295 drag frames (0.7%).** No rate transition under the finger, and nothing resembling the
+Android build's defect — an aim drag spending its first ~400ms at 30Hz while the panel caught up.
 
-Caveat: measured with synthetic gestures (`adb shell input swipe`), not a real finger. The frame
-time is objective, but "feels continuous" wants a human hand on the glass.
+The two dropped frames are real, not warm-up (they occur on drags #2 and #4, not #1), and their
+cause is NOT isolated. They may be an artefact of synthetic event injection. Worth re-checking
+with a real finger before this is called closed.
+
+Caveat: measured with `adb shell input swipe`, not a hand. The frame time is objective;
+"feels continuous" is not something a script can answer.
+
+**Instrumentation warning, learned the hard way.** A LATCHING max across gestures reports one old
+hitch forever and reads as "every drag hitches" — which is exactly how this was first misread,
+reporting 33.2ms on ten consecutive drags when only one long frame had ever occurred. Reset
+per-gesture counters at touch-down, and track a separate all-time max if you want one.
 
 ### Shot -> impact -> damage
 
@@ -181,3 +199,6 @@ Four rifle hits at 8 damage against 32 HP kills, matching `UnitDefinitions.Rifle
   `Start()` runs — which reads as "no output" rather than as a lock.
 - The WIRELESS adb transport drops during long builds; the USB transport (`57121FDCQ005LC`)
   survived every drop. Prefer USB for a long session.
+- IL2CPP segfaulted once mid-session (exit 139, no C# error). Deleting
+  `Library/Bee/artifacts/Android/il2cppOutput` and rebuilding cleared it. Note this box has a
+  history of hard lockups, so a toolchain crash is not automatically a Unity bug.

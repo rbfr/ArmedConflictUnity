@@ -40,7 +40,15 @@ public class Step4Battle : MonoBehaviour
 
     // instrumentation
     float smoothedDt, worstIdleDt, worstDragDt;
-    int dragFrames;
+    int dragFrames, totalFrames, dragCount, dragLongFrames;
+    // Per-drag, RESET at every touch-down. A latching max across drags reports one old hitch
+    // forever and reads as "every drag hitches" — which is exactly how this was misread once.
+    float thisDragWorst;
+    int thisDragLong;
+    float firstDragWorst = -1f;
+    // Startup costs (scene load, shader warm-up, the first rendered frame) are not runtime
+    // hitches and must not be reported as one. Ignore the first two seconds outright.
+    const int WarmupFrames = 120;
     string lastShot = "-";
     string selfTest = "";
     GUIStyle style;
@@ -76,9 +84,10 @@ public class Step4Battle : MonoBehaviour
                       $"-> {(reachOk ? "REACHABLE" : "OUT OF REACH")}");
 
         // 2. Full-power 45 degree shot: integrated landing vs the analytic v^2/g.
-        //    Semi-implicit Euler lands slightly LONG, and the error scales with dt — the
-        //    Android build measured 0.15-0.35% at 60Hz. Anything much larger means the
-        //    integrator was not ported faithfully.
+        //    Semi-implicit Euler lands SHORT, linearly in dt: the discretised flight time is
+        //    short by dt, so the shot falls short by roughly vx*dt/2 at the interpolated
+        //    crossing. CLAUDE.md's "0.15-0.35% longer" describes the 60Hz -> 120Hz DELTA, not
+        //    the error against analytic — halving dt halves the shortfall. Both are checked.
         float v = AimSystem.MaxAimMagnitude;
         var vel0 = new Vector3(v * Mathf.Cos(45f * Mathf.Deg2Rad), v * Mathf.Sin(45f * Mathf.Deg2Rad), 0f);
         var origin = new Vector3(0f, 0f, 0f);
@@ -122,11 +131,24 @@ public class Step4Battle : MonoBehaviour
     {
         float dt = Time.unscaledDeltaTime;
         smoothedDt += (dt - smoothedDt) * 0.05f;
+        totalFrames++;
 
         HandleInput();
 
-        if (dragging) { dragFrames++; if (dragFrames > 2) worstDragDt = Mathf.Max(worstDragDt, dt); }
-        else if (!inFlight) worstIdleDt = Mathf.Max(worstIdleDt, dt);
+        if (totalFrames > WarmupFrames)
+        {
+            if (dragging)
+            {
+                dragFrames++;
+                if (dragFrames > 2)
+                {
+                    worstDragDt = Mathf.Max(worstDragDt, dt);      // all-time
+                    thisDragWorst = Mathf.Max(thisDragWorst, dt);  // this gesture only
+                    if (dt > 0.020f) { dragLongFrames++; thisDragLong++; }
+                }
+            }
+            else if (!inFlight) worstIdleDt = Mathf.Max(worstIdleDt, dt);
+        }
 
         if (inFlight) StepProjectile(Time.deltaTime);
 
@@ -141,7 +163,12 @@ public class Step4Battle : MonoBehaviour
         if (Input.touchCount > 0)
         {
             var t = Input.GetTouch(0);
-            if (t.phase == TouchPhase.Began) { dragging = true; dragStart = t.position; dragDelta = Vector2.zero; }
+            if (t.phase == TouchPhase.Began)
+            {
+                dragging = true; dragStart = t.position; dragDelta = Vector2.zero;
+                dragFrames = 0; dragCount++;
+                thisDragWorst = 0f; thisDragLong = 0;
+            }
             else if (dragging && (t.phase == TouchPhase.Moved || t.phase == TouchPhase.Stationary))
             {
                 dragDelta = t.position - dragStart;
@@ -152,6 +179,12 @@ public class Step4Battle : MonoBehaviour
             else if (dragging && (t.phase == TouchPhase.Ended || t.phase == TouchPhase.Canceled))
             {
                 dragging = false;
+                // Keep the FIRST drag's worst frame separate: a first-touch cost is warm-up,
+                // a recurring one is a defect, and averaging them together hides both.
+                if (firstDragWorst < 0f) firstDragWorst = thisDragWorst;
+                Debug.Log($"[Step4] drag #{dragCount} frames={dragFrames} " +
+                          $"worst={thisDragWorst * 1000f:F1}ms >20ms x{thisDragLong} " +
+                          $"| all-time worst={worstDragDt * 1000f:F1}ms across {dragLongFrames} long frames");
                 Fire();
             }
         }
@@ -187,7 +220,15 @@ public class Step4Battle : MonoBehaviour
 
         var prev = shotPos;
         TrajectoryPhysics.Step(ref shotPos, ref shotVel, dt);
-        if (projectile != null) projectile.position = GameSpace.ToUnity(shotPos);
+        if (projectile != null)
+        {
+            projectile.position = GameSpace.ToUnity(shotPos);
+            // Nose along the TRUE velocity, as SceneHost does (Rotation z = atan2(vy, vx)).
+            // The shell's long axis is local +X, and GameSpace mirrors X, so the screen-space
+            // angle is measured against -vx rather than +vx.
+            float deg = Mathf.Atan2(shotVel.y, -shotVel.x) * Mathf.Rad2Deg;
+            projectile.rotation = Quaternion.Euler(0f, 0f, deg);
+        }
 
         // Swept check against every live enemy.
         for (int i = 0; i < enemyXY.Count; i++)
@@ -247,7 +288,9 @@ public class Step4Battle : MonoBehaviour
         string power = dragging ? $"{AimSystem.StrengthPercent(aimVel):F0}%  {AimSystem.AngleDegrees(aimVel):F1}deg" : "-";
         GUI.Label(new Rect(30, 30, 1500, 400),
             $"{1f / Mathf.Max(smoothedDt, 0.0001f):F1} fps ({smoothedDt * 1000f:F2} ms)\n" +
-            $"worst idle {worstIdleDt * 1000f:F1} ms   worst DURING DRAG {worstDragDt * 1000f:F1} ms\n" +
+            $"worst idle {worstIdleDt * 1000f:F1} ms\n" +
+            $"drag #{dragCount}: worst {thisDragWorst * 1000f:F1} ms (>20ms x{thisDragLong})\n" +
+            $"all-time drag worst {worstDragDt * 1000f:F1} ms over {dragLongFrames} long frames\n" +
             $"aim {power}\n{lastShot}\n{selfTest}", style);
     }
 }
