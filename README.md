@@ -23,6 +23,11 @@ All four steps pass. Details, including the calibration traps found along the wa
 Still open before a go/no-go: GLES3 is unverified (Vulkan is first in the API list), and the SRP
 Batcher's draw-call collapse is unconfirmed (needs the editor Frame Debugger).
 
+`MIGRATION_SCOPE.md` inventories what a FULL port would cost — the 90% the spike deliberately
+did not touch. Short version: 13,270 lines of Kotlin, of which 7,851 port mechanically, 2,798
+get deleted outright, and ~2,600 lines of Compose UI have no migration path and must be
+rewritten. Roughly 6-9 weeks.
+
 ## Layout
 
 ```
