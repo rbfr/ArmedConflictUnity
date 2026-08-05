@@ -141,3 +141,18 @@ Still missing before this is a GAME rather than a battle: ground detail texture,
 loadout input, and the lifecycle beyond one level (`restart`/`nextLevel`). Note the remaining UI
 is NOT mostly economy: of ~2,600 Compose lines the loadout/purchase screen is ~415, and the
 battle HUD and aim overlay — which no shippable build can skip — are now ported.
+
+## Before release (deferred, 2026-08-05)
+
+Unity generates and drives Gradle itself, so there is no build file to maintain — but the
+current setup is spike-grade and NOT shippable:
+
+- **Signing**: `AndroidKeystoreName` is empty, so builds use Unity's bundled DEBUG keystore.
+  Play needs your own upload key. Create it once, keep it safe, and never lose it — losing an
+  upload key means a Google-assisted key reset before the app can be updated again.
+- **Format**: builds an APK. Play requires an AAB.
+- **Versioning**: `bundleVersion 1.0` / `versionCode 1`, never incremented. Play rejects a
+  duplicate `versionCode`.
+
+None of this blocks development — a debug-signed APK installs over adb, which is all the port
+has needed. It blocks the first Play upload or internal test track, and no sooner.
