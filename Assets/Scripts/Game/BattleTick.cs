@@ -155,6 +155,25 @@ namespace ArmedConflict.Game
                     .Select(RagdollFrom))
                 .ToList();
 
+            // Detonations become explosions. The renderer needs them, and so does the audio —
+            // a hit with no blast reads as the round having vanished.
+            if (hits.Detonations.Count > 0)
+            {
+                var withBlasts = new List<ExplosionEntity>(explosions);
+                foreach (var d in hits.Detonations)
+                {
+                    withBlasts.Add(new ExplosionEntity(nextExplosionSlot++, d.X, d.Y, d.Z)
+                    {
+                        // A structure hit throws a bigger blast than a body hit; a ground burst
+                        // sits between the two. Scale is the only cue the renderer has.
+                        Scale = d.HitStructureId != null ? 0.9f : d.IsGroundBurst ? 0.6f : 0.45f,
+                        IsEnemyFire = !d.ByPlayer,
+                        IsStructureHit = d.HitStructureId != null,
+                    });
+                }
+                explosions = withBlasts;
+            }
+
             // --- 5. cull ------------------------------------------------------------------
             var projectiles = ProjectileSystem.Cull(stepped, hits.HitProjectileIds,
                                                     playerUnits, enemyUnits, structures);

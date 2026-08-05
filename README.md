@@ -126,7 +126,10 @@ Unit weapons and the biome backdrop (sky gradient, silhouette ridges, ground col
 the level's own `BackgroundDefinition`, so the scene is now comparable like-for-like with the
 shipping build rather than a bare stage.
 
-Still missing before this is a GAME rather than a battle: ground detail texture, props
-(L1's sandbags), consumables, reinforcement/loadout input, the lifecycle beyond one level
-(`restart`/`nextLevel`), scorch and debris rendering, and the whole UI layer (~2,600 lines of
-Compose with no migration path — see `MIGRATION_SCOPE.md`).
+Sound effects (all 8 clips, with the original rate limits), explosions and props are in.
+
+Still missing before this is a GAME rather than a battle: ground detail texture, consumables,
+loadout input, the lifecycle beyond one level (`restart`/`nextLevel`), scorch and debris
+rendering, and the UI layer. Note the UI is NOT mostly economy: of ~2,600 Compose lines, the
+loadout/purchase screen is ~415 and the rest is the BATTLE HUD and aim overlay, which no
+shippable build can skip.

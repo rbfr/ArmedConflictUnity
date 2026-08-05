@@ -48,12 +48,25 @@ public static class SpikeSceneBattle
         var backdrop = new GameObject("Backdrop");
         BackdropBuilder.Build(level.background, mats.ground, backdrop.transform);
 
+        // Props (L1's sandbags). Authored at z=0 like every campaign prop.
+        foreach (var prop in level.props)
+        {
+            var src = AssetDatabase.LoadAssetAtPath<GameObject>(ModelPath(prop.modelAsset));
+            if (src == null) { Debug.LogWarning($"[Battle] missing prop {prop.modelAsset}"); continue; }
+            var pg = (GameObject)PrefabUtility.InstantiatePrefab(src);
+            pg.name = $"prop_{System.IO.Path.GetFileNameWithoutExtension(prop.modelAsset)}";
+            pg.transform.position = GameSpace.ToUnity(prop.x, 0f, prop.z);
+            Normalize(pg, prop.scale);
+            Tone(pg, mats.structPlayer, mats.structPlayerAccent, null);
+        }
+
         var poolRoot = new GameObject("Pool");
 
         var playerPrefab = MakeUnitPrefab("PlayerUnit", mats.playerUniform, mats.playerGear, mats.skin);
         var enemyPrefab = MakeUnitPrefab("EnemyUnit", mats.enemyUniform, mats.enemyGear, mats.skin);
         var shotPrefab = MakeShellPrefab(mats);
         var gunPrefab = MakeGunPrefab(mats);
+        var blastPrefab = MakeBlastPrefab();
 
         var lightGo = new GameObject("Directional Light");
         var light = lightGo.AddComponent<Light>();
@@ -80,6 +93,8 @@ public static class SpikeSceneBattle
         so.FindProperty("enemyUnitPrefab").objectReferenceValue = enemyPrefab;
         so.FindProperty("projectilePrefab").objectReferenceValue = shotPrefab;
         so.FindProperty("gunPrefab").objectReferenceValue = gunPrefab;
+        so.FindProperty("explosionPrefab").objectReferenceValue = blastPrefab;
+        so.FindProperty("audioFx").objectReferenceValue = MakeAudio(camGo);
         so.FindProperty("poolRoot").objectReferenceValue = poolRoot.transform;
         so.ApplyModifiedProperties();
 
@@ -139,6 +154,44 @@ public static class SpikeSceneBattle
         var prefab = PrefabUtility.SaveAsPrefabAsset(go, "Assets/Prefabs/Gun.prefab");
         Object.DestroyImmediate(go);
         return prefab;
+    }
+
+    /// <summary>
+    /// The blast. UNLIT fire-orange, shared by both sides regardless of who fired — a
+    /// side-tinted explosion reads as a team colour rather than as fire.
+    /// </summary>
+    static GameObject MakeBlastPrefab()
+    {
+        var go = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+        go.name = "Blast";
+        Object.DestroyImmediate(go.GetComponent<Collider>());
+        var mat = new Material(Shader.Find("Universal Render Pipeline/Unlit"))
+        { color = new Color(1f, 0.55f, 0.15f) };
+        AssetDatabase.CreateAsset(mat, "Assets/Materials/Blast.mat");
+        go.GetComponent<MeshRenderer>().sharedMaterial = mat;
+        System.IO.Directory.CreateDirectory("Assets/Prefabs");
+        var prefab = PrefabUtility.SaveAsPrefabAsset(go, "Assets/Prefabs/Blast.prefab");
+        Object.DestroyImmediate(go);
+        return prefab;
+    }
+
+    static BattleAudio MakeAudio(GameObject host)
+    {
+        var fx = host.AddComponent<BattleAudio>();
+        var so = new SerializedObject(fx);
+        void Clip(string field, string file)
+            => so.FindProperty(field).objectReferenceValue =
+                   AssetDatabase.LoadAssetAtPath<AudioClip>($"Assets/Audio/{file}.wav");
+        Clip("volleyFire", "volley_fire");
+        Clip("groundImpact", "ground_impact");
+        Clip("unitDeath", "unit_death");
+        Clip("unitHit", "unit_hit");
+        Clip("explosion", "explosion_hit");
+        Clip("victory", "victory_jingle");
+        Clip("defeat", "defeat_jingle");
+        Clip("helicopterLoop", "helicopter_loop");
+        so.ApplyModifiedProperties();
+        return fx;
     }
 
     static void Normalize(GameObject go, float units)

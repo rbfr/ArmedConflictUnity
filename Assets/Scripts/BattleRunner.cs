@@ -19,6 +19,8 @@ public class BattleRunner : MonoBehaviour
     [SerializeField] GameObject enemyUnitPrefab;
     [SerializeField] GameObject projectilePrefab;
     [SerializeField] GameObject gunPrefab;
+    [SerializeField] GameObject explosionPrefab;
+    [SerializeField] BattleAudio audioFx;
     [SerializeField] Transform poolRoot;
 
     const int UnitPoolSize = 48;
@@ -31,6 +33,7 @@ public class BattleRunner : MonoBehaviour
     readonly List<GameObject> shotSlots = new();
     readonly List<GameObject> playerGuns = new();
     readonly List<GameObject> enemyGuns = new();
+    readonly List<GameObject> blastSlots = new();
     readonly List<GameObject> structureObjects = new();
 
     // input
@@ -74,6 +77,7 @@ public class BattleRunner : MonoBehaviour
             enemyGuns.Add(Spawn(gunPrefab, $"eg{i}"));
         }
         for (int i = 0; i < ProjectilePoolSize; i++) shotSlots.Add(Spawn(projectilePrefab, $"s{i}"));
+        for (int i = 0; i < 32; i++) blastSlots.Add(Spawn(explosionPrefab, $"x{i}"));
 
         // Structures are static for the battle's life — one object each, hidden on destruction.
         foreach (var st in state.Structures)
@@ -109,7 +113,9 @@ public class BattleRunner : MonoBehaviour
             }
         }
 
+        var before = state;
         state = BattleTick.Step(state, dt, level, random);
+        DriveAudio(before, state);
 
         Render();
         ApplyCamera();
@@ -152,6 +158,7 @@ public class BattleRunner : MonoBehaviour
         if (aimVel.sqrMagnitude < 0.01f) return;
         if (state.TurnPhase != TurnPhase.Aiming) return;
         state = BattleTick.FireVolley(state, aimVel, random);
+        if (audioFx != null) audioFx.PlayVolleyFire();
         Debug.Log($"[Battle] volley: {state.Projectiles.Count} rounds at " +
                   $"{AimSystem.StrengthPercent(aimVel):F0}% / {AimSystem.AngleDegrees(aimVel):F1}deg");
     }
@@ -160,6 +167,36 @@ public class BattleRunner : MonoBehaviour
     {
         if (state.PlayerUnits.Count == 0) return new Vector3(-9.5f, 0.9f, 0f);
         return new Vector3(state.PlayerUnits.Average(u => u.X), 0.9f, 0f);
+    }
+
+    /// <summary>
+    /// Sound is driven from STATE DELTAS rather than from the systems raising events. The tick
+    /// stays engine-independent that way, and a replayed or rewound state produces the same
+    /// audio as a live one.
+    /// </summary>
+    void DriveAudio(GameState before, GameState after)
+    {
+        if (audioFx == null) return;
+
+        int deaths = (after.TotalPlayerKills - before.TotalPlayerKills)
+                   + (after.TotalEnemyKills - before.TotalEnemyKills);
+        if (deaths > 0) audioFx.PlayUnitDeath();
+
+        // A NEW blast this tick. Explosions are also held one extra tick at progress 1, so
+        // compare counts of freshly-spawned ones rather than list length.
+        int newBlasts = 0;
+        foreach (var e in after.Explosions) if (e.Progress <= 0f) newBlasts++;
+        if (newBlasts > 0) audioFx.PlayExplosion();
+
+        // Rounds that vanished without a blast hit the dirt.
+        int gone = before.Projectiles.Count - after.Projectiles.Count;
+        if (gone > newBlasts && gone > 0) audioFx.PlayGroundImpact(gone - newBlasts);
+
+        // A wounded survivor: damage taken with nobody dying.
+        if (deaths == 0 && after.TotalWoundedHits > before.TotalWoundedHits) audioFx.PlayUnitHit();
+
+        if (before.Phase == GamePhase.Playing && after.Phase == GamePhase.Victory) audioFx.PlayVictory();
+        if (before.Phase == GamePhase.Playing && after.Phase == GamePhase.Defeat) audioFx.PlayDefeat();
     }
 
     void Render()
@@ -197,6 +234,21 @@ public class BattleRunner : MonoBehaviour
                 shotSlots[i].transform.rotation = Quaternion.Euler(0f, 0f, deg);
             }
             else shotSlots[i].SetActive(false);
+        }
+
+        // Explosions: a sphere that swells and fades over its progress.
+        for (int i = 0; i < blastSlots.Count; i++)
+        {
+            if (i < state.Explosions.Count)
+            {
+                var x = state.Explosions[i];
+                blastSlots[i].SetActive(true);
+                blastSlots[i].transform.position = GameSpace.ToUnity(x.X, x.Y, x.Z);
+                // Swell fast, then hold — a blast that grows linearly reads as a balloon.
+                float t2 = Mathf.Sqrt(Mathf.Clamp01(x.Progress));
+                blastSlots[i].transform.localScale = Vector3.one * x.Scale * (0.4f + 1.6f * t2);
+            }
+            else blastSlots[i].SetActive(false);
         }
 
         var liveIds = new HashSet<int>(state.Structures.Select(s2 => s2.Id));

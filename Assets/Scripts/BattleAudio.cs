@@ -1,0 +1,105 @@
+using UnityEngine;
+
+/// <summary>
+/// Port of SoundEffects.kt. Fire-and-forget playback on a pool of AudioSources — the Unity
+/// equivalent of SoundPool's stream pool.
+///
+/// The RATE LIMITS are the whole design, not an optimisation. A volley is 10-20 rounds landing
+/// within a few ticks; playing one clip per event turns a battle into white noise. Each trigger
+/// therefore has its own minimum interval, and the intervals differ by an order of magnitude
+/// because the sounds do different jobs:
+///   ground impact  50ms  — a spatter of rounds landing SHOULD overlap; it reads as volume of fire
+///   explosion     330ms  — a blast is a punctuation mark, not a texture
+///   unit hit      500ms  — pain, occasional
+///   unit death    700ms  — the rarest and most significant, so it is never buried
+/// </summary>
+public class BattleAudio : MonoBehaviour
+{
+    public const float GroundImpactMinInterval = 0.050f;
+    public const int GroundImpactMaxPerTick = 4;
+    public const float UnitDeathMinInterval = 0.700f;
+    public const float UnitHitMinInterval = 0.500f;
+    public const float ExplosionMinInterval = 0.330f;
+
+    [SerializeField] AudioClip volleyFire;
+    [SerializeField] AudioClip groundImpact;
+    [SerializeField] AudioClip unitDeath;
+    [SerializeField] AudioClip unitHit;
+    [SerializeField] AudioClip explosion;
+    [SerializeField] AudioClip victory;
+    [SerializeField] AudioClip defeat;
+    [SerializeField] AudioClip helicopterLoop;
+
+    const int Voices = 12;
+    AudioSource[] voices;
+    int nextVoice;
+
+    float lastGroundImpact, lastUnitDeath, lastUnitHit, lastExplosion;
+
+    void Awake()
+    {
+        // A round-robin voice pool, sized above the biggest simultaneous burst. Unity will
+        // happily allocate an AudioSource per Play call otherwise, which is the same unbounded
+        // growth the projectile pools exist to avoid.
+        voices = new AudioSource[Voices];
+        for (int i = 0; i < Voices; i++)
+        {
+            var src = gameObject.AddComponent<AudioSource>();
+            src.playOnAwake = false;
+            src.spatialBlend = 0f;      // 2D — the camera moves constantly; panning would swim
+            voices[i] = src;
+        }
+    }
+
+    void Play(AudioClip clip, float volume, float pitch = 1f)
+    {
+        if (clip == null) return;
+        var src = voices[nextVoice];
+        nextVoice = (nextVoice + 1) % Voices;
+        src.clip = clip;
+        src.volume = volume;
+        src.pitch = pitch;
+        src.Play();
+    }
+
+    /// <summary>ONE burst per volley, deliberately not per projectile.</summary>
+    public void PlayVolleyFire() => Play(volleyFire, 0.8f);
+
+    /// <summary>
+    /// Rounds landing in the DIRT — misses and ground bursts only; a unit hit plays a scream
+    /// instead. Roughly one per projectile, because the clip is a tiny flyby snap and
+    /// overlapping copies read as a spatter rather than as noise. Per-copy pitch jitter stops
+    /// identical same-frame copies phasing into one louder thud.
+    /// </summary>
+    public void PlayGroundImpact(int count = 1)
+    {
+        if (Time.time - lastGroundImpact < GroundImpactMinInterval) return;
+        lastGroundImpact = Time.time;
+        int n = Mathf.Min(count, GroundImpactMaxPerTick);
+        for (int i = 0; i < n; i++) Play(groundImpact, 0.5f, Random.Range(0.9f, 1.1f));
+    }
+
+    public void PlayUnitDeath()
+    {
+        if (Time.time - lastUnitDeath < UnitDeathMinInterval) return;
+        lastUnitDeath = Time.time;
+        Play(unitDeath, 0.7f, Random.Range(0.95f, 1.05f));
+    }
+
+    public void PlayUnitHit()
+    {
+        if (Time.time - lastUnitHit < UnitHitMinInterval) return;
+        lastUnitHit = Time.time;
+        Play(unitHit, 0.55f, Random.Range(0.95f, 1.05f));
+    }
+
+    public void PlayExplosion()
+    {
+        if (Time.time - lastExplosion < ExplosionMinInterval) return;
+        lastExplosion = Time.time;
+        Play(explosion, 0.75f, Random.Range(0.95f, 1.05f));
+    }
+
+    public void PlayVictory() => Play(victory, 0.8f);
+    public void PlayDefeat() => Play(defeat, 0.8f);
+}
