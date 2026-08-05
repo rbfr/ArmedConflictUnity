@@ -1,0 +1,185 @@
+using System.Collections.Generic;
+using UnityEngine;
+
+namespace ArmedConflict.Game
+{
+    /// <summary>
+    /// Sixth slice of the GameViewModel port: the cosmetic layers — ragdolls, debris, scorch
+    /// marks and camera shake.
+    ///
+    /// None of this changes who wins. All of it changes whether the game looks alive, and every
+    /// piece here carries a trap that once shipped as a visible bug.
+    /// </summary>
+    public static class CosmeticSystems
+    {
+        // ---- rate independence ----------------------------------------------------------
+
+        /// <summary>
+        /// Converts a per-tick-at-60Hz decay factor into one correct for THIS tick's dt.
+        ///
+        /// dt VARIES, so a bare per-tick multiply silently changes rate with the frame rate:
+        /// the same "0.962 friction" is a different deceleration at 30, 60 and 120Hz. Every
+        /// decay constant expressed per-tick must go through here, or a ragdoll that rolls
+        /// convincingly on one device skids on another.
+        /// </summary>
+        public static float DecayPerTick60(float perTick, float dt)
+            => Mathf.Pow(perTick, dt * 60f);
+
+        // ---- camera shake ---------------------------------------------------------------
+
+        public const float ShakeDecayPerSecond = 2.5f;
+        public const float ShakePerKill = 0.15f;
+
+        /// <summary>
+        /// Decays camera shake. This MUST run on every tick path, including the one taken once
+        /// the battle is over.
+        ///
+        /// In the Android build shake was only computed inside the combat block, which the
+        /// non-Playing early return skipped — so a level that ended on a killing volley (i.e.
+        /// every level) froze its shake wherever the decay had got to, permanently. The renderer
+        /// re-rolls a random offset from it every frame it is above zero, so the whole scene
+        /// jittered for the rest of the victory screen. It was reported as "the destroyed
+        /// structures are jittering when the level is over" — the camera was jittering, and the
+        /// wrecks were simply the only things left to see it against.
+        /// </summary>
+        public static float DecayShake(float shake, float dt)
+            => Mathf.Max(shake - dt * ShakeDecayPerSecond, 0f);
+
+        public static float AddShakeForKills(float shake, int kills)
+            => shake + kills * ShakePerKill;
+
+        // ---- ragdolls -------------------------------------------------------------------
+
+        public const float RagdollMaxAgeSeconds = 5f;
+        public const float RagdollBodyHeight = 0.5f;
+        public const float RagdollBodyHalfWidth = 0.05f;
+        public const float RollMinSpeed = 0.30f;
+        public const float RollFrictionPerTick = 0.962f;   // per tick at 60Hz — see DecayPerTick60
+        public const float RollDegPerUnit = 150f;
+        public const float FlopSpring = 140f;
+        public const float FlopDamping = 23f;
+
+        /// <summary>
+        /// Resting height for a body at this rotation — the lift needed so no corner of the
+        /// body box sinks below the ground. A body lying flat rests lower than one propped at an
+        /// angle, which is what stops a tumbling corpse from clipping through the floor
+        /// mid-roll.
+        /// </summary>
+        public static float RagdollRestY(float rotationDegrees)
+        {
+            float r = rotationDegrees * Mathf.Deg2Rad;
+            float sin = Mathf.Sin(r), cos = Mathf.Cos(r);
+            float lowest = 0f;
+            foreach (float cx in new[] { -RagdollBodyHalfWidth, RagdollBodyHalfWidth })
+            foreach (float cy in new[] { 0f, RagdollBodyHeight })
+            {
+                float rotatedY = cx * sin + cy * cos;
+                if (rotatedY < lowest) lowest = rotatedY;
+            }
+            return -lowest;
+        }
+
+        /// <summary>
+        /// Rolling contact: while a grounded body still has real horizontal speed it tumbles
+        /// along the ground with rotation locked to travel, like a log, before the flop spring
+        /// takes over. Returns the new horizontal speed and the rotation rate that matches it.
+        /// </summary>
+        public static void StepRoll(float vx, float dt, out float newVx, out float rollSpeed)
+        {
+            newVx = vx * DecayPerTick60(RollFrictionPerTick, dt);
+            rollSpeed = -newVx * RollDegPerUnit;
+        }
+
+        public static bool ShouldRoll(float vx) => Mathf.Abs(vx) > RollMinSpeed;
+
+        /// <summary>
+        /// Angular spring pulling a grounded body toward the nearest lying pose, near-critically
+        /// damped (damping ~ 2*sqrt(spring)), so flop-to-rest takes about 0.4s with a slight rock.
+        /// </summary>
+        public static void StepFlop(float rotation, float rotationSpeed, float dt,
+                                    out float newRotation, out float newRotationSpeed)
+        {
+            float nearestLying = Mathf.Round(rotation / 180f) * 180f;
+            float error = nearestLying - rotation;
+            float accel = error * FlopSpring - rotationSpeed * FlopDamping;
+            newRotationSpeed = rotationSpeed + accel * dt;
+            newRotation = rotation + newRotationSpeed * dt;
+        }
+
+        /// <summary>
+        /// Bodies lie on the field for a short beat, then cull. Longer lifetimes were tried (30s)
+        /// and keep the dying list long across whole turn cycles, which the renderer then scans
+        /// per unit slot per tick — it read as sluggishness during heavy volleys.
+        /// </summary>
+        public static bool RagdollExpired(float age) => age >= RagdollMaxAgeSeconds;
+
+        // ---- debris ---------------------------------------------------------------------
+
+        public const float DebrisTtlSeconds = 2.6f;
+        /// <summary>Structure rubble persists for the WHOLE level rather than ageing out.</summary>
+        public const float DebrisRubbleTtl = float.MaxValue;
+
+        /// <summary>
+        /// A grounded, nearly-motionless piece of RUBBLE is put to sleep: its motion stops and it
+        /// is flagged so nothing has to keep integrating it.
+        ///
+        /// Only rubble sleeps — transient spatter is never slept, it ages out on ttl instead.
+        /// The flag is also what lets IsVisuallyIdle stay usable: rubble never disappears, so a
+        /// plain "is the debris list empty" test would be false forever once anything was
+        /// destroyed, silently disabling the idle path for the rest of the level.
+        /// </summary>
+        public static bool ShouldSleep(bool isRubble, bool grounded,
+                                       float vx, float vy, float rotationSpeed)
+            => isRubble && grounded
+               && Mathf.Abs(vx) < 0.05f && Mathf.Abs(vy) < 0.05f
+               && Mathf.Abs(rotationSpeed) < 12f;
+
+        // ---- scorch ---------------------------------------------------------------------
+
+        public const float ScorchWorldRadius = 0.30f;
+        /// <summary>A new mark within this fraction of an existing one merges into it.</summary>
+        public const float ScorchMergeFraction = 0.75f;
+        public const float ScorchMergeGrowth = 1.07f;
+        public const float ScorchMaxScale = 1.8f;
+
+        /// <summary>
+        /// Finds an existing scorch close enough to absorb a new one, so a heavily-shelled patch
+        /// grows one bigger scar instead of stacking dozens of identical decals in the same
+        /// place — which both looks wrong and burns slots from a bounded pool.
+        /// </summary>
+        public static int FindMergeTarget(IReadOnlyList<ScorchMark> scorches, float x, float z)
+        {
+            float mergeDist = ScorchWorldRadius * ScorchMergeFraction;
+            float bestSq = mergeDist * mergeDist;
+            int best = -1;
+            for (int i = 0; i < scorches.Count; i++)
+            {
+                float dx = scorches[i].X - x, dz = scorches[i].Z - z;
+                float d = dx * dx + dz * dz;
+                if (d <= bestSq) { bestSq = d; best = i; }
+            }
+            return best;
+        }
+
+        /// <summary>Growth is capped so a long bombardment cannot produce one enormous blot.</summary>
+        public static float GrowScorch(float scale)
+            => Mathf.Min(scale * ScorchMergeGrowth, ScorchMaxScale);
+
+        // ---- knockback ------------------------------------------------------------------
+
+        public const float KnockbackDurationSeconds = 0.42f;
+
+        /// <summary>
+        /// Advances a survivor's knockback hop. -1 means inactive; the counter runs up and then
+        /// returns to -1, snapping the unit back to its formation slot. It is deliberately an
+        /// AGE rather than a position: the renderer derives a sine arc from it, so the unit's
+        /// real x/y never leave the formation and collision is unaffected.
+        /// </summary>
+        public static float StepKnockback(float knockbackAge, float dt)
+        {
+            if (knockbackAge < 0f) return -1f;
+            float next = knockbackAge + dt;
+            return next >= KnockbackDurationSeconds ? -1f : next;
+        }
+    }
+}

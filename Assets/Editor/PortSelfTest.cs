@@ -19,6 +19,7 @@ public static class PortSelfTest
     static void Check(bool ok, string what)
     {
         if (!ok) failed++;
+        if (what == null) return;          // loop-body assertions log only their summary line
         Log.AppendLine($"  [{(ok ? "ok  " : "FAIL")}] {what}");
     }
 
@@ -677,6 +678,89 @@ public static class PortSelfTest
             // A melee reset drops the carried velocity, so the spring does not fling.
             CameraDirector.FollowVolley(5f, 99f, rounds, pl, en, st, true, 1f / 60f, out float vReset);
             Check(Mathf.Abs(vReset) < 50f, "a melee reset discards the carried velocity");
+        }
+
+        // --- CosmeticSystems
+        {
+            // RATE INDEPENDENCE: the same friction must decay the same amount per SECOND
+            // regardless of tick rate, or a ragdoll that rolls on one device skids on another.
+            float at60 = CosmeticSystems.DecayPerTick60(0.962f, 1f / 60f);
+            Near(at60, 0.962f, 1e-5f, "at 60Hz the per-tick factor is used as authored");
+            float oneSecAt60 = Mathf.Pow(CosmeticSystems.DecayPerTick60(0.962f, 1f / 60f), 60);
+            float oneSecAt120 = Mathf.Pow(CosmeticSystems.DecayPerTick60(0.962f, 1f / 120f), 120);
+            float oneSecAt30 = Mathf.Pow(CosmeticSystems.DecayPerTick60(0.962f, 1f / 30f), 30);
+            Near(oneSecAt120, oneSecAt60, 1e-4f, "120Hz decays the same amount per second as 60");
+            Near(oneSecAt30, oneSecAt60, 1e-4f, "30Hz decays the same amount per second as 60");
+
+            // SHAKE must reach exactly zero, and must decay on EVERY tick path — a level ending
+            // on a killing volley froze it forever and jittered the whole victory screen.
+            float shake = CosmeticSystems.AddShakeForKills(0f, 4);
+            Near(shake, 0.6f, 1e-5f, "four kills raise the shake");
+            for (int i = 0; i < 200; i++) shake = CosmeticSystems.DecayShake(shake, 1f / 60f);
+            Check(shake == 0f, "shake decays to EXACTLY zero, never a lingering epsilon");
+            Check(CosmeticSystems.DecayShake(0f, 1f) == 0f, "decaying past zero cannot go negative");
+
+            // Ragdoll rest height: a body must never sink through the floor at any rotation.
+            for (int deg = 0; deg < 360; deg += 7)
+            {
+                float restY = CosmeticSystems.RagdollRestY(deg);
+                Check(restY >= -1e-6f, deg == 0 ? "rest height is never negative" : null);
+                if (restY < -1e-6f) break;
+            }
+            Check(CosmeticSystems.RagdollRestY(90f) > CosmeticSystems.RagdollRestY(0f),
+                  "a body propped upright rests HIGHER than one lying flat");
+            Near(CosmeticSystems.RagdollRestY(0f), 0f, 1e-6f, "a flat body rests on the ground");
+
+            // Rolling: friction bleeds speed, and rotation is locked to travel (like a log).
+            CosmeticSystems.StepRoll(2f, 1f / 60f, out float nvx, out float roll);
+            Check(nvx < 2f && nvx > 0f, "roll friction bleeds speed without reversing it");
+            Check(roll < 0f, "rightward travel rolls the body forward (negative degrees)");
+            Check(CosmeticSystems.ShouldRoll(1f), "a fast body rolls");
+            Check(!CosmeticSystems.ShouldRoll(0.1f), "a slow body stops rolling and flops");
+
+            // Flop: near-critically damped toward the nearest LYING pose, so it settles.
+            float rot = 60f, rotSpeed = 0f;
+            for (int i = 0; i < 240; i++)
+                CosmeticSystems.StepFlop(rot, rotSpeed, 1f / 60f, out rot, out rotSpeed);
+            Near(rot, 0f, 1.0f, "a body at 60 degrees flops down to lying flat");
+            Check(Mathf.Abs(rotSpeed) < 1f, "and comes to rest rather than oscillating");
+            float rot2 = 130f, rs2 = 0f;
+            for (int i = 0; i < 240; i++)
+                CosmeticSystems.StepFlop(rot2, rs2, 1f / 60f, out rot2, out rs2);
+            Near(rot2, 180f, 1.0f, "a body past vertical falls the OTHER way, to 180");
+
+            Check(CosmeticSystems.RagdollExpired(5f), "a body is culled at the age limit");
+            Check(!CosmeticSystems.RagdollExpired(4.9f), "and not before");
+
+            // Debris sleep: ONLY rubble sleeps, and only when actually still.
+            Check(CosmeticSystems.ShouldSleep(true, true, 0f, 0f, 0f), "still grounded rubble sleeps");
+            Check(!CosmeticSystems.ShouldSleep(false, true, 0f, 0f, 0f),
+                  "transient spatter never sleeps — it ages out on ttl instead");
+            Check(!CosmeticSystems.ShouldSleep(true, false, 0f, 0f, 0f), "airborne rubble stays awake");
+            Check(!CosmeticSystems.ShouldSleep(true, true, 1f, 0f, 0f), "moving rubble stays awake");
+            Check(!CosmeticSystems.ShouldSleep(true, true, 0f, 0f, 50f), "spinning rubble stays awake");
+            Check(CosmeticSystems.DebrisRubbleTtl > CosmeticSystems.DebrisTtlSeconds,
+                  "rubble outlives transient debris by design");
+
+            // Scorch merging: nearby marks combine instead of stacking identical decals.
+            var marks = new List<ScorchMark> { new(1, 5f, 0f), new(2, 20f, 0f) };
+            Check(CosmeticSystems.FindMergeTarget(marks, 5.05f, 0f) == 0,
+                  "a hit next to an existing scorch merges into it");
+            Check(CosmeticSystems.FindMergeTarget(marks, 12f, 0f) == -1,
+                  "a distant hit makes its own mark");
+            Check(CosmeticSystems.FindMergeTarget(new List<ScorchMark>(), 0f, 0f) == -1,
+                  "an empty field has nothing to merge with");
+            float grown = 1f;
+            for (int i = 0; i < 100; i++) grown = CosmeticSystems.GrowScorch(grown);
+            Check(grown <= CosmeticSystems.ScorchMaxScale + 1e-5f,
+                  "repeated merges cannot grow one enormous blot");
+
+            // Knockback: an AGE, not a displacement — collision is unaffected.
+            Check(CosmeticSystems.StepKnockback(-1f, 1f / 60f) == -1f, "an inactive hop stays inactive");
+            float k = CosmeticSystems.StepKnockback(0f, 1f / 60f);
+            Check(k > 0f, "a triggered hop starts counting");
+            Check(CosmeticSystems.StepKnockback(0.41f, 0.05f) == -1f,
+                  "the hop returns to inactive when it expires, snapping back to formation");
         }
 
         Debug.Log($"[PortSelfTest] {(failed == 0 ? "ALL PASS" : $"{failed} FAILURES")}\n{Log}");
