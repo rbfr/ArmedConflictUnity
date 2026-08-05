@@ -58,6 +58,30 @@ namespace ArmedConflict.Game
             {
                 // Cosmetic-only path. Still advances everything above, so a finished battle
                 // settles instead of freezing mid-motion.
+                //
+                // It also RE-FRAMES. Leaving the camera on its last gameplay target pointed it at
+                // the enemy anchor — a stable per-level value that, once the enemy roster and its
+                // structures are gone, is simply a patch of empty ground. The battle ended on the
+                // most legible shot available and then panned away from it. Frame the survivors
+                // instead: they are what the player wants to look at, win or lose.
+                var survivors = s.PlayerUnits.Count > 0 ? s.PlayerUnits : s.EnemyUnits;
+                float? endX = s.CameraFollowX;
+                float endXVel = s.CameraFollowXVelocity;
+                float endZ = s.CameraFollowZ ?? 11f;
+                float endZVel = s.CameraFollowZVelocity;
+
+                if (survivors.Count > 0)
+                {
+                    float mean = survivors.Average(u => u.X);
+                    float half = Mathf.Max((survivors.Max(u => u.X) - survivors.Min(u => u.X)) / 2f, 1.5f);
+                    float x = endX ?? mean;
+                    SpringFollow.Step(ref x, ref endXVel, mean, dt, 0.35f);
+                    endX = x;
+                    SpringFollow.Step(ref endZ, ref endZVel,
+                                      CameraDirector.TargetZ(half + 1.2f, s.StaticCamera, s.StaticCamZ),
+                                      dt, 0.35f);
+                }
+
                 return s with
                 {
                     Projectiles = ProjectileSystem.Cull(stepped, new HashSet<int>(),
@@ -67,6 +91,10 @@ namespace ArmedConflict.Game
                     Helicopter = helicopter,
                     NextExplosionSlot = nextExplosionSlot,
                     ShakeIntensity = shake,
+                    CameraFollowX = endX,
+                    CameraFollowXVelocity = endXVel,
+                    CameraFollowZ = endZ,
+                    CameraFollowZVelocity = endZVel,
                 };
             }
 
