@@ -46,21 +46,27 @@ be broken up on the way across rather than transliterated whole.
 As ScriptableObjects this gets an inspector for free, which is the one place Unity is genuinely
 nicer than what exists today. The 12 campaign levels plus 17 test levels are data, not code.
 
-### `ui/` — 5,397 LOC, the real cost
+### `ui/` — 5,397 LOC, and MOSTLY DONE (updated 2026-08-05)
+
+The original estimate treated all ~2,600 non-SceneHost lines as an unported rewrite. Three of
+the five items have since landed, so the remaining UI work is roughly **415 lines** (the
+loadout/purchase screen), not 2,600.
 
 | file | LOC | fate |
 |---|---|---|
 | `SceneHost.kt` | 2,798 | **DELETED.** This is the renderer the migration exists to remove |
-| `BattleScreen.kt` | 920 | rebuilt in Unity UI |
-| `BattleBackground.kt` | 630 | rebuilt — and likely simplified, since a real 3D ground replaces the painted band |
-| `LoadoutScreen.kt` | 415 | rebuilt |
-| `AimOverlay.kt` | 268 | rebuilt (gesture logic ported in Step 4) |
-| `SoundEffects.kt` | 177 | rebuilt on Unity audio |
-| `DebugCamera.kt` | 89 | rebuilt (trivial) |
+| `BattleScreen.kt` | 920 | **DONE** — HUD in `BattleRunner.DrawHud` |
+| `BattleBackground.kt` | 630 | **DONE, and simplified** — real 3D backdrop from `BackgroundDefinition`, no painted band, so `groundLift` stays deleted |
+| `LoadoutScreen.kt` | 415 | **still to do** — the economy/purchase screen, and the only large UI item left |
+| `AimOverlay.kt` | 268 | **DONE** — gesture ported in Step 4, arc preview in the runner |
+| `SoundEffects.kt` | 177 | **DONE** — `BattleAudio`, rate limits intact |
+| `DebugCamera.kt` | 89 | not needed yet — the Auto button covers adb-driven testing |
 | theme | 100 | discard |
 
-**~2,600 lines of Compose have no migration path.** Jetpack Compose and Unity UI share no
-concepts; this is a rewrite, not a port. It is also the least interesting work in the project.
+Jetpack Compose and Unity UI share no concepts, so each of these was a rewrite rather than a
+port — but the rewrites turned out far cheaper than budgeted, because most of what the battle
+HUD does is read four numbers out of `GameState`. The estimate's error was treating "no
+migration path" as "expensive"; it meant "not mechanical", which is not the same thing.
 
 ## What SceneHost's deletion is actually worth
 
@@ -92,14 +98,20 @@ Not one of these is a feature. They are the cost of hand-writing a renderer agai
 |---|---|---|
 | `data/` → ScriptableObjects (incl. 29 levels) | ~~3-4 days~~ **DONE — under a day** | measured |
 | `game/` → C# (3,418-line ViewModel dominates) | 8-12 days | medium |
-| `ui/` rebuild in Unity UI | 8-12 days | **low** — hardest to estimate, most tedious |
+| `ui/` rebuild in Unity UI | ~~8-12 days~~ **mostly DONE** — loadout screen remains | measured |
 | scene/rendering layer (replaces SceneHost) | 4-6 days | medium — Steps 2-4 already did the hard parts |
 | audio, persistence, build/release plumbing | 2-3 days | good |
 | handedness audit across all level data | 0.5-1 day | good — `GameSpace` exists, needs applying |
 | re-verification on device against the current build | 3-5 days | low |
 
-**Total: roughly 6-9 weeks of focused work.** The UI rebuild and the re-verification are the
-soft numbers; everything else is bounded.
+**Original total: roughly 6-9 weeks.** That now looks high. `data/` was budgeted 3-4 days and
+took under one; `game/` was budgeted 8-12 days and all eight slices are ported and under test;
+the UI was the biggest soft number and is mostly done. What remains is the loadout screen, the
+battle lifecycle past one level, consumables, and device re-verification against the shipping
+build.
+
+Treat the original figure as what it was — a guess made before any of it had been attempted —
+rather than as a measurement that has been beaten.
 
 ## The honest framing
 

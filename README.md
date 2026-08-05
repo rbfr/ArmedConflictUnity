@@ -1,9 +1,13 @@
-# ArmedConflict — Unity Migration Spike
+# ArmedConflict — Unity port
 
-Evaluating whether ArmedConflict (native Android: Kotlin + Jetpack Compose + SceneView/Filament)
-should move to Unity. **This is a spike, not a migration.** The shipping build stays in the
-`ArmedConflict` Android repo; see `UNITY_SPIKE.md` there for the plan, pass/fail criteria and
-kill criteria, and `GODOT_SPIKE.md` for the alternative under consideration.
+Started as a spike evaluating whether ArmedConflict (native Android: Kotlin + Jetpack Compose +
+SceneView/Filament) should move to Unity. **All four spike steps passed and Unity was chosen on
+2026-08-04**, so this is now the port rather than an evaluation. The Android repo remains the
+shipping build until this can replace it.
+
+L1 is playable end to end: drag to aim, volley, swept collision, damage, structure collapse,
+turn handover, victory — with sound, biome backdrop, per-type projectiles, scorch, rubble and a
+battle HUD, at a steady 60 fps.
 
 - Unity 6000.0.80f1 (Unity 6 LTS), URP 17.0.4 Mobile, IL2CPP / arm64
 - Target device: Pixel 10 Pro XL (Tensor G5, PowerVR D-Series), Android 16
