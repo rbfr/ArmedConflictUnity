@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   id: level_test_bastion_layout
   displayName: "TEST \u2014 Bastion Layout"
-  levelNumber: 20
+  levelNumber: 15
   levelGoal: 'Debug sandbox: stepped bastion, garrison rows, two heroes at the foot'
   enemyGroups:
   - definition: {fileID: 11400000, guid: b51688fb293b69e5cab2885bcaa975b8, type: 2}
@@ -107,7 +107,7 @@ MonoBehaviour:
     hasStandWidth: 0
     hpScale: 1
   - id: bas_mid
-    definition: {fileID: 0}
+    definition: {fileID: 11400000, guid: 4ccb45e18b5d39dc981ca7dbff582e93, type: 2}
     x: 6.5
     y: 0.8
     z: 0

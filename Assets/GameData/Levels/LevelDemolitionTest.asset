@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   id: level_test_demolition
   displayName: "TEST \u2014 Demolition"
-  levelNumber: 19
+  levelNumber: 14
   levelGoal: 'Debug sandbox: flatten a structure in one volley and watch it come
     down'
   enemyGroups:

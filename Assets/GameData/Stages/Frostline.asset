@@ -13,12 +13,10 @@ MonoBehaviour:
   m_Name: Frostline
   m_EditorClassIdentifier: 
   id: stage_frostline
-  displayName: Frostline
-  tagline: Reinforced columns, gunships, and the Legion's command post
+  displayName: Tideline
+  tagline: The last position, with its back to the sea
   levels:
-  - {fileID: 11400000, guid: d917509b85e9737e8a54a3ae84cc7b1e, type: 2}
-  - {fileID: 11400000, guid: 247253aff6f4ca35e891d93b0dabefed, type: 2}
-  - {fileID: 11400000, guid: e0791e75362d90896b4bc05f255393a0, type: 2}
-  starsToUnlock: 12
+  - {fileID: 11400000, guid: be68ea60b193003d297578e849e6cdae, type: 2}
+  starsToUnlock: 9
   unlockRewardId: mortar_team
   completionCoinBonus: 0

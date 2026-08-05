@@ -22,8 +22,8 @@ MonoBehaviour:
   modelScaleUnits: 2.5
   standWidth: 2
   deckStandZOffset: -0.79999995
-  hitWidth: -1
-  hasHitWidth: 0
+  hitWidth: 2.5
+  hasHitWidth: 1
   deckY: -1
   hasDeckY: 0
   worldScale: 2.5
@@ -41,5 +41,40 @@ MonoBehaviour:
     offsetY: 0
     model: models/flag.glb
     scale: 1
-  hasFlagMount: 0
-  damageChunks: []
+  hasFlagMount: 1
+  damageChunks:
+  - offsetX: 0
+    offsetY: 0
+    offsetZ: 0
+    sizeX: 0
+    sizeY: 0
+    sizeZ: 0
+    pieces: 1
+  - offsetX: 0
+    offsetY: 0
+    offsetZ: 0
+    sizeX: 0
+    sizeY: 0
+    sizeZ: 0
+    pieces: 1
+  - offsetX: 0
+    offsetY: 0
+    offsetZ: 0
+    sizeX: 0
+    sizeY: 0
+    sizeZ: 0
+    pieces: 1
+  - offsetX: 0
+    offsetY: 0
+    offsetZ: 0
+    sizeX: 0
+    sizeY: 0
+    sizeZ: 0
+    pieces: 1
+  - offsetX: 0
+    offsetY: 0
+    offsetZ: 0
+    sizeX: 0
+    sizeY: 0
+    sizeZ: 0
+    pieces: 1

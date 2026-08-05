@@ -237,6 +237,11 @@ def parse_call_args(cur, positional_only=False):
 
 # ---------------------------------------------------------------- top-level extraction
 
+# Member calls that DERIVE one definition from another. A val whose right-hand side is one of
+# these over an existing definition is itself a definition and must be exported.
+DERIVING_METHODS = ('copy', 'scaled')
+
+
 def extract_vals(path, want_ctors, failures):
     """
     Finds `val Name = Ctor(...)` at any indent, for the constructors we care about.
@@ -263,8 +268,16 @@ def extract_vals(path, want_ctors, failures):
         # "Rifleman.copy", because read_ident swallows dots. Without this clause the four
         # Enemy* variants vanish silently and every enemy group in every level loses its unit.
         rc = root_ctor(v)
-        is_copy = isinstance(rc, str) and rc.endswith('.copy')
-        if isinstance(v, dict) and (rc in want_ctors or is_copy or has_method(v, 'copy')):
+        # `val EnemyRifleman = Rifleman.copy(...)` parses as a ctor literally NAMED
+        # "Rifleman.copy", because read_ident swallows dots — and `val FortressTier =
+        # FortressTierUnscaled.scaled()` lands in exactly the same shape with the other method
+        # name. Only .copy was accepted, so FortressTier was dropped; and since a bare identifier
+        # does not start with a wanted ctor name, `looks_wanted` was false too, so it was not even
+        # reported as unparsed. Five levels placed a structure that did not exist and threw on
+        # load. Any DERIVING method belongs here, not just copy.
+        derived = isinstance(rc, str) and rc.rpartition('.')[2] in DERIVING_METHODS
+        if isinstance(v, dict) and (rc in want_ctors or derived
+                                    or any(has_method(v, mth) for mth in DERIVING_METHODS)):
             out[name] = v
     return out
 

@@ -13,20 +13,20 @@ MonoBehaviour:
   m_Name: PlayerFortressTier
   m_EditorClassIdentifier: 
   id: player_fortress_tier
-  displayName: 
-  modelAsset: 
-  maxHp: 0
-  size: 0
+  displayName: Fortress Tier
+  modelAsset: models/fortress_tier.glb
+  maxHp: 212
+  size: 2
   isPlayerSide: 1
-  modelAbsoluteScale: 0
-  modelScaleUnits: 1
-  standWidth: 0.6
-  deckStandZOffset: 0
-  hitWidth: -1
-  hasHitWidth: 0
+  modelAbsoluteScale: 1
+  modelScaleUnits: 2.5
+  standWidth: 3
+  deckStandZOffset: -0.1875
+  hitWidth: 4.25
+  hasHitWidth: 1
   deckY: -1
   hasDeckY: 0
-  worldScale: 1
+  worldScale: 2.5
   cannon:
     damage: 0
     splashRadius: 0
@@ -42,4 +42,46 @@ MonoBehaviour:
     model: models/flag.glb
     scale: 1
   hasFlagMount: 0
-  damageChunks: []
+  damageChunks:
+  - offsetX: 0
+    offsetY: 0
+    offsetZ: 0
+    sizeX: 0
+    sizeY: 0
+    sizeZ: 0
+    pieces: 1
+  - offsetX: 0
+    offsetY: 0
+    offsetZ: 0
+    sizeX: 0
+    sizeY: 0
+    sizeZ: 0
+    pieces: 1
+  - offsetX: 0
+    offsetY: 0
+    offsetZ: 0
+    sizeX: 0
+    sizeY: 0
+    sizeZ: 0
+    pieces: 1
+  - offsetX: 0
+    offsetY: 0
+    offsetZ: 0
+    sizeX: 0
+    sizeY: 0
+    sizeZ: 0
+    pieces: 1
+  - offsetX: 0
+    offsetY: 0
+    offsetZ: 0
+    sizeX: 0
+    sizeY: 0
+    sizeZ: 0
+    pieces: 1
+  - offsetX: 0
+    offsetY: 0
+    offsetZ: 0
+    sizeX: 0
+    sizeY: 0
+    sizeZ: 0
+    pieces: 1

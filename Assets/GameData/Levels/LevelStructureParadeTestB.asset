@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   id: level_test_structure_parade_b
   displayName: "TEST \u2014 Structure Parade II"
-  levelNumber: 16
+  levelNumber: 11
   levelGoal: 'Debug sandbox: towers, natural cover and the assembled fortress'
   enemyGroups:
   - definition: {fileID: 11400000, guid: e2f345bdab5634c49a5e289daed390f3, type: 2}
@@ -65,7 +65,7 @@ MonoBehaviour:
     hasStandWidth: 0
     hpScale: 1
   - id: q_ftmid
-    definition: {fileID: 0}
+    definition: {fileID: 11400000, guid: 4ccb45e18b5d39dc981ca7dbff582e93, type: 2}
     x: 3.5
     y: 0.8
     z: 0

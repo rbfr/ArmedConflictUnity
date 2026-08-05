@@ -62,14 +62,31 @@ public static class DataImporter
         AssetDatabase.SaveAssets();
         AssetDatabase.Refresh();
 
-        BuildSandboxLevels();
-        AssetDatabase.SaveAssets();
-
         // The level ORDER is load bearing: the debug switcher does jumpToLevel(levelNumber),
-        // which is only correct while levelNumber == index + 1.
+        // which is only correct while levelNumber == index + 1. Read it BEFORE the sandboxes are
+        // generated, because they take their numbers from it.
         var order = root.GetList("levelOrder");
         var names = order.Select(o => RefName(o.AsDict())).ToList();
+
+        BuildSandboxLevels(names);
+        AssetDatabase.SaveAssets();
         var absent = names.Where(n => n != null && !Levels.ContainsKey(n)).ToList();
+
+        // DELETE ORPHANS. The importer creates and updates, and used to do nothing else — so a
+        // level removed from the Kotlin left its .asset behind, and SpikeSceneBattle collects
+        // EVERY LevelDefinitionSO it can find and orders them by levelNumber. A deleted level
+        // therefore rejoined the campaign silently, at whatever number it used to hold. Found
+        // when the campaign was cut to seven biome levels on 2026-08-05 and six assets were left
+        // stranded. The Kotlin is the source of truth in BOTH directions: what it no longer
+        // declares must not survive here.
+        foreach (var orphan in AssetDatabase.FindAssets("t:LevelDefinitionSO", new[] { $"{Root}/Levels" })
+                     .Select(AssetDatabase.GUIDToAssetPath)
+                     .Where(p => !Levels.ContainsKey(Path.GetFileNameWithoutExtension(p)))
+                     .ToList())
+        {
+            Debug.Log($"[DataImport] removing orphaned level asset {Path.GetFileName(orphan)}");
+            AssetDatabase.DeleteAsset(orphan);
+        }
 
         Debug.Log($"[DataImport] units={Units.Count} structures={Structures.Count} " +
                   $"backgrounds={Backgrounds.Count} levels={Levels.Count} " +
@@ -254,27 +271,43 @@ public static class DataImporter
     static readonly string[] EnemyCycle =
         { "EnemyRifleman", "EnemyRifleman", "EnemyMachineGunner", "EnemyRifleman", "EnemyGrenadier" };
 
-    static void BuildSandboxLevels()
+    /// <summary>
+    /// The roster/grouping sandboxes, whose Kotlin generator (`rosterSandbox`) the exporter cannot
+    /// parse — so they are rebuilt here from the same parameters.
+    ///
+    /// The NUMBERS are taken from the level's position in `levelOrder`, never hardcoded. They used
+    /// to be literals in the spec table below, which made this a SECOND source of truth for level
+    /// numbering: cutting the campaign to seven biome levels renumbered them in the Kotlin and
+    /// they silently kept their old 21-28 here, breaking `levelNumber == index + 1` and with it
+    /// the level switcher. The composition is duplicated because it has to be; the ordering is not.
+    /// </summary>
+    static void BuildSandboxLevels(List<string> order)
     {
-        // (assetName, number, label, playerCount, enemyCount, playerSquads, enemySquads)
-        var specs = new (string name, int n, string label, int pc, int ec, int ps, int es)[]
+        // (assetName, label, playerCount, enemyCount, playerSquads, enemySquads)
+        var specs = new (string name, string label, int pc, int ec, int ps, int es)[]
         {
-            ("LevelRosterSmall",     21, "Roster S v S",       6,  6, 2, 2),
-            ("LevelRosterMedium",    22, "Roster M v M",      14, 14, 3, 3),
-            ("LevelRosterLarge",     23, "Roster L v L",      26, 26, 5, 5),
-            ("LevelRosterSmallVsLg", 24, "Roster S v L",       6, 26, 2, 5),
-            ("LevelRosterLargeVsSm", 25, "Roster L v S",      26,  6, 5, 2),
-            ("LevelGroupingOne",     26, "Grouping 1 squad",  14, 14, 1, 1),
-            ("LevelGroupingTwo",     27, "Grouping 2 squads", 14, 14, 2, 2),
-            ("LevelGroupingSeven",   28, "Grouping 7 squads", 14, 14, 7, 7),
+            ("LevelRosterSmall",     "Roster S v S",       6,  6, 2, 2),
+            ("LevelRosterMedium",    "Roster M v M",      14, 14, 3, 3),
+            ("LevelRosterLarge",     "Roster L v L",      26, 26, 5, 5),
+            ("LevelRosterSmallVsLg", "Roster S v L",       6, 26, 2, 5),
+            ("LevelRosterLargeVsSm", "Roster L v S",      26,  6, 5, 2),
+            ("LevelGroupingOne",     "Grouping 1 squad",  14, 14, 1, 1),
+            ("LevelGroupingTwo",     "Grouping 2 squads", 14, 14, 2, 2),
+            ("LevelGroupingSeven",   "Grouping 7 squads", 14, 14, 7, 7),
         };
 
         foreach (var s in specs)
         {
+            int n = order.IndexOf(s.name) + 1;
+            if (n == 0)
+            {
+                Debug.LogWarning($"[DataImport] {s.name} is not in levelOrder — sandbox skipped");
+                continue;
+            }
             var so = Load<LevelDefinitionSO>($"{Root}/Levels/{s.name}.asset");
-            so.id = $"level_test_roster_{s.n}";
+            so.id = $"level_test_roster_{n}";
             so.displayName = $"TEST — {s.label}";
-            so.levelNumber = s.n;
+            so.levelNumber = n;
             so.levelGoal = $"Sandbox: {s.pc} v {s.ec}, {s.ps} v {s.es} squads";
             so.isTestLevel = true;
             so.levelBase = 0;
@@ -496,13 +529,19 @@ public static class DataImporter
             if (v.TryGetValue("__ctor", out var c))
             {
                 string ctor = c as string;
-                if (ctor != null && ctor.EndsWith(".copy"))
+                string method = DerivingSuffix(ctor);
+                if (method != null)
                 {
                     // `Rifleman.copy(displayName = "Enemy Rifleman")` — the copy ARGS are the
                     // override, and the receiver name is the base to layer them onto. Taking the
                     // args alone would produce a unit with a name and nothing else.
+                    //
+                    // ANY deriving call takes this shape, not only copy: the exporter's ident
+                    // reader swallows the dot, so `FortressTierUnscaled.scaled()` also arrives as
+                    // a ctor NAMED for the call. Matching only ".copy" left FortressTier with no
+                    // base at all, and five levels place it.
                     overrides.Insert(0, v);
-                    var baseName = Short(ctor.Substring(0, ctor.Length - ".copy".Length));
+                    var baseName = Short(ctor.Substring(0, ctor.Length - method.Length - 1));
                     var baseFields = lookup?.Invoke(baseName);
                     if (baseFields != null) overrides.Insert(0, baseFields);
                     break;
@@ -527,12 +566,31 @@ public static class DataImporter
         return new Flat(merged);
     }
 
+    /// <summary>Member calls that derive one definition from another — see Flatten.</summary>
+    static readonly string[] DerivingMethods = { "copy", "scaled" };
+
+    /// <summary>The deriving call a ctor NAME encodes, or null. "Foo.scaled" -> "scaled".</summary>
+    static string DerivingSuffix(string ctor)
+    {
+        if (ctor == null) return null;
+        foreach (var m in DerivingMethods)
+            if (ctor.EndsWith("." + m)) return m;
+        return null;
+    }
+
+    /// <summary>
+    /// True if `name` appears anywhere in the chain — as a real `__method` node, OR folded into a
+    /// ctor name. Both forms occur for the same Kotlin: `X.copy(...).scaled()` gives a __method,
+    /// while a bare `X.scaled()` gives only the ctor name. Checking one form made the structure
+    /// scale silently depend on which shape the source happened to take.
+    /// </summary>
     static bool HasMethod(Dictionary<string, object> v, string name)
     {
         int guard = 0;
         while (v != null && guard++ < 16)
         {
             if (v.GetValueOrDefault("__method") as string == name) return true;
+            if (DerivingSuffix(v.GetValueOrDefault("__ctor") as string) == name) return true;
             v = v.GetValueOrDefault("__on").AsDict();
         }
         return false;
@@ -573,16 +631,67 @@ public static class DataImporter
         ["meleeDamage"] = (double)u.meleeDamage, ["renderScale"] = (double)u.renderScale,
     };
 
-    static Dictionary<string, object> Capture(StructureDefinitionSO s) => new()
+    /// <summary>
+    /// Reads a built structure back as an argument map so a derived one can layer on it.
+    ///
+    /// The OPTIONAL fields have to come across too, and used not to. Every field below the
+    /// worldScale line was missing, so any `.copy()`/`.scaled()` that did not restate a field
+    /// silently lost it — a structure derived from a base would come back with no hit width, no
+    /// deck, no flag and NO DAMAGE CHUNKS, which means it also could not shed geometry when hit.
+    /// It stayed hidden because the wide and small fortress tiers restate all of theirs, and the
+    /// one val that restates nothing (`FortressTier = FortressTierUnscaled.scaled()`) was being
+    /// dropped by the exporter before it ever got here.
+    ///
+    /// hitWidth and deckY are written ONLY when the base actually has them: their presence is the
+    /// signal (`flat.Has`), so an unconditional -1 would read as "measured, and it is -1".
+    /// </summary>
+    static Dictionary<string, object> Capture(StructureDefinitionSO s)
     {
-        ["id"] = s.id, ["displayName"] = s.displayName, ["modelAsset"] = s.modelAsset,
-        ["maxHp"] = (double)s.maxHp, ["size"] = (double)s.size,
-        ["isPlayerSide"] = s.isPlayerSide, ["modelAbsoluteScale"] = s.modelAbsoluteScale,
-        ["modelScaleUnits"] = (double)s.modelScaleUnits,
-        ["standWidth"] = (double)s.standWidth,
-        ["deckStandZOffset"] = (double)s.deckStandZOffset,
-        ["worldScale"] = (double)s.worldScale,
-    };
+        var d = new Dictionary<string, object>
+        {
+            ["id"] = s.id, ["displayName"] = s.displayName, ["modelAsset"] = s.modelAsset,
+            ["maxHp"] = (double)s.maxHp, ["size"] = (double)s.size,
+            ["isPlayerSide"] = s.isPlayerSide, ["modelAbsoluteScale"] = s.modelAbsoluteScale,
+            ["modelScaleUnits"] = (double)s.modelScaleUnits,
+            ["standWidth"] = (double)s.standWidth,
+            ["deckStandZOffset"] = (double)s.deckStandZOffset,
+            ["worldScale"] = (double)s.worldScale,
+        };
+        if (s.hasHitWidth) d["hitWidth"] = (double)s.hitWidth;
+        if (s.hasDeckY) d["deckY"] = (double)s.deckY;
+        if (s.hasCannon && s.cannon != null)
+            d["cannon"] = new Dictionary<string, object>
+            {
+                ["damage"] = (double)s.cannon.damage,
+                ["splashRadius"] = (double)s.cannon.splashRadius,
+                ["structureDamageMultiplier"] = (double)s.cannon.structureDamageMultiplier,
+                ["muzzleOffsetX"] = (double)s.cannon.muzzleOffsetX,
+                ["muzzleOffsetY"] = (double)s.cannon.muzzleOffsetY,
+                ["velocityBoost"] = (double)s.cannon.velocityBoost,
+                ["ammoPerBattle"] = (double)s.cannon.ammoPerBattle,
+            };
+        if (s.hasFlagMount && s.flagMount != null)
+            d["flagMount"] = new Dictionary<string, object>
+            {
+                ["offsetX"] = (double)s.flagMount.offsetX,
+                ["offsetY"] = (double)s.flagMount.offsetY,
+                ["model"] = s.flagMount.model,
+                ["scale"] = (double)s.flagMount.scale,
+            };
+        if (s.damageChunks != null && s.damageChunks.Count > 0)
+            d["damageChunks"] = s.damageChunks.Select(c => (object)new Dictionary<string, object>
+            {
+                // The chunk reader takes offsets and sizes POSITIONALLY, in the Kotlin's own
+                // parameter order, so a captured chunk has to be handed back the same way.
+                ["__positional"] = new List<object>
+                {
+                    (double)c.offsetX, (double)c.offsetY, (double)c.offsetZ,
+                    (double)c.sizeX, (double)c.sizeY, (double)c.sizeZ,
+                },
+                ["pieces"] = (double)c.pieces,
+            }).ToList();
+        return d;
+    }
 
     static Dictionary<string, object> Capture(BackgroundDefinitionSO b) => new();
 

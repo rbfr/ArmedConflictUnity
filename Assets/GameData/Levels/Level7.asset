@@ -12,39 +12,27 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 5b0d9d07915ade0a58fba81655b19cb0, type: 3}
   m_Name: Level7
   m_EditorClassIdentifier: 
-  id: level_7
-  displayName: Ash Boulevard
+  id: level_ocean
+  displayName: Oceanfront
   levelNumber: 7
-  levelGoal: Break the assault before it reaches your line
+  levelGoal: Clear the beach position
   enemyGroups:
-  - definition: {fileID: 11400000, guid: aecf03c40cb9b8f4d85d97ef12b4289f, type: 2}
-    count: 5
-    anchorX: 0
-    anchorZ: 0
-    standingOnStructureId: 
-    advancePerTurn: 1.1
   - definition: {fileID: 11400000, guid: b51688fb293b69e5cab2885bcaa975b8, type: 2}
     count: 4
-    anchorX: 1.2
+    anchorX: 6
     anchorZ: 0
-    standingOnStructureId: 
+    standingOnStructureId: beach_post
     advancePerTurn: 0
   - definition: {fileID: 11400000, guid: 0cc2a054cb1b0b38086ae4f985d09207, type: 2}
-    count: 4
-    anchorX: 4.8
-    anchorZ: 0.12
-    standingOnStructureId: block
-    advancePerTurn: 0
-  - definition: {fileID: 11400000, guid: b51688fb293b69e5cab2885bcaa975b8, type: 2}
-    count: 3
-    anchorX: 8.6
-    anchorZ: 0.12
-    standingOnStructureId: checkpoint
+    count: 2
+    anchorX: 8.4
+    anchorZ: 0
+    standingOnStructureId: 
     advancePerTurn: 0
   structures:
   - id: player_tank
     definition: {fileID: 11400000, guid: 5d4cd70c32b12f2429c5cbd2a376b2ba, type: 2}
-    x: -9.5
+    x: -10.5
     y: 0
     z: 0
     collapseWith: 
@@ -52,19 +40,9 @@ MonoBehaviour:
     standWidth: -1
     hasStandWidth: 0
     hpScale: 1
-  - id: block
-    definition: {fileID: 11400000, guid: 95d24e4e2581b55ea876178f5d94a3b4, type: 2}
-    x: 4.8
-    y: 0
-    z: 0
-    collapseWith: 
-    restsOn: 
-    standWidth: -1
-    hasStandWidth: 0
-    hpScale: 1
-  - id: checkpoint
-    definition: {fileID: 11400000, guid: 9e4a843ea184e52d38fc6e753a77a825, type: 2}
-    x: 8.6
+  - id: beach_post
+    definition: {fileID: 11400000, guid: fbbfacb3df61fd8f492723bbb6150200, type: 2}
+    x: 6
     y: 0
     z: 0
     collapseWith: 
@@ -74,34 +52,22 @@ MonoBehaviour:
     hpScale: 1
   playerGroups:
   - definition: {fileID: 11400000, guid: 42221a45b5be3eb57b1b2bd28b9aaac0, type: 2}
-    count: 2
-    anchorX: -9.5
-    anchorZ: 0.12
-    standingOnStructureId: player_tank
-    advancePerTurn: 0
-  - definition: {fileID: 11400000, guid: 42221a45b5be3eb57b1b2bd28b9aaac0, type: 2}
-    count: 6
-    anchorX: -7.2
+    count: 4
+    anchorX: -8.6
     anchorZ: 0
     standingOnStructureId: 
     advancePerTurn: 0
   - definition: {fileID: 11400000, guid: 5cd89868ef7ce0884a623d1199a379f2, type: 2}
     count: 2
-    anchorX: -5.6
+    anchorX: -7.4
     anchorZ: 0
     standingOnStructureId: 
     advancePerTurn: 0
-  background: {fileID: 11400000, guid: 01c2e6705a601b4ac80a3e7f022da10e, type: 2}
+  background: {fileID: 11400000, guid: 6d79aa5e81fc8c7fc84dcf8e548ca824, type: 2}
   heliChance: 0
-  props:
-  - modelAsset: models/barbed_wire.glb
-    x: -1.5
-    z: 0.4
-    scale: 1
-    slowsAdvance: 1
-    halfWidth: 1.2
-  levelBase: 160
-  deployBudget: 14
+  props: []
+  levelBase: 0
+  deployBudget: 0
   bossPhases: []
   windAccelZ: 0
   reinforcementWaves: []

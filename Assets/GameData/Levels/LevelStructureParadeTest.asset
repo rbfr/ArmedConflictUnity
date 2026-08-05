@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   id: level_test_structure_parade
   displayName: "TEST \u2014 Structure Parade"
-  levelNumber: 15
+  levelNumber: 10
   levelGoal: 'Debug sandbox: every structure side by side, height-sorted in two rows'
   enemyGroups:
   - definition: {fileID: 11400000, guid: e2f345bdab5634c49a5e289daed390f3, type: 2}

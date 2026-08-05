@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   id: level_test_unit_parade
   displayName: "TEST \u2014 Unit Parade"
-  levelNumber: 14
+  levelNumber: 9
   levelGoal: 'Debug sandbox: every class side by side; shield bearers charge and
     die'
   enemyGroups:

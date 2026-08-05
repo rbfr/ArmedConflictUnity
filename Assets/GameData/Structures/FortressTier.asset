@@ -10,19 +10,19 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: d3e2303ed6015478fbc5210d418f8914, type: 3}
-  m_Name: PlayerFortressTierWide
+  m_Name: FortressTier
   m_EditorClassIdentifier: 
-  id: player_fortress_tier_wide
+  id: fortress_tier
   displayName: Fortress Tier
-  modelAsset: models/fortress_tier_wide.glb
-  maxHp: 250
+  modelAsset: models/fortress_tier.glb
+  maxHp: 212
   size: 2
-  isPlayerSide: 1
+  isPlayerSide: 0
   modelAbsoluteScale: 1
   modelScaleUnits: 2.5
-  standWidth: 4.5
-  deckStandZOffset: 0.59999996
-  hitWidth: 6
+  standWidth: 3
+  deckStandZOffset: -0.1875
+  hitWidth: 4.25
   hasHitWidth: 1
   deckY: -1
   hasDeckY: 0
@@ -43,13 +43,6 @@ MonoBehaviour:
     scale: 1
   hasFlagMount: 0
   damageChunks:
-  - offsetX: 0
-    offsetY: 0
-    offsetZ: 0
-    sizeX: 0
-    sizeY: 0
-    sizeZ: 0
-    pieces: 1
   - offsetX: 0
     offsetY: 0
     offsetZ: 0

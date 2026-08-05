@@ -13,12 +13,11 @@ MonoBehaviour:
   m_Name: EnemyStronghold
   m_EditorClassIdentifier: 
   id: stage_stronghold
-  displayName: Enemy Stronghold
-  tagline: "Towers, bunkers and a keep \u2014 bring the big guns"
+  displayName: Ridge and Frostline
+  tagline: Towers and bunkers, from the dusk ridge into the snow
   levels:
+  - {fileID: 11400000, guid: 6d5d15852a6b97386b010dc15a1e896d, type: 2}
   - {fileID: 11400000, guid: 7639fd788b95975ab8eb6df851cdc9da, type: 2}
-  - {fileID: 11400000, guid: 3ff93ebdc2163fc9d960414d27ed9744, type: 2}
-  - {fileID: 11400000, guid: a9187127c89d645ec8455f7ffac3d030, type: 2}
-  starsToUnlock: 4
+  starsToUnlock: 3
   unlockRewardId: rocket_trooper
   completionCoinBonus: 0

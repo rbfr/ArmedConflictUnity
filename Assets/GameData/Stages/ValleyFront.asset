@@ -14,11 +14,10 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   id: stage_valley
   displayName: Valley Front
-  tagline: Patrols, garrisons and the first fortified positions
+  tagline: Patrols and garrisons, in the hills and under the pines
   levels:
   - {fileID: 11400000, guid: 2e279103f6cb9a49e9c9e671913d041e, type: 2}
   - {fileID: 11400000, guid: 10007778b5275b9fb85bbe6f1ccd0f16, type: 2}
-  - {fileID: 11400000, guid: 6d5d15852a6b97386b010dc15a1e896d, type: 2}
   starsToUnlock: 0
   unlockRewardId: sniper
   completionCoinBonus: 0

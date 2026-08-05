@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   id: level_test_outpost_tower_parade
   displayName: "TEST \u2014 Outpost & Tower"
-  levelNumber: 18
+  levelNumber: 13
   levelGoal: 'Debug sandbox: outpost and the assembled two-part tower'
   enemyGroups:
   - definition: {fileID: 11400000, guid: e2f345bdab5634c49a5e289daed390f3, type: 2}

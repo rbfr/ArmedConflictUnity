@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   id: level_test_tier_collapse
   displayName: "TEST \u2014 Tier Collapse"
-  levelNumber: 13
+  levelNumber: 8
   levelGoal: 'Debug sandbox: bring the tiers down and watch how they fall'
   enemyGroups:
   - definition: {fileID: 11400000, guid: 0cc2a054cb1b0b38086ae4f985d09207, type: 2}
@@ -63,7 +63,7 @@ MonoBehaviour:
     hasStandWidth: 0
     hpScale: 1
   - id: tier2
-    definition: {fileID: 0}
+    definition: {fileID: 11400000, guid: 4ccb45e18b5d39dc981ca7dbff582e93, type: 2}
     x: 7.5
     y: 0.8
     z: 0

@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   id: level_test_damage_marks
   displayName: "TEST \u2014 Damage Marks"
-  levelNumber: 29
+  levelNumber: 24
   levelGoal: 'Debug sandbox: pound one wall and watch it shed piece by piece'
   enemyGroups:
   - definition: {fileID: 11400000, guid: e2f345bdab5634c49a5e289daed390f3, type: 2}

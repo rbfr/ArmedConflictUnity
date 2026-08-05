@@ -12,9 +12,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 5b0d9d07915ade0a58fba81655b19cb0, type: 3}
   m_Name: LevelRosterLargeVsSm
   m_EditorClassIdentifier: 
-  id: level_test_roster_25
+  id: level_test_roster_20
   displayName: "TEST \u2014 Roster L v S"
-  levelNumber: 25
+  levelNumber: 20
   levelGoal: 'Sandbox: 26 v 6, 5 v 2 squads'
   enemyGroups:
   - definition: {fileID: 11400000, guid: b51688fb293b69e5cab2885bcaa975b8, type: 2}

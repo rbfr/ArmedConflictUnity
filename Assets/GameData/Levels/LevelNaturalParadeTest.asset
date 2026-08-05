@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   id: level_test_natural_parade
   displayName: "TEST \u2014 Natural Parade"
-  levelNumber: 17
+  levelNumber: 12
   levelGoal: 'Debug sandbox: cliff, ridge tower and mountain bunker side by side'
   enemyGroups:
   - definition: {fileID: 11400000, guid: e2f345bdab5634c49a5e289daed390f3, type: 2}

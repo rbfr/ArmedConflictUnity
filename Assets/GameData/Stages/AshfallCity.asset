@@ -14,11 +14,10 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   id: stage_city
   displayName: Ashfall City
-  tagline: Street assaults, shifting wind and whatever is guarding the hall
+  tagline: Out of the dunes and into the ruins
   levels:
-  - {fileID: 11400000, guid: be68ea60b193003d297578e849e6cdae, type: 2}
-  - {fileID: 11400000, guid: 35bf6179c6d5fcf238e2e86cf65dca70, type: 2}
-  - {fileID: 11400000, guid: 733dc60db27874355b2de6e47bea4c09, type: 2}
-  starsToUnlock: 8
+  - {fileID: 11400000, guid: 3ff93ebdc2163fc9d960414d27ed9744, type: 2}
+  - {fileID: 11400000, guid: a9187127c89d645ec8455f7ffac3d030, type: 2}
+  starsToUnlock: 6
   unlockRewardId: engineer
   completionCoinBonus: 0
