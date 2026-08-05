@@ -15,6 +15,13 @@ using ArmedConflict.Data;
 /// </summary>
 public static class RiggedUnits
 {
+    /// <summary>
+    /// Idle amplitude, as a fraction of the source clip's. Reported 2026-08-05 as the units
+    /// "rocking back and forth" — some idle movement wanted, this much not. Tune here, not by
+    /// clip speed: see the note in Retarget.
+    /// </summary>
+    const float IdleAmplitude = 0.4f;
+
     const string Model = "Assets/Models/unit_rifleman_rigged.glb";
     const string Clips = "Assets/Models/Kenney/character-m.glb";
 
@@ -202,6 +209,18 @@ public static class RiggedUnits
     /// </summary>
     static AnimationClip Retarget(AnimationClip src)
     {
+        // The idle is DAMPED. Kenney's breathing loop is authored for one character standing
+        // alone and filling the frame; at gameplay framing a rank of them reads as the whole line
+        // ROCKING back and forth, which is what it was reported as. Scaling every keyframe toward
+        // its own curve's mean shrinks the swing without moving the pose it swings around.
+        //
+        // The two obvious alternatives are both worse. Slowing the clip plays the same motion at
+        // the same amplitude, just lazier — the swing is what reads, not the rate. Dropping the
+        // idle entirely leaves a line of statues, which is the tell that they are instanced
+        // copies; the Desync exists for the same reason. Only `idle` is touched: the recoil and
+        // the death are one-shots the player is meant to notice.
+        float amp = src.name == UnitAnim.Idle ? IdleAmplitude : 1f;
+
         string path = $"Assets/Animations/{src.name}.anim";
         System.IO.Directory.CreateDirectory("Assets/Animations");
 
@@ -210,6 +229,7 @@ public static class RiggedUnits
         foreach (var b in AnimationUtility.GetCurveBindings(src))
         {
             var curve = AnimationUtility.GetEditorCurve(src, b);
+            if (amp < 1f) curve = Damp(curve, amp);
             string p = b.path;
             if (p == ClipPrefix) p = "";                                   // the root itself
             else if (p.StartsWith(ClipPrefix + "/")) p = p.Substring(ClipPrefix.Length + 1);
@@ -224,6 +244,31 @@ public static class RiggedUnits
 
         AssetDatabase.CreateAsset(dst, path);
         return dst;
+    }
+
+    /// <summary>
+    /// Shrinks a curve's excursion toward its own mean, keeping the average pose. Tangents scale
+    /// with the values or the eased motion overshoots the flattened keys.
+    ///
+    /// These are QUATERNION component curves, so this is a per-component nlerp toward the mean
+    /// rotation rather than a true slerp. That is exact enough here and only here: a breathing
+    /// idle moves a few degrees, so there is no antipodal (q vs -q) case to get wrong, and Unity
+    /// normalises on apply. Do not reuse it to damp something with real angular travel.
+    /// </summary>
+    static AnimationCurve Damp(AnimationCurve c, float amp)
+    {
+        if (c == null || c.length == 0) return c;
+        var keys = c.keys;
+        float mean = 0f;
+        foreach (var k in keys) mean += k.value;
+        mean /= keys.Length;
+        for (int i = 0; i < keys.Length; i++)
+        {
+            keys[i].value = mean + (keys[i].value - mean) * amp;
+            keys[i].inTangent *= amp;
+            keys[i].outTangent *= amp;
+        }
+        return new AnimationCurve(keys);
     }
 
     /// <summary>The four-tone convention, unchanged: colour binds to MESH names by prefix while
