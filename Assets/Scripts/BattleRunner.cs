@@ -60,6 +60,11 @@ public class BattleRunner : MonoBehaviour
     Vector3 aimVel;
     readonly List<Vector3> arc = new();
 
+    // The elevation the player's line is HOLDING. Live while dragging, then held through the
+    // volley — the rounds are still in the air, so dropping the arms at release would have the
+    // line stand down while its own shots are mid-flight. Cleared when the turn comes back.
+    float aimPoseDegrees;
+
     // enemy turn pacing
     float enemyWindup;
 
@@ -119,6 +124,7 @@ public class BattleRunner : MonoBehaviour
         enemyWindup = 0f;
         dragging = false;
         aimVel = Vector3.zero;
+        aimPoseDegrees = 0f;
         arc.Clear();
 
         Debug.Log($"[Battle] L{level.levelNumber} {level.displayName}: " +
@@ -196,6 +202,10 @@ public class BattleRunner : MonoBehaviour
 
         var before = state;
         state = BattleTick.Step(state, dt, level, random);
+
+        // Stand the line down as soon as it is the player's move again — the held pose belongs to
+        // a volley that has now resolved.
+        if (!dragging && state.TurnPhase == TurnPhase.Aiming) aimPoseDegrees = 0f;
         DriveAudio(before, state);
 
         Render();
@@ -223,6 +233,7 @@ public class BattleRunner : MonoBehaviour
         {
             var w = AimSystem.DragToWorld(t.position - dragStart);
             aimVel = AimSystem.AimVelocity(w.x, w.y);
+            aimPoseDegrees = AimSystem.AngleDegrees(aimVel);
             var origin = MuzzleOrigin();
             TrajectoryPhysics.SampleArc(origin, aimVel, 7, 0.05f, arc);
         }
@@ -412,6 +423,15 @@ public class BattleRunner : MonoBehaviour
     void SyncUnits(IReadOnlyList<UnitEntity> units, List<GameObject> pool,
                    List<GameObject> guns, bool aimingRight)
     {
+        // Only the PLAYER line elevates. Every round in FireVolley leaves on the drag vector
+        // itself — `aimVelocity + jitter`, with no per-unit solve — so the drag angle is exactly
+        // the quantity the arms depict. That is the small-arms case; do NOT copy this to the
+        // tank, whose shell is solved for arrival and leaves on a different angle than the drag
+        // (pointing the barrel at the drag angle is a bug this project has already shipped once).
+        // The enemy line does not elevate yet: EnemyAI solves a launch angle per unit inside its
+        // volley and does not surface it, so there is nothing honest to drive it with.
+        float aimPose = aimingRight ? aimPoseDegrees : 0f;
+
         // The weapon sits at chest height, offset toward the side the unit faces. X is mirrored
         // by GameSpace, so the offset is applied in GAME space and converted with the body —
         // applying it after conversion would put every gun on the wrong shoulder.
@@ -430,6 +450,7 @@ public class BattleRunner : MonoBehaviour
             {
                 if (wasHidden) anim.Desync(u.Id);
                 else anim.Set(UnitAnim.Idle);
+                anim.AimDegrees = aimPose;
             }
 
             // A rigged unit carries its weapon on its own arm, so the pooled gun would be a

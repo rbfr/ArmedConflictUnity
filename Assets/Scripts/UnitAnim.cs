@@ -34,7 +34,25 @@ public class UnitAnim : MonoBehaviour
     public const string Shoot = "holding-both-shoot";
     public const string Die = "die";
 
+    /// <summary>
+    /// Elevation ADDED to the arms' animated pose, in degrees, 0 = the clip's own rest hold.
+    /// Set from the live aim; the caller owns what it means, this only draws it.
+    /// </summary>
+    public float AimDegrees { get; set; }
+
+    // Degrees per second the shown elevation chases the target. Fast enough to feel welded to
+    // the finger, slow enough that the release does not snap.
+    const float AimFollow = 14f;
+
+    // Which way a positive AimDegrees lifts the muzzle. The soldier is built facing glTF +Z and
+    // the `facing` pivot yaws the whole model, so elevation is always a pitch about the arm
+    // parent's X — the sign is the only thing the facing can flip, and it does not, because the
+    // pivot is ABOVE the torso.
+    const float AimSign = -1f;
+
     Animation anim;
+    Transform armL, armR;
+    float shownAim;
     bool dead;
 
     void Awake()
@@ -42,6 +60,9 @@ public class UnitAnim : MonoBehaviour
         anim = GetComponentInChildren<Animation>();
         if (anim == null) return;
         anim.playAutomatically = false;
+
+        armL = anim.transform.Find("torso/arm-left");
+        armR = anim.transform.Find("torso/arm-right");
 
         Layer(Idle, 0, WrapMode.Loop);
         Layer(Hold, 1, WrapMode.ClampForever);
@@ -59,6 +80,35 @@ public class UnitAnim : MonoBehaviour
                 if (t != null) hold.AddMixingTransform(t, recursive: true);
             }
         Stand();
+    }
+
+    /// <summary>
+    /// Aim elevation, applied on top of whatever the clips just posed.
+    ///
+    /// LateUpdate is load bearing. Legacy `Animation` writes the arm transforms during Update, so
+    /// anything set before that is simply overwritten and the arms never move — the same class of
+    /// silent no-op as writing to a clip that is already marked legacy. Running after it makes
+    /// this an ADDITIVE layer the animation system does not know about, which is what lets a
+    /// static two-handed hold and a live aim coexist without an authored clip per angle.
+    ///
+    /// The rotation is PRE-multiplied so it happens in the shoulder's frame rather than the
+    /// arm's: post-multiplying would roll the rifle around its own length instead of raising it.
+    ///
+    /// A corpse does not aim.
+    /// </summary>
+    void LateUpdate()
+    {
+        if (anim == null || (armL == null && armR == null)) return;
+
+        float target = dead ? 0f : AimDegrees;
+        // Frame-rate independent chase. A bare per-frame lerp constant would silently change
+        // speed with the refresh rate, which is the trap the Android build documents at length.
+        shownAim = Mathf.Lerp(shownAim, target, 1f - Mathf.Exp(-AimFollow * Time.deltaTime));
+        if (Mathf.Abs(shownAim) < 0.01f) return;
+
+        var lift = Quaternion.AngleAxis(AimSign * shownAim, Vector3.right);
+        if (armL != null) armL.localRotation = lift * armL.localRotation;
+        if (armR != null) armR.localRotation = lift * armR.localRotation;
     }
 
     void Layer(string clip, int layer, WrapMode wrap)
