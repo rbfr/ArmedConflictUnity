@@ -1,4 +1,4 @@
-# Handover — Unity port, as of 2026-08-05
+# Handover — Unity port, as of 2026-08-05 (level navigation session appended)
 
 Read this first, then `README.md`, then `SPIKE_RESULTS.md` / `MIGRATION_SCOPE.md` if you need the
 history. Everything below was verified on the device, not assumed.
@@ -21,7 +21,7 @@ key cannot push here. This repo uses `~/.ssh/armedconflictunity_deploy` via the
 
 ## What works
 
-L1 plays end to end at a steady 60 fps: drag to aim, volley, swept collision, damage, structure
+All 24 levels are reachable and L1 plays end to end at a steady 60 fps: drag to aim, volley, swept collision, damage, structure
 collapse, turn handover, victory. With sound both sides, biome backdrop, per-type projectiles,
 unit weapons, fading explosions, scorch marks, rubble, a battle HUD and an Auto button.
 
@@ -29,7 +29,7 @@ All eight `GameViewModel` slices are ported (`LevelBuilder`, `CollisionSystem`,
 `ProjectileSystem`, `TurnFlow`, `CameraDirector`, `CosmeticSystems`, `HelicopterSystem`,
 `EventSystems`) plus `GameState`, `Formation`, `SpringFollow`, `EnemyAI`, `CameraFraming`,
 `TrajectoryPhysics`, `SweptCollision`, `ProgressStore`, `EconomyStore`. `data/` is complete at
-29 levels.
+24 levels — 7 campaign (one per biome) plus 17 test rigs.
 
 **265 checks, all passing.** They assert the behaviour the Kotlin comments describe, not just
 that the code compiles. Run them after every change:
@@ -84,7 +84,18 @@ The phone locks itself during long builds and a locked device backgrounds the ap
 - The backdrop lives at NEGATIVE z. Unity's Quad primitive faces -Z, so it needs a 180° turn,
   and hand-built silhouette winding must be CCW from +Z or it is back-face culled.
 - Backdrop geometry must be sized against the frustum AT ITS OWN DEPTH, not in absolute units.
+  Use `Backdrop.DesignAspect`, never `Screen`: batchmode reports a placeholder DESKTOP resolution,
+  and a landscape aspect makes every layer ~3x too wide.
 - Pooled objects share a material: per-instance tinting needs a `MaterialPropertyBlock`.
+- The SKY QUAD must be sized to the visible band at its own depth (280 tall at y=35, z=-120), and
+  both directions are traps. Too short and its top edge is inside the frustum, so the camera's
+  clear colour shows above the sky — the game shipped for weeks with a dark slab across the top
+  9% of the screen that read as a HUD panel. Too tall and the gradient, which spans the QUAD and
+  not the frame, stretches until only its bottom third is on screen and the sky goes flat.
+- The GROUND PLANE must stop just in front of the nearest backdrop layer (far edge z = -28). It
+  ran to -150, BEHIND the whole backdrop, so wherever a silhouette dipped, distant ground showed
+  through above the horizon as a floating tan wedge. The backdrop makes the horizon; a ground
+  plane that outruns it is a second, contradictory one.
 
 **Data import**
 - The pipeline is **ONE WAY**: Kotlin → `tools/export_kotlin_data.py` → `data.json` →
@@ -97,6 +108,97 @@ The phone locks itself during long builds and a locked device backgrounds the ap
 - `val EnemyRifleman = Rifleman.copy(...)` parses as a ctor named `Rifleman.copy`. Missing that
   dropped all four Enemy* variants and with them every enemy reference in every level.
 
+**The backdrop, rebuilt 2026-08-05**
+`ArmedConflict.Render.Backdrop` (runtime, MonoBehaviour-free) owns the DESIGN — per style, a list
+of layers each reduced to a sampled height profile; `SilhouetteMesh` turns a profile into a strip;
+`BackdropRuntime` does the GameObjects and materials. Per-level biomes are LIVE — the plan
+builds at runtime from each level's own BackgroundDefinition.
+
+The original drew each layer as a row of INDEPENDENT isosceles triangles, which is why the
+mountains read as pyramids. What the rewrite is actually made of, and each of these was a visible
+failure first:
+- A ridge is ONE continuous silhouette. Profiles normalise to `[floor, 1]`, and the floor matters:
+  at floor 0 the valleys drop to nothing and two layers read as two separate GROUPS of peaks
+  rather than one range behind another.
+- Ridged fBm WITHOUT the textbook per-octave weighting. The weighting is right for a heightmap
+  seen from above and wrong for a silhouette — it starves the shoulders and yields needles.
+- Snow is a cap on the crests that earn it (line at 0.82 of height, 0.58 for Winter) on a
+  WANDERING line. A flat line reads as a ruler; a sine-jittered one reads as surf.
+- Depth ordering has to be carried by SIZE as well as haze: the near mountain row is foothills at
+  about half the far range's angular height. At near-equal sizes the pale layer read as glass.
+- Every body-relative shape is judged at gameplay framing. City blocks needed 3x width variation
+  and a low rubble floor or they read as a PICKET FENCE; pines needed crowns overlapping their
+  neighbours or the row read as GRASS.
+
+`BackdropPreview.Shots` renders all seven biomes to `Builds/backdrops/*.png` headless in seconds —
+use it. The campaign is now one level per biome, so judging the backdrop from a single level
+sees a seventh of the game. `PortSelfTest` also covers the plan
+(layer widths, profile range, depth ordering, snow coverage).
+
+**Unit art — the CC0 rig prototype, 2026-08-05**
+Kenney's Blocky Characters 2.0 (CC0, `Assets/Models/Kenney/`, licence kept beside the models) is
+wired in as a free stand-in to answer the engineering questions before any pack is bought.
+`SpikeSceneBattle.UseKenneyUnits` is the A/B switch — one const, rebuild the scene, nothing else
+in the scene changes. It is currently TRUE, so the scene builds the stand-in, not shipping art.
+
+What it settled:
+- **Our own units cannot be animated at all as they stand.** They are grouped by MATERIAL
+  (`accent_*`, `skin_upper_*`) rather than by limb — five flat mesh nodes, no elbow to bend.
+  Kenney's rig is `root → leg-left, leg-right, torso → (arm-left, arm-right, head)`: six boxes,
+  **0 skins, 0 bones**, 72 triangles, 27 clips of plain TRS curves. Any animated future needs the
+  Blender builder re-authored around a limb hierarchy, whoever's meshes we end up using.
+- **Animation is free here.** Whole-process CPU, L1 idle, three 20s samples each: static Blender
+  units 81.5 / 82.4 / 80.4%, 19 animating Kenney units 80.8 / 80.0 / 80.1%. The animated build
+  measures LOWER than the static one — the difference is inside the noise. Expected, given there
+  is no skinning to do. Caveat: L1 fields 19 units, not 30, and /proc CPU% is a blunt instrument.
+- **Team colour by tint works** at gameplay distance — green vs red reads instantly — but it
+  multiplies over the character's whole texture, so it stains the face too. A real pack needs a
+  tint MASK or per-side textures.
+- Open cosmetic gaps in the stand-in: Kenney's proportions are squat next to the current soldiers,
+  and the gun is still a separate object floating at chest height rather than held in the hands.
+
+`UnitAnim` (runtime) is the whole integration: Legacy `Animation`, four clip names, a `Desync` so
+a line of units is not a chorus line, and a re-arm on hidden→visible because a recycled slot comes
+back holding the death pose. `BattleRunner` fires it from the three volley paths and swaps the
+ragdoll's topple rotation for the `die` clip — applying both makes a body fold AND spin flat.
+
+**And then the real thing: OUR soldier on that hierarchy (`RiggedUnits`, `Art = UnitArt.Rigged`).**
+`tools/blender/build_unit_rigged.py` in the Android repo builds the rifleman around Kenney's joint
+names at OUR proportions (hips 49% / shoulders 78%, against their cartoon 37% / 67%), 212 tris.
+Verified on device: rifle line at the ready, volley, death, 60 fps, four-tone team colours with no
+tint and no stained faces.
+
+Three constraints bind, and only these three — the rest is free:
+- **Node names and paths must match exactly.** Legacy clips address curves by path.
+- **Model height must be 2.70**, Kenney's. Every clip is rotation-only EXCEPT `die`, which also
+  translates `root`, in model units.
+- **The soldier must face glTF +Z**, so it is built facing Blender **-Y** — the opposite of
+  `build_units_v6.py`'s "faces +X". Rotation curves are local, so a model facing +X gets arms that
+  swing out sideways.
+
+Four traps, all of which fail SILENTLY and each of which cost a build:
+- Kenney's curve paths are `character-m/root/torso/arm-left` — two segments longer than ours, so
+  every curve binds to nothing and the limbs just never move. `RiggedUnits.Retarget` rewrites the
+  prefix; `Probe` prints both sides before you trust it.
+- A retargeted clip **must be saved as an asset**. A prefab cannot reference an in-memory clip; it
+  serialises as null and the unit comes back unanimated with nothing logged.
+- `AnimationClip.legacy` must be set **after** the curves go in. SetCurve silently no-ops on a clip
+  already marked legacy.
+- `die` animates the ROOT's rotation, so the facing rotation cannot live on the same transform the
+  clip drives or the first frame of a death snaps the corpse to face the camera. Hence the extra
+  `facing` pivot above the animated node.
+
+`RiggedUnits.Verify` is the guard: it samples the built prefab and fails if a joint that HAS a
+rotation curve never moves. Sample ACROSS the clip, not at its midpoint — a breathing idle returns
+to neutral there, which reported four working joints as frozen on the first run.
+
+Layering is the other half. Troops hold a rifle at rest, but `idle` is a whole-body loop that
+swings the arms down, so `holding-both` runs on a higher layer restricted to the two arms by
+mixing transforms, and `holding-both-shoot` sits above THAT or firing is invisible. The weapon
+hangs off `arm-right` and `BattleRunner` suppresses the pooled gun for any unit carrying its own —
+the pooled ones are placed from the unit's root at a fixed chest offset, which is fine for a body
+that never moves and visibly wrong the moment an arm does.
+
 **A lesson that recurred four times**
 Verify CONTENT, not counts, and prefer positive evidence over a plausible cause. Backgrounds
 imported with the right count and no colour. Audio had correct clips, correct triggers, correct
@@ -104,25 +206,220 @@ volumes and no listener. The camera "hitched every drag" because a max was latch
 for events that never happened because they were inferred from list-length deltas. In every case
 the instrument was wrong, not the engine.
 
+## Level navigation — DONE, 2026-08-05
+
+All levels are reachable (29 at the time; 24 after the biome cut below). `LevelScenery` (runtime) builds the ground, structures, props and
+biome backdrop from the level asset and tears them down again; `BattleRunner.LoadLevel(index)` is
+Clear + Build. RESTART / NEXT LEVEL appear on the victory/defeat screen, and a ◀ ▶ stepper with a
+level readout is always on so the whole set can be swept from adb without a rebuild per level.
+
+What that touched, and the parts worth knowing:
+
+- **Nothing about a level is baked into `Battle.unity` any more.** Baking is what made a second
+  level unreachable, and it also meant the one biome L1 happens to use was the only one anybody
+  saw in the game. `Assets/Editor/BackdropBuilder.cs` is GONE, replaced by
+  `Scripts/Render/BackdropRuntime.cs`; `BackdropPreview` now renders through that same code, so
+  the preview and the game can no longer drift.
+- **Runtime Materials/Textures/Meshes are not reclaimed when their GameObject dies.** Unity
+  collects assets, not instances. Every one `LevelScenery` creates is tracked and destroyed on
+  Clear — skip that and walking the campaign leaks a backdrop per level, which is the exact shape
+  of the Android build's "a session gets progressively more expensive" defect.
+- **Pools are still built ONCE and survive a level switch.** Minting render slots mid-session is
+  the failure the Filament build paid for repeatedly. What has to be reset is everything that
+  reads a slot's PREVIOUS occupant — a hidden slot still holds the last level's pose and position
+  (`HideAll`), and the scorch pool needs re-materialling because its tint comes from the level's
+  own ground colour.
+- Model prefabs reach the runtime as a name→prefab table on `LevelScenery`, filled by
+  `SpikeSceneBattle` from `Assets/Models`: there is no AssetDatabase in a player. Kenney's models
+  are excluded and a duplicate bare name is logged, because the table would silently overwrite
+  and one structure would quietly render as another.
+- **31 more GLBs were imported.** Only outpost/sandbags/rifleman/projectiles had ever been
+  brought over — enough for L1, and nothing else.
+
+### The trap that only a device build can show: NO `CreatePrimitive` IN RUNTIME CODE
+
+`GameObject.CreatePrimitive` always attaches a Collider, and IL2CPP MANAGED STRIPPING removes
+collider classes from a build that never otherwise references them — this game has no physics at
+all. On device the first call logged `Can't add component because class 'MeshCollider' doesn't
+exist!` and then threw ArgumentNullException on the `Destroy` of the collider that was never
+added, taking the whole level build down with it. The app launched to an empty scene.
+
+It could not have shown up earlier: editor code strips nothing, so the same call is fine in
+`SpikeSceneBattle` and `BackdropPreview`, and every primitive used to be baked at author time.
+`PortSelfTest` and the headless scene build both passed clean immediately before it.
+
+`Render/QuadMesh.cs` is the fix — a shared unit quad carrying Unity's own vertex layout (normal
+-Z, so every caller's 180° face-the-camera turn and the scorch's 90° lie-flat stay correct), plus
+`Create(name, parent, mat)`. It fixes the root rather than null-guarding the Destroy: a collider
+on a backdrop quad was never wanted. **Use it for any new runtime geometry.**
+
+### The other build-order trap: CreateAsset REPLACES, so references taken earlier dangle
+
+`MakeScorchPrefab` calls `AssetDatabase.CreateAsset` on `Scorch.mat`, which does not overwrite in
+place — it replaces the asset and mints a NEW guid. `WireScenery` ran first and loaded the old
+one, so `scorchSource` serialised as `{fileID: 0}`: one null among dozens of correct references
+in a scene file that otherwise looked perfect. On device it threw ArgumentNullException from
+inside Material's copy constructor. The prefab is now built BEFORE the scenery is wired, and
+`WireScenery` logs an error at build time for any null material — this class of failure should
+never again reach a device to be diagnosed.
+
+### Two silent data-loss bugs found on the way, both now fixed
+
+Neither could show up while only L1 was reachable, and neither was visible in any count.
+
+1. **`FortressTier` never imported at all.** `val FortressTier = FortressTierUnscaled.scaled()`
+   has no `.copy` in it. The exporter's ident reader swallows dots, so it arrives as a ctor NAMED
+   `FortressTierUnscaled.scaled`, and `extract_vals` accepted only the `.copy` form — so it was
+   dropped. Worse, a bare identifier does not start with a wanted ctor name, so `looks_wanted`
+   was false and it was not even recorded as unparsed. **Five levels place it** (L6, L9, and the
+   bastion / structure-parade-B / tier-collapse rigs) and every one threw a
+   NullReferenceException on load. Fixed in both `export_kotlin_data.py` and `DataImporter`:
+   any DERIVING method counts, not just copy.
+2. **`Capture` dropped every optional field**, so a `.copy()`/`.scaled()` that did not restate one
+   silently lost it. It hid because the wide and small tiers restate all of theirs, and the one
+   val that restates nothing was the one being dropped by (1). The three PLAYER fortress tiers
+   were live victims: no `hitWidth` (so the collision box fell back to `size`) and NO damage
+   chunks (so a player structure could never shed geometry). Now captures hitWidth, deckY,
+   cannon, flagMount and damageChunks — hitWidth/deckY only when the base HAS them, since their
+   presence is the signal and an unconditional -1 reads as "measured, and it is -1".
+
+`PortSelfTest` now builds an initial state for EVERY level, checks `levelNumber == index + 1`
+(the switcher indexes by position), and checks every structure and prop the campaign places has
+an imported model. That check finds this class of bug in the same second as a typo; a device
+sweep finds it at about a minute a level.
+
+## Forest reworked, and the preview was lying — 2026-08-05
+
+**`BackdropPreview` rendered EVERY biome as bare sky and ground, and reported success.**
+`EditorSceneManager.NewScene` triggers an unused-asset unload, and a freshly emptied scene
+references nothing — so a `BackgroundDefinitionSO` loaded BEFORE it has its native object freed
+and becomes Unity's fake null: `bg == null` is true while `bg.style` and `bg.groundColor` still
+read correctly off the managed wrapper. The old preview never noticed because it only ever read
+fields; `BackdropRuntime` opens with a null guard, right for the game and silently true here.
+Fixed by loading the background AFTER the scene, and the preview now logs an error if a biome
+builds zero layers. **Do not trust a preview you have not sanity-checked against the device** —
+this one passed the eye test for a whole session by producing plausible sky-and-ground images.
+
+**Forest read as GREEN MOUNTAINS**, on the one campaign level that uses it (L2). Two causes:
+- The hills were made TALLER than the treeline (15 units vs 11) to stop the ridge hiding behind
+  the woods. That won the argument and lost the biome — the pale ridge owned the skyline.
+- Nine crowns spanning the frame makes each one an eighth of the screen wide, and a triangle that
+  wide is a hill however it is shaded.
+
+Now ordered by ANGULAR height — hills 0.22 < mid trees 0.30 < near trees 0.42 — so the trees own
+the skyline and the hills show through the gaps as a backdrop mass. `Treeline` gained two
+parameters rather than having its constants fought: `crownScale` (a conifer at this distance is
+about half as wide as it is tall; at 1.0 with a high count the spire comes out nearer a fifth,
+and a row of those is REEDS) and `floor` (the solid canopy mass under the crowns — at 0.35 the
+sky came down between every pair and the band read as a fringe). **The floor also WANDERS now**:
+a constant one is a ruler laid across the full frame, the same failure a flat snowline has.
+
+Both documented failure modes were re-hit while tuning this — 24 narrow trees gave the "reads as
+GRASS" result exactly as the old comments predict, and 9 wide ones give hills. The window is
+narrow; change count and crown width TOGETHER, and judge which band owns the skyline.
+
+## Ocean ported and given a level — 2026-08-05
+
+`BackgroundDefinitions.Ocean` was authored and referenced by NOTHING, in the Kotlin and the port
+alike, so no build had ever displayed it. It now has **L30 `TEST — Oceanfront`** — authored in the
+Kotlin and re-exported, because the pipeline is one way. The campaign+test total is 30; it was
+APPENDED rather than filed with the other rigs, since the switcher indexes by position and
+inserting mid-list would silently renumber everything after it.
+
+The plan itself was one flat teal band. Ported from the Filament `drawOcean`: sea gradient, a sun
+with a radial glow sitting ON the horizon, the scattered sun-glitter path, and the scalloped foam
+surf line. **The ripple rows are NOT ported** — a ripple is a wavy LINE and the decal mechanism
+draws rectangles, so away from the sun they read as debris floating on the water. That wants a
+strip mesh like the silhouettes have. The drift does not need porting at all: the Filament version
+scrolls each row by a hand-tuned fraction of pixels-per-unit, and here real depths parallax free.
+
+Three traps, all of which cost a render:
+
+- **`Mathf.SmoothStep` is NOT GLSL's `smoothstep`.** It is a smoothed LERP BETWEEN its first two
+  arguments, so `Mathf.SmoothStep(0.26f, 0.34f, d)` returns a value in [0.26, 0.34] for every d
+  and `1 - that` never falls below 0.66. That is a near-constant alpha across the whole quad,
+  which drew the sun as a cream RECTANGLE with a brighter blob in it. `BackdropRuntime.Threshold`
+  is the real thing. **Note `MakeScorchPrefab` uses the same call** and gets away with it only
+  because its edges happen to be 0.45 and 1.
+- **Anything shaped by alpha must clone a TRANSPARENT material ASSET** (`BackdropFadeSource.mat`).
+  `unlitSource` is opaque and a copy ignores alpha entirely. Flipping `_Surface` and the blend
+  modes on the copy at runtime is not a reliable substitute.
+- **A layer sunk the way a RIDGE is sunk disappears behind the ground plane.** The surf was
+  authored at BaseY -1.9 of a 2.8 band, so the ground occluded all but the tallest scallops and
+  the foam came out as one straight white rule — the exact thing it exists to prevent.
+
+And one that only the DEVICE could show, because `BackdropPreview` renders from x = 0:
+**a fixed backdrop feature is offset from the WORLD ORIGIN, not from the frame.** The backdrop is
+world-fixed and the camera is not — at Aiming it sits over the PLAYER LINE, around game x -9.5.
+A sun placed at a frame-relative-looking -0.20 of the sea width landed 92% of a half-frame right
+of that centre and was cut in half by the screen edge, while looking perfectly placed in the
+preview. Judge any fixed feature at the camera position the PLAYER sees, and leave it room to
+travel: the pan is real parallax, so the sun crosses the frame during a volley.
+
+## Campaign cut to ONE LEVEL PER BIOME — 2026-08-05
+
+Seven campaign levels, one per background: L1 Mountains, L2 Forest, L3 MountainsDusk, L4 Winter,
+L5 Desert, L6 CityRuins, L7 Ocean (promoted from the test rig). Six levels whose biome was already
+covered were DELETED from the Kotlin — they are in git. The 17 test rigs are kept for reference
+and renumbered to L8-L24. Four stages over the seven, 2/2/2/1, gates at 0/3/6/9.
+
+Total is now **24**, not 29. Two things in this repo carried the old count and both are fixed:
+
+- **The importer never deleted ORPHANS.** It creates and updates, so a level removed from the
+  Kotlin left its `.asset` behind — and `SpikeSceneBattle` collects EVERY `LevelDefinitionSO` it
+  can find and orders them by `levelNumber`, so a deleted level rejoined the campaign silently at
+  whatever number it used to hold. Six were stranded. `DataImporter` now sweeps any level asset
+  the Kotlin no longer declares. The Kotlin is the source of truth in BOTH directions.
+- **`BuildSandboxLevels` was a SECOND source of truth for level numbering.** The exporter cannot
+  parse `rosterSandbox`, so the importer rebuilds those eight — with their numbers hardcoded at
+  21-28. The Kotlin renumbered them to 16-23 and the importer silently did not, breaking
+  `levelNumber == index + 1` and with it the level switcher. It now derives the number from the
+  level's position in `levelOrder`. The composition is duplicated because it has to be; the
+  ordering is not. **`PortSelfTest` caught this** — it is exactly what that check is for.
+
+The Android repo's long-standing test failure is also gone. `FactionPaletteTest` hardcoded level
+numbers 1/7/13/19 as one-per-stage, which were correct for the ORIGINAL 25-level campaign and
+meaningless after it was rebuilt — by now two of the four were TEST levels, which sit in no stage
+and deliberately fall back to the last one, so it asserted 4 distinct factions against 2. It now
+derives its numbers from `StageDefinitions`. **50 tests, 0 failures.** A test that hardcodes level
+numbers expires the next time the campaign is re-cut.
+
 ## Open items
 
-1. **`restart` / `nextLevel`** — small, and the highest-value next thing: every session is
-   currently L1 or nothing.
-2. **Device sweep across all 29 levels** — the port is tested against my READING of the Kotlin,
-   not its behaviour. Auto drives from adb, so sweeping for crashes, missing geometry and
-   framing problems is cheap and catches what unit tests structurally cannot.
-3. **Loadout screen** (~415 lines) — the last large UI item. Battle HUD, aim overlay, background
+1. **Loadout screen** (~415 lines) — the last large UI item. Battle HUD, aim overlay, background
    and audio are all done, so the UI estimate in `MIGRATION_SCOPE.md` is much smaller than it was.
-4. **Rubble is spawned and stepped but never observed falling** — no structure was destroyed in
-   any captured run.
-5. **Release build gaps** — debug-signed, APK not AAB, `versionCode` never increments.
+2. **Rubble is spawned and stepped but never observed falling** — still true after the sweep:
+   `Auto` targets UNITS, so L1's structure HP never moved off 90 across three volleys. It needs a
+   run driven deliberately at a structure (L19, the demolition rig, is the level for it).
+3. **Release build gaps** — debug-signed, APK not AAB, `versionCode` never increments.
    Deliberately deferred; see the README.
+4. **`snowfall` is imported and ignored** — Winter's falling flakes are not ported. Eleven levels
+   use that biome, so it is the largest single thing the backdrop still owes the Kotlin build.
+   Ocean is a plain gradient band with no sun or surf; no level uses it today.
+5. **Unit art is still one rifleman for every class** — see the unit-art section above. Step 1 of
+   that thread (rewriting `build_units_v6.py`'s `finish()` for the limb hierarchy across all 11
+   classes) is untouched. This is now the largest open thread.
 
-## Two things owed to the ANDROID repo
+### Device sweep — DONE 2026-08-05
 
-- **The garrison-ceiling bug is probably live there.** `hitsStructure` bounds the box by `size`,
-  but wherever `deckY < size` the gap is invisible masonry over the defenders and the garrison
-  cannot be shot at all. Found by playing the Unity port; the Android repo shares the geometry
-  and the resolution order. `CLAUDE.md` there has been updated with the full explanation.
-- **Three uncommitted files**: the `CLAUDE.md` edits (persona, migration decision, garrison note)
-  and the untracked `UNITY_SPIKE.md` / `GODOT_SPIKE.md`. Rob commits on explicit ask.
+All 29 stepped through on the Pixel 10 Pro XL with the ◀ ▶ nav: every level loaded, in the right
+order, with no exception and no missing-model warning. Rosters and structure counts match the
+Kotlin. **Per-level biomes are confirmed working on device** — green, desert, city-ruins and
+winter backdrops all appear, which no build before this one could show.
+
+Two things worth knowing before reading a sweep screenshot:
+- **Enemy structures are OFF-FRAME at aiming framing, and that is correct.** The Aiming camera
+  frames the PLAYER LINE ONLY. Every campaign level looks structure-less in a still taken at
+  Aiming; drive a volley and the follow camera pans onto them. Verified on L1 — garrison post,
+  defenders standing on the roof DECK, tracers, kills registering 9 → 7 → 6, turn handover,
+  60 fps, drag 0ms.
+- The buttons are placed clear of the status-bar/gesture insets so an adb tap cannot land on the
+  system UI: ◀ (880, 235), ▶ (1000, 235), AUTO (180, 2259).
+
+## Owed to the ANDROID repo
+
+- ~~The garrison-ceiling bug is probably live there.~~ **FIXED there 2026-08-05**: `hitsStructure`
+  now bounds the box by `deckY` where one is measured, with a regression test. Re-measuring the
+  whole set says the outpost was the only mismatch.
+- **Three uncommitted files** in that repo: the `CLAUDE.md` edits (persona, migration decision,
+  garrison note) and the untracked `UNITY_SPIKE.md` / `GODOT_SPIKE.md`. Rob commits on explicit ask.

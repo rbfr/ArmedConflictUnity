@@ -38,3 +38,6 @@ sysinfo.txt
 
 # Unity editor scratch
 /.utmp/
+
+# Python bytecode from the export tool
+tools/__pycache__/
