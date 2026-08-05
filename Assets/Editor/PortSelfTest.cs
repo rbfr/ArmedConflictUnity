@@ -580,6 +580,105 @@ public static class PortSelfTest
             ProgressStore.AllLevels = new List<LevelDefinitionSO>();
         }
 
+        // --- CameraDirector
+        {
+            var ud = ScriptableObject.CreateInstance<UnitDefinitionSO>();
+            ud.id = "u"; ud.maxHp = 32;
+
+            // Per-phase framing: Aiming frames the PLAYER LINE ONLY, scout frames the enemy.
+            float p = 3f, e = 9f, shooter = 5f, march = 6f, reinforce = 7f;
+            Check(CameraDirector.PhaseHalfWidth(TurnPhase.Aiming, TurnSide.Player,
+                      p, e, shooter, march, false, reinforce, false) == p,
+                  "Aiming frames the player line only");
+            Check(CameraDirector.PhaseHalfWidth(TurnPhase.PlayerScout, TurnSide.Player,
+                      p, e, shooter, march, false, reinforce, false) == e,
+                  "PlayerScout frames the enemy cluster");
+            Check(CameraDirector.PhaseHalfWidth(TurnPhase.Aiming, TurnSide.Player,
+                      p, e, shooter, march, false, reinforce, true) == reinforce,
+                  "Aiming widens while reinforcements are still marching in");
+            Check(CameraDirector.PhaseHalfWidth(TurnPhase.EnemyWindup, TurnSide.Enemy,
+                      p, e, shooter, march, false, reinforce, false) == shooter,
+                  "EnemyWindup frames the SHOOTERS when nobody is marching");
+            Check(CameraDirector.PhaseHalfWidth(TurnPhase.EnemyWindup, TurnSide.Enemy,
+                      p, e, shooter, march, true, reinforce, false) == march,
+                  "EnemyWindup follows the marchers when any are moving");
+            Check(CameraDirector.PhaseHalfWidth(TurnPhase.Resolving, TurnSide.Enemy,
+                      p, e, shooter, march, false, reinforce, false) == p,
+                  "Resolving an ENEMY volley frames the player being shot at");
+            Check(CameraDirector.PhaseHalfWidth(TurnPhase.Resolving, TurnSide.Player,
+                      p, e, shooter, march, false, reinforce, false) == e,
+                  "Resolving a PLAYER volley frames the enemy being shot at");
+
+            // A settled melee unit far up the field must not widen the shooter frame.
+            var shooters = new List<float> { 6f, 6.5f, 7f };
+            var withStructures = new List<float> { 6f, 6.5f, 7f, 8f };
+            float reachNoMelee = CameraDirector.ShooterReach(shooters, withStructures);
+            float reachWithMelee = CameraDirector.ShooterReach(shooters,
+                withStructures.Concat(new[] { 8f }).ToList());
+            Near(reachNoMelee, reachWithMelee, 1e-5f,
+                 "a melee unit excluded from the shooter set cannot widen the frame");
+            Check(CameraDirector.ShooterReach(new List<float>(), withStructures) == 0f,
+                  "no shooters means no shooter reach");
+
+            // March framing has a FLOOR so escorting one unit does not zoom to a keyhole.
+            Check(CameraDirector.MarchHalfWidth(new List<float> { 5f }, new List<float>())
+                      == CameraDirector.MarchHalfWidthMin,
+                  "a single marcher still gets the minimum march frame");
+            Check(CameraDirector.MarchHalfWidth(new List<float> { 0f, 20f }, new List<float>()) == 10f,
+                  "a wide march spreads past the floor");
+
+            // Half-width -> camera z, clamped into the usable band.
+            Near(CameraDirector.TargetZ(4.5f, false, 19f), 10f, 1e-4f,
+                 "half-width converts to distance through the half-FOV tangent");
+            Check(CameraDirector.TargetZ(0.1f, false, 19f) == CameraDirector.ZMin,
+                  "a tiny frame is clamped to the near limit");
+            Check(CameraDirector.TargetZ(100f, false, 19f) == CameraDirector.GameplayZ,
+                  "a huge frame is clamped to the far limit");
+            Check(CameraDirector.TargetZ(100f, true, 12f) == 12f,
+                  "staticCamera caps the zoom at the battlefield width");
+            // The static zoom-in floor is applied AFTER the global ZMin clamp, so at ordinary
+            // battlefield widths ZMin dominates and the static floor is inert — which is what
+            // CLAUDE.md records about this flag on real levels.
+            Check(CameraDirector.TargetZ(0.1f, true, 12f) == CameraDirector.ZMin,
+                  "at a normal battlefield width the global near limit still wins");
+            Check(CameraDirector.TargetZ(0.1f, true, 40f) == 40f * CameraDirector.StaticCameraZoomInFraction,
+                  "on a very wide battlefield the static floor does bite (40 * 0.2 = 8 > ZMin)");
+
+            // Volley follow: MONOTONIC pursuit — the camera only moves the way the volley flies.
+            var pl = new List<UnitEntity> { new(1, ud, -8f, 0f, 0f, 32, true) };
+            var en = new List<UnitEntity> { new(2, ud, 8f, 0f, 0f, 32, false) };
+            var st = new List<StructureEntity>();
+            var rounds = new List<ProjectileEntity>
+            {
+                new(1, 0f, 3f, 0f, 5f, 0f, 0f, 8, true),
+            };
+            float x0 = CameraDirector.FollowVolley(null, 0f, rounds, pl, en, st, false,
+                                                   1f / 60f, out float v0);
+            Near(x0, 0f, 1e-3f, "a fresh follow starts at the volley mean");
+
+            // A player volley (flying right) must never be dragged BACKWARDS by a falling mean.
+            var retreating = new List<ProjectileEntity>
+            {
+                new(1, -5f, 3f, 0f, 5f, 0f, 0f, 8, true),
+            };
+            float held = CameraDirector.FollowVolley(2f, 0f, retreating, pl, en, st, false,
+                                                     1f / 60f, out _);
+            Check(held >= 2f - 1e-4f,
+                  "a rightward volley never drags the camera backwards (monotonic pursuit)");
+
+            var enemyRounds = new List<ProjectileEntity>
+            {
+                new(1, 5f, 3f, 0f, -5f, 0f, 0f, 8, false),
+            };
+            float heldLeft = CameraDirector.FollowVolley(-2f, 0f, enemyRounds, pl, en, st, false,
+                                                        1f / 60f, out _);
+            Check(heldLeft <= -2f + 1e-4f, "a leftward enemy volley is monotonic the other way");
+
+            // A melee reset drops the carried velocity, so the spring does not fling.
+            CameraDirector.FollowVolley(5f, 99f, rounds, pl, en, st, true, 1f / 60f, out float vReset);
+            Check(Mathf.Abs(vReset) < 50f, "a melee reset discards the carried velocity");
+        }
+
         Debug.Log($"[PortSelfTest] {(failed == 0 ? "ALL PASS" : $"{failed} FAILURES")}\n{Log}");
         if (failed > 0 && Application.isBatchMode) EditorApplication.Exit(1);
     }

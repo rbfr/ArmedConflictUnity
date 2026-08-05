@@ -107,7 +107,8 @@ Kotlin's documented behaviour rather than transliterated whole.
 | tick: combat core (`resolveHits`, collapse propagation) | ~200 | **done** — `CollisionSystem` |
 | tick: projectile stepping + culling | ~120 | **done** — `ProjectileSystem` |
 | tick: turn flow + win/loss + awards | ~180 | **done** — `TurnFlow` |
-| tick: everything else | ~1,270 | cosmetic decay (ragdolls/debris/wrecks), camera choreography, heli, events |
+| tick: camera choreography | ~200 | **done** — `CameraDirector` |
+| tick: everything else | ~1,070 | cosmetic decay (ragdolls/debris/wrecks), heli state machine, events |
 | ragdolls + knockback (`ragdollFrom`, `applyDamageAndKnockback`) | ~160 | not started |
 | consumables + reinforcements | ~120 | not started |
 | battle lifecycle (`startBattle`, `jumpToLevel`, `restart`, `nextLevel`) | ~50 | not started |
