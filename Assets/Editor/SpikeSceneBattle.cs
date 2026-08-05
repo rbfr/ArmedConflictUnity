@@ -13,57 +13,56 @@ public static class SpikeSceneBattle
 {
     const string ScenePath = "Assets/Scenes/Battle.unity";
 
+    /// <summary>
+    /// Unit art. Rigged = OUR soldier authored on Kenney's joint hierarchy and driven by their
+    /// CC0 clips (RiggedUnits); Kenney = their whole character, the free stand-in that proved the
+    /// pipeline; neither = the original scripted Blender units, unriggable and static.
+    /// </summary>
+    enum UnitArt { Blender, KenneyStandIn, Rigged }
+    const UnitArt Art = UnitArt.Rigged;
+
     public static void Build()
     {
         var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
-        var level = AssetDatabase.LoadAssetAtPath<LevelDefinitionSO>("Assets/GameData/Levels/Level1.asset");
-        if (level == null) { Debug.LogError("[Battle] Level1 asset missing"); return; }
+
+        // ALL levels, ordered by their own level number — the order the switcher indexes, and the
+        // order `LevelDefinitions.all` has in the Kotlin. Sorting by filename would interleave
+        // Level10 with Level1 and drop the eight named test rigs somewhere arbitrary.
+        var levels = AssetDatabase.FindAssets("t:LevelDefinitionSO")
+            .Select(g => AssetDatabase.LoadAssetAtPath<LevelDefinitionSO>(AssetDatabase.GUIDToAssetPath(g)))
+            .Where(l => l != null)
+            .OrderBy(l => l.levelNumber)
+            .ToArray();
+        if (levels.Length == 0) { Debug.LogError("[Battle] no level assets"); return; }
+        var level = levels[0];
 
         var mats = LoadMats();
 
-        var ground = GameObject.CreatePrimitive(PrimitiveType.Plane);
-        ground.name = "Ground";
-        ground.transform.localScale = new Vector3(30f, 1f, 30f);
-        ground.GetComponent<MeshRenderer>().sharedMaterial = mats.ground;
-
-        // Structures from the level data, at their real runtime positions.
-        var state = LevelBuilder.BuildInitialState(level, 1, 29, new System.Random(1));
-        foreach (var st in state.Structures)
-        {
-            var src = AssetDatabase.LoadAssetAtPath<GameObject>(ModelPath(st.Definition.modelAsset));
-            if (src == null) { Debug.LogWarning($"[Battle] missing {st.Definition.modelAsset}"); continue; }
-            var go = (GameObject)PrefabUtility.InstantiatePrefab(src);
-            go.name = $"struct_{st.Id}";
-            go.transform.position = GameSpace.ToUnity(st.X, st.Y - st.Definition.size / 2f, st.Z);
-            if (st.Definition.modelAbsoluteScale)
-                go.transform.localScale = Vector3.one * st.Definition.worldScale;
-            else
-                Normalize(go, st.Definition.isPlayerSide ? 1.5f : st.Definition.size);
-            Tone(go, st.Definition.isPlayerSide ? mats.structPlayer : mats.structEnemy,
-                 st.Definition.isPlayerSide ? mats.structPlayerAccent : mats.structEnemyAccent, null);
-        }
-
-        // Biome backdrop from the level's own BackgroundDefinition — the shipping build paints
-        // one, and comparing a bare scene against it was never a fair A/B.
-        var backdrop = new GameObject("Backdrop");
-        BackdropBuilder.Build(level.background, mats.ground, backdrop.transform);
-
-        // Props (L1's sandbags). Authored at z=0 like every campaign prop.
-        foreach (var prop in level.props)
-        {
-            var src = AssetDatabase.LoadAssetAtPath<GameObject>(ModelPath(prop.modelAsset));
-            if (src == null) { Debug.LogWarning($"[Battle] missing prop {prop.modelAsset}"); continue; }
-            var pg = (GameObject)PrefabUtility.InstantiatePrefab(src);
-            pg.name = $"prop_{System.IO.Path.GetFileNameWithoutExtension(prop.modelAsset)}";
-            pg.transform.position = GameSpace.ToUnity(prop.x, 0f, prop.z);
-            Normalize(pg, prop.scale);
-            Tone(pg, mats.structPlayer, mats.structPlayerAccent, null);
-        }
-
+        // NOTHING about the level is baked into the scene any more — ground, structures, props
+        // and backdrop are all built at runtime by LevelScenery. Baking them was what made a
+        // second level unreachable, and it also meant the one biome L1 happens to use was the
+        // only one anybody ever saw.
         var poolRoot = new GameObject("Pool");
 
-        var playerPrefab = MakeUnitPrefab("PlayerUnit", mats.playerUniform, mats.playerGear, mats.skin);
-        var enemyPrefab = MakeUnitPrefab("EnemyUnit", mats.enemyUniform, mats.enemyGear, mats.skin);
+        // A/B switch for the unit-art evaluation. false = the scripted Blender units (four-tone,
+        // no rig, no animation); true = Kenney's CC0 rigged stand-in. Flip and rebuild the scene;
+        // nothing else in the scene changes, so the two builds are comparable frame for frame.
+        var playerPrefab = Art switch
+        {
+            UnitArt.Rigged => RiggedUnits.MakePrefab("PlayerUnit", mats.playerUniform,
+                                                     mats.playerGear, mats.skin, mats.gun, facesScreenRight: true),
+            UnitArt.KenneyStandIn => KenneyUnits.MakePrefab("PlayerUnit",
+                                                     new Color(0.62f, 0.78f, 0.62f), facesScreenRight: true),
+            _ => MakeUnitPrefab("PlayerUnit", mats.playerUniform, mats.playerGear, mats.skin),
+        };
+        var enemyPrefab = Art switch
+        {
+            UnitArt.Rigged => RiggedUnits.MakePrefab("EnemyUnit", mats.enemyUniform,
+                                                     mats.enemyGear, mats.skin, mats.gun, facesScreenRight: false),
+            UnitArt.KenneyStandIn => KenneyUnits.MakePrefab("EnemyUnit",
+                                                     new Color(0.92f, 0.55f, 0.5f), facesScreenRight: false),
+            _ => MakeUnitPrefab("EnemyUnit", mats.enemyUniform, mats.enemyGear, mats.skin),
+        };
         var shotPrefab = MakeShellPrefab(mats);
         var gunPrefab = MakeGunPrefab(mats);
         var blastPrefab = MakeBlastPrefab();
@@ -92,10 +91,21 @@ public static class SpikeSceneBattle
         // and the volumes were right.
         camGo.AddComponent<AudioListener>();
 
+        // The scorch prefab MUST be built before the scenery is wired. MakeScorchPrefab calls
+        // AssetDatabase.CreateAsset on Scorch.mat, which REPLACES the asset and mints a new guid
+        // — so a reference taken beforehand dangles to null. On device that surfaced as
+        // ArgumentNullException inside Material's copy constructor, from LevelScenery.Build,
+        // with a scene file that looked entirely correct except for one `{fileID: 0}`.
+        var scorchPrefab = MakeScorchPrefab();
+
+        var scenery = camGo.AddComponent<LevelScenery>();
+        WireScenery(scenery, mats);
+
         var runner = camGo.AddComponent<BattleRunner>();
         var so = new SerializedObject(runner);
         so.FindProperty("cam").objectReferenceValue = cam;
-        so.FindProperty("level").objectReferenceValue = level;
+        Fill(so.FindProperty("levels"), levels);
+        so.FindProperty("scenery").objectReferenceValue = scenery;
         so.FindProperty("playerUnitPrefab").objectReferenceValue = playerPrefab;
         so.FindProperty("enemyUnitPrefab").objectReferenceValue = enemyPrefab;
         so.FindProperty("projectilePrefab").objectReferenceValue = shotPrefab;
@@ -107,7 +117,7 @@ public static class SpikeSceneBattle
             "Grenade", "projectile_grenade", 0.16f, mats.grenade, mats.grenadeBand);
         so.FindProperty("gunPrefab").objectReferenceValue = gunPrefab;
         so.FindProperty("explosionPrefab").objectReferenceValue = blastPrefab;
-        so.FindProperty("scorchPrefab").objectReferenceValue = MakeScorchPrefab(level);
+        so.FindProperty("scorchPrefab").objectReferenceValue = scorchPrefab;
         so.FindProperty("debrisPrefab").objectReferenceValue = MakeDebrisPrefab(mats);
         so.FindProperty("audioFx").objectReferenceValue = MakeAudio(camGo);
         so.FindProperty("poolRoot").objectReferenceValue = poolRoot.transform;
@@ -116,12 +126,91 @@ public static class SpikeSceneBattle
         EditorSceneManager.SaveScene(scene, ScenePath);
         EditorBuildSettings.scenes = new[] { new EditorBuildSettingsScene(ScenePath, true) };
         AssetDatabase.SaveAssets();
-        Debug.Log($"[Battle] built {ScenePath}: {state.PlayerUnits.Count}v{state.EnemyUnits.Count}, " +
-                  $"{state.Structures.Count} structures");
+        Debug.Log($"[Battle] built {ScenePath}: {levels.Length} levels, " +
+                  $"{scenery.ModelCount} models, starting on {level.displayName}");
     }
 
-    static string ModelPath(string asset)
-        => "Assets/Models/" + System.IO.Path.GetFileName(asset);
+    /// <summary>
+    /// Hands LevelScenery everything it needs to build a level without an AssetDatabase: every
+    /// GLB in Assets/Models keyed by bare name, and the material assets it clones per level.
+    ///
+    /// The whole models folder goes in rather than only what the 29 levels reference today —
+    /// the table costs a reference each, and a level authored in the Kotlin later should not
+    /// need a scene rebuild to find its geometry.
+    /// </summary>
+    static void WireScenery(LevelScenery scenery, Mats mats)
+    {
+        var models = AssetDatabase.FindAssets("t:GameObject", new[] { "Assets/Models" })
+            .Select(AssetDatabase.GUIDToAssetPath)
+            .Where(p => p.EndsWith(".glb") && !p.Contains("/Kenney/"))
+            .Distinct()
+            .OrderBy(p => p)
+            .ToArray();
+
+        var so = new SerializedObject(scenery);
+        var names = so.FindProperty("modelNames");
+        var prefabs = so.FindProperty("modelPrefabs");
+        names.arraySize = models.Length;
+        prefabs.arraySize = models.Length;
+        for (int i = 0; i < models.Length; i++)
+        {
+            names.GetArrayElementAtIndex(i).stringValue = LevelScenery.ModelKey(models[i]);
+            prefabs.GetArrayElementAtIndex(i).objectReferenceValue =
+                AssetDatabase.LoadAssetAtPath<GameObject>(models[i]);
+        }
+
+        // A null here is invisible in the scene file (one `{fileID: 0}` among dozens of correct
+        // references) and does not fail until the device tries to clone it. Say so at BUILD time.
+        void Mat(string field, Material m)
+        {
+            if (m == null) Debug.LogError($"[Battle] LevelScenery.{field} is NULL — level build will throw");
+            so.FindProperty(field).objectReferenceValue = m;
+        }
+        Mat("unlitSource", Unlit("BackdropSource", Color.white));
+        Mat("unlitFadeSource", FadeSource());
+        Mat("groundSource", mats.ground);
+        Mat("structPlayer", mats.structPlayer);
+        Mat("structPlayerAccent", mats.structPlayerAccent);
+        Mat("structEnemy", mats.structEnemy);
+        Mat("structEnemyAccent", mats.structEnemyAccent);
+        Mat("scorchSource", AssetDatabase.LoadAssetAtPath<Material>("Assets/Materials/Scorch.mat"));
+        so.ApplyModifiedProperties();
+    }
+
+    /// <summary>
+    /// A TRANSPARENT URP/Unlit material asset, cloned at runtime by anything whose shape comes
+    /// from its alpha — the ocean's sun glow and sea glitter. It has to be an authored ASSET:
+    /// flipping _Surface and the blend modes on a copy of an opaque material at runtime does not
+    /// reliably switch the shader variant, and the sun kept a visible rectangular quad edge.
+    /// </summary>
+    static Material FadeSource()
+    {
+        const string Path = "Assets/Materials/BackdropFadeSource.mat";
+        var m = AssetDatabase.LoadAssetAtPath<Material>(Path);
+        if (m == null)
+        {
+            m = new Material(Shader.Find("Universal Render Pipeline/Unlit"));
+            AssetDatabase.CreateAsset(m, Path);
+        }
+        m.color = Color.white;
+        m.SetFloat("_Surface", 1f);
+        m.SetFloat("_Blend", 0f);
+        m.SetFloat("_SrcBlend", (float)UnityEngine.Rendering.BlendMode.SrcAlpha);
+        m.SetFloat("_DstBlend", (float)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+        m.SetFloat("_ZWrite", 0f);
+        m.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Transparent;
+        m.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
+        m.DisableKeyword("_ALPHATEST_ON");
+        EditorUtility.SetDirty(m);
+        return m;
+    }
+
+    static void Fill(SerializedProperty array, Object[] values)
+    {
+        array.arraySize = values.Length;
+        for (int i = 0; i < values.Length; i++)
+            array.GetArrayElementAtIndex(i).objectReferenceValue = values[i];
+    }
 
     static GameObject MakeUnitPrefab(string name, Material body, Material gear, Material skin)
     {
@@ -215,16 +304,18 @@ public static class SpikeSceneBattle
     }
 
     /// <summary>
-    /// A scorch mark: a flat quad on the ground, tinted from the level's own ground colour
-    /// scaled toward black. A fixed dark blob would be invisible on a dark biome and a black
-    /// sticker on a bright one — the mark has to be a SHADE of the ground it is on.
+    /// A scorch mark: a flat quad on the ground with a radial burn texture.
+    ///
+    /// The TINT is not set here. It comes from the level's own ground colour scaled toward black,
+    /// so LevelScenery re-materials the pool on every level switch — a fixed dark blob is
+    /// invisible on a dark biome and a black sticker on a bright one, and the prefab has no idea
+    /// which level it is about to be used on.
     /// </summary>
-    static GameObject MakeScorchPrefab(LevelDefinitionSO level)
+    static GameObject MakeScorchPrefab()
     {
         var go = GameObject.CreatePrimitive(PrimitiveType.Quad);
         go.name = "Scorch";
         Object.DestroyImmediate(go.GetComponent<Collider>());
-        var g = level.background != null ? level.background.groundColor : Color.gray;
 
         // A RADIAL falloff, not a bare quad. A quad is square, so an untextured scorch renders
         // as a hard-edged dark rectangle lying on the ground — it reads as a slab, not a burn.
@@ -245,7 +336,7 @@ public static class SpikeSceneBattle
         AssetDatabase.CreateAsset(tex, "Assets/Materials/ScorchTex.asset");
 
         var mat = new Material(Shader.Find("Universal Render Pipeline/Unlit"))
-        { color = new Color(g.r * 0.45f, g.g * 0.42f, g.b * 0.40f, 0.85f) };
+        { color = new Color(1f, 1f, 1f, 0.85f) };
         mat.mainTexture = tex;
         mat.SetFloat("_Surface", 1f);
         mat.SetFloat("_Blend", 0f);

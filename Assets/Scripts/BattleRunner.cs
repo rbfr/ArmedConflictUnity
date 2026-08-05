@@ -14,7 +14,11 @@ using ArmedConflict.Game;
 public class BattleRunner : MonoBehaviour
 {
     [SerializeField] Camera cam;
-    [SerializeField] LevelDefinitionSO level;
+    /// <summary>All 29 levels, campaign then test rigs, in `LevelDefinitions.all` order — the
+    /// order the level number indexes. A player has no AssetDatabase, so every level the session
+    /// can reach has to be a serialized reference.</summary>
+    [SerializeField] LevelDefinitionSO[] levels;
+    [SerializeField] LevelScenery scenery;
     [SerializeField] GameObject playerUnitPrefab;
     [SerializeField] GameObject enemyUnitPrefab;
     [SerializeField] GameObject projectilePrefab;
@@ -44,7 +48,11 @@ public class BattleRunner : MonoBehaviour
     readonly Dictionary<ProjectileType, List<GameObject>> shotPools = new();
     readonly List<GameObject> scorchSlots = new();
     readonly List<GameObject> debrisSlots = new();
-    readonly List<GameObject> structureObjects = new();
+    readonly List<(int Id, GameObject Go)> structureObjects = new();
+
+    LevelDefinitionSO level;
+    int levelIndex;
+    int battleId;
 
     // input
     bool dragging;
@@ -68,14 +76,66 @@ public class BattleRunner : MonoBehaviour
         QualitySettings.vSyncCount = 0;
 
         random = new System.Random(12345);
-        ProgressStore.AllLevels = new List<LevelDefinitionSO> { level };
-
-        state = LevelBuilder.BuildInitialState(level, battleId: 1, totalLevels: 29, random: random);
-        state = state with { Phase = GamePhase.Playing, TurnPhase = TurnPhase.Aiming };
+        ProgressStore.AllLevels = levels;
 
         BuildPools();
-        Debug.Log($"[Battle] {level.displayName}: {state.PlayerUnits.Count} player, " +
-                  $"{state.EnemyUnits.Count} enemy, {state.Structures.Count} structures");
+        LoadLevel(0);
+    }
+
+    /// <summary>
+    /// Swaps the whole battle over to another level: new state, new scenery, pools emptied.
+    ///
+    /// The pools themselves are built ONCE and survive the switch — minting render slots mid
+    /// session is the failure the Filament build paid for repeatedly, and there is no reason to
+    /// repeat it here. What has to be reset is everything that reads a slot's PREVIOUS occupant:
+    /// a hidden slot still holds the last level's pose, position and animation state.
+    /// </summary>
+    public void LoadLevel(int index)
+    {
+        if (levels == null || levels.Length == 0) { Debug.LogError("[Battle] no levels"); return; }
+        levelIndex = Mathf.Clamp(index, 0, levels.Length - 1);
+        level = levels[levelIndex];
+
+        // battleId advances per load so nothing keyed on it can collide with the level before it.
+        state = LevelBuilder.BuildInitialState(level, ++battleId, levels.Length, random);
+        state = state with { Phase = GamePhase.Playing, TurnPhase = TurnPhase.Aiming };
+
+        scenery.Build(level, state.Structures);
+        structureObjects.Clear();
+        foreach (var st in state.Structures)
+        {
+            var go = scenery.Structure(st.Id);
+            if (go != null) structureObjects.Add((st.Id, go));
+        }
+
+        // The scorch mark is tinted from the LEVEL's ground colour, so the pool has to be
+        // re-materialled on every switch — a mark carrying the previous biome's shade is either
+        // invisible or a black sticker.
+        if (scenery.ScorchMaterial != null)
+            foreach (var s in scorchSlots)
+                s.GetComponent<MeshRenderer>().sharedMaterial = scenery.ScorchMaterial;
+
+        HideAll();
+        enemyWindup = 0f;
+        dragging = false;
+        aimVel = Vector3.zero;
+        arc.Clear();
+
+        Debug.Log($"[Battle] L{level.levelNumber} {level.displayName}: " +
+                  $"{state.PlayerUnits.Count} player, {state.EnemyUnits.Count} enemy, " +
+                  $"{state.Structures.Count} structures");
+    }
+
+    void HideAll()
+    {
+        foreach (var go in playerSlots) go.SetActive(false);
+        foreach (var go in enemySlots) go.SetActive(false);
+        foreach (var go in playerGuns) go.SetActive(false);
+        foreach (var go in enemyGuns) go.SetActive(false);
+        foreach (var kv in shotPools) foreach (var go in kv.Value) go.SetActive(false);
+        foreach (var go in blastSlots) go.SetActive(false);
+        foreach (var go in scorchSlots) go.SetActive(false);
+        foreach (var go in debrisSlots) go.SetActive(false);
     }
 
     void BuildPools()
@@ -102,13 +162,6 @@ public class BattleRunner : MonoBehaviour
         for (int i = 0; i < 32; i++) blastSlots.Add(Spawn(explosionPrefab, $"x{i}"));
         for (int i = 0; i < BattleTick.ScorchSlots; i++) scorchSlots.Add(Spawn(scorchPrefab, $"sc{i}"));
         for (int i = 0; i < BattleTick.DebrisSlots; i++) debrisSlots.Add(Spawn(debrisPrefab, $"db{i}"));
-
-        // Structures are static for the battle's life — one object each, hidden on destruction.
-        foreach (var st in state.Structures)
-        {
-            var go = GameObject.Find($"struct_{st.Id}");
-            if (go != null) structureObjects.Add(go);
-        }
     }
 
     GameObject Spawn(GameObject prefab, string name)
@@ -134,6 +187,7 @@ public class BattleRunner : MonoBehaviour
             {
                 enemyWindup = 0f;
                 state = BattleTick.FireEnemyVolley(state, random);
+                VolleyAnim(playerSide: false);
                 // The enemy volley had no fire sound at all — PlayVolleyFire was only wired to
                 // the player's release path, so half the battle fired silently.
                 if (audioFx != null) audioFx.PlayVolleyFire();
@@ -186,6 +240,7 @@ public class BattleRunner : MonoBehaviour
         if (state.TurnPhase != TurnPhase.Aiming) return;
         state = BattleTick.FireVolley(state, aimVel, random);
         if (audioFx != null) audioFx.PlayVolleyFire();
+        VolleyAnim(playerSide: true);
         Debug.Log($"[Battle] volley: {state.Projectiles.Count} rounds at " +
                   $"{AimSystem.StrengthPercent(aimVel):F0}% / {AimSystem.AngleDegrees(aimVel):F1}deg");
     }
@@ -243,7 +298,15 @@ public class BattleRunner : MonoBehaviour
             var go = pool[idx];
             go.SetActive(true);
             go.transform.position = GameSpace.ToUnity(d.X, d.Y, d.Z);
-            go.transform.rotation = Quaternion.Euler(0f, 0f, -d.Rotation);
+            // An animated unit FALLS OVER in its own clip, so the ragdoll's topple rotation is
+            // the no-animation workaround for exactly this and must not be applied on top —
+            // a body folding to the ground while also spinning flat reads as a glitch, not a death.
+            if (go.TryGetComponent<UnitAnim>(out var dyingAnim))
+            {
+                go.transform.rotation = Quaternion.identity;
+                dyingAnim.Set(UnitAnim.Die);
+            }
+            else go.transform.rotation = Quaternion.Euler(0f, 0f, -d.Rotation);
         }
         for (int i = p; i < playerSlots.Count; i++) playerSlots[i].SetActive(false);
         for (int i = e; i < enemySlots.Count; i++) enemySlots[i].SetActive(false);
@@ -325,12 +388,25 @@ public class BattleRunner : MonoBehaviour
             else debrisSlots[i].SetActive(false);
         }
 
+        // Structures are static for the battle's life — one object each, hidden on destruction.
         var liveIds = new HashSet<int>(state.Structures.Select(s2 => s2.Id));
-        foreach (var go in structureObjects)
+        foreach (var (id, go) in structureObjects)
         {
-            int id = int.Parse(go.name.Substring("struct_".Length));
-            if (go.activeSelf != liveIds.Contains(id)) go.SetActive(liveIds.Contains(id));
+            bool live = liveIds.Contains(id);
+            if (go.activeSelf != live) go.SetActive(live);
         }
+    }
+
+    /// <summary>
+    /// Fires the shoot one-shot on every unit of a side. The game throws FULL-ROSTER volleys, so
+    /// "the whole line fires at once" is not an approximation here — it is what happens.
+    /// </summary>
+    void VolleyAnim(bool playerSide)
+    {
+        var pool = playerSide ? playerSlots : enemySlots;
+        int live = playerSide ? state.PlayerUnits.Count : state.EnemyUnits.Count;
+        for (int i = 0; i < live && i < pool.Count; i++)
+            if (pool[i].TryGetComponent<UnitAnim>(out var a)) a.Fire();
     }
 
     void SyncUnits(IReadOnlyList<UnitEntity> units, List<GameObject> pool,
@@ -343,11 +419,23 @@ public class BattleRunner : MonoBehaviour
         for (int i = 0; i < units.Count && i < pool.Count; i++)
         {
             var u = units[i];
+            bool wasHidden = !pool[i].activeSelf;
             pool[i].SetActive(true);
             pool[i].transform.position = GameSpace.ToUnity(u.X, u.Y, u.Z);
             pool[i].transform.rotation = Quaternion.identity;
+            // Slots are recycled, so a slot that was last used by a CORPSE comes back still
+            // holding the death pose. Re-arm it on hidden→visible, the same rule the Android
+            // build's culling repair uses, and stagger the idle so the line is not a chorus line.
+            if (pool[i].TryGetComponent<UnitAnim>(out var anim))
+            {
+                if (wasHidden) anim.Desync(u.Id);
+                else anim.Set(UnitAnim.Idle);
+            }
 
+            // A rigged unit carries its weapon on its own arm, so the pooled gun would be a
+            // second rifle hanging in the air beside it.
             if (i >= guns.Count) continue;
+            if (pool[i].GetComponent<UnitAnim>() != null) { guns[i].SetActive(false); continue; }
             guns[i].SetActive(true);
             guns[i].transform.position = GameSpace.ToUnity(
                 u.X + sign * 0.14f, u.Y + 0.30f, u.Z - 0.02f);
@@ -463,10 +551,53 @@ public class BattleRunner : MonoBehaviour
         {
             state = BattleTick.AutoFire(state);
             if (audioFx != null) audioFx.PlayVolleyFire();
+            VolleyAnim(playerSide: true);
             Debug.Log($"[Battle] AUTO volley: {state.Projectiles.Count} rounds");
         }
         GUI.enabled = true;
 
+        DrawLevelNav();
         DrawHud();
+    }
+
+    /// <summary>
+    /// Level navigation. Two parts, and they answer different needs.
+    ///
+    /// RESTART / NEXT appear when the battle is over, because a game that ends on a victory
+    /// screen with nowhere to go is not a game — this was the port's largest hole, and every
+    /// session before it was L1 or nothing.
+    ///
+    /// The ◀ ▶ stepper is always on, and is the DEBUG switcher the shipping build also carries:
+    /// it is the only way to sweep 29 levels for crashes and missing geometry from adb without a
+    /// three-minute rebuild each time. It is also why LoadLevel has to be correct from ANY phase,
+    /// not just from a finished battle.
+    /// </summary>
+    void DrawLevelNav()
+    {
+        bool over = state.Phase == GamePhase.Victory || state.Phase == GamePhase.Defeat;
+        if (over)
+        {
+            float w = 300f, h = 130f, y = Screen.height * 0.5f;
+            if (GUI.Button(new Rect(Screen.width * 0.5f - w - 20f, y, w, h), "RESTART"))
+                LoadLevel(levelIndex);
+            GUI.enabled = levelIndex < levels.Length - 1;
+            if (GUI.Button(new Rect(Screen.width * 0.5f + 20f, y, w, h), "NEXT LEVEL"))
+                LoadLevel(levelIndex + 1);
+            GUI.enabled = true;
+        }
+
+        // BELOW THE STATUS BAR. At y=24 these sat inside the display cutout inset (161px on this
+        // panel), so an adb tap aimed at them lands on the system status bar and can pull the
+        // notification shade down over the game — which is how earlier scripted sessions ended up
+        // driving somebody's personal apps. Anything meant to be tapped from a script belongs
+        // clear of the insets.
+        const float NavTop = 190f;
+        var nav = new GUIStyle(GUI.skin.button) { fontSize = 34 };
+        if (GUI.Button(new Rect(Screen.width - 250f, NavTop, 100f, 90f), "◀", nav))
+            LoadLevel(levelIndex - 1);
+        if (GUI.Button(new Rect(Screen.width - 130f, NavTop, 100f, 90f), "▶", nav))
+            LoadLevel(levelIndex + 1);
+        GUI.Label(new Rect(Screen.width - 250f, NavTop + 94f, 220f, 40f),
+                  $"L{level.levelNumber} ({levelIndex + 1}/{levels.Length})", style);
     }
 }
