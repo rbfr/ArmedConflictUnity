@@ -59,6 +59,21 @@ namespace ArmedConflict.Game
         public IReadOnlyList<DebrisPiece> Debris { get; init; } = new List<DebrisPiece>();
         public IReadOnlyList<ImpactEntity> Impacts { get; init; } = new List<ImpactEntity>();
         public IReadOnlyList<DyingUnitEntity> DyingUnits { get; init; } = new List<DyingUnitEntity>();
+
+        /// <summary>
+        /// Launch elevation each ENEMY unit actually fired at, in degrees, keyed by unit id.
+        /// Populated by FireEnemyVolley from the velocity it really used and cleared when the
+        /// turn comes back, so the raised rifles can never describe a different shot than the one
+        /// in the air. Keyed rather than indexed because units die and a positional list would
+        /// re-point every survivor's pose at its neighbour's shot.
+        ///
+        /// Cosmetic, like the scorch marks and wrecks above it — nothing in the simulation reads
+        /// it. The angle is DERIVED rather than chosen here on purpose: EnemyAI picks a random
+        /// arc inside AimAt, and a second draw for display would be a different number than the
+        /// one fired.
+        /// </summary>
+        public IReadOnlyDictionary<int, float> EnemyAimDegrees { get; init; }
+            = new Dictionary<int, float>();
         public IReadOnlyList<SkirmishEntity> Skirmishes { get; init; } = new List<SkirmishEntity>();
         public HelicopterEntity Helicopter { get; init; }
 

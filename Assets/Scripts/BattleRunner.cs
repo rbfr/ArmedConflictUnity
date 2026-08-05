@@ -423,13 +423,18 @@ public class BattleRunner : MonoBehaviour
     void SyncUnits(IReadOnlyList<UnitEntity> units, List<GameObject> pool,
                    List<GameObject> guns, bool aimingRight)
     {
-        // Only the PLAYER line elevates. Every round in FireVolley leaves on the drag vector
-        // itself — `aimVelocity + jitter`, with no per-unit solve — so the drag angle is exactly
-        // the quantity the arms depict. That is the small-arms case; do NOT copy this to the
-        // tank, whose shell is solved for arrival and leaves on a different angle than the drag
-        // (pointing the barrel at the drag angle is a bug this project has already shipped once).
-        // The enemy line does not elevate yet: EnemyAI solves a launch angle per unit inside its
-        // volley and does not surface it, so there is nothing honest to drive it with.
+        // BOTH lines elevate, from different quantities, because they aim differently.
+        //
+        // The PLAYER's whole line shares one angle: FireVolley hands every unit
+        // `aimVelocity + jitter`, with no per-unit solve, so the drag angle is exactly what the
+        // arms depict. The ENEMY solves a fresh random arc PER UNIT inside EnemyAI.AimAt, so its
+        // line does not share an angle at all — each soldier reads back the elevation of the
+        // round it actually fired, which is why the enemy rank fans across a spread of arcs
+        // instead of moving as one.
+        //
+        // Neither of these is the tank. Its shell is solved for arrival and leaves on a
+        // different angle than the drag; pointing the barrel at the drag angle is a bug this
+        // project has already shipped once.
         float aimPose = aimingRight ? aimPoseDegrees : 0f;
 
         // The weapon sits at chest height, offset toward the side the unit faces. X is mirrored
@@ -450,7 +455,9 @@ public class BattleRunner : MonoBehaviour
             {
                 if (wasHidden) anim.Desync(u.Id);
                 else anim.Set(UnitAnim.Idle);
-                anim.AimDegrees = aimPose;
+                anim.AimDegrees = aimingRight
+                    ? aimPose
+                    : state.EnemyAimDegrees.TryGetValue(u.Id, out var ea) ? ea : 0f;
             }
 
             // A rigged unit carries its weapon on its own arm, so the pooled gun would be a

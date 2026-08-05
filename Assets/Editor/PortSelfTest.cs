@@ -1039,6 +1039,49 @@ public static class PortSelfTest
                   "no snow on the foothills (BuildSnow returns null when no line is set)");
         }
 
+        // --- The enemy's RAISED RIFLE must describe the round it actually fired.
+        //
+        // EnemyAI picks a fresh random arc per unit inside AimAt, so the only safe way to pose
+        // the arms is to read the elevation back off the velocity that was really used. Drawing
+        // a second angle for display would pose every enemy at an arc no round takes, and it
+        // would look entirely plausible on screen — which is why this is asserted rather than
+        // eyeballed.
+        {
+            var lv = AssetDatabase.FindAssets("t:LevelDefinitionSO")
+                .Select(g => AssetDatabase.LoadAssetAtPath<LevelDefinitionSO>(
+                    AssetDatabase.GUIDToAssetPath(g)))
+                .Where(l => l != null).OrderBy(l => l.levelNumber).First();
+
+            var st = LevelBuilder.BuildInitialState(lv, 1, 24, new System.Random(11));
+            st = st with { Phase = GamePhase.Playing, TurnPhase = TurnPhase.Aiming };
+            int before = st.Projectiles.Count;
+            var fired = BattleTick.FireEnemyVolley(st, new System.Random(11));
+
+            Check(fired.EnemyAimDegrees.Count == fired.EnemyUnits.Count,
+                  $"every enemy records a launch elevation ({fired.EnemyAimDegrees.Count}" +
+                  $" of {fired.EnemyUnits.Count})");
+
+            var shots = fired.Projectiles.Skip(before).ToList();
+            int matched = 0;
+            foreach (var u in fired.EnemyUnits)
+            {
+                if (!fired.EnemyAimDegrees.TryGetValue(u.Id, out float posed)) continue;
+                // The round this unit fired left from its own position.
+                var shot = shots.FirstOrDefault(r => Mathf.Abs(r.X - u.X) < 1e-3f
+                                                  && Mathf.Abs(r.Z - u.Z) < 1e-3f);
+                if (shot == null) continue;
+                float real = Mathf.Atan2(shot.Vy, Mathf.Abs(shot.Vx)) * Mathf.Rad2Deg;
+                if (Mathf.Abs(real - posed) < 0.01f) matched++;
+            }
+            Check(matched == fired.EnemyUnits.Count,
+                  $"each posed elevation equals the round that unit fired ({matched}" +
+                  $" of {fired.EnemyUnits.Count})");
+
+            // And it must not outlive the volley: units are POOLED, so a pose left set would be
+            // inherited by whoever recycles the slot.
+            Check(st.EnemyAimDegrees.Count == 0, "no enemy pose is held outside a volley");
+        }
+
         // --- EVERY level must build and must have geometry for everything it places.
         //
         // This is the check that makes level navigation safe to ship. While only L1 was

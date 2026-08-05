@@ -33,6 +33,9 @@ namespace ArmedConflict.Game
         /// </summary>
         public const int ScorchSlots = 36;
         public const int DebrisSlots = 96;
+        /// <summary>Shared empty map, so clearing the enemy pose never allocates.</summary>
+        static readonly Dictionary<int, float> EmptyAim = new();
+
 
         public static GameState Step(GameState s, float rawDt, LevelDefinitionSO level,
                                      System.Random random)
@@ -280,6 +283,7 @@ namespace ArmedConflict.Game
             var phase = TurnFlow.ResolvePhase(playerUnits.Count, enemyUnits.Count);
             var turnSide = s.TurnSide;
             var turnPhase = s.TurnPhase;
+            var enemyAim = s.EnemyAimDegrees;
             float handover = s.TurnHandoverDelay;
             int turnNumber = s.TurnNumber;
 
@@ -308,6 +312,10 @@ namespace ArmedConflict.Game
                             turnSide = TurnSide.Player;
                             turnPhase = TurnPhase.Aiming;
                             turnNumber++;
+                            // The enemy volley is over, so its raised rifles are over with it.
+                            // Left set, the line would hold last turn's elevation for the whole
+                            // battle — and units are POOLED, so it would outlive the shooters.
+                            enemyAim = EmptyAim;
                         }
                         handover = 0f;
                         break;
@@ -376,6 +384,7 @@ namespace ArmedConflict.Game
                 Phase = phase,
                 TurnSide = turnSide,
                 TurnPhase = turnPhase,
+                EnemyAimDegrees = enemyAim,
                 TurnHandoverDelay = handover,
                 TurnNumber = turnNumber,
                 CameraFollowX = followX,
@@ -613,12 +622,20 @@ namespace ArmedConflict.Game
             if (s.EnemyUnits.Count == 0 || s.PlayerUnits.Count == 0) return s;
 
             var rounds = new List<ProjectileEntity>(s.Projectiles);
+            var aim = new Dictionary<int, float>(s.EnemyUnits.Count);
             int slot = s.NextBulletSlot;
             foreach (var e in s.EnemyUnits)
             {
                 var target = s.PlayerUnits[random.Next(s.PlayerUnits.Count)];
                 var v = EnemyAI.AimAt(new Vector3(e.X, e.Y + 0.35f, e.Z),
                                       new Vector3(target.X, target.Y, target.Z));
+
+                // The elevation this unit is ABOUT TO FIRE at, read back off the velocity rather
+                // than drawn again — AimAt picks its arc at random, so a second draw would pose
+                // the rifle at an angle no round takes. Measured off |Vx| so a unit shooting
+                // leftward still reports a positive elevation.
+                aim[e.Id] = Mathf.Atan2(v.y, Mathf.Abs(v.x)) * Mathf.Rad2Deg;
+
                 rounds.Add(new ProjectileEntity(
                     Id: 20000 + slot++,
                     X: e.X, Y: e.Y + 0.35f, Z: e.Z,
@@ -631,6 +648,7 @@ namespace ArmedConflict.Game
             {
                 Projectiles = rounds,
                 NextBulletSlot = slot,
+                EnemyAimDegrees = aim,
                 TurnPhase = TurnPhase.Resolving,
                 TurnSide = TurnSide.Enemy,
             };
