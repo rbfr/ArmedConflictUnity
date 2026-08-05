@@ -122,6 +122,11 @@ takes the drag and renders it. Verified on the Pixel 10: L1 played from turn 1 t
 turn 7**, 8 of 10 player units surviving, the outpost destroyed and its garrison falling with it,
 60.0 fps throughout with a worst drag frame of 16.8 ms and no exceptions.
 
-Still missing before this is a GAME rather than a battle: consumables, reinforcement/loadout
-input, the lifecycle beyond one level (`restart`/`nextLevel`), scorch and debris rendering, and
-the whole UI layer (~2,600 lines of Compose with no migration path — see `MIGRATION_SCOPE.md`).
+Unit weapons and the biome backdrop (sky gradient, silhouette ridges, ground colour) render from
+the level's own `BackgroundDefinition`, so the scene is now comparable like-for-like with the
+shipping build rather than a bare stage.
+
+Still missing before this is a GAME rather than a battle: ground detail texture, props
+(L1's sandbags), consumables, reinforcement/loadout input, the lifecycle beyond one level
+(`restart`/`nextLevel`), scorch and debris rendering, and the whole UI layer (~2,600 lines of
+Compose with no migration path — see `MIGRATION_SCOPE.md`).
