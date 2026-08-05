@@ -763,6 +763,106 @@ public static class PortSelfTest
                   "the hop returns to inactive when it expires, snapping back to formation");
         }
 
+        // --- HelicopterSystem
+        {
+            var ud = ScriptableObject.CreateInstance<UnitDefinitionSO>();
+            ud.id = "u"; ud.maxHp = 32;
+            var pl = new List<UnitEntity> { new(1, ud, -8f, 0f, 0f, 32, true) };
+            var en = new List<UnitEntity> { new(2, ud, 8f, 0f, 0f, 32, false) };
+            var st = new List<StructureEntity>();
+            var rng = new System.Random(3);
+
+            HelicopterEntity Heli(HeliMode m, float x = 6f, int hp = HelicopterSystem.MaxHp,
+                                  int bursts = HelicopterSystem.Bursts)
+                => new(x, HelicopterSystem.Altitude, -HelicopterSystem.Speed, m, bursts)
+                   { Hp = hp, MaxHp = HelicopterSystem.MaxHp, HoverX = 4f };
+
+            // Shootability: the pre-battle flyby is scenery, a falling wreck is not a target.
+            Check(!HelicopterSystem.IsShootable(HeliMode.Preview), "the preview flyby is not shootable");
+            Check(HelicopterSystem.IsShootable(HeliMode.Hovering), "a hovering gunship is shootable");
+            Check(!HelicopterSystem.IsShootable(HeliMode.Crashing), "a crashing heli is not shootable");
+
+            // Entering settles into Hovering exactly at hoverX, not past it.
+            var entering = Heli(HeliMode.Entering, x: 4.02f);   // 2.6 u/s * 1/60 = 0.043 travelled
+            var r = HelicopterSystem.Step(entering, 1f / 60f, GamePhase.Playing, pl, en, st);
+            Check(r.Heli.Mode == HeliMode.Hovering, "Entering becomes Hovering on arrival");
+            Near(r.Heli.X, 4f, 1e-4f, "and stops exactly at the hover spot");
+            Check(r.Heli.Vx == 0f, "with its approach speed cleared");
+
+            // A battle that ends while it hovers: leave cosmetically, holding nothing open.
+            var stranded = HelicopterSystem.Step(Heli(HeliMode.Hovering), 1f / 60f,
+                                                 GamePhase.Victory, pl, en, st);
+            Check(stranded.Heli.Mode == HeliMode.GunRun,
+                  "a hovering heli leaves when the battle is already over");
+
+            // WOUNDING changes behaviour — that is the counter-play, not just killing it.
+            var hurt = HelicopterSystem.ApplyHit(Heli(HeliMode.Hovering), 10);
+            Check(hurt.Mode == HeliMode.Retreating, "a wounded gunship breaks off and retreats");
+            Check(hurt.Hp == HelicopterSystem.MaxHp - 10, "and carries the damage");
+            Check(hurt.BurstsLeft == 0, "a retreating heli fires nothing further");
+            Check(HelicopterSystem.IsWounded(hurt.Hp, hurt.MaxHp), "and reads as wounded");
+
+            var killed = HelicopterSystem.ApplyHit(Heli(HeliMode.Hovering), 999);
+            Check(killed.Mode == HeliMode.Crashing, "enough damage starts a crash");
+            Check(killed.Vy > 0f, "with a brief upward lurch at the killing hit");
+            Check(killed.BurstsLeft == 0,
+                  "a falling heli must not hold the turn handover open");
+
+            // The crash falls, spins, and produces its fireball at hull contact.
+            var falling = killed with { Y = 0.23f, Vy = -3f };   // one tick drops ~0.051, past 0.22
+            var crashed = HelicopterSystem.Step(falling, 1f / 60f, GamePhase.Playing, pl, en, st);
+            Check(crashed.Heli == null && crashed.SpawnedCrashFireball,
+                  "hitting the ground despawns the heli and spawns the fireball");
+            var stillFalling = HelicopterSystem.Step(killed with { Y = 2f, Vy = -1f },
+                                                     1f / 60f, GamePhase.Playing, pl, en, st);
+            Check(stillFalling.Heli.Rotation > 0f, "a falling heli tumbles");
+            Check(stillFalling.Heli.Vy < -1f, "and accelerates downward");
+
+            // A crash still resolves after the battle ended, rather than despawning silently.
+            var postBattle = HelicopterSystem.Step(killed with { Y = 0.23f, Vy = -3f },
+                                                   1f / 60f, GamePhase.Victory, pl, en, st);
+            Check(postBattle.SpawnedCrashFireball,
+                  "a heli falling as the battle ends still explodes");
+
+            // Hit detection is SWEPT and side-correct.
+            var hover = Heli(HeliMode.Hovering, x: 6f);
+            var through = new ProjectileEntity(1, 6f, 1f, 0f, 0f, -20f, 0f, 8, true)
+                { PrevX = 6f, PrevY = 6f };
+            Check(HelicopterSystem.IsHitBy(hover, through),
+                  "a fast round through the hover disc registers (swept, not point-sampled)");
+            var wide = new ProjectileEntity(2, 20f, 1f, 0f, 0f, -20f, 0f, 8, true)
+                { PrevX = 20f, PrevY = 6f };
+            Check(!HelicopterSystem.IsHitBy(hover, wide), "a round nowhere near it misses");
+            var enemyRound = new ProjectileEntity(3, 6f, 1f, 0f, 0f, -20f, 0f, 8, false)
+                { PrevX = 6f, PrevY = 6f };
+            Check(!HelicopterSystem.IsHitBy(hover, enemyRound),
+                  "the enemy never shoots down its own gunship");
+            var ownGunner = new ProjectileEntity(4, 6f, 1f, 0f, 0f, -20f, 0f, 8, true)
+                { PrevX = 6f, PrevY = 6f, IsHeliShot = true };
+            Check(!HelicopterSystem.IsHitBy(hover, ownGunner),
+                  "and its own door-gunner rounds cannot hit it");
+            Check(!HelicopterSystem.IsHitBy(Heli(HeliMode.Preview), through),
+                  "the cosmetic flyby cannot be shot down");
+
+            // Door gunner: fires only on a gun run, and its rounds are excluded from the camera.
+            var gunning = Heli(HeliMode.GunRun) with { FireCooldown = 0f };
+            var shot = HelicopterSystem.TryFire(gunning, pl, 900, rng);
+            Check(shot != null, "a gun-running heli with bursts left fires");
+            Check(shot.IsHeliShot,
+                  "gunner rounds are flagged so the volley camera ignores them");
+            Check(!shot.OwnerIsPlayer, "gunner rounds belong to the enemy side");
+            Check(HelicopterSystem.TryFire(Heli(HeliMode.Hovering) with { FireCooldown = 0f },
+                                           pl, 901, rng) == null,
+                  "a hovering heli does not fire");
+            Check(HelicopterSystem.TryFire(gunning with { BurstsLeft = 0 }, pl, 902, rng) == null,
+                  "an empty gun fires nothing");
+            Check(HelicopterSystem.TryFire(gunning with { FireCooldown = 0.4f }, pl, 903, rng) == null,
+                  "the fire interval is respected");
+            var after = HelicopterSystem.ConsumeBurst(gunning);
+            Check(after.BurstsLeft == HelicopterSystem.Bursts - 1, "firing consumes a burst");
+            Near(after.FireCooldown, HelicopterSystem.FireInterval, 1e-5f, "and resets the cooldown");
+        }
+
         Debug.Log($"[PortSelfTest] {(failed == 0 ? "ALL PASS" : $"{failed} FAILURES")}\n{Log}");
         if (failed > 0 && Application.isBatchMode) EditorApplication.Exit(1);
     }

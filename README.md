@@ -109,7 +109,8 @@ Kotlin's documented behaviour rather than transliterated whole.
 | tick: turn flow + win/loss + awards | ~180 | **done** — `TurnFlow` |
 | tick: camera choreography | ~200 | **done** — `CameraDirector` |
 | tick: cosmetic layers (ragdolls, debris, scorch, shake) | ~350 | **done** — `CosmeticSystems` |
-| tick: heli state machine + events | ~720 | boss phases, reinforcement waves, wind shifts |
+| tick: helicopter state machine | ~320 | **done** — `HelicopterSystem` |
+| tick: events layer | ~400 | boss phases, reinforcement waves, wind shifts |
 | ragdolls + knockback (`ragdollFrom`, `applyDamageAndKnockback`) | ~160 | not started |
 | consumables + reinforcements | ~120 | not started |
 | battle lifecycle (`startBattle`, `jumpToLevel`, `restart`, `nextLevel`) | ~50 | not started |
