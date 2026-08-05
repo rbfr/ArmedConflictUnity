@@ -117,6 +117,15 @@ namespace ArmedConflict.Game
         public int TotalHeliHits { get; init; }
         public int TotalHeliCrashes { get; init; }
 
+        /// <summary>
+        /// Blasts worth an EXPLOSION sound — splash weapons and structure hits only.
+        /// A rifle round striking a soldier is not an explosion; it gets the hit/death sound.
+        /// Kept separate from the explosion LIST because that list also carries the small
+        /// cosmetic puffs, and treating every one of them as a bang is what made a rifle volley
+        /// sound like artillery.
+        /// </summary>
+        public int TotalBlasts { get; init; }
+
         // ---- camera ---------------------------------------------------------------------
         // Everything here is computed IN THE TICK, never in a UI coroutine, so the camera and
         // the projectiles it tracks advance atomically in one state. A separate follow loop

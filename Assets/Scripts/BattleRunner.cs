@@ -110,6 +110,9 @@ public class BattleRunner : MonoBehaviour
             {
                 enemyWindup = 0f;
                 state = BattleTick.FireEnemyVolley(state, random);
+                // The enemy volley had no fire sound at all — PlayVolleyFire was only wired to
+                // the player's release path, so half the battle fired silently.
+                if (audioFx != null) audioFx.PlayVolleyFire();
             }
         }
 
@@ -182,18 +185,20 @@ public class BattleRunner : MonoBehaviour
                    + (after.TotalEnemyKills - before.TotalEnemyKills);
         if (deaths > 0) audioFx.PlayUnitDeath();
 
-        // A NEW blast this tick. Explosions are also held one extra tick at progress 1, so
-        // compare counts of freshly-spawned ones rather than list length.
-        int newBlasts = 0;
-        foreach (var e in after.Explosions) if (e.Progress <= 0f) newBlasts++;
-        if (newBlasts > 0) audioFx.PlayExplosion();
+        // EXPLOSION only for real blasts — splash weapons and structure hits. A rifle round
+        // striking a soldier is a hit, not a bang; playing the explosion clip for every
+        // detonation is what made an ordinary rifle volley sound like artillery.
+        if (after.TotalBlasts > before.TotalBlasts) audioFx.PlayExplosion();
 
-        // Rounds that vanished without a blast hit the dirt.
-        int gone = before.Projectiles.Count - after.Projectiles.Count;
-        if (gone > newBlasts && gone > 0) audioFx.PlayGroundImpact(gone - newBlasts);
-
-        // A wounded survivor: damage taken with nobody dying.
+        // A wounded survivor gets the hit sound, provided nobody died this tick (the death
+        // scream would bury it anyway).
         if (deaths == 0 && after.TotalWoundedHits > before.TotalWoundedHits) audioFx.PlayUnitHit();
+
+        // Ground impacts are counted by the tick, NOT inferred from the projectile list
+        // shrinking — a round culled on the side bounds sailed off the field and never landed,
+        // and playing dirt-thuds for those made every overshot volley sound like it connected.
+        int dirt = after.TotalGroundImpacts - before.TotalGroundImpacts;
+        if (dirt > 0) audioFx.PlayGroundImpact(dirt);
 
         if (before.Phase == GamePhase.Playing && after.Phase == GamePhase.Victory) audioFx.PlayVictory();
         if (before.Phase == GamePhase.Playing && after.Phase == GamePhase.Defeat) audioFx.PlayDefeat();

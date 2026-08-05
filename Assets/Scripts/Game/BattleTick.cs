@@ -155,6 +155,26 @@ namespace ArmedConflict.Game
                     .Select(RagdollFrom))
                 .ToList();
 
+            // Tally what actually happened this tick, so the presentation layer reads FACTS
+            // rather than guessing from list-length deltas. A round leaving the field on the
+            // side bounds is not a ground impact, and a bullet striking a soldier is not a blast
+            // — inferring both from "the projectile list got shorter" got both wrong.
+            int groundImpactsThisTick = ProjectileSystem.GroundImpacts(stepped, hits.HitProjectileIds).Count;
+            int blastsThisTick = 0, structureImpactsThisTick = 0;
+            foreach (var d in hits.Detonations)
+            {
+                bool splash = d.IsGroundBurst || d.HitStructureId != null;
+                if (d.HitStructureId != null) structureImpactsThisTick++;
+                if (splash) blastsThisTick++;
+            }
+            int woundedThisTick = 0;
+            foreach (var kv in hits.UnitDamage)
+            {
+                var target = s.EnemyUnits.FirstOrDefault(u => u.Id == kv.Key)
+                          ?? s.PlayerUnits.FirstOrDefault(u => u.Id == kv.Key);
+                if (target != null && target.Hp - kv.Value > 0) woundedThisTick++;
+            }
+
             // Detonations become explosions. The renderer needs them, and so does the audio —
             // a hit with no blast reads as the round having vanished.
             if (hits.Detonations.Count > 0)
@@ -290,6 +310,10 @@ namespace ArmedConflict.Game
                 CameraFollowZVelocity = followZVel,
                 TotalPlayerKills = s.TotalPlayerKills + enemyKilled,
                 TotalEnemyKills = s.TotalEnemyKills + playerKilled,
+                TotalGroundImpacts = s.TotalGroundImpacts + groundImpactsThisTick,
+                TotalStructureImpacts = s.TotalStructureImpacts + structureImpactsThisTick,
+                TotalWoundedHits = s.TotalWoundedHits + woundedThisTick,
+                TotalBlasts = s.TotalBlasts + blastsThisTick,
             };
         }
 
