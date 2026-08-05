@@ -85,6 +85,13 @@ public static class SpikeSceneBattle
         cam.nearClipPlane = 0.1f;
         cam.farClipPlane = 300f;
 
+        // AN AUDIOLISTENER IS REQUIRED FOR ANY SOUND AT ALL. Unity's default Main Camera PREFAB
+        // ships with one, but a camera built from new GameObject() + AddComponent<Camera>() does
+        // not — so every AudioSource plays into nothing, silently and with no warning. That is
+        // what made the audio inaudible even though the clips were loaded, the triggers fired
+        // and the volumes were right.
+        camGo.AddComponent<AudioListener>();
+
         var runner = camGo.AddComponent<BattleRunner>();
         var so = new SerializedObject(runner);
         so.FindProperty("cam").objectReferenceValue = cam;
