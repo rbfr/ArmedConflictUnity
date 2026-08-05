@@ -863,6 +863,100 @@ public static class PortSelfTest
             Near(after.FireCooldown, HelicopterSystem.FireInterval, 1e-5f, "and resets the cooldown");
         }
 
+        // --- EventSystems
+        {
+            // Reinforcement waves: telegraph one turn EARLY, arrive on the turn, silent after.
+            Check(EventSystems.ReinforcementWaveBeat(5, 5) == EventSystems.WaveTriggerBeat.Arrive,
+                  "a wave arrives on its turn");
+            Check(EventSystems.ReinforcementWaveBeat(5, 4) == EventSystems.WaveTriggerBeat.Telegraph,
+                  "and telegraphs one turn early so the player can react");
+            Check(EventSystems.ReinforcementWaveBeat(5, 3) == EventSystems.WaveTriggerBeat.None,
+                  "with nothing shown two turns out");
+            Check(EventSystems.ReinforcementWaveBeat(5, 6) == EventSystems.WaveTriggerBeat.None,
+                  "and nothing after it has landed");
+
+            // Wind: sign follows BASE, so a level's wind never reverses mid-battle.
+            float baseWind = 2f;
+            float w = baseWind;
+            for (int i = 0; i < 40; i++) w = EventSystems.NextWindAccelZ(w, baseWind, false);
+            Check(w > 0f, "weakening wind never flips direction");
+            Near(w, baseWind * EventSystems.WindShiftMinFrac, 1e-4f, "it clamps at the band floor");
+            for (int i = 0; i < 80; i++) w = EventSystems.NextWindAccelZ(w, baseWind, true);
+            Near(w, baseWind * EventSystems.WindShiftMaxFrac, 1e-4f, "and at the band ceiling");
+
+            float negBase = -2f, nw = negBase;
+            for (int i = 0; i < 40; i++) nw = EventSystems.NextWindAccelZ(nw, negBase, true);
+            Check(nw < 0f, "a leftward wind stays leftward however hard it gusts");
+            Near(nw, negBase * EventSystems.WindShiftMaxFrac * -1f * -1f, 1e-4f,
+                 "and clamps to its own band");
+
+            Check(EventSystems.NextWindAccelZ(0f, 0f, true) == 0f,
+                  "a level with no wind never gusts");
+
+            // The banner is suppressed when the gust changed nothing.
+            float atCeiling = baseWind * EventSystems.WindShiftMaxFrac;
+            float unchanged = EventSystems.NextWindAccelZ(atCeiling, baseWind, true);
+            Check(EventSystems.WindShiftAnnouncement(atCeiling, unchanged, true) == null,
+                  "no banner when the wind was already clamped at the edge");
+            Check(EventSystems.WindShiftAnnouncement(1f, 1.35f, true) != null,
+                  "a real gust does announce itself");
+
+            // Announcement timers clear their text.
+            float timer = 0.1f;
+            Check(!EventSystems.TickAnnouncement(ref timer, 0.2f), "an expired banner is hidden");
+            Check(timer == 0f, "and its timer floors at zero rather than going negative");
+            float live = 2f;
+            Check(EventSystems.TickAnnouncement(ref live, 0.2f), "a live banner stays shown");
+
+            // Boss phases.
+            var lvl = ScriptableObject.CreateInstance<LevelDefinitionSO>();
+            var ud2 = ScriptableObject.CreateInstance<UnitDefinitionSO>();
+            ud2.id = "u"; ud2.maxHp = 32;
+            lvl.enemyGroups = new List<EnemyGroup>
+            {
+                new() { definition = ud2, count = 2, anchorX = 6f, standingOnStructureId = "keep" },
+            };
+            var runtimeIds = new Dictionary<string, int> { { "keep", 100 }, { "gate", 101 } };
+
+            // Destroyed outright counts.
+            Check(EventSystems.IsTriggerDefeated("keep", runtimeIds, new HashSet<int> { 100 },
+                                                 lvl, new List<UnitEntity>()),
+                  "a destroyed trigger structure counts as defeated");
+
+            // Still standing but its garrison is cleared ALSO counts — without this a player who
+            // killed the defenders and left the masonry never fires the encounter.
+            Check(EventSystems.IsTriggerDefeated("keep", runtimeIds, new HashSet<int>(),
+                                                 lvl, new List<UnitEntity>()),
+                  "a garrisoned structure with its defenders cleared also counts");
+            var stillHeld = new List<UnitEntity>
+            {
+                new(1, ud2, 6f, 1f, 0f, 32, false) { StandingOnStructureId = 100 },
+            };
+            Check(!EventSystems.IsTriggerDefeated("keep", runtimeIds, new HashSet<int>(),
+                                                  lvl, stillHeld),
+                  "but not while any of its garrison still stands");
+
+            // An UNgarrisoned structure only counts once actually destroyed.
+            Check(!EventSystems.IsTriggerDefeated("gate", runtimeIds, new HashSet<int>(),
+                                                  lvl, new List<UnitEntity>()),
+                  "an ungarrisoned structure must actually be destroyed");
+            Check(!EventSystems.IsTriggerDefeated("missing", runtimeIds, new HashSet<int>(),
+                                                  lvl, new List<UnitEntity>()),
+                  "an unknown structure id is never defeated");
+
+            // Trigger gating.
+            var trig = new BossPhaseTrigger { triggerStructureIds = new List<string> { "keep", "gate" } };
+            Check(!EventSystems.ShouldTriggerBossPhase(0, trig, new HashSet<int>(), id => id == "keep"),
+                  "a phase waits until EVERY trigger structure is defeated");
+            Check(EventSystems.ShouldTriggerBossPhase(0, trig, new HashSet<int>(), id => true),
+                  "and fires once they all are");
+            Check(!EventSystems.ShouldTriggerBossPhase(0, trig, new HashSet<int> { 0 }, id => true),
+                  "an already-triggered phase never fires twice");
+            var empty = new BossPhaseTrigger { triggerStructureIds = new List<string>() };
+            Check(!EventSystems.ShouldTriggerBossPhase(0, empty, new HashSet<int>(), id => true),
+                  "an EMPTY trigger set is not vacuously true (it would fire on tick one)");
+        }
+
         Debug.Log($"[PortSelfTest] {(failed == 0 ? "ALL PASS" : $"{failed} FAILURES")}\n{Log}");
         if (failed > 0 && Application.isBatchMode) EditorApplication.Exit(1);
     }

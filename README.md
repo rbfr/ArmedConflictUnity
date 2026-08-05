@@ -110,10 +110,13 @@ Kotlin's documented behaviour rather than transliterated whole.
 | tick: camera choreography | ~200 | **done** — `CameraDirector` |
 | tick: cosmetic layers (ragdolls, debris, scorch, shake) | ~350 | **done** — `CosmeticSystems` |
 | tick: helicopter state machine | ~320 | **done** — `HelicopterSystem` |
-| tick: events layer | ~400 | boss phases, reinforcement waves, wind shifts |
+| tick: events layer (boss phases, waves, wind) | ~400 | **done** — `EventSystems` |
 | ragdolls + knockback (`ragdollFrom`, `applyDamageAndKnockback`) | ~160 | not started |
 | consumables + reinforcements | ~120 | not started |
 | battle lifecycle (`startBattle`, `jumpToLevel`, `restart`, `nextLevel`) | ~50 | not started |
 
-The tick is itself sliceable: projectile stepping, collision resolution, turn flow, cosmetic
-decay (debris/wrecks/ragdolls), and camera choreography are largely independent of one another.
+**All eight slices are ported and under test (261 checks).** What does NOT yet exist is the
+assembly: a single `BattleTick` that runs these systems in order against one GameState, plus the
+input layer (`onAimDragUpdate`/`onAimRelease`/consumables) and the battle lifecycle
+(`startBattle`/`restart`/`nextLevel`). Every part is present; nothing has been wired into a
+playable loop yet, and no part of this has been run on the device.
