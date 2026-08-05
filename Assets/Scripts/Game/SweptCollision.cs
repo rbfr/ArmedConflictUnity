@@ -64,10 +64,25 @@ namespace ArmedConflict.Game
             return DistanceSq(px, py, cx, cy);
         }
 
-        /// <summary>Structures collide as an axis-aligned box matching their real footprint.</summary>
-        public static bool HitsStructure(float px, float py, float sx, float sy,
-                                         float hitWidth, float size)
-            => Mathf.Abs(px - sx) <= hitWidth / 2f && Mathf.Abs(py - sy) <= size / 2f;
+        /// <summary>
+        /// Structures collide as an axis-aligned box matching their real footprint: hitWidth
+        /// wide, and rising from the ground to the top of the ACTUAL BUILDING.
+        ///
+        /// The top is baseY + deckY where a deck has been measured, NOT baseY + size. `size` is a
+        /// logical height, and several structures break the "deck at size" contract outright —
+        /// the outpost's roof tops out at 1.4 world units against a size of 2.0. Using `size`
+        /// puts 0.6 units of INVISIBLE MASONRY above the roof, which is 1.3 unit-heights of
+        /// solid airspace sitting on top of the defenders standing there.
+        ///
+        /// That is not a cosmetic error. Units are resolved before structures, but a round
+        /// descending onto a garrison enters that phantom ceiling near the structure's leading
+        /// EDGE — metres from any defender — so it registers as a wall hit and is spent. The
+        /// garrison then cannot be shot at all: the only way to kill them is to bring the
+        /// building down.
+        /// </summary>
+        public static bool HitsStructure(float px, float py, float sx, float baseY,
+                                         float hitWidth, float height)
+            => Mathf.Abs(px - sx) <= hitWidth / 2f && py >= baseY && py <= baseY + height;
     }
 
 }

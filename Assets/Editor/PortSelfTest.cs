@@ -448,6 +448,44 @@ public static class PortSelfTest
                   "destroying the base collapses the whole stack transitively");
             Check(collapsed.Contains(4), "an explicit collapseWith partner comes down too");
 
+            // A GARRISON ON A ROOF MUST BE SHOOTABLE. The collision box rises to the measured
+            // deck, not to `size` — otherwise the gap between them is invisible masonry sitting
+            // on top of the defenders, and a round descending on them is spent on the wall edge
+            // instead. The only way to kill them then is to destroy the building.
+            var outpost = ScriptableObject.CreateInstance<StructureDefinitionSO>();
+            outpost.id = "outpost"; outpost.size = 2f;
+            outpost.hasHitWidth = true; outpost.hitWidth = 3.25f;
+            outpost.hasDeckY = true; outpost.deckY = 1.4f;      // roof well below `size`
+            var post = new StructureEntity(200, outpost, 7f, 1f, 0f, 90);   // centre of a 2-tall box
+
+            var defenderDef = ScriptableObject.CreateInstance<UnitDefinitionSO>();
+            defenderDef.id = "d"; defenderDef.maxHp = 32;
+            var defender = new UnitEntity(9, defenderDef, 7f, 1.4f, 0f, 32, false);
+
+            // A round plunging onto the deck from above.
+            var plunge = new ProjectileEntity(90, 7f, 1.45f, 0f, 0f, -9f, 0f, 8, true)
+                { PrevX = 7f, PrevY = 2.6f };
+            var roofHit = CollisionSystem.ResolveHits(new[] { plunge }, new[] { defender },
+                                                      new List<UnitEntity>(), new[] { post });
+            Check(roofHit.UnitDamage.ContainsKey(9), "a garrison on the roof CAN be shot directly");
+            Check(!roofHit.StructureDamage.ContainsKey(200),
+                  "and the round is not swallowed by phantom masonry above the roof");
+
+            // The building itself must still block a round aimed at its BODY.
+            var atWall = new ProjectileEntity(91, 6f, 0.7f, 0f, 3f, -3f, 0f, 8, true)
+                { PrevX = 5f, PrevY = 1.2f };
+            var wallHit = CollisionSystem.ResolveHits(new[] { atWall }, new List<UnitEntity>(),
+                                                      new List<UnitEntity>(), new[] { post });
+            Check(wallHit.StructureDamage.ContainsKey(200),
+                  "the structure still blocks rounds that strike its actual body");
+
+            // And a round passing well ABOVE the roof hits nothing at all.
+            var over = new ProjectileEntity(92, 7f, 1.9f, 0f, 3f, 0f, 0f, 8, true)
+                { PrevX = 6f, PrevY = 1.9f };
+            var overHit = CollisionSystem.ResolveHits(new[] { over }, new List<UnitEntity>(),
+                                                      new List<UnitEntity>(), new[] { post });
+            Check(overHit.StructureDamage.Count == 0, "a round clearing the roof passes over it");
+
             var independent = new StructureEntity(5, tierDef, 9f, 0f, 0f, 10);
             var c2 = CollisionSystem.PropagateCollapse(new[] { independent }, new[] { 1 });
             Check(!c2.Contains(5), "an unrelated structure is left standing");

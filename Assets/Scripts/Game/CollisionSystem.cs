@@ -124,8 +124,14 @@ namespace ArmedConflict.Game
                     if (st.Definition.isPlayerSide == p.OwnerIsPlayer) continue;
                     float halfW = (st.Definition.hasHitWidth ? st.Definition.hitWidth
                                                              : st.Definition.size) / 2f;
-                    if (!SweptCollision.HitsStructure(p.X, p.Y, st.X, st.Y,
-                                                      halfW * 2f, st.Definition.size)) continue;
+                    // The entity's Y is the centre of a size-tall box, so its base is Y - size/2.
+                    // The box then rises to the REAL roof (deckY), not to `size` — see
+                    // SweptCollision.HitsStructure for why the difference makes a garrison
+                    // unkillable.
+                    float baseY = st.Y - st.Definition.size / 2f;
+                    float height = st.Definition.hasDeckY ? st.Definition.deckY : st.Definition.size;
+                    if (!SweptCollision.HitsStructure(p.X, p.Y, st.X, baseY,
+                                                      halfW * 2f, height)) continue;
                     float d = (p.X - st.X) * (p.X - st.X) + (p.Y - st.Y) * (p.Y - st.Y);
                     if (d < bestStructDist) { bestStructDist = d; struck = st; }
                 }
