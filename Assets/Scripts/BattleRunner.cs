@@ -324,6 +324,19 @@ public class BattleRunner : MonoBehaviour
             }
         }
 
+        // AUTO — the debug driver. Deliberately labelled and placed like the shipping build's,
+        // and deliberately NOT something to judge balance from: every round lands, which no
+        // real drag does.
+        bool canAuto = state.Phase == GamePhase.Playing && state.TurnPhase == TurnPhase.Aiming;
+        GUI.enabled = canAuto;
+        if (GUI.Button(new Rect(30, Screen.height - 220, 300, 150), "AUTO"))
+        {
+            state = BattleTick.AutoFire(state);
+            if (audioFx != null) audioFx.PlayVolleyFire();
+            Debug.Log($"[Battle] AUTO volley: {state.Projectiles.Count} rounds");
+        }
+        GUI.enabled = true;
+
         string banner = state.Phase switch
         {
             GamePhase.Victory => "VICTORY",

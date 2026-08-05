@@ -47,6 +47,31 @@ namespace ArmedConflict.Game
         public static Vector3 VelocityFromDrag(float dragX, float dragY, float speedScale)
             => new Vector3(Mathf.Abs(dragX) * speedScale, -dragY * speedScale, 0f);
 
+        /// <summary>
+        /// Launch velocity from origin to target at a FIXED arc angle — speed is solved, not the
+        /// angle. Same formula the enemy AI uses, minus the jitter, which is exactly what makes
+        /// Auto land roughly every round on target.
+        ///
+        /// From h = d*tan(theta) - g*d^2 / (2*v^2*cos^2(theta)), solved for v. The denominator is
+        /// floored rather than allowed to go negative: a target too high to reach on this arc
+        /// would otherwise produce a NaN speed instead of simply falling short.
+        /// </summary>
+        public static Vector3 SolveVelocity(Vector3 origin, Vector3 target,
+                                            float angleDegrees, float maxSpeed = 12f)
+        {
+            float dx = target.x - origin.x;
+            float dy = target.y - origin.y;
+            float absDx = Mathf.Max(Mathf.Abs(dx), 0.05f);
+
+            float a = angleDegrees * Mathf.Deg2Rad;
+            float cosA = Mathf.Cos(a), sinA = Mathf.Sin(a);
+            float denom = Mathf.Max(absDx * Mathf.Tan(a) - dy, 0.05f);
+
+            float v0 = Mathf.Min(Mathf.Sqrt(0.5f * Gravity * absDx * absDx / (cosA * cosA * denom)),
+                                 maxSpeed);
+            return new Vector3(v0 * cosA * (dx < 0f ? -1f : 1f), v0 * sinA, 0f);
+        }
+
         /// <summary>Samples the arc for the aim preview; stops when the shot returns to launch height.</summary>
         public static void SampleArc(Vector3 origin, Vector3 initialVelocity, int sampleCount,
                                      float dt, System.Collections.Generic.List<Vector3> into)

@@ -418,6 +418,68 @@ namespace ArmedConflict.Game
             };
         }
 
+        /// <summary>
+        /// AUTO FIRE — the debug volley. Every unit independently targets its NEAREST enemy and
+        /// solves for a fixed 50-degree arc with NO jitter, so it lands roughly every round on
+        /// target.
+        ///
+        /// This is a test harness, not the player, and the distinction matters: it is the fastest
+        /// way to drive a level from adb, and it is useless for judging balance. Difficulty has
+        /// to be measured with real drags, which spread.
+        /// </summary>
+        public static GameState AutoFire(GameState s)
+        {
+            if (s.Phase != GamePhase.Playing || s.TurnPhase != TurnPhase.Aiming) return s;
+            if (s.PlayerUnits.Count == 0 || s.EnemyUnits.Count == 0) return s;
+
+            var rounds = new List<ProjectileEntity>(s.Projectiles);
+            int slot = s.NextBulletSlot;
+
+            foreach (var u in s.PlayerUnits)
+            {
+                UnitEntity target = null;
+                float best = float.MaxValue;
+                foreach (var e in s.EnemyUnits)
+                {
+                    float dx = e.X - u.X, dy = e.Y - u.Y;
+                    float d = dx * dx + dy * dy;
+                    if (d < best) { best = d; target = e; }
+                }
+                if (target == null) continue;
+
+                float muzzleY = u.Y + 0.35f;
+                var v = TrajectoryPhysics.SolveVelocity(
+                    new Vector3(u.X, muzzleY, u.Z),
+                    new Vector3(target.X, target.Y, target.Z),
+                    angleDegrees: 50f);
+
+                int shots = u.Definition != null ? Mathf.Max(u.Definition.projectilesPerVolley, 1) : 1;
+                for (int i = 0; i < shots; i++)
+                {
+                    rounds.Add(new ProjectileEntity(
+                        Id: 10000 + slot++,
+                        X: u.X, Y: muzzleY, Z: u.Z,
+                        Vx: v.x, Vy: v.y, Vz: 0f,
+                        Damage: u.Definition != null ? u.Definition.damage : 8,
+                        OwnerIsPlayer: true)
+                    {
+                        Type = u.Definition != null ? u.Definition.projectileType : ProjectileType.Bullet,
+                        SplashRadius = u.Definition != null ? u.Definition.splashRadius : 0f,
+                        StructureDamageMultiplier =
+                            u.Definition != null ? u.Definition.structureDamageMultiplier : 1f,
+                    });
+                }
+            }
+
+            return s with
+            {
+                Projectiles = rounds,
+                NextBulletSlot = slot,
+                TurnPhase = TurnPhase.Resolving,
+                TurnSide = TurnSide.Player,
+            };
+        }
+
         /// <summary>The enemy's answering volley, aimed with jitter at random player units.</summary>
         public static GameState FireEnemyVolley(GameState s, System.Random random)
         {

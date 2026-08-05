@@ -126,7 +126,9 @@ Unit weapons and the biome backdrop (sky gradient, silhouette ridges, ground col
 the level's own `BackgroundDefinition`, so the scene is now comparable like-for-like with the
 shipping build rather than a bare stage.
 
-Sound effects (all 8 clips, with the original rate limits), explosions and props are in.
+Sound effects (all 8 clips, with the original rate limits), explosions, props and the AUTO
+debug button are in. Auto responds to `adb shell input tap`, so a level can be driven entirely
+from the terminal — which the shipping build's Auto button did not allow.
 
 Still missing before this is a GAME rather than a battle: ground detail texture, consumables,
 loadout input, the lifecycle beyond one level (`restart`/`nextLevel`), scorch and debris
