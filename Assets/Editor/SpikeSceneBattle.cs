@@ -107,6 +107,8 @@ public static class SpikeSceneBattle
             "Grenade", "projectile_grenade", 0.16f, mats.grenade, mats.grenadeBand);
         so.FindProperty("gunPrefab").objectReferenceValue = gunPrefab;
         so.FindProperty("explosionPrefab").objectReferenceValue = blastPrefab;
+        so.FindProperty("scorchPrefab").objectReferenceValue = MakeScorchPrefab(level);
+        so.FindProperty("debrisPrefab").objectReferenceValue = MakeDebrisPrefab(mats);
         so.FindProperty("audioFx").objectReferenceValue = MakeAudio(camGo);
         so.FindProperty("poolRoot").objectReferenceValue = poolRoot.transform;
         so.ApplyModifiedProperties();
@@ -208,6 +210,67 @@ public static class SpikeSceneBattle
         go.GetComponent<MeshRenderer>().sharedMaterial = mat;
         System.IO.Directory.CreateDirectory("Assets/Prefabs");
         var prefab = PrefabUtility.SaveAsPrefabAsset(go, "Assets/Prefabs/Blast.prefab");
+        Object.DestroyImmediate(go);
+        return prefab;
+    }
+
+    /// <summary>
+    /// A scorch mark: a flat quad on the ground, tinted from the level's own ground colour
+    /// scaled toward black. A fixed dark blob would be invisible on a dark biome and a black
+    /// sticker on a bright one — the mark has to be a SHADE of the ground it is on.
+    /// </summary>
+    static GameObject MakeScorchPrefab(LevelDefinitionSO level)
+    {
+        var go = GameObject.CreatePrimitive(PrimitiveType.Quad);
+        go.name = "Scorch";
+        Object.DestroyImmediate(go.GetComponent<Collider>());
+        var g = level.background != null ? level.background.groundColor : Color.gray;
+
+        // A RADIAL falloff, not a bare quad. A quad is square, so an untextured scorch renders
+        // as a hard-edged dark rectangle lying on the ground — it reads as a slab, not a burn.
+        // The alpha ramp also lets marks overlap without compounding into a solid black patch.
+        const int Size = 64;
+        var tex = new Texture2D(Size, Size, TextureFormat.RGBA32, false)
+        { wrapMode = TextureWrapMode.Clamp };
+        for (int y = 0; y < Size; y++)
+        for (int x = 0; x < Size; x++)
+        {
+            float dx = (x + 0.5f) / Size - 0.5f, dy = (y + 0.5f) / Size - 0.5f;
+            float d = Mathf.Sqrt(dx * dx + dy * dy) * 2f;          // 0 centre -> 1 edge
+            // Solid core, then a soft shoulder: a linear ramp reads as a blurry dot.
+            float a = Mathf.Clamp01(1f - Mathf.SmoothStep(0.45f, 1f, d));
+            tex.SetPixel(x, y, new Color(1f, 1f, 1f, a));
+        }
+        tex.Apply();
+        AssetDatabase.CreateAsset(tex, "Assets/Materials/ScorchTex.asset");
+
+        var mat = new Material(Shader.Find("Universal Render Pipeline/Unlit"))
+        { color = new Color(g.r * 0.45f, g.g * 0.42f, g.b * 0.40f, 0.85f) };
+        mat.mainTexture = tex;
+        mat.SetFloat("_Surface", 1f);
+        mat.SetFloat("_Blend", 0f);
+        mat.SetFloat("_SrcBlend", (float)UnityEngine.Rendering.BlendMode.SrcAlpha);
+        mat.SetFloat("_DstBlend", (float)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+        mat.SetFloat("_ZWrite", 0f);
+        mat.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Transparent - 1;
+        mat.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
+        AssetDatabase.CreateAsset(mat, "Assets/Materials/Scorch.mat");
+        go.GetComponent<MeshRenderer>().sharedMaterial = mat;
+        System.IO.Directory.CreateDirectory("Assets/Prefabs");
+        var prefab = PrefabUtility.SaveAsPrefabAsset(go, "Assets/Prefabs/Scorch.prefab");
+        Object.DestroyImmediate(go);
+        return prefab;
+    }
+
+    /// <summary>A rubble chunk — a lit cube in the structures' own stone tone.</summary>
+    static GameObject MakeDebrisPrefab(Mats mats)
+    {
+        var go = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        go.name = "Debris";
+        Object.DestroyImmediate(go.GetComponent<Collider>());
+        go.GetComponent<MeshRenderer>().sharedMaterial = mats.structEnemyAccent;
+        System.IO.Directory.CreateDirectory("Assets/Prefabs");
+        var prefab = PrefabUtility.SaveAsPrefabAsset(go, "Assets/Prefabs/Debris.prefab");
         Object.DestroyImmediate(go);
         return prefab;
     }

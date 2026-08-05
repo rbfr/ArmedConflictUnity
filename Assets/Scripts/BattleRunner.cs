@@ -23,6 +23,8 @@ public class BattleRunner : MonoBehaviour
     [SerializeField] GameObject rocketPrefab;
     [SerializeField] GameObject grenadePrefab;
     [SerializeField] GameObject explosionPrefab;
+    [SerializeField] GameObject scorchPrefab;
+    [SerializeField] GameObject debrisPrefab;
     [SerializeField] BattleAudio audioFx;
     [SerializeField] Transform poolRoot;
 
@@ -40,6 +42,8 @@ public class BattleRunner : MonoBehaviour
     // One pool PER TYPE. A shared pool would need the prefab swapped per frame, which
     // means destroying and recreating renderers mid-flight.
     readonly Dictionary<ProjectileType, List<GameObject>> shotPools = new();
+    readonly List<GameObject> scorchSlots = new();
+    readonly List<GameObject> debrisSlots = new();
     readonly List<GameObject> structureObjects = new();
 
     // input
@@ -96,6 +100,8 @@ public class BattleRunner : MonoBehaviour
             shotPools[type] = pool;
         }
         for (int i = 0; i < 32; i++) blastSlots.Add(Spawn(explosionPrefab, $"x{i}"));
+        for (int i = 0; i < BattleTick.ScorchSlots; i++) scorchSlots.Add(Spawn(scorchPrefab, $"sc{i}"));
+        for (int i = 0; i < BattleTick.DebrisSlots; i++) debrisSlots.Add(Spawn(debrisPrefab, $"db{i}"));
 
         // Structures are static for the battle's life — one object each, hidden on destruction.
         foreach (var st in state.Structures)
@@ -291,6 +297,34 @@ public class BattleRunner : MonoBehaviour
             else blastSlots[i].SetActive(false);
         }
 
+        // Scorch marks lie FLAT on the ground, lifted a hair to avoid z-fighting with it.
+        for (int i = 0; i < scorchSlots.Count; i++)
+        {
+            if (i < state.Scorches.Count)
+            {
+                var sc = state.Scorches[i];
+                scorchSlots[i].SetActive(true);
+                scorchSlots[i].transform.position = GameSpace.ToUnity(sc.X, 0.012f, sc.Z);
+                scorchSlots[i].transform.rotation = Quaternion.Euler(90f, 0f, 0f);
+                scorchSlots[i].transform.localScale =
+                    Vector3.one * CosmeticSystems.ScorchWorldRadius * 2f * sc.Scale;
+            }
+            else scorchSlots[i].SetActive(false);
+        }
+
+        for (int i = 0; i < debrisSlots.Count; i++)
+        {
+            if (i < state.Debris.Count)
+            {
+                var d = state.Debris[i];
+                debrisSlots[i].SetActive(true);
+                debrisSlots[i].transform.position = GameSpace.ToUnity(d.X, d.Y, d.Z);
+                debrisSlots[i].transform.rotation = Quaternion.Euler(0f, 0f, -d.Rotation);
+                debrisSlots[i].transform.localScale = Vector3.one * d.Size;
+            }
+            else debrisSlots[i].SetActive(false);
+        }
+
         var liveIds = new HashSet<int>(state.Structures.Select(s2 => s2.Id));
         foreach (var go in structureObjects)
         {
@@ -339,6 +373,67 @@ public class BattleRunner : MonoBehaviour
                            BattleCamera.CameraY + sy, camZ);
     }
 
+    /// <summary>
+    /// The battle HUD. Mirrors what the shipping build shows, in the order it shows it: unit
+    /// counts and structure HP first (what you are trying to change), turn state next (whose
+    /// move it is), and the aim readout only while dragging.
+    ///
+    /// The aim readout is deliberately ANGLE AND POWER rather than a landing marker. Guessing
+    /// the angle and power IS the mechanic — a predicted landing point was tried in the Android
+    /// build and reverted, because it turns aiming into reading.
+    /// </summary>
+    void DrawHud()
+    {
+        int structureHp = 0, structureMax = 0;
+        foreach (var st in state.Structures)
+        {
+            if (st.Definition.isPlayerSide) continue;
+            structureHp += st.Hp;
+            structureMax += st.MaxHp;
+        }
+
+        var big = new GUIStyle(style) { fontSize = 40 };
+        var small = new GUIStyle(style) { fontSize = 28, normal = { textColor = new Color(0.8f, 0.8f, 0.85f) } };
+
+        float y = 24f;
+        GUI.Label(new Rect(28, y, 900, 60), $"Your units: {state.PlayerUnits.Count}", big); y += 46;
+        GUI.Label(new Rect(28, y, 900, 60), $"Enemy units: {state.EnemyUnits.Count}", big); y += 46;
+        if (structureMax > 0)
+        {
+            GUI.Label(new Rect(28, y, 900, 60), $"Structure HP: {structureHp}", big);
+            y += 46;
+        }
+
+        string turn = state.Phase switch
+        {
+            GamePhase.Victory => "VICTORY",
+            GamePhase.Defeat => "DEFEAT",
+            _ => state.TurnSide == TurnSide.Player
+                 ? (state.TurnPhase == TurnPhase.Aiming ? "Your turn" : "Firing...")
+                 : "Enemy turn",
+        };
+        var turnStyle = new GUIStyle(big)
+        {
+            normal = { textColor = state.Phase == GamePhase.Defeat ? new Color(1f, 0.45f, 0.4f)
+                                 : state.Phase == GamePhase.Victory ? new Color(0.6f, 1f, 0.6f)
+                                 : new Color(1f, 0.86f, 0.3f) },
+        };
+        GUI.Label(new Rect(28, y, 900, 60), turn, turnStyle); y += 52;
+
+        if (dragging)
+        {
+            GUI.Label(new Rect(28, y, 900, 50),
+                $"power {AimSystem.StrengthPercent(aimVel):F0}%    angle {AimSystem.AngleDegrees(aimVel):F0}°",
+                small);
+        }
+
+        // Diagnostics, deliberately bottom-right and dim — useful while porting, not part of
+        // the game's own presentation.
+        GUI.Label(new Rect(Screen.width - 430, Screen.height - 90, 420, 80),
+            $"{1f / Mathf.Max(smoothedDt, 0.0001f):F0} fps   drag {worstDragDt * 1000f:F0}ms   " +
+            $"turn {state.TurnNumber}", small);
+    }
+
     void OnGUI()
     {
         style ??= new GUIStyle(GUI.skin.label) { fontSize = 30, normal = { textColor = Color.white } };
@@ -372,21 +467,6 @@ public class BattleRunner : MonoBehaviour
         }
         GUI.enabled = true;
 
-        string banner = state.Phase switch
-        {
-            GamePhase.Victory => "VICTORY",
-            GamePhase.Defeat => "DEFEAT",
-            _ => $"{state.TurnSide} / {state.TurnPhase}",
-        };
-
-        GUI.Label(new Rect(30, 30, 1500, 400),
-            $"{1f / Mathf.Max(smoothedDt, 0.0001f):F1} fps   worst drag {worstDragDt * 1000f:F1} ms\n" +
-            $"{banner}   turn {state.TurnNumber}\n" +
-            $"player {state.PlayerUnits.Count}   enemy {state.EnemyUnits.Count}   " +
-            $"structures {state.Structures.Count}\n" +
-            $"rounds {state.Projectiles.Count}   bodies {state.DyingUnits.Count}\n" +
-            (dragging ? $"aim {AimSystem.StrengthPercent(aimVel):F0}%  " +
-                        $"{AimSystem.AngleDegrees(aimVel):F1}deg" : "drag to aim"),
-            style);
+        DrawHud();
     }
 }

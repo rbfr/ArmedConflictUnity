@@ -130,8 +130,10 @@ Sound effects (all 8 clips, with the original rate limits), explosions, props an
 debug button are in. Auto responds to `adb shell input tap`, so a level can be driven entirely
 from the terminal — which the shipping build's Auto button did not allow.
 
+Scorch marks, rubble and the battle HUD are in — the HUD reads the same fields as the shipping
+build (unit counts, structure HP, turn state, aim readout while dragging).
+
 Still missing before this is a GAME rather than a battle: ground detail texture, consumables,
-loadout input, the lifecycle beyond one level (`restart`/`nextLevel`), scorch and debris
-rendering, and the UI layer. Note the UI is NOT mostly economy: of ~2,600 Compose lines, the
-loadout/purchase screen is ~415 and the rest is the BATTLE HUD and aim overlay, which no
-shippable build can skip.
+loadout input, and the lifecycle beyond one level (`restart`/`nextLevel`). Note the remaining UI
+is NOT mostly economy: of ~2,600 Compose lines the loadout/purchase screen is ~415, and the
+battle HUD and aim overlay — which no shippable build can skip — are now ported.

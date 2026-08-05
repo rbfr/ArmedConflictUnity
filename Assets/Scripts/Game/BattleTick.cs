@@ -27,6 +27,13 @@ namespace ArmedConflict.Game
         /// <summary>Verbose per-tick hit logging. Leave off outside an investigation.</summary>
         public static bool TraceHits = false;
 
+        /// <summary>
+        /// BOUNDED pools, never monotonic ids. Zero-disposal registries that grow for the whole
+        /// battle were a real lag bug on Filament; the cap is what keeps a long level flat.
+        /// </summary>
+        public const int ScorchSlots = 36;
+        public const int DebrisSlots = 96;
+
         public static GameState Step(GameState s, float rawDt, LevelDefinitionSO level,
                                      System.Random random)
         {
@@ -88,6 +95,7 @@ namespace ArmedConflict.Game
                                                         s.PlayerUnits, s.EnemyUnits, s.Structures),
                     Explosions = explosions,
                     DyingUnits = dyingUnits,
+                    Debris = StepDebris(s.Debris, dt),
                     Helicopter = helicopter,
                     NextExplosionSlot = nextExplosionSlot,
                     ShakeIntensity = shake,
@@ -192,6 +200,72 @@ namespace ArmedConflict.Game
                     });
                 }
                 explosions = withBlasts;
+            }
+
+            // --- 4b. lasting marks: scorch and rubble -------------------------------------
+            var scorches = s.Scorches;
+            int nextScorch = s.NextScorchSlot;
+            if (groundImpactsThisTick > 0)
+            {
+                var marks = new List<ScorchMark>(scorches);
+                foreach (var p2 in ProjectileSystem.GroundImpacts(stepped, hits.HitProjectileIds))
+                {
+                    // Merge into a nearby scar rather than stacking identical decals in the same
+                    // patch — that both looks wrong and burns slots from a bounded pool.
+                    int hit = CosmeticSystems.FindMergeTarget(marks, p2.X, p2.Z);
+                    if (hit >= 0)
+                    {
+                        marks[hit] = marks[hit] with { Scale = CosmeticSystems.GrowScorch(marks[hit].Scale) };
+                    }
+                    else if (marks.Count < ScorchSlots)
+                    {
+                        marks.Add(new ScorchMark(nextScorch++, p2.X, p2.Z));
+                    }
+                    else
+                    {
+                        // Bounded round-robin, never a monotonic id — the pool size caps the
+                        // registry rather than letting it grow for the whole battle.
+                        marks[nextScorch % ScorchSlots] = new ScorchMark(nextScorch, p2.X, p2.Z);
+                        nextScorch++;
+                    }
+                }
+                scorches = marks;
+            }
+
+            var debris = StepDebris(s.Debris, dt);
+            int nextDebris = s.NextDebrisSlot;
+            if (destroyedIds.Count > 0)
+            {
+                var pieces = new List<DebrisPiece>(debris);
+                foreach (var id in destroyedIds)
+                {
+                    var st = s.Structures.FirstOrDefault(x => x.Id == id);
+                    if (st == null) continue;
+                    float halfW = (st.Definition.hasHitWidth ? st.Definition.hitWidth
+                                                             : st.Definition.size) / 2f;
+                    // Rubble PERSISTS for the rest of the level (ttl = MaxValue) and sleeps once
+                    // settled. A wrecked structure that leaves nothing behind reads as if it was
+                    // deleted rather than destroyed.
+                    for (int i = 0; i < 10 && pieces.Count < DebrisSlots; i++)
+                    {
+                        float ang = (float)random.NextDouble() * Mathf.PI * 2f;
+                        float speed = 1.5f + (float)random.NextDouble() * 2.5f;
+                        pieces.Add(new DebrisPiece(
+                            Id: nextDebris++,
+                            DefinitionId: st.Definition.id,
+                            Accent: i % 3 == 0,
+                            X: st.X + ((float)random.NextDouble() - 0.5f) * halfW * 1.6f,
+                            Y: st.Y + (float)random.NextDouble() * st.Definition.size * 0.6f,
+                            Z: st.Z,
+                            Vx: Mathf.Cos(ang) * speed,
+                            Vy: 1.5f + (float)random.NextDouble() * 2.5f,
+                            Rotation: (float)random.NextDouble() * 360f,
+                            RotationSpeed: ((float)random.NextDouble() - 0.5f) * 500f,
+                            Size: st.Definition.size * (0.10f + 0.10f * (float)random.NextDouble()),
+                            Ttl: CosmeticSystems.DebrisRubbleTtl));
+                    }
+                }
+                debris = pieces;
             }
 
             // --- 5. cull ------------------------------------------------------------------
@@ -314,6 +388,10 @@ namespace ArmedConflict.Game
                 TotalStructureImpacts = s.TotalStructureImpacts + structureImpactsThisTick,
                 TotalWoundedHits = s.TotalWoundedHits + woundedThisTick,
                 TotalBlasts = s.TotalBlasts + blastsThisTick,
+                Scorches = scorches,
+                NextScorchSlot = nextScorch,
+                Debris = debris,
+                NextDebrisSlot = nextDebris,
             };
         }
 
@@ -339,6 +417,55 @@ namespace ArmedConflict.Game
         static DyingUnitEntity RagdollFrom(UnitEntity u)
             => new(u.Id, u.Definition, u.IsPlayerSide, u.X, u.Y, u.Z,
                    Vx: u.IsPlayerSide ? -1.5f : 1.5f, Vy: 2.5f, RotationSpeed: 220f);
+
+        /// <summary>
+        /// Advances debris. Grounded rubble that has stopped moving is put to SLEEP: its motion
+        /// is zeroed and it is flagged, so nothing keeps integrating it and IsVisuallyIdle can
+        /// still go true on a field littered with permanent rubble.
+        /// </summary>
+        static List<DebrisPiece> StepDebris(IReadOnlyList<DebrisPiece> debris, float dt)
+        {
+            var outp = new List<DebrisPiece>(debris.Count);
+            foreach (var d in debris)
+            {
+                if (d.Asleep) { outp.Add(d); continue; }
+
+                float ttl = d.IsRubble ? d.Ttl : d.Ttl - dt;
+                if (!d.IsRubble && ttl <= 0f) continue;
+
+                float vy = d.Vy - TrajectoryPhysics.Gravity * dt;
+                float y = d.Y + vy * dt;
+                float x = d.X + d.Vx * dt;
+                float vx = d.Vx;
+                float rotSpeed = d.RotationSpeed;
+                bool grounded = false;
+
+                float rest = d.Size * 0.5f;
+                if (y <= rest)
+                {
+                    y = rest;
+                    grounded = true;
+                    vy = -vy * 0.25f;                                   // a chunk of masonry barely bounces
+                    vx *= CosmeticSystems.DecayPerTick60(0.86f, dt);
+                    rotSpeed *= CosmeticSystems.DecayPerTick60(0.80f, dt);
+                    if (Mathf.Abs(vy) < 0.15f) vy = 0f;
+                }
+
+                if (CosmeticSystems.ShouldSleep(d.IsRubble, grounded, vx, vy, rotSpeed))
+                {
+                    outp.Add(d with { X = x, Y = y, Vx = 0f, Vy = 0f, RotationSpeed = 0f, Asleep = true });
+                    continue;
+                }
+
+                outp.Add(d with
+                {
+                    X = x, Y = y, Vx = vx, Vy = vy, Ttl = ttl,
+                    Rotation = d.Rotation + rotSpeed * dt,
+                    RotationSpeed = rotSpeed,
+                });
+            }
+            return outp;
+        }
 
         static List<DyingUnitEntity> StepRagdolls(IReadOnlyList<DyingUnitEntity> dying, float dt)
         {
