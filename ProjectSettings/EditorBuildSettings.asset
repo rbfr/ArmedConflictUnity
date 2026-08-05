@@ -6,7 +6,7 @@ EditorBuildSettings:
   serializedVersion: 2
   m_Scenes:
   - enabled: 1
-    path: Assets/Scenes/Step4_Shot.unity
-    guid: e8b62586c49df9f00819a89d64258f46
+    path: Assets/Scenes/Battle.unity
+    guid: ee717123a7a596229b41fd292849d48c
   m_configObjects: {}
   m_UseUCBPForAssetBundles: 0

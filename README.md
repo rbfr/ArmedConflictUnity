@@ -115,8 +115,13 @@ Kotlin's documented behaviour rather than transliterated whole.
 | consumables + reinforcements | ~120 | not started |
 | battle lifecycle (`startBattle`, `jumpToLevel`, `restart`, `nextLevel`) | ~50 | not started |
 
-**All eight slices are ported and under test (261 checks).** What does NOT yet exist is the
-assembly: a single `BattleTick` that runs these systems in order against one GameState, plus the
-input layer (`onAimDragUpdate`/`onAimRelease`/consumables) and the battle lifecycle
-(`startBattle`/`restart`/`nextLevel`). Every part is present; nothing has been wired into a
-playable loop yet, and no part of this has been run on the device.
+**All eight slices are ported, under test (261 checks), and ASSEMBLED into a playable battle.**
+
+`BattleTick` runs the systems in order against one GameState; `BattleRunner` owns the state,
+takes the drag and renders it. Verified on the Pixel 10: L1 played from turn 1 to **VICTORY on
+turn 7**, 8 of 10 player units surviving, the outpost destroyed and its garrison falling with it,
+60.0 fps throughout with a worst drag frame of 16.8 ms and no exceptions.
+
+Still missing before this is a GAME rather than a battle: consumables, reinforcement/loadout
+input, the lifecycle beyond one level (`restart`/`nextLevel`), scorch and debris rendering, and
+the whole UI layer (~2,600 lines of Compose with no migration path — see `MIGRATION_SCOPE.md`).

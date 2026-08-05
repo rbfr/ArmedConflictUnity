@@ -200,5 +200,27 @@ namespace ArmedConflict.Game
         }
 
         public const float WreckCollapseSeconds = 0.55f;
+
+        /// <summary>
+        /// Reference equality, DELIBERATELY replacing the record's synthesized value equality.
+        ///
+        /// Two reasons, and the first is not optional. With ~90 fields the compiler synthesises
+        /// an Equals chaining ~90 `&&` comparisons; IL2CPP transpiles that to nested parentheses
+        /// deeper than clang's 256-bracket limit, and the Android build fails outright with
+        /// "bracket nesting level exceeded maximum of 256".
+        ///
+        /// The second is that value equality bought something specific in the Android build and
+        /// buys nothing here. There, GameState sat behind a StateFlow that conflated by equality,
+        /// so comparing every field decided whether the UI recomposed — which is exactly why one
+        /// never-settling float was catastrophic. Unity has no StateFlow; nothing conflates, and
+        /// a 90-field comparison every tick would be pure cost.
+        ///
+        /// `with` is unaffected — copy semantics are what the architecture actually depends on.
+        /// The entity records keep their value equality; they are small and the tick uses it.
+        /// </summary>
+        public virtual bool Equals(GameState other) => ReferenceEquals(this, other);
+
+        public override int GetHashCode()
+            => System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(this);
     }
 }
