@@ -221,22 +221,48 @@ namespace ArmedConflict.Game
             }
 
             // --- 8. camera ----------------------------------------------------------------
-            float? followX = s.CameraFollowX;
-            float followXVel = s.CameraFollowXVelocity;
+            // CAMERA X IS ALWAYS A SPRING. It used to be nulled outside a volley, and the
+            // renderer then fell back to a phase anchor — so every phase change TELEPORTED the
+            // camera across the field instead of panning. Keeping one continuous spring and only
+            // changing its TARGET is what makes the whole choreography read as camera work.
             var groundVolley = projectiles.Where(p => !p.IsHeliShot).ToList();
-            if (phase == GamePhase.Playing && turnPhase == TurnPhase.Resolving && groundVolley.Count > 0)
+            bool chasing = phase == GamePhase.Playing
+                        && turnPhase == TurnPhase.Resolving
+                        && groundVolley.Count > 0;
+
+            float followXVel = s.CameraFollowXVelocity;
+            float followX;
+            if (chasing)
             {
-                followX = CameraDirector.FollowVolley(followX, followXVel, groundVolley,
+                followX = CameraDirector.FollowVolley(s.CameraFollowX, followXVel, groundVolley,
                                                       playerUnits, enemyUnits, structures,
                                                       false, dt, out followXVel);
             }
-            else if (turnPhase != TurnPhase.Resolving)
+            else
             {
-                followX = null;
-                followXVel = 0f;
+                // Pan to the phase's anchor rather than snapping to it. Slower than the bullet
+                // cam by design: a chase should feel urgent, a reposition should not.
+                float anchorTarget = turnPhase switch
+                {
+                    TurnPhase.Aiming => s.PlayerCamXAnchor,
+                    TurnPhase.PlayerScout => s.EnemyCamXAnchor,
+                    TurnPhase.EnemyWindup => s.EnemyCamXAnchor,
+                    TurnPhase.Resolving => turnSide == TurnSide.Enemy ? s.PlayerCamXAnchor
+                                                                     : s.EnemyCamXAnchor,
+                    _ => s.PlayerCamXAnchor,
+                };
+                followX = s.CameraFollowX ?? anchorTarget;
+                SpringFollow.Step(ref followX, ref followXVel, anchorTarget, dt,
+                                  CameraDirector.MarchEscortSmoothTime);
             }
 
-            float halfWidth = FrameHalfWidth(turnPhase, turnSide, playerUnits, enemyUnits, structures);
+            // STABLE half-widths, captured at level load. Deriving these from live spans made the
+            // zoom twitch on every casualty, because the span of a shrinking set changes
+            // discontinuously even when no survivor has moved.
+            float halfWidth = CameraDirector.PhaseHalfWidth(
+                turnPhase, turnSide,
+                s.PlayerCamHalfWidth, s.EnemyCamHalfWidth, s.EnemyCamHalfWidth,
+                0f, false, s.PlayerCamHalfWidth, false);
             float targetZ = CameraDirector.TargetZ(halfWidth + 1.2f, s.StaticCamera, s.StaticCamZ);
             float followZ = s.CameraFollowZ ?? targetZ;
             float followZVel = s.CameraFollowZVelocity;
@@ -266,28 +292,6 @@ namespace ArmedConflict.Game
                 TotalEnemyKills = s.TotalEnemyKills + playerKilled,
             };
         }
-
-        static float FrameHalfWidth(TurnPhase turnPhase, TurnSide turnSide,
-                                    IReadOnlyList<UnitEntity> playerUnits,
-                                    IReadOnlyList<UnitEntity> enemyUnits,
-                                    IReadOnlyList<StructureEntity> structures)
-        {
-            float playerHalf = HalfSpan(playerUnits.Select(u => u.X).ToList());
-            var enemyXs = enemyUnits.Select(u => u.X)
-                .Concat(structures.Where(st => !st.Definition.isPlayerSide)
-                    .SelectMany(st => new[]
-                    {
-                        st.X - (st.Definition.hasHitWidth ? st.Definition.hitWidth : st.Definition.size) / 2f,
-                        st.X + (st.Definition.hasHitWidth ? st.Definition.hitWidth : st.Definition.size) / 2f,
-                    }))
-                .ToList();
-            float enemyHalf = HalfSpan(enemyXs);
-            return CameraDirector.PhaseHalfWidth(turnPhase, turnSide, playerHalf, enemyHalf,
-                                                 enemyHalf, 0f, false, playerHalf, false);
-        }
-
-        static float HalfSpan(IReadOnlyList<float> xs)
-            => xs.Count == 0 ? 3f : Mathf.Max((xs.Max() - xs.Min()) / 2f, 1f);
 
         static List<UnitEntity> ApplyDamage(IReadOnlyList<UnitEntity> units, HitResult hits,
                                             out int killed)

@@ -213,6 +213,11 @@ namespace ArmedConflict.Game
             float enemyCamXAnchor = enemyUnits.Count > 0 && enemyAnchorXs.Count > 0
                 ? enemyAnchorXs.Average() : 6f;
 
+            // Captured once, never recomputed — see GameState.PlayerCamHalfWidth.
+            float playerHalf = HalfSpan(playerUnits.Select(u => u.X));
+            float enemyHalf = HalfSpan(enemyUnits.Select(u => u.X).Concat(
+                StructureEdges(structures.Where(st => !st.Definition.isPlayerSide))));
+
             float staticCamZ = 19f;
             if (level.staticCamera)
             {
@@ -271,10 +276,19 @@ namespace ArmedConflict.Game
                 TankShellsRemaining = tankShells,
                 PlayerCamXAnchor = playerCamXAnchor,
                 EnemyCamXAnchor = enemyCamXAnchor,
+                PlayerCamHalfWidth = playerHalf,
+                EnemyCamHalfWidth = enemyHalf,
                 StaticCamera = level.staticCamera,
                 StaticCamZ = staticCamZ,
                 WindAccelZ = level.windAccelZ,
             };
+        }
+
+        static float HalfSpan(IEnumerable<float> xs)
+        {
+            var l = xs.ToList();
+            if (l.Count == 0) return 3f;
+            return Mathf.Max((l.Max() - l.Min()) / 2f, 1.5f);
         }
 
         static IEnumerable<float> StructureEdges(IEnumerable<StructureEntity> structs)

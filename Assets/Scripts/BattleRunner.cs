@@ -283,8 +283,8 @@ public class BattleRunner : MonoBehaviour
 
     void ApplyCamera()
     {
-        float camXGame = state.CameraFollowX
-            ?? (state.TurnPhase == TurnPhase.Aiming ? state.PlayerCamXAnchor : state.EnemyCamXAnchor);
+        // The tick keeps CameraFollowX continuous now, so there is no fallback to snap to.
+        float camXGame = state.CameraFollowX ?? state.PlayerCamXAnchor;
         float camZ = state.CameraFollowZ ?? 11f;
 
         // Shake is a RENDER offset only — it must never enter the simulation.

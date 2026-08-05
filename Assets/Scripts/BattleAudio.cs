@@ -49,11 +49,25 @@ public class BattleAudio : MonoBehaviour
             src.spatialBlend = 0f;      // 2D — the camera moves constantly; panning would swim
             voices[i] = src;
         }
+
+        // FORCE THE CLIP DATA RESIDENT. Measured on device: the first Play of every clip
+        // reported loadState=Unloaded, which means the first volley of a battle, the first
+        // explosion and the first ground impact were all silent — the sound arrived only from
+        // the second occurrence onward. Preloading at import covers this, and this call is the
+        // belt-and-braces for any clip whose importer settings drift.
+        foreach (var c in new[] { volleyFire, groundImpact, unitDeath, unitHit, explosion,
+                                  victory, defeat, helicopterLoop })
+            if (c != null && c.loadState != AudioDataLoadState.Loaded) c.LoadAudioData();
     }
+
+    /// <summary>Diagnostic only — proves the trigger path executes when you cannot hear it.</summary>
+    public static bool TracePlays = false;
 
     void Play(AudioClip clip, float volume, float pitch = 1f)
     {
-        if (clip == null) return;
+        if (clip == null) { if (TracePlays) Debug.Log("[Audio] NULL CLIP"); return; }
+        if (TracePlays) Debug.Log($"[Audio] {clip.name} vol={volume:F2} pitch={pitch:F2} " +
+                                  $"len={clip.length:F2}s state={clip.loadState}");
         var src = voices[nextVoice];
         nextVoice = (nextVoice + 1) % Voices;
         src.clip = clip;

@@ -157,6 +157,19 @@ namespace ArmedConflict.Game
         public float EnemyCamXAnchor { get; init; } = 6f;
 
         /// <summary>
+        /// Framing half-widths for each side, captured ONCE at level load from the initial
+        /// roster — for exactly the same reason as the anchors above.
+        ///
+        /// Sizing the frame from LIVE unit spans re-derives it every tick from a set whose
+        /// MEMBERSHIP changes: each casualty shrinks or widens the span discontinuously, so the
+        /// zoom twitches on every death even though no surviving unit moved. That is the class
+        /// of bug the camera architecture exists to prevent, and it is easy to reintroduce
+        /// because a live span looks like the more "correct" number.
+        /// </summary>
+        public float PlayerCamHalfWidth { get; init; } = 3f;
+        public float EnemyCamHalfWidth { get; init; } = 3f;
+
+        /// <summary>
         /// A ZOOM CEILING ONLY. It used to pin camera X as well, which disabled the whole
         /// per-phase choreography and left each phase sizing its zoom about a centre the camera
         /// wasn't using — cropping the subject instead of framing it.
