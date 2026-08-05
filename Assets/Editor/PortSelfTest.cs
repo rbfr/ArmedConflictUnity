@@ -995,6 +995,102 @@ public static class PortSelfTest
                   "an EMPTY trigger set is not vacuously true (it would fire on tick one)");
         }
 
+        // --- Backdrop: the properties that separate a range from a row of pyramids. None of
+        // these can be seen in a screenshot of the ONE biome a level happens to load, and the
+        // three that are checked here are all mistakes this file's history actually shipped.
+        {
+            foreach (SilhouetteStyle style in System.Enum.GetValues(typeof(SilhouetteStyle)))
+            {
+                var plan = ArmedConflict.Render.Backdrop.Plan(style, ArmedConflict.Render.Backdrop.DesignAspect);
+                Check(plan.Count > 0, null);
+                float visible = ArmedConflict.Render.Backdrop.VisibleWidthAt(
+                    ArmedConflict.Render.Backdrop.NearZ, ArmedConflict.Render.Backdrop.DesignAspect);
+                foreach (var layer in plan)
+                {
+                    Check(layer.Width > ArmedConflict.Render.Backdrop.VisibleWidthAt(
+                              layer.Z, ArmedConflict.Render.Backdrop.DesignAspect), null);
+                    Check(layer.Profile.Length >= 8, null);
+                    foreach (var p in layer.Profile) Check(p >= -0.001f && p <= 1.001f, null);
+                    // Every layer must be a closed silhouette: the base is BELOW the ground
+                    // plane, so a valley meets the ground instead of stopping on a ledge.
+                    Check(layer.BaseY < 0f, null);
+                    var mesh = ArmedConflict.Render.SilhouetteMesh.Build(layer);
+                    Check(mesh.vertexCount == layer.Profile.Length * 2, null);
+                }
+                Check(true, $"{style}: {plan.Count} layers, all wider than frame, profiles in range");
+            }
+
+            // Depth ordering. A layer FURTHER away that is also SMALLER on screen contradicts
+            // its own haze colour, which is what made the two mountain rows read as one.
+            var mtn = ArmedConflict.Render.Backdrop.Plan(SilhouetteStyle.Mountains,
+                                                         ArmedConflict.Render.Backdrop.DesignAspect);
+            float farAng = ArmedConflict.Render.Backdrop.AngularHeight(mtn[0].Height, mtn[0].Z);
+            float nearAng = ArmedConflict.Render.Backdrop.AngularHeight(mtn[1].Height, mtn[1].Z);
+            Check(farAng > nearAng * 1.3f,
+                  $"mountains: the far range OUT-REACHES the foothills on screen ({farAng:F3} vs {nearAng:F3})");
+
+            // Snow is a cap on the crests that earn it, not a blanket over the range.
+            var snowLayer = mtn[0];
+            int snowy = 0;
+            foreach (var p in snowLayer.Profile) if (p > snowLayer.SnowLine) snowy++;
+            Check(snowy > 0 && snowy < snowLayer.Profile.Length / 4,
+                  $"mountains: snow covers only the top crests ({snowy}/{snowLayer.Profile.Length} columns)");
+            Check(ArmedConflict.Render.SilhouetteMesh.BuildSnow(mtn[1]) == null,
+                  "no snow on the foothills (BuildSnow returns null when no line is set)");
+        }
+
+        // --- EVERY level must build and must have geometry for everything it places.
+        //
+        // This is the check that makes level navigation safe to ship. While only L1 was
+        // reachable, a level whose structure GLB was never imported, or that threw while
+        // building, was indistinguishable from a level nobody had visited — and the models
+        // folder genuinely held two of the set. A device sweep finds this too, at about a
+        // minute a level; this finds it in the same second as a typo.
+        {
+            var levels = AssetDatabase.FindAssets("t:LevelDefinitionSO")
+                .Select(g => AssetDatabase.LoadAssetAtPath<LevelDefinitionSO>(
+                    AssetDatabase.GUIDToAssetPath(g)))
+                .Where(l => l != null)
+                .OrderBy(l => l.levelNumber)
+                .ToList();
+
+            var haveModel = new HashSet<string>(
+                AssetDatabase.FindAssets("t:GameObject", new[] { "Assets/Models" })
+                    .Select(AssetDatabase.GUIDToAssetPath)
+                    .Where(p => p.EndsWith(".glb") && !p.Contains("/Kenney/"))
+                    .Select(LevelScenery.ModelKey));
+
+            Check(levels.Count == 24, $"all 24 levels present ({levels.Count})");
+
+            // levelNumber MUST equal index + 1: the switcher indexes the array by position and
+            // every HUD readout names the level by number. The Kotlin carries the same rule, and
+            // it is what forced the test rigs to be renumbered when the campaign grew.
+            var misnumbered = levels.Where((l, i) => l.levelNumber != i + 1).ToList();
+            Check(misnumbered.Count == 0,
+                  "levelNumber == index + 1 for every level" +
+                  (misnumbered.Count == 0 ? "" : $" (first bad: {misnumbered[0].displayName})"));
+
+            var missing = new SortedSet<string>();
+            int built = 0;
+            foreach (var l in levels)
+            {
+                var st = LevelBuilder.BuildInitialState(l, 1, levels.Count, new System.Random(7));
+                built++;
+                Check(st.PlayerUnits.Count > 0, null);
+                foreach (var s in st.Structures)
+                    if (!haveModel.Contains(LevelScenery.ModelKey(s.Definition.modelAsset)))
+                        missing.Add(s.Definition.modelAsset);
+                foreach (var p in l.props)
+                    if (!haveModel.Contains(LevelScenery.ModelKey(p.modelAsset)))
+                        missing.Add(p.modelAsset);
+            }
+            Check(built == levels.Count, $"every level builds an initial state ({built})");
+            Check(missing.Count == 0,
+                  missing.Count == 0
+                      ? "every structure and prop the campaign places has an imported model"
+                      : $"MODELS NOT IMPORTED: {string.Join(", ", missing)}");
+        }
+
         Debug.Log($"[PortSelfTest] {(failed == 0 ? "ALL PASS" : $"{failed} FAILURES")}\n{Log}");
         if (failed > 0 && Application.isBatchMode) EditorApplication.Exit(1);
     }
