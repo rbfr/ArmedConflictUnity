@@ -12,12 +12,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 681e574a89dae229290ce66a4e95ac2d, type: 3}
   m_Name: CityRuins
   m_EditorClassIdentifier: 
-  skyTop: {r: 0, g: 0, b: 0, a: 0}
-  skyHorizon: {r: 0, g: 0, b: 0, a: 0}
-  groundColor: {r: 0, g: 0, b: 0, a: 0}
-  groundNear: {r: 0, g: 0, b: 0, a: 0}
-  horizonAccent: {r: 0, g: 0, b: 0, a: 0}
-  silhouetteFar: {r: 0, g: 0, b: 0, a: 0}
-  silhouetteNear: {r: 0, g: 0, b: 0, a: 0}
+  skyTop: {r: 0.3647059, g: 0.5411765, b: 0.7254902, a: 1}
+  skyHorizon: {r: 0.8745098, g: 0.8, b: 0.69803923, a: 1}
+  groundColor: {r: 0.61960787, g: 0.58431375, b: 0.54901963, a: 1}
+  groundNear: {r: 0.70980394, g: 0.6745098, b: 0.63529414, a: 1}
+  horizonAccent: {r: 0.83137256, g: 0.76862746, b: 0.6901961, a: 1}
+  silhouetteFar: {r: 0.73333335, g: 0.69803923, b: 0.65882355, a: 1}
+  silhouetteNear: {r: 0.34117648, g: 0.29803923, b: 0.27450982, a: 1}
   style: 5
   snowfall: 0

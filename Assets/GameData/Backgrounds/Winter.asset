@@ -12,12 +12,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 681e574a89dae229290ce66a4e95ac2d, type: 3}
   m_Name: Winter
   m_EditorClassIdentifier: 
-  skyTop: {r: 0, g: 0, b: 0, a: 0}
-  skyHorizon: {r: 0, g: 0, b: 0, a: 0}
-  groundColor: {r: 0, g: 0, b: 0, a: 0}
-  groundNear: {r: 0, g: 0, b: 0, a: 0}
-  horizonAccent: {r: 0, g: 0, b: 0, a: 0}
-  silhouetteFar: {r: 0, g: 0, b: 0, a: 0}
-  silhouetteNear: {r: 0, g: 0, b: 0, a: 0}
+  skyTop: {r: 0.3529412, g: 0.627451, b: 0.8627451, a: 1}
+  skyHorizon: {r: 0.8627451, g: 0.93333334, b: 0.9764706, a: 1}
+  groundColor: {r: 0.9019608, g: 0.9372549, b: 0.96862745, a: 1}
+  groundNear: {r: 0.9647059, g: 0.98039216, b: 0.99607843, a: 1}
+  horizonAccent: {r: 1, g: 1, b: 1, a: 1}
+  silhouetteFar: {r: 0.6745098, g: 0.78431374, b: 0.87058824, a: 1}
+  silhouetteNear: {r: 0.43529412, g: 0.57254905, b: 0.69803923, a: 1}
   style: 4
   snowfall: 1

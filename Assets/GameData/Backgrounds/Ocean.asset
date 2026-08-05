@@ -12,12 +12,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 681e574a89dae229290ce66a4e95ac2d, type: 3}
   m_Name: Ocean
   m_EditorClassIdentifier: 
-  skyTop: {r: 0, g: 0, b: 0, a: 0}
-  skyHorizon: {r: 0, g: 0, b: 0, a: 0}
-  groundColor: {r: 0, g: 0, b: 0, a: 0}
-  groundNear: {r: 0, g: 0, b: 0, a: 0}
-  horizonAccent: {r: 0, g: 0, b: 0, a: 0}
-  silhouetteFar: {r: 0, g: 0, b: 0, a: 0}
-  silhouetteNear: {r: 0, g: 0, b: 0, a: 0}
+  skyTop: {r: 0.24313726, g: 0.5254902, b: 0.80784315, a: 1}
+  skyHorizon: {r: 0.79607844, g: 0.9019608, b: 0.95686275, a: 1}
+  groundColor: {r: 0.7882353, g: 0.69411767, b: 0.5137255, a: 1}
+  groundNear: {r: 0.8666667, g: 0.78039217, b: 0.60784316, a: 1}
+  horizonAccent: {r: 1, g: 1, b: 1, a: 1}
+  silhouetteFar: {r: 0.18039216, g: 0.49803922, b: 0.6901961, a: 1}
+  silhouetteNear: {r: 0.3372549, g: 0.72156864, b: 0.8627451, a: 1}
   style: 2
   snowfall: 0

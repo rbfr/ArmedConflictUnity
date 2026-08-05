@@ -12,12 +12,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 681e574a89dae229290ce66a4e95ac2d, type: 3}
   m_Name: Forest
   m_EditorClassIdentifier: 
-  skyTop: {r: 0, g: 0, b: 0, a: 0}
-  skyHorizon: {r: 0, g: 0, b: 0, a: 0}
-  groundColor: {r: 0, g: 0, b: 0, a: 0}
-  groundNear: {r: 0, g: 0, b: 0, a: 0}
-  horizonAccent: {r: 0, g: 0, b: 0, a: 0}
-  silhouetteFar: {r: 0, g: 0, b: 0, a: 0}
-  silhouetteNear: {r: 0, g: 0, b: 0, a: 0}
+  skyTop: {r: 0.2901961, g: 0.5647059, b: 0.8509804, a: 1}
+  skyHorizon: {r: 0.7607843, g: 0.8745098, b: 0.9490196, a: 1}
+  groundColor: {r: 0.30980393, g: 0.4862745, b: 0.23529412, a: 1}
+  groundNear: {r: 0.42745098, g: 0.6117647, b: 0.3137255, a: 1}
+  horizonAccent: {r: 0.65882355, g: 0.81960785, b: 0.54901963, a: 1}
+  silhouetteFar: {r: 0.5764706, g: 0.7372549, b: 0.627451, a: 1}
+  silhouetteNear: {r: 0.24705882, g: 0.42745098, b: 0.26666668, a: 1}
   style: 1
   snowfall: 0

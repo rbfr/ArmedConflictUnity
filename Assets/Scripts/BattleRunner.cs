@@ -18,6 +18,7 @@ public class BattleRunner : MonoBehaviour
     [SerializeField] GameObject playerUnitPrefab;
     [SerializeField] GameObject enemyUnitPrefab;
     [SerializeField] GameObject projectilePrefab;
+    [SerializeField] GameObject gunPrefab;
     [SerializeField] Transform poolRoot;
 
     const int UnitPoolSize = 48;
@@ -28,6 +29,8 @@ public class BattleRunner : MonoBehaviour
     readonly List<GameObject> playerSlots = new();
     readonly List<GameObject> enemySlots = new();
     readonly List<GameObject> shotSlots = new();
+    readonly List<GameObject> playerGuns = new();
+    readonly List<GameObject> enemyGuns = new();
     readonly List<GameObject> structureObjects = new();
 
     // input
@@ -67,6 +70,8 @@ public class BattleRunner : MonoBehaviour
         {
             playerSlots.Add(Spawn(playerUnitPrefab, $"p{i}"));
             enemySlots.Add(Spawn(enemyUnitPrefab, $"e{i}"));
+            playerGuns.Add(Spawn(gunPrefab, $"pg{i}"));
+            enemyGuns.Add(Spawn(gunPrefab, $"eg{i}"));
         }
         for (int i = 0; i < ProjectilePoolSize; i++) shotSlots.Add(Spawn(projectilePrefab, $"s{i}"));
 
@@ -159,8 +164,8 @@ public class BattleRunner : MonoBehaviour
 
     void Render()
     {
-        SyncUnits(state.PlayerUnits, playerSlots);
-        SyncUnits(state.EnemyUnits, enemySlots);
+        SyncUnits(state.PlayerUnits, playerSlots, playerGuns, aimingRight: true);
+        SyncUnits(state.EnemyUnits, enemySlots, enemyGuns, aimingRight: false);
 
         // Ragdolls reuse the same pools past the live roster.
         int p = state.PlayerUnits.Count, e = state.EnemyUnits.Count;
@@ -176,6 +181,10 @@ public class BattleRunner : MonoBehaviour
         }
         for (int i = p; i < playerSlots.Count; i++) playerSlots[i].SetActive(false);
         for (int i = e; i < enemySlots.Count; i++) enemySlots[i].SetActive(false);
+        // Guns follow the LIVE roster only — a ragdoll drops its weapon rather than carrying
+        // one through a tumble, which is also what the shipping build does.
+        for (int i = state.PlayerUnits.Count; i < playerGuns.Count; i++) playerGuns[i].SetActive(false);
+        for (int i = state.EnemyUnits.Count; i < enemyGuns.Count; i++) enemyGuns[i].SetActive(false);
 
         for (int i = 0; i < shotSlots.Count; i++)
         {
@@ -198,14 +207,25 @@ public class BattleRunner : MonoBehaviour
         }
     }
 
-    void SyncUnits(IReadOnlyList<UnitEntity> units, List<GameObject> pool)
+    void SyncUnits(IReadOnlyList<UnitEntity> units, List<GameObject> pool,
+                   List<GameObject> guns, bool aimingRight)
     {
+        // The weapon sits at chest height, offset toward the side the unit faces. X is mirrored
+        // by GameSpace, so the offset is applied in GAME space and converted with the body —
+        // applying it after conversion would put every gun on the wrong shoulder.
+        float sign = aimingRight ? 1f : -1f;
         for (int i = 0; i < units.Count && i < pool.Count; i++)
         {
             var u = units[i];
             pool[i].SetActive(true);
             pool[i].transform.position = GameSpace.ToUnity(u.X, u.Y, u.Z);
             pool[i].transform.rotation = Quaternion.identity;
+
+            if (i >= guns.Count) continue;
+            guns[i].SetActive(true);
+            guns[i].transform.position = GameSpace.ToUnity(
+                u.X + sign * 0.14f, u.Y + 0.30f, u.Z - 0.02f);
+            guns[i].transform.rotation = Quaternion.Euler(0f, 0f, aimingRight ? 0f : 180f);
         }
     }
 

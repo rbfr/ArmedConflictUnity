@@ -43,11 +43,17 @@ public static class SpikeSceneBattle
                  st.Definition.isPlayerSide ? mats.structPlayerAccent : mats.structEnemyAccent, null);
         }
 
+        // Biome backdrop from the level's own BackgroundDefinition — the shipping build paints
+        // one, and comparing a bare scene against it was never a fair A/B.
+        var backdrop = new GameObject("Backdrop");
+        BackdropBuilder.Build(level.background, mats.ground, backdrop.transform);
+
         var poolRoot = new GameObject("Pool");
 
         var playerPrefab = MakeUnitPrefab("PlayerUnit", mats.playerUniform, mats.playerGear, mats.skin);
         var enemyPrefab = MakeUnitPrefab("EnemyUnit", mats.enemyUniform, mats.enemyGear, mats.skin);
         var shotPrefab = MakeShellPrefab(mats);
+        var gunPrefab = MakeGunPrefab(mats);
 
         var lightGo = new GameObject("Directional Light");
         var light = lightGo.AddComponent<Light>();
@@ -73,6 +79,7 @@ public static class SpikeSceneBattle
         so.FindProperty("playerUnitPrefab").objectReferenceValue = playerPrefab;
         so.FindProperty("enemyUnitPrefab").objectReferenceValue = enemyPrefab;
         so.FindProperty("projectilePrefab").objectReferenceValue = shotPrefab;
+        so.FindProperty("gunPrefab").objectReferenceValue = gunPrefab;
         so.FindProperty("poolRoot").objectReferenceValue = poolRoot.transform;
         so.ApplyModifiedProperties();
 
@@ -114,6 +121,26 @@ public static class SpikeSceneBattle
         return prefab;
     }
 
+    /// <summary>
+    /// The unit's weapon. Every UnitDefinition carries a gunModelAsset and the importer brought
+    /// them across; the first playable build simply never instantiated one, which is the single
+    /// most visible gap against the shipping build.
+    /// GUN_SCALE_UNITS derives from the unit scale, like everything else body-relative.
+    /// </summary>
+    static GameObject MakeGunPrefab(Mats mats)
+    {
+        var src = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Models/placeholder_gun.glb");
+        var go = (GameObject)PrefabUtility.InstantiatePrefab(src);
+        go.name = "Gun";
+        Normalize(go, 0.40f * UnitGeometry.LegacyScaleRatio);
+        foreach (var r in go.GetComponentsInChildren<MeshRenderer>())
+            r.sharedMaterial = mats.gun;
+        System.IO.Directory.CreateDirectory("Assets/Prefabs");
+        var prefab = PrefabUtility.SaveAsPrefabAsset(go, "Assets/Prefabs/Gun.prefab");
+        Object.DestroyImmediate(go);
+        return prefab;
+    }
+
     static void Normalize(GameObject go, float units)
     {
         var rs = go.GetComponentsInChildren<MeshRenderer>();
@@ -137,6 +164,7 @@ public static class SpikeSceneBattle
 
     class Mats
     {
+        public Material gun;
         public Material skin, playerUniform, playerGear, enemyUniform, enemyGear,
                         structPlayer, structPlayerAccent, structEnemy, structEnemyAccent,
                         ground, shellBody, shellNose;
@@ -149,6 +177,7 @@ public static class SpikeSceneBattle
         structPlayer = L("StructPlayer"), structPlayerAccent = L("StructPlayerAccent"),
         structEnemy = L("StructEnemy"), structEnemyAccent = L("StructEnemyAccent"),
         ground = L("GroundMat"), shellBody = L("ShellBody"), shellNose = L("ShellNose"),
+        gun = L("UnitGun"),
     };
 
     static Material L(string n) => AssetDatabase.LoadAssetAtPath<Material>($"Assets/Materials/{n}.mat");

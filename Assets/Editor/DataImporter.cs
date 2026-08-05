@@ -634,15 +634,28 @@ public static class DataImporter
             return name != null && System.Enum.TryParse<TEnum>(name, out var e) ? e : dflt;
         }
 
-        /// <summary>Compose colours arrive as 0xAARRGGBB longs.</summary>
+        /// <summary>
+        /// Compose colours arrive as 0xAARRGGBB longs inside a Color(...) constructor.
+        ///
+        /// The argument list may be under EITHER key: the exporter writes "__args" for a
+        /// constructor whose arguments are all positional, and "__positional" only when they are
+        /// mixed with named ones. Reading just one of them imported every background as pure
+        /// black — silently, because the asset still existed and the count still looked right.
+        /// Verify CONTENT, not just counts.
+        /// </summary>
         public Color Col(string k)
         {
             if (!Has(k)) return Color.magenta;
             var raw = d[k];
-            if (raw.AsDict() is { } dd && dd.TryGetValue("__positional", out var pv)
-                && pv is List<object> pl && pl.Count > 0) raw = pl[0];
-            long v = (long)Num(raw);
-            if (raw is double dv) v = (long)dv;
+            if (raw.AsDict() is { } dd)
+            {
+                var args = dd.GetValueOrDefault("__args") ?? dd.GetValueOrDefault("__positional");
+                if (args is List<object> pl && pl.Count > 0) raw = pl[0];
+            }
+            // Read the DOUBLE straight to long. Going through Num()'s float loses the low bits
+            // of a 32-bit ARGB value — a float's 24-bit mantissa cannot hold 0xFF4A90D9, and the
+            // damage lands on the low byte, so every colour came back with blue = 0.
+            long v = raw is double dv ? (long)dv : (long)Num(raw);
             return new Color(((v >> 16) & 0xFF) / 255f, ((v >> 8) & 0xFF) / 255f,
                              (v & 0xFF) / 255f, ((v >> 24) & 0xFF) / 255f);
         }

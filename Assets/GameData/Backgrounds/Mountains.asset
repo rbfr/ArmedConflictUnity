@@ -12,12 +12,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 681e574a89dae229290ce66a4e95ac2d, type: 3}
   m_Name: Mountains
   m_EditorClassIdentifier: 
-  skyTop: {r: 0, g: 0, b: 0, a: 0}
-  skyHorizon: {r: 0, g: 0, b: 0, a: 0}
-  groundColor: {r: 0, g: 0, b: 0, a: 0}
-  groundNear: {r: 0, g: 0, b: 0, a: 0}
-  horizonAccent: {r: 0, g: 0, b: 0, a: 0}
-  silhouetteFar: {r: 0, g: 0, b: 0, a: 0}
-  silhouetteNear: {r: 0, g: 0, b: 0, a: 0}
+  skyTop: {r: 0.23529412, g: 0.49803922, b: 0.76862746, a: 1}
+  skyHorizon: {r: 0.78431374, g: 0.8784314, b: 0.9372549, a: 1}
+  groundColor: {r: 0.6117647, g: 0.49019608, b: 0.32941177, a: 1}
+  groundNear: {r: 0.73333335, g: 0.6117647, b: 0.4392157, a: 1}
+  horizonAccent: {r: 0.8862745, g: 0.8235294, b: 0.6745098, a: 1}
+  silhouetteFar: {r: 0.6666667, g: 0.7529412, b: 0.83137256, a: 1}
+  silhouetteNear: {r: 0.37254903, g: 0.44313726, b: 0.53333336, a: 1}
   style: 0
   snowfall: 0

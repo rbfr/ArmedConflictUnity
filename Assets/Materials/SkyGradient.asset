@@ -1,0 +1,48 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!28 &2800000
+Texture2D:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_Name: SkyGradient
+  m_ImageContentsHash:
+    serializedVersion: 2
+    Hash: 00000000000000000000000000000000
+  m_IsAlphaChannelOptional: 0
+  serializedVersion: 3
+  m_Width: 1
+  m_Height: 64
+  m_CompleteImageSize: 508
+  m_MipsStripped: 0
+  m_TextureFormat: 4
+  m_MipCount: 7
+  m_IsReadable: 1
+  m_IsPreProcessed: 0
+  m_IgnoreMipmapLimit: 1
+  m_MipmapLimitGroupName: 
+  m_StreamingMipmaps: 0
+  m_StreamingMipmapsPriority: 0
+  m_VTOnly: 0
+  m_AlphaIsTransparency: 0
+  m_ImageCount: 1
+  m_TextureDimension: 2
+  m_TextureSettings:
+    serializedVersion: 2
+    m_FilterMode: 1
+    m_Aniso: 1
+    m_MipBias: 0
+    m_WrapU: 1
+    m_WrapV: 1
+    m_WrapW: 1
+  m_LightmapFormat: 0
+  m_ColorSpace: 1
+  m_PlatformBlob: 
+  image data: 508
+  _typelessdata: c8e0efffc6deeeffc4ddeeffc1dbedffbfdaecffbdd8ecffbbd7ebffb8d5eaffb6d4eaffb4d2e9ffb2d1e8ffb0cfe7ffadcee7ffabcce6ffa9cae5ffa7c9e5ffa4c7e4ffa2c6e3ffa0c4e3ff9ec3e2ff9cc1e1ff99c0e1ff97bee0ff95bddfff93bbdfff90badeff8eb8ddff8cb6ddff8ab5dcff88b3dbff85b2dbff83b0daff81afd9ff7fadd8ff7cacd8ff7aaad7ff78a9d6ff76a7d6ff74a5d5ff71a4d4ff6fa2d4ff6da1d3ff6b9fd2ff689ed2ff669cd1ff649bd0ff6299d0ff6098cfff5d96ceff5b95ceff5993cdff5791ccff5490ccff528ecbff508dcaff4e8bc9ff4c8ac9ff4988c8ff4787c7ff4585c7ff4384c6ff4082c5ff3e81c5ff3c7fc4ffc7dfeeffc2dcedffbed9ecffb9d6eaffb5d3e9ffb1d0e7ffaccde6ffa8c9e5ffa3c6e3ff9fc3e2ff9ac0e1ff96bddfff91badeff8db7ddff89b4dbff84b1daff80aed8ff7babd7ff77a8d6ff72a4d4ff6ea1d3ff699ed2ff659bd0ff6198cfff5c95ceff5892ccff538fcbff4f8cc9ff4a89c8ff4686c7ff4183c5ff3d80c4ffc4ddedffbbd7ebffb3d1e8ffaacbe5ffa1c4e2ff98bee0ff8fb8ddff86b2daff7dacd7ff74a6d5ff6b9fd2ff6399cfff5a93cdff518dcaff4887c7ff3f81c4ffbfdaecffaecee6ff9cc1e1ff8ab5dbff78a9d6ff679cd0ff5590cbff4384c5ffb6d4e9ff93bbdeff6fa2d3ff4c8ac8ffa4c7e3ff5d96cdff80aed8ff
+  m_StreamData:
+    serializedVersion: 2
+    offset: 0
+    size: 0
+    path: 
