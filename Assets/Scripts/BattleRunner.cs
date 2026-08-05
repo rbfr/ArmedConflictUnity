@@ -19,6 +19,9 @@ public class BattleRunner : MonoBehaviour
     [SerializeField] GameObject enemyUnitPrefab;
     [SerializeField] GameObject projectilePrefab;
     [SerializeField] GameObject gunPrefab;
+    [SerializeField] GameObject bulletPrefab;
+    [SerializeField] GameObject rocketPrefab;
+    [SerializeField] GameObject grenadePrefab;
     [SerializeField] GameObject explosionPrefab;
     [SerializeField] BattleAudio audioFx;
     [SerializeField] Transform poolRoot;
@@ -34,6 +37,9 @@ public class BattleRunner : MonoBehaviour
     readonly List<GameObject> playerGuns = new();
     readonly List<GameObject> enemyGuns = new();
     readonly List<GameObject> blastSlots = new();
+    // One pool PER TYPE. A shared pool would need the prefab swapped per frame, which
+    // means destroying and recreating renderers mid-flight.
+    readonly Dictionary<ProjectileType, List<GameObject>> shotPools = new();
     readonly List<GameObject> structureObjects = new();
 
     // input
@@ -76,7 +82,18 @@ public class BattleRunner : MonoBehaviour
             playerGuns.Add(Spawn(gunPrefab, $"pg{i}"));
             enemyGuns.Add(Spawn(gunPrefab, $"eg{i}"));
         }
-        for (int i = 0; i < ProjectilePoolSize; i++) shotSlots.Add(Spawn(projectilePrefab, $"s{i}"));
+        foreach (var (type, prefab) in new[]
+        {
+            (ProjectileType.Bullet,  bulletPrefab  ? bulletPrefab  : projectilePrefab),
+            (ProjectileType.Rocket,  rocketPrefab  ? rocketPrefab  : projectilePrefab),
+            (ProjectileType.Grenade, grenadePrefab ? grenadePrefab : projectilePrefab),
+            (ProjectileType.Shell,   projectilePrefab),
+        })
+        {
+            var pool = new List<GameObject>();
+            for (int i = 0; i < ProjectilePoolSize; i++) pool.Add(Spawn(prefab, $"{type}{i}"));
+            shotPools[type] = pool;
+        }
         for (int i = 0; i < 32; i++) blastSlots.Add(Spawn(explosionPrefab, $"x{i}"));
 
         // Structures are static for the battle's life — one object each, hidden on destruction.
@@ -228,17 +245,21 @@ public class BattleRunner : MonoBehaviour
         for (int i = state.PlayerUnits.Count; i < playerGuns.Count; i++) playerGuns[i].SetActive(false);
         for (int i = state.EnemyUnits.Count; i < enemyGuns.Count; i++) enemyGuns[i].SetActive(false);
 
-        for (int i = 0; i < shotSlots.Count; i++)
+        // Rounds render as their OWN type — a rifle volley is bullets, not nine tank shells.
+        foreach (var kv in shotPools) foreach (var go in kv.Value) if (go.activeSelf) go.SetActive(false);
+        var used = new Dictionary<ProjectileType, int>();
+        foreach (var pr in state.Projectiles)
         {
-            if (i < state.Projectiles.Count)
-            {
-                var pr = state.Projectiles[i];
-                shotSlots[i].SetActive(true);
-                shotSlots[i].transform.position = GameSpace.ToUnity(pr.X, pr.Y, pr.Z);
-                float deg = Mathf.Atan2(pr.Vy, -pr.Vx) * Mathf.Rad2Deg;
-                shotSlots[i].transform.rotation = Quaternion.Euler(0f, 0f, deg);
-            }
-            else shotSlots[i].SetActive(false);
+            if (!shotPools.TryGetValue(pr.Type, out var pool)) continue;
+            used.TryGetValue(pr.Type, out int n);
+            if (n >= pool.Count) continue;
+            used[pr.Type] = n + 1;
+
+            var go = pool[n];
+            go.SetActive(true);
+            go.transform.position = GameSpace.ToUnity(pr.X, pr.Y, pr.Z);
+            float deg = Mathf.Atan2(pr.Vy, -pr.Vx) * Mathf.Rad2Deg;
+            go.transform.rotation = Quaternion.Euler(0f, 0f, deg);
         }
 
         // Explosions: a sphere that swells and fades over its progress.

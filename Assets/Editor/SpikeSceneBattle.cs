@@ -99,6 +99,12 @@ public static class SpikeSceneBattle
         so.FindProperty("playerUnitPrefab").objectReferenceValue = playerPrefab;
         so.FindProperty("enemyUnitPrefab").objectReferenceValue = enemyPrefab;
         so.FindProperty("projectilePrefab").objectReferenceValue = shotPrefab;
+        so.FindProperty("bulletPrefab").objectReferenceValue = MakeProjectilePrefab(
+            "Bullet", "projectile_bullet", 0.22f, mats.tracer, mats.tracerTail);
+        so.FindProperty("rocketPrefab").objectReferenceValue = MakeProjectilePrefab(
+            "Rocket", "projectile_rocket", 0.30f, mats.rocketBody, mats.rocketGlow);
+        so.FindProperty("grenadePrefab").objectReferenceValue = MakeProjectilePrefab(
+            "Grenade", "projectile_grenade", 0.16f, mats.grenade, mats.grenadeBand);
         so.FindProperty("gunPrefab").objectReferenceValue = gunPrefab;
         so.FindProperty("explosionPrefab").objectReferenceValue = blastPrefab;
         so.FindProperty("audioFx").objectReferenceValue = MakeAudio(camGo);
@@ -129,19 +135,33 @@ public static class SpikeSceneBattle
         return prefab;
     }
 
-    static GameObject MakeShellPrefab(Mats mats)
+    /// <summary>
+    /// One prefab per projectile TYPE. Rendering every round as the tank shell made a rifle
+    /// volley look like nine artillery rounds — the models were imported all along, the runner
+    /// just picked one prefab for everything.
+    ///
+    /// Colours and scales are carried across from SceneHost. Note the BODIES are unlit on
+    /// purpose: a tracer is a light source, not a lit object, and a PBR round goes near-black
+    /// against a dim biome.
+    /// </summary>
+    static GameObject MakeProjectilePrefab(string name, string asset, float scale,
+                                           Material body, Material accent)
     {
-        var src = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Models/projectile_shell.glb");
+        var src = AssetDatabase.LoadAssetAtPath<GameObject>($"Assets/Models/{asset}.glb");
+        if (src == null) { Debug.LogWarning($"[Battle] missing {asset}"); return null; }
         var go = (GameObject)PrefabUtility.InstantiatePrefab(src);
-        go.name = "Shell";
-        go.transform.localScale = Vector3.one * 0.34f;
+        go.name = name;
+        go.transform.localScale = Vector3.one * scale;
         foreach (var r in go.GetComponentsInChildren<MeshRenderer>())
-            r.sharedMaterial = r.gameObject.name.StartsWith("accent") ? mats.shellNose : mats.shellBody;
+            r.sharedMaterial = r.gameObject.name.StartsWith("accent") ? accent : body;
         System.IO.Directory.CreateDirectory("Assets/Prefabs");
-        var prefab = PrefabUtility.SaveAsPrefabAsset(go, "Assets/Prefabs/Shell.prefab");
+        var prefab = PrefabUtility.SaveAsPrefabAsset(go, $"Assets/Prefabs/{name}.prefab");
         Object.DestroyImmediate(go);
         return prefab;
     }
+
+    static GameObject MakeShellPrefab(Mats mats)
+        => MakeProjectilePrefab("Shell", "projectile_shell", 0.34f, mats.shellBody, mats.shellNose);
 
     /// <summary>
     /// The unit's weapon. Every UnitDefinition carries a gunModelAsset and the importer brought
@@ -224,7 +244,7 @@ public static class SpikeSceneBattle
 
     class Mats
     {
-        public Material gun;
+        public Material gun, tracer, tracerTail, rocketBody, rocketGlow, grenade, grenadeBand;
         public Material skin, playerUniform, playerGear, enemyUniform, enemyGear,
                         structPlayer, structPlayerAccent, structEnemy, structEnemyAccent,
                         ground, shellBody, shellNose;
@@ -238,7 +258,32 @@ public static class SpikeSceneBattle
         structEnemy = L("StructEnemy"), structEnemyAccent = L("StructEnemyAccent"),
         ground = L("GroundMat"), shellBody = L("ShellBody"), shellNose = L("ShellNose"),
         gun = L("UnitGun"),
+        // Carried from SceneHost. Tracers are UNLIT — a tracer is a light source.
+        tracer      = Unlit("Tracer",      new Color(1f, 0.647f, 0f)),        // 0xFFA500
+        tracerTail  = Unlit("TracerTail",  new Color(0.541f, 0.353f, 0.071f)),// 0x8A5A12
+        rocketBody  = Lit("RocketBody",    new Color(0.36f, 0.38f, 0.32f), 0.2f, 0.6f),
+        rocketGlow  = Unlit("RocketGlow",  new Color(1f, 0.914f, 0.627f)),    // white-hot exhaust
+        grenade     = Unlit("Grenade",     new Color(0.608f, 0.757f, 0.235f)),// olive-lime
+        grenadeBand = Lit("GrenadeBand",   new Color(0.58f, 0.45f, 0.18f), 0.4f, 0.5f),
     };
 
     static Material L(string n) => AssetDatabase.LoadAssetAtPath<Material>($"Assets/Materials/{n}.mat");
+
+    static Material Unlit(string n, Color c) => Make(n, c, "Universal Render Pipeline/Unlit", 0f, 0f);
+    static Material Lit(string n, Color c, float metallic, float smoothness)
+        => Make(n, c, "Universal Render Pipeline/Lit", metallic, smoothness);
+
+    static Material Make(string n, Color c, string shader, float metallic, float smoothness)
+    {
+        var path = $"Assets/Materials/{n}.mat";
+        var m = AssetDatabase.LoadAssetAtPath<Material>(path);
+        if (m == null)
+        {
+            m = new Material(Shader.Find(shader));
+            AssetDatabase.CreateAsset(m, path);
+        }
+        m.color = c;
+        if (shader.EndsWith("Lit")) { m.SetFloat("_Metallic", metallic); m.SetFloat("_Smoothness", smoothness); }
+        return m;
+    }
 }
