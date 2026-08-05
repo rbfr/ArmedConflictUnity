@@ -56,6 +56,7 @@ public class BattleRunner : MonoBehaviour
     int dragFrames;
     GUIStyle style;
     Texture2D dot;
+    MaterialPropertyBlock blastProps;
 
     void Start()
     {
@@ -262,17 +263,30 @@ public class BattleRunner : MonoBehaviour
             go.transform.rotation = Quaternion.Euler(0f, 0f, deg);
         }
 
-        // Explosions: a sphere that swells and fades over its progress.
+        // Explosions: swell fast, then FADE. Without the fade an opaque sphere just sits there
+        // and vanishes, which reads as a solid ball rather than as fire. Alpha is set per
+        // instance via a property block — pooled slots share one material, so tinting the
+        // material itself would fade every live blast together.
+        blastProps ??= new MaterialPropertyBlock();
         for (int i = 0; i < blastSlots.Count; i++)
         {
             if (i < state.Explosions.Count)
             {
                 var x = state.Explosions[i];
+                float p2 = Mathf.Clamp01(x.Progress);
                 blastSlots[i].SetActive(true);
                 blastSlots[i].transform.position = GameSpace.ToUnity(x.X, x.Y, x.Z);
-                // Swell fast, then hold — a blast that grows linearly reads as a balloon.
-                float t2 = Mathf.Sqrt(Mathf.Clamp01(x.Progress));
-                blastSlots[i].transform.localScale = Vector3.one * x.Scale * (0.4f + 1.6f * t2);
+
+                // Swell fast then ease — a linear grow reads as a balloon inflating.
+                float swell = 0.35f + 0.85f * Mathf.Sqrt(p2);
+                blastSlots[i].transform.localScale = Vector3.one * x.Scale * swell;
+
+                // Hold full opacity briefly, then fall away over the back half.
+                float alpha = 1f - Mathf.Clamp01((p2 - 0.25f) / 0.75f);
+                var r = blastSlots[i].GetComponent<MeshRenderer>();
+                r.GetPropertyBlock(blastProps);
+                blastProps.SetColor("_BaseColor", new Color(1f, 0.55f + 0.25f * (1f - p2), 0.15f, alpha));
+                r.SetPropertyBlock(blastProps);
             }
             else blastSlots[i].SetActive(false);
         }

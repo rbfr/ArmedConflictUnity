@@ -192,8 +192,18 @@ public static class SpikeSceneBattle
         var go = GameObject.CreatePrimitive(PrimitiveType.Sphere);
         go.name = "Blast";
         Object.DestroyImmediate(go.GetComponent<Collider>());
+        // TRANSPARENT, so the blast can fade instead of popping out of existence. An opaque
+        // sphere reads as a solid orange ball rather than as fire, however well it is animated.
         var mat = new Material(Shader.Find("Universal Render Pipeline/Unlit"))
-        { color = new Color(1f, 0.55f, 0.15f) };
+        { color = new Color(1f, 0.55f, 0.15f, 1f) };
+        mat.SetFloat("_Surface", 1f);                       // transparent
+        mat.SetFloat("_Blend", 0f);                         // alpha
+        mat.SetFloat("_SrcBlend", (float)UnityEngine.Rendering.BlendMode.SrcAlpha);
+        mat.SetFloat("_DstBlend", (float)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+        mat.SetFloat("_ZWrite", 0f);
+        mat.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Transparent;
+        mat.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
+        mat.DisableKeyword("_ALPHATEST_ON");
         AssetDatabase.CreateAsset(mat, "Assets/Materials/Blast.mat");
         go.GetComponent<MeshRenderer>().sharedMaterial = mat;
         System.IO.Directory.CreateDirectory("Assets/Prefabs");
