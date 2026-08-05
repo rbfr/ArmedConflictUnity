@@ -71,6 +71,21 @@ public static class RiggedUnits
             var state = anim[clipName];
             if (state == null) { Debug.LogError($"[Verify] clip '{clipName}' missing"); failures++; continue; }
 
+            // EVERY curve in the clip must address a transform that actually exists. This is the
+            // check that catches a broken retarget, and the per-joint sampling below is NOT: if
+            // the prefix strip is wrong every curve lands on a path like `root/torso`, the joint
+            // loop then finds no bindings for `torso` at all, and a clip driving nothing reported
+            // RETARGET OK. Verified by deliberately breaking ClipPrefix — before this, that
+            // passed clean.
+            foreach (var b in AnimationUtility.GetCurveBindings(state.clip))
+            {
+                if (b.path.Length == 0 || anim.transform.Find(b.path) != null) continue;
+                Debug.LogError($"[Verify] {clipName}: curve path '{b.path}' matches no transform " +
+                               "— the retarget did not land");
+                failures++;
+                break;                              // one report per clip is enough
+            }
+
             foreach (var joint in new[] { "torso", "torso/arm-left", "torso/arm-right", "torso/head" })
             {
                 var t = anim.transform.Find(joint);
@@ -87,14 +102,34 @@ public static class RiggedUnits
                     state.clip.SampleAnimation(anim.gameObject, state.length * s / 8f);
                     moved = Mathf.Max(moved, Quaternion.Angle(a, t.localRotation));
                 }
-                bool curved = AnimationUtility.GetCurveBindings(state.clip)
-                    .Any(x => x.path == joint && x.propertyName.StartsWith("m_LocalRotation"));
-                if (curved && moved < 0.01f)
+                var rot = AnimationUtility.GetCurveBindings(state.clip)
+                    .Where(x => x.path == joint && x.propertyName.StartsWith("m_LocalRotation"))
+                    .ToArray();
+
+                // A curve can be PRESENT AND CONSTANT, and that is not a failure — `holding-both`
+                // is a static pose whose whole job is to hold the arms still. Asking only "does
+                // this joint move?" flagged both of its arms on every run, which is two standing
+                // errors in the one guard that exists to catch a joint that has stopped moving.
+                // The question is whether the RETARGET lost the motion, so a curve that never had
+                // any cannot answer it.
+                bool varies = rot.Any(b =>
                 {
-                    Debug.LogError($"[Verify] {clipName}: '{joint}' HAS a rotation curve but never moves");
+                    var c = AnimationUtility.GetEditorCurve(state.clip, b);
+                    if (c == null || c.length < 2) return false;
+                    float min = float.MaxValue, max = float.MinValue;
+                    foreach (var k in c.keys) { min = Mathf.Min(min, k.value); max = Mathf.Max(max, k.value); }
+                    return max - min > 1e-5f;
+                });
+
+                if (varies && moved < 0.01f)
+                {
+                    Debug.LogError($"[Verify] {clipName}: '{joint}' has a VARYING rotation curve " +
+                                   "but never moves — the retarget did not land");
                     failures++;
                 }
-                else if (curved)
+                else if (rot.Length > 0 && !varies)
+                    Debug.Log($"[Verify] {clipName}: '{joint}' holds a constant pose (by design)");
+                else if (rot.Length > 0)
                     Debug.Log($"[Verify] {clipName}: '{joint}' rotates up to {moved:F1}° across the clip");
             }
         }
