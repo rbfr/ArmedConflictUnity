@@ -104,7 +104,21 @@ public class BattleRunner : MonoBehaviour
     const float BarGap = 0.13f * UnitGeometry.UnitScaleUnits;      // clearance over the helmet
     const float BarBorder = 0.16f;                                 // inset of the fill, fraction
 
-    static readonly Color BarBackColor = new(0.08f, 0.08f, 0.09f, 1f);
+    /// <summary>
+    /// The fill never shrinks below this fraction of the track, however close to death the unit
+    /// is. At 30px wide, a linear fill at 25% health is SIX PIXELS of colour in a dark bar, which
+    /// reads as a black bar — i.e. as a broken cue, and reported as one. The bar failed exactly
+    /// when it mattered most.
+    ///
+    /// This deliberately breaks the linear mapping at the bottom end, and that is the right trade:
+    /// down there the COLOUR is the message ("this one is nearly gone"), not the exact fraction,
+    /// and a message that cannot be seen carries no information at all.
+    /// </summary>
+    const float BarMinFill = 0.22f;
+
+    // The empty track is DARK, not black. At (0.08) it was indistinguishable from an unlit gap in
+    // the scene, so a mostly-empty bar read as an artefact rather than as an empty bar.
+    static readonly Color BarBackColor = new(0.20f, 0.20f, 0.23f, 1f);
     static readonly Color BarHigh = new(0.35f, 0.78f, 0.28f);
     static readonly Color BarMid = new(0.90f, 0.76f, 0.18f);
     static readonly Color BarLow = new(0.82f, 0.20f, 0.16f);
@@ -444,12 +458,17 @@ public class BattleRunner : MonoBehaviour
                 u.X, u.Y + UnitGeometry.UnitScaleUnits * scale + BarGap, u.Z);
 
             float frac = Mathf.Clamp01((float)u.Hp / max);
+            // COLOUR is chosen from the true fraction, WIDTH from the floored one. Flooring both
+            // would make a dying unit read as merely wounded, which is the opposite of the fix.
+            float shown = Mathf.Max(frac, BarMinFill);
             float inner = BarWidth * (1f - BarBorder);
-            fill.localScale = new Vector3(inner * frac, BarHeight * (1f - BarBorder * 2f), 1f);
+            fill.localScale = new Vector3(inner * shown, BarHeight * (1f - BarBorder * 2f), 1f);
             // Anchored to the bar's left edge rather than centred, so damage eats it from one
             // side. A centred fill shrinks toward the middle from both ends, which reads as a
             // charging meter rather than a wound.
-            fill.localPosition = new Vector3(-(inner - inner * frac) * 0.5f, 0f, -0.002f);
+            // `shown`, matching the scale above — anchoring on the true fraction while scaling on
+            // the floored one would slide the fill off its own left edge.
+            fill.localPosition = new Vector3(-(inner - inner * shown) * 0.5f, 0f, -0.002f);
 
             // BOTH quads fade, not just the fill — fading the fill alone leaves the dark backing
             // plate behind as a floating black tick over the soldier's head, which is a worse

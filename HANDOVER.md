@@ -603,6 +603,14 @@ common case was the unreported one.
 - Green above 0.6, amber above 0.3, red below. The fill is anchored to the LEFT edge, so damage
   eats it from one side; a centred fill shrinks toward the middle from both ends and reads as a
   charging meter rather than a wound.
+- **The fill never drops below `BarMinFill` (22%) of the track**, and the empty track is DARK RATHER
+  THAN BLACK. Reported as "I see a black health bar — shouldn't that mean they're dead?", and that
+  was the cue failing exactly where it mattered most: the bar is ~30px wide, so a linear fill at
+  25% health is SIX PIXELS of colour against a near-black track, which reads as a broken bar rather
+  than as a dying soldier. The floor deliberately breaks the linear mapping at the bottom end,
+  which is the right trade — down there the COLOUR carries the message and the exact fraction does
+  not, and a message too small to see carries nothing. Note the COLOUR is still picked from the
+  TRUE fraction; flooring both would make a dying unit read as merely wounded.
 - **Both sides.** The tactically useful reading is which ENEMY is nearly dead, and the player's
   line has to answer the same question when it is being shot at.
 
