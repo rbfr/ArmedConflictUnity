@@ -470,6 +470,9 @@ public class BattleRunner : MonoBehaviour
         smoothedDt += (Time.unscaledDeltaTime - smoothedDt) * 0.05f;
 
         HandleInput();
+        // Unscaled: the free camera is a tool, and it has to keep flying on a paused or
+        // finished battle — which is most of when it gets used.
+        if (freeCamOn) StepFreeCam(Time.unscaledDeltaTime);
 
         // The enemy turn runs itself: a windup beat, then its volley.
         if (state.Phase == GamePhase.Playing && state.TurnPhase == TurnPhase.EnemyWindup)
@@ -513,6 +516,9 @@ public class BattleRunner : MonoBehaviour
         if (t.phase == TouchPhase.Began)
         {
             if (state.TurnPhase != TurnPhase.Aiming) return;
+            // Input.touch counts y from the BOTTOM, IMGUI rects from the top.
+            if (freeCamOn && FreeCamPadRect.Contains(
+                    new Vector2(t.position.x, Screen.height - t.position.y))) return;
             dragging = true; dragStart = t.position; dragFrames = 0; worstDragDt = 0f;
         }
         else if (dragging && (t.phase == TouchPhase.Moved || t.phase == TouchPhase.Stationary))
@@ -847,12 +853,51 @@ public class BattleRunner : MonoBehaviour
         public FreeCam Dolly(float d) { Z = Mathf.Clamp(Z + d, 1.5f, 60f); return this; }
     }
 
-    // Steps: roughly one soldier laterally and half a soldier vertically at crowd scale, so a few
-    // taps move a visible amount without overshooting the thing being inspected.
-    const float PanStep = 0.5f, LiftStep = 0.25f, DollyStep = 0.5f;
+    // RATES, in world units per second, not per-tap steps. The pad is held down, so the movement
+    // has to be integrated against dt or it changes speed with the frame rate — the same rule
+    // DecayPerTick60 exists for.
+    //
+    // The base rates are set so a QUICK TAP still behaves like the old discrete step: ~120ms of
+    // pan at 4/s is 0.48 units, against the 0.5 it used to move per tap. Fine positioning is
+    // unchanged; it is only the long flights that got faster.
+    const float PanRate = 4f, LiftRate = 2f, DollyRate = 4f;
+
+    // Held longer, moves faster. Without this a hold is honest but still slow — crossing a level
+    // from the player line to the enemy is ~15 units, which at the base rate is nearly four
+    // seconds. Ramped it is about one and a half, and the first moments are still slow enough to
+    // place the camera precisely, which is what the tool is for.
+    const float FreeCamRampSeconds = 1.2f;
+    const float FreeCamMaxRamp = 4f;
 
     bool freeCamOn;
     FreeCam freeCam;
+
+    /// <summary>
+    /// Which way the pad is being held this frame: x pan, y lift, z dolly, each -1/0/+1.
+    ///
+    /// OR-ed in from OnGUI and CONSUMED by Update, rather than moving the camera inside OnGUI
+    /// directly. OnGUI runs several times per frame — once per input event plus Layout and
+    /// Repaint — so acting on the button there applies the movement an unpredictable number of
+    /// times per frame, and the camera's speed then depends on how much input the OS delivered.
+    /// </summary>
+    Vector3 freeCamHeld;
+    float freeCamHoldSeconds;
+
+    // Pad layout, shared by the drawing and by the touch exclusion below — two copies of these
+    // numbers would drift and the dead zone would stop matching the buttons.
+    const float PadX = 30f, PadButton = 96f, PadButtonH = 84f, PadGap = 8f;
+    static float PadTop => Screen.height - 560f;
+
+    /// <summary>
+    /// The pad's footprint, in GUI coordinates (origin TOP-left, unlike Input.touch).
+    ///
+    /// It exists so a press-and-hold on the pad is not also an aim drag. With tap-to-step that
+    /// never mattered — Release() ignores a drag under a threshold, and a tap barely moves — but
+    /// a finger resting on OUT for two seconds drifts on the glass, and on release that would
+    /// fire a volley and end the turn. The camera tool must not be able to play the game.
+    /// </summary>
+    Rect FreeCamPadRect => new(PadX, PadTop,
+                               3f * PadButton + 2f * PadGap, 2f * PadButtonH + PadGap);
 
     void ApplyCamera()
     {
@@ -1039,27 +1084,54 @@ public class BattleRunner : MonoBehaviour
     }
 
     /// <summary>
-    /// The free camera's control pad. BUTTONS rather than a drag gesture, for two reasons: the
-    /// aim mechanic already owns dragging, and discrete taps are what `adb shell input tap` can
-    /// drive during a scripted investigation. The READOUT is part of the tool, not decoration —
-    /// it is how a position found by eye gets written down and reproduced next session.
+    /// Flies the camera while the pad is held. Reads the direction OnGUI recorded, integrates it
+    /// against dt, and clears it — so a frame in which the pad was not touched stops the camera
+    /// and resets the ramp.
+    /// </summary>
+    void StepFreeCam(float dt)
+    {
+        if (freeCamHeld == Vector3.zero) { freeCamHoldSeconds = 0f; return; }
+
+        freeCamHoldSeconds += dt;
+        float ramp = Mathf.Lerp(1f, FreeCamMaxRamp,
+                                Mathf.Clamp01(freeCamHoldSeconds / FreeCamRampSeconds));
+        freeCam = freeCam.Pan(freeCamHeld.x * PanRate * ramp * dt);
+        freeCam = freeCam.Lift(freeCamHeld.y * LiftRate * ramp * dt);
+        freeCam = freeCam.Dolly(freeCamHeld.z * DollyRate * ramp * dt);
+        freeCamHeld = Vector3.zero;
+    }
+
+    /// <summary>
+    /// The free camera's control pad. BUTTONS rather than a drag gesture, because the aim mechanic
+    /// already owns dragging. The READOUT is part of the tool, not decoration — it is how a
+    /// position found by eye gets written down and reproduced next session.
+    ///
+    /// `RepeatButton`, not `Button`: a Button fires once, on RELEASE, so reaching anything far
+    /// away meant thirty taps. These report held every frame the finger is down, and the camera
+    /// accelerates the longer it is held.
+    ///
+    /// NOTE FOR SCRIPTED USE: `adb shell input tap` is too brief to register as much movement.
+    /// Drive these with `input swipe X Y X Y 600` — same point twice, with a duration — which is
+    /// how adb expresses a press-and-hold.
     /// </summary>
     void DrawFreeCamPad()
     {
         if (!freeCamOn) return;
 
         var b = new GUIStyle(GUI.skin.button) { fontSize = 34 };
-        const float W = 96f, H = 84f, Gap = 8f;
-        float x0 = 30f, y0 = Screen.height - 560f;
+        const float W = PadButton, H = PadButtonH, Gap = PadGap;
+        float x0 = PadX, y0 = PadTop;
 
         Rect At(int col, int row) => new(x0 + col * (W + Gap), y0 + row * (H + Gap), W, H);
 
-        if (GUI.Button(At(0, 0), "↑", b)) freeCam = freeCam.Lift(LiftStep);
-        if (GUI.Button(At(0, 1), "↓", b)) freeCam = freeCam.Lift(-LiftStep);
-        if (GUI.Button(At(1, 0), "←", b)) freeCam = freeCam.Pan(-PanStep);
-        if (GUI.Button(At(1, 1), "→", b)) freeCam = freeCam.Pan(PanStep);
-        if (GUI.Button(At(2, 0), "IN", b)) freeCam = freeCam.Dolly(-DollyStep);
-        if (GUI.Button(At(2, 1), "OUT", b)) freeCam = freeCam.Dolly(DollyStep);
+        // OR-ed, never assigned: OnGUI runs several times per frame and this button is only
+        // "down" during some of those passes, so assigning would let a later pass wipe it.
+        if (GUI.RepeatButton(At(0, 0), "↑", b)) freeCamHeld.y = 1f;
+        if (GUI.RepeatButton(At(0, 1), "↓", b)) freeCamHeld.y = -1f;
+        if (GUI.RepeatButton(At(1, 0), "←", b)) freeCamHeld.x = -1f;
+        if (GUI.RepeatButton(At(1, 1), "→", b)) freeCamHeld.x = 1f;
+        if (GUI.RepeatButton(At(2, 0), "IN", b)) freeCamHeld.z = -1f;
+        if (GUI.RepeatButton(At(2, 1), "OUT", b)) freeCamHeld.z = 1f;
 
         GUI.Label(new Rect(x0, y0 - 46f, 700f, 44f),
                   $"CAM  x {freeCam.X:F2}   y {freeCam.Y:F2}   z {freeCam.Z:F2}", style);

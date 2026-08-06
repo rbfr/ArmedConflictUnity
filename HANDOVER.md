@@ -632,6 +632,22 @@ Two things it is worth knowing about:
   is worse than no readout at all.
 - **It suppresses shake.** A tool for judging whether a thing is in the right PLACE cannot have
   the view jittering under it.
+- **The pad is HELD, not tapped** (`GUI.RepeatButton` — a plain `Button` only fires on release,
+  which is why the first version cost a tap per step). Movement is a RATE integrated against dt,
+  not a per-frame step, and it ACCELERATES to 4x over 1.2s of holding: crossing a level is ~15
+  units, nearly four seconds at a flat rate and about one and a half ramped, while the first
+  moments stay slow enough to place the camera precisely. Measured on device: one 2s hold on OUT
+  moved z 6.26 -> 31.16, which is 50 taps of the old pad; a 0.15s tap still moves 0.73 units.
+- The held direction is recorded in OnGUI and CONSUMED IN UPDATE. OnGUI runs several times per
+  frame — once per input event plus Layout and Repaint — so moving the camera inside it applies
+  the movement an unpredictable number of times and the speed then depends on how much input the
+  OS delivered.
+- **A touch that starts on the pad is excluded from the aim drag.** With tap-to-step this never
+  mattered, since `Release()` ignores a drag under a threshold and a tap barely moves; a finger
+  resting on OUT for two seconds drifts on the glass, and on release that fired a volley and ended
+  the turn. The camera tool must not be able to play the game.
+- **From adb, `input tap` is now too brief.** Press-and-hold is `input swipe X Y X Y 600` — the
+  same point twice, with a duration.
 
 ### Method note, because it cost an hour
 
