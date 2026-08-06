@@ -100,5 +100,18 @@ namespace ArmedConflict.Data
         public List<ReinforcementWave> reinforcementWaves = new();
         public bool staticCamera = false;
         public bool isTestLevel = false;
+
+        /// <summary>
+        /// WHY this level is shaped the way it is — the beat it teaches, which composition rule it
+        /// is deliberately bending, what a playtest changed and what it broke.
+        ///
+        /// It exists because the Kotlin this data came from carried a great deal of that
+        /// reasoning in comments, and moving authoring into Unity on 2026-08-06 would otherwise
+        /// have stranded all of it in a repo nobody opens. A number with no reason attached is a
+        /// number the next person will "clean up".
+        ///
+        /// Prose, not a spec. The rules themselves live in LEVEL_AUTHORING.md.
+        /// </summary>
+        [TextArea(3, 12)] public string designNotes = "";
     }
 }

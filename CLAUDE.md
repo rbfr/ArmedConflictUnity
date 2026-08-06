@@ -42,6 +42,7 @@ anywhere:
 
 | | |
 |---|---|
+| `LEVEL_AUTHORING.md` | the SIX COMPOSITION RULES. Read before authoring or editing any level; checked by `LevelComposition.Report` |
 | `PRODUCT_DIRECTION.md` | **what to build next** — retention, dopamine model, campaign packaging, priority stack. Plan product work against this |
 | `GAME_DESIGN_LOCKS.md` | decisions that are CLOSED — turn structure, win/loss, physics, scope |
 | `PROGRESSION_DESIGN.md` | coins, loadout, unlocks, consumables — phased spec + build status |
@@ -87,22 +88,31 @@ broke once already.
 **A scene rebuild is required** after anything that changes prefabs, materials or serialized
 references. A code-only change does not need one; a new `[SerializeField]` does.
 
-## Game data is authored in KOTLIN and imported — ONE WAY
+## Game data is authored HERE, in Unity (since 2026-08-06)
 
-Levels and unit stats live in the old repo's Kotlin. Never hand-edit the ScriptableObjects; a
-re-import silently overwrites them.
+**The ScriptableObjects in `Assets/GameData/` ARE the source of truth.** Edit them directly. The
+Kotlin export pipeline is retired; the old repo is reference only.
+
+**Read `LEVEL_AUTHORING.md` before authoring or editing a level** — the six composition rules,
+moved here from the Kotlin. They are checked, not merely documented:
 
 ```bash
-python3 tools/export_kotlin_data.py ~/AndroidStudioProjects/ArmedConflict   # (in the old repo)
-DISPLAY=:1 $U -batchmode -quit -projectPath . -executeMethod DataImporter.Import -logFile -
+DISPLAY=:1 $U -batchmode -quit -projectPath . -executeMethod LevelComposition.Report -logFile -
+DISPLAY=:1 $U -batchmode -quit -projectPath . -executeMethod SandboxLevels.Generate -logFile -
 ```
 
-`DataImporter` also REBUILDS the eight roster/grouping sandbox levels itself, because the exporter
-cannot parse their Kotlin generator — so the level list already comes from two places. That is
-what `PortSelfTest`'s `levelNumber == index + 1` check exists to catch.
+`LevelComposition.Report` measures every campaign level by BUILDING it and reading the same
+half-widths the camera uses, so it cannot disagree with the game. The same checks render live in
+the level's inspector. Warnings are advisory — a level may bend a rule for a reason, and that
+reason belongs in its `designNotes`. Errors are the locked 7–30 roster scale.
 
-**This arrangement is an OPEN QUESTION now that Android is retired** — see HANDOVER.md, "Data
-authoring, once Android is retired". The pipeline works; the reason it exists is gone.
+`SandboxLevels.Generate` rebuilds the eight roster/grouping rigs, which are the only GENERATED
+levels. It used to run as a side effect of every import, which is why the level list came from two
+places at once; it is a deliberate command now.
+
+**`LegacyKotlinImport` still exists and will destroy your work.** It overwrites every asset in
+`Assets/GameData` from `data.json`, in place, with no undo. It refuses to run without
+`-iAcceptDataLoss`. Do not remove that guard.
 
 ## Rules that keep biting (full detail in HANDOVER.md)
 
@@ -174,11 +184,13 @@ flat, vertex colours or small shared textures.
 
 ## Levels
 
-**ONE LEVEL PER BIOME, seven campaign levels** (Mountains, Forest, MountainsDusk, Winter, Desert,
-CityRuins, Ocean) plus 17 test rigs — 24 total. A new biome gets one level, not an arc.
+**Currently seven campaign levels** (Mountains, Forest, MountainsDusk, Winter, Desert, CityRuins,
+Ocean) plus 17 test rigs — 24 total. **Heading for 12–18** under `PRODUCT_DIRECTION.md` Tier 0.1:
+one level per biome was an ART constraint, never a content limit, so biomes REPEAT with different
+jobs. Author against the beat chart in that file.
 
-The SIX composition rules are written at the top of the campaign block in the Kotlin
-`LevelDefinition.kt`; read them before authoring. Shortest form: the Aiming camera frames the
+The six composition rules live in **`LEVEL_AUTHORING.md`** (moved out of the Kotlin 2026-08-06)
+and are checked by `LevelComposition.Report`. Shortest form: the Aiming camera frames the
 PLAYER LINE ONLY (~6 wide), scout/resolve framing is set by the enemy cluster INCLUDING structure
 edges (under ~11), one dominant structure plus at most two small supports, 14-18 units of
 separation TANK→DOMINANT STRUCTURE, and garrison the MAJORITY of the enemy roster on structures.
@@ -186,7 +198,9 @@ separation TANK→DOMINANT STRUCTURE, and garrison the MAJORITY of the enemy ros
 **Test levels must be renumbered whenever the campaign changes size** — the switcher indexes by
 position, and `PortSelfTest` asserts `levelNumber == index + 1`.
 
-**Levels are disposable test rigs.** Polish mechanics; do not tune levels.
+**The 17 TEST RIGS are disposable instruments** — change them freely to exercise a mechanic. The
+CAMPAIGN is no longer scrap: as of `PRODUCT_DIRECTION.md` it is the product's teaching funnel and
+each level owes one beat.
 
 ## Debugging
 

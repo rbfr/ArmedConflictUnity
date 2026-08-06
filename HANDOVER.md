@@ -944,3 +944,66 @@ judge one by eye, and do not "fix" it by raising the alpha.
 
 `DISPLAY=:1 $U -batchmode -quit -projectPath . -executeMethod BattleUIPreview.Shots -logFile -`
 writes the three cards to `Builds/ui/` and reports how many labels actually laid out glyphs.
+
+## Data authoring moved into Unity — DONE 2026-08-06
+
+Phase A of `_plans/TIER0_PLAN.md`. **The ScriptableObjects in `Assets/GameData/` are now the
+source of truth.** `CLAUDE.md`, `README.md` and `PRODUCT_DIRECTION.md` all say so; the section
+above describing the one-way Kotlin pipeline is history, not instruction.
+
+Nothing was migrated, because nothing needed to be. Re-running the exporter produced a `data.json`
+byte-identical to the committed one, so the assets were already at the Kotlin's last word and the
+exporter's hard-won parsing (FortressTier, Capture's optional fields, ARGB's low byte) is baked
+into them. **The work was disarming the importer, not moving data.**
+
+### What changed
+
+- **`DataImporter` → `LegacyKotlinImport.ImportOnce`, and it REFUSES to run** without
+  `-iAcceptDataLoss`. It still overwrites every asset in place with no undo. It carried a "never
+  re-run this" comment for months while remaining one command away from destroying a day's
+  authoring; a guard is cheaper than the incident. **Do not remove it.**
+- **The orphan sweep is GONE.** It deleted any asset the Kotlin no longer declared — correct while
+  the Kotlin was authoritative in both directions, and a shredder now, since a level authored in
+  Unity is by definition one the Kotlin does not declare. The price, stated plainly: an asset
+  deleted from the Kotlin now survives here, and `PortSelfTest`'s `levelNumber` contiguity check
+  is the only thing left that catches a stranded level rejoining the campaign at its old number.
+- **Sandbox generation is now `SandboxLevels.Generate`**, a command rather than a side effect of
+  every import. That was the second source of truth for the level list. It reads the
+  ScriptableObjects and **preserves each rig's existing `levelNumber` and `id`** rather than
+  deriving them from `levelOrder`. Verified faithful: regenerating produced assets byte-identical
+  to the committed ones.
+- **`LEVEL_AUTHORING.md`** carries the six composition rules, moved out of `LevelDefinition.kt`
+  before that file became unreachable. Dozens of Kotlin comments still point at "the composition
+  rules at the top of the campaign block" — they mean that file now.
+- **`LevelDefinitionSO.designNotes`** ([TextArea]) is where per-level reasoning goes. The Kotlin
+  carried a great deal of it in comments and the migration would otherwise have stranded all of it.
+
+### The rules are CHECKED now, not just written down
+
+`LevelComposition.Report` (headless) and the level inspector run the same six checks. Both measure
+by **building the level and reading the same half-widths the camera uses** — re-deriving spans
+from anchors would create a second source of truth about framing, and would be wrong anyway
+because a group's real width comes from Formation, not its anchor.
+
+Warnings are advisory: a level may bend a rule for a reason, and that reason belongs in its
+`designNotes`. An author who cannot ship a deliberate exception stops running the check at all.
+Errors are the locked 7-30 roster scale.
+
+### It immediately found real faults in shipped levels
+
+```
+L1 Patrol Encounter  warn  rule 5: 3/9 garrisoned (33%)
+L3 Watchpost Ridge   warn  rules 4/6: separation 13.3 (14-18)
+L5 Tower Assault     warn  rules 4/6: separation 11.3 (14-18)
+L6 Ash Boulevard     warn  rules 4/6: separation 18.1; rule 5: 7/16 garrisoned (44%)
+L7 Oceanfront        ERROR player roster 6, enemy roster 6 — the LOCK is 7-30 per side
+```
+
+**L7 violates a lock**, verified independently against the asset rather than taken from the tool.
+None of these were fixed here: retuning levels is Phase D work, done against the beat chart, and
+Phase A's deliverable is the tooling. They are the first real evidence that the campaign needs
+that pass.
+
+One limitation to know: "dominant structure" is resolved as the WIDEST enemy structure
+(`hitWidth`, falling back to `size`). For a tall-narrow tower that is a weak proxy, and on L5 it
+picked the CommandBunker over the tower the level is named for.

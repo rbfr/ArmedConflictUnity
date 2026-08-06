@@ -8,16 +8,34 @@ using UnityEngine;
 using ArmedConflict.Data;
 
 /// <summary>
-/// Builds ScriptableObject assets from the JSON emitted by tools/export_kotlin_data.py.
+/// RETIRED. Builds ScriptableObject assets from the JSON emitted by tools/export_kotlin_data.py.
 ///
-/// Run:  -batchmode -quit -executeMethod DataImporter.Import
-///       (reads Assets/../data.json unless -dataJson &lt;path&gt; is given)
+/// **This is no longer how game data is authored.** On 2026-08-06 authoring moved INTO Unity and
+/// the ScriptableObjects in Assets/GameData became the source of truth. Running this overwrites
+/// every one of them with whatever a retired repo's Kotlin last said — silently, in place, with no
+/// conflict and no confirmation. It is kept only so the original import can be reproduced or
+/// audited, and it will not run without saying so out loud:
 ///
-/// Re-runnable: the Android build is still the shipping build and its data keeps moving, so this
-/// overwrites existing assets in place rather than minting new ones. GUIDs are preserved, which
-/// is what keeps scene and asset references from breaking on a re-import.
+///     -batchmode -quit -executeMethod LegacyKotlinImport.ImportOnce -iAcceptDataLoss
+///     (reads Assets/../data.json unless -dataJson &lt;path&gt; is given)
+///
+/// The guard is not ceremony. This file carried a "never re-run this" comment for months while
+/// remaining a single command away from destroying a day's authoring, and the whole point of the
+/// migration was to stop relying on everybody remembering that.
+///
+/// Two behaviours were REMOVED rather than kept, because both were correct only while the Kotlin
+/// was authoritative:
+///
+/// - **The orphan sweep.** It deleted any asset the Kotlin no longer declared. Under Unity
+///   authorship that is not a cleanup, it is a shredder pointed at every newly authored level.
+/// - **Sandbox generation.** The eight roster/grouping rigs were rebuilt here as a side effect of
+///   every import, which is why the level list had two sources at once. It is now
+///   SandboxLevels.Generate, run deliberately.
+///
+/// GUIDs are still preserved on the assets it does write, which is what keeps scene references
+/// from breaking.
 /// </summary>
-public static class DataImporter
+public static class LegacyKotlinImport
 {
     const string Root = "Assets/GameData";
 
@@ -26,19 +44,19 @@ public static class DataImporter
     static readonly Dictionary<string, BackgroundDefinitionSO> Backgrounds = new();
     static readonly Dictionary<string, LevelDefinitionSO> Levels = new();
 
-    /// <summary>
-    /// Level-LOCAL variants minted during THIS run (PlayerTank__Level6 and friends). They are
-    /// legitimately absent from the Kotlin's own declarations, so the sweep has to be told about
-    /// them — but by RECORDING them, not by exempting the "__" name pattern. The pattern version
-    /// let PlayerTank__Level6 survive the campaign cut: Level6 used to be The Keep and had a
-    /// six-shell tank, it is Ash Boulevard now and has none, and the variant sat there referenced
-    /// by nothing. An exemption that covers a whole shape of name cannot tell a live variant from
-    /// a dead one.
-    /// </summary>
-    static readonly HashSet<string> LocalVariants = new();
-
-    public static void Import()
+    public static void ImportOnce()
     {
+        // THE GUARD. Assets/GameData is authored in Unity now; this rewrites all of it from a
+        // retired repo's export. Anyone who genuinely wants that can say so on the command line.
+        if (!HasFlag("-iAcceptDataLoss"))
+        {
+            Fail("REFUSING TO RUN. Game data is authored in Unity as of 2026-08-06 and this " +
+                 "importer OVERWRITES every asset in Assets/GameData in place, with no conflict " +
+                 "and no undo. If that is really what you want, pass -iAcceptDataLoss. If you " +
+                 "wanted the sandbox rigs rebuilt, that is SandboxLevels.Generate.");
+            return;
+        }
+
         string path = ArgOr("-dataJson", "data.json");
         if (!File.Exists(path)) { Fail($"data.json not found at {path}"); return; }
 
@@ -53,8 +71,6 @@ public static class DataImporter
             Fail($"exporter reported {unparsed.Count} unparsed definitions — fix the export first");
             return;
         }
-
-        LocalVariants.Clear();
 
         foreach (var d in new[] { "Units", "Structures", "Backgrounds", "Levels", "Stages" })
             Directory.CreateDirectory($"{Root}/{d}");
@@ -75,59 +91,33 @@ public static class DataImporter
         AssetDatabase.SaveAssets();
         AssetDatabase.Refresh();
 
-        // The level ORDER is load bearing: the debug switcher does jumpToLevel(levelNumber),
-        // which is only correct while levelNumber == index + 1. Read it BEFORE the sandboxes are
-        // generated, because they take their numbers from it.
-        var order = root.GetList("levelOrder");
-        var names = order.Select(o => RefName(o.AsDict())).ToList();
-
-        BuildSandboxLevels(names);
-        AssetDatabase.SaveAssets();
+        var names = root.GetList("levelOrder").Select(o => RefName(o.AsDict())).ToList();
         var absent = names.Where(n => n != null && !Levels.ContainsKey(n)).ToList();
 
-        // DELETE ORPHANS, in EVERY folder the importer owns. It creates and updates, and used
-        // to do nothing else — so anything removed from the Kotlin left its .asset behind.
+        // NO ORPHAN SWEEP. It used to delete any asset the Kotlin no longer declared, in every
+        // folder — correct while the Kotlin was the source of truth in both directions, and a
+        // shredder now that it is not. A level authored in Unity is, by definition, one the
+        // Kotlin does not declare.
         //
-        // For LEVELS that is an outright bug: SpikeSceneBattle collects every LevelDefinitionSO
-        // it can find and orders them by levelNumber, so a deleted level rejoined the campaign
-        // silently at whatever number it used to hold. Six were stranded by the biome cut.
-        // For the other three it is inert clutter rather than a live fault — but the rule is the
-        // same either way, and the roster cut immediately stranded seven UNITS, which is how a
-        // levels-only sweep proved to be the special case rather than the fix. The Kotlin is the
-        // source of truth in BOTH directions: what it no longer declares must not survive here.
-        Sweep("Levels", Levels.Keys);
-        Sweep("Units", Units.Keys);
-        Sweep("Structures", Structures.Keys);
-        Sweep("Backgrounds", Backgrounds.Keys);
+        // The consequence, stated plainly because it is the price of the migration: an asset
+        // deleted from the Kotlin now SURVIVES here. That mattered when a stranded level could
+        // rejoin the campaign at its old number; PortSelfTest's levelNumber contiguity check is
+        // what catches that, and it is now the only thing that does.
 
-        Debug.Log($"[DataImport] units={Units.Count} structures={Structures.Count} " +
+        Debug.Log($"[LegacyImport] units={Units.Count} structures={Structures.Count} " +
                   $"backgrounds={Backgrounds.Count} levels={Levels.Count} " +
                   $"orderedLevels={names.Count} notImported={absent.Count}");
         if (absent.Count > 0)
-            Debug.LogWarning("[DataImport] in levelOrder but NOT imported (generated by Kotlin " +
-                             $"helper functions, need their generator ported): {string.Join(", ", absent)}");
+            Debug.LogWarning("[LegacyImport] in levelOrder but NOT imported (the roster/grouping " +
+                             "sandboxes — regenerate them with SandboxLevels.Generate): " +
+                             string.Join(", ", absent));
 
         foreach (var lv in Levels.Values.Where(l => !l.isTestLevel).OrderBy(l => l.levelNumber))
-            Debug.Log($"[DataImport] L{lv.levelNumber} {lv.displayName}: " +
+            Debug.Log($"[LegacyImport] L{lv.levelNumber} {lv.displayName}: " +
                       $"{lv.enemyGroups.Sum(g => g.count)} enemies, {lv.structures.Count} structures");
     }
 
-    /// <summary>Removes any asset in a GameData folder the Kotlin no longer declares.</summary>
-    static void Sweep(string folder, IEnumerable<string> keep)
-    {
-        var live = new HashSet<string>(keep);
-        foreach (var orphan in AssetDatabase.FindAssets("", new[] { $"{Root}/{folder}" })
-                     .Select(AssetDatabase.GUIDToAssetPath)
-                     .Where(p => p.EndsWith(".asset"))
-                     .Where(p => !live.Contains(Path.GetFileNameWithoutExtension(p)))
-                     .Distinct()
-                     .ToList())
-        {
-            if (LocalVariants.Contains(Path.GetFileNameWithoutExtension(orphan))) continue;
-            Debug.Log($"[DataImport] removing orphaned {folder} asset {Path.GetFileName(orphan)}");
-            AssetDatabase.DeleteAsset(orphan);
-        }
-    }
+    static bool HasFlag(string flag) => Environment.GetCommandLineArgs().Contains(flag);
 
     // ------------------------------------------------------------------ builders
 
@@ -292,98 +282,6 @@ public static class DataImporter
         Levels[name] = so;
     }
 
-    // The roster/grouping sandboxes (L21-L28) are GENERATED by a Kotlin helper rather than
-    // declared as data, so the exporter cannot see them. Porting the generator is the only way
-    // to get them, and it is small. Kept faithful to rosterSandbox()/sandboxGroups().
-    static readonly string[] PlayerCycle =
-        { "Rifleman", "Rifleman", "MachineGunner", "Rifleman", "Grenadier" };
-    static readonly string[] EnemyCycle =
-        { "EnemyRifleman", "EnemyRifleman", "EnemyMachineGunner", "EnemyRifleman", "EnemyGrenadier" };
-
-    /// <summary>
-    /// The roster/grouping sandboxes, whose Kotlin generator (`rosterSandbox`) the exporter cannot
-    /// parse — so they are rebuilt here from the same parameters.
-    ///
-    /// The NUMBERS are taken from the level's position in `levelOrder`, never hardcoded. They used
-    /// to be literals in the spec table below, which made this a SECOND source of truth for level
-    /// numbering: cutting the campaign to seven biome levels renumbered them in the Kotlin and
-    /// they silently kept their old 21-28 here, breaking `levelNumber == index + 1` and with it
-    /// the level switcher. The composition is duplicated because it has to be; the ordering is not.
-    /// </summary>
-    static void BuildSandboxLevels(List<string> order)
-    {
-        // (assetName, label, playerCount, enemyCount, playerSquads, enemySquads)
-        var specs = new (string name, string label, int pc, int ec, int ps, int es)[]
-        {
-            ("LevelRosterSmall",     "Roster S v S",       6,  6, 2, 2),
-            ("LevelRosterMedium",    "Roster M v M",      14, 14, 3, 3),
-            ("LevelRosterLarge",     "Roster L v L",      26, 26, 5, 5),
-            ("LevelRosterSmallVsLg", "Roster S v L",       6, 26, 2, 5),
-            ("LevelRosterLargeVsSm", "Roster L v S",      26,  6, 5, 2),
-            ("LevelGroupingOne",     "Grouping 1 squad",  14, 14, 1, 1),
-            ("LevelGroupingTwo",     "Grouping 2 squads", 14, 14, 2, 2),
-            ("LevelGroupingSeven",   "Grouping 7 squads", 14, 14, 7, 7),
-        };
-
-        foreach (var s in specs)
-        {
-            int n = order.IndexOf(s.name) + 1;
-            if (n == 0)
-            {
-                Debug.LogWarning($"[DataImport] {s.name} is not in levelOrder — sandbox skipped");
-                continue;
-            }
-            var so = Load<LevelDefinitionSO>($"{Root}/Levels/{s.name}.asset");
-            so.id = $"level_test_roster_{n}";
-            so.displayName = $"TEST — {s.label}";
-            so.levelNumber = n;
-            so.levelGoal = $"Sandbox: {s.pc} v {s.ec}, {s.ps} v {s.es} squads";
-            so.isTestLevel = true;
-            so.levelBase = 0;
-            // Winter: flat bright ground reads massed units best.
-            so.background = Backgrounds.GetValueOrDefault("Winter");
-            // No enemy structures ON PURPOSE — a dominant structure would drive the
-            // scout/resolve framing and mask the thing being measured.
-            so.structures = new List<StructurePlacement>
-            {
-                new()
-                {
-                    id = "player_tank",
-                    definition = Structures.GetValueOrDefault("PlayerTank"),
-                    x = -10.5f, y = 0f, z = 0f, hpScale = 1f, standWidth = -1f,
-                },
-            };
-            so.playerGroups = SandboxGroups(s.pc, s.ps, -7.5f, PlayerCycle);
-            so.enemyGroups = SandboxGroups(s.ec, s.es, 6.5f, EnemyCycle);
-            so.props = new List<PropPlacement>();
-            EditorUtility.SetDirty(so);
-            Levels[s.name] = so;
-        }
-        Debug.Log($"[DataImport] generated {specs.Length} sandbox levels from the ported rosterSandbox()");
-    }
-
-    /// <summary>
-    /// Port of sandboxGroups(): splits count into squads whose sizes differ by at most one,
-    /// anchored around centerX at 1.7 spacing.
-    /// </summary>
-    static List<EnemyGroup> SandboxGroups(int count, int squads, float centerX, string[] cycle)
-    {
-        const float squadSpacing = 1.7f;
-        int n = Mathf.Clamp(squads, 1, count);
-        var outp = new List<EnemyGroup>();
-        for (int i = 0; i < n; i++)
-        {
-            int size = count / n + (i < count % n ? 1 : 0);
-            outp.Add(new EnemyGroup
-            {
-                definition = Units.GetValueOrDefault(cycle[i % cycle.Length]),
-                count = size,
-                anchorX = centerX + (i - (n - 1) / 2f) * squadSpacing,
-            });
-        }
-        return outp;
-    }
-
     static void BuildStage(string name, Dictionary<string, object> v)
     {
         var flat = Flatten(v, _ => null);
@@ -483,8 +381,9 @@ public static class DataImporter
             }
         }
         EditorUtility.SetDirty(v);
-        LocalVariants.Add(System.IO.Path.GetFileNameWithoutExtension(variantPath));
-        Debug.Log($"[DataImport] {levelName}: level-local {baseAsset.name} " +
+        // The set of level-local variants minted this run used to be recorded here so the orphan
+        // sweep would not eat them. There is no sweep any more, so there is nothing to tell.
+        Debug.Log($"[LegacyImport] {levelName}: level-local {baseAsset.name} " +
                   $"({string.Join(",", overrides.Keys)}) -> {System.IO.Path.GetFileName(variantPath)}");
         return v;
     }
@@ -747,7 +646,7 @@ public static class DataImporter
 
     static void Fail(string msg)
     {
-        Debug.LogError($"[DataImport] {msg}");
+        Debug.LogError($"[LegacyImport] {msg}");
         if (Application.isBatchMode) EditorApplication.Exit(1);
     }
 

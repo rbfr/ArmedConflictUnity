@@ -289,8 +289,10 @@ day" as the early proxy once analytics exist.
    prioritise.
 2. **`PortSelfTest.Run` after every change.** Prefer new checks that lock product invariants
    (e.g. levelNumber sequencing, economy grant routing) when you touch those systems.
-3. **Data authoring:** still Kotlin → export → `DataImporter` unless/until that open question
-   is closed in HANDOVER. Never hand-edit generated ScriptableObjects.
+3. **Data authoring is IN UNITY** as of 2026-08-06 — the ScriptableObjects in `Assets/GameData`
+   are the source of truth, edited directly. Read `LEVEL_AUTHORING.md` before touching a level and
+   run `LevelComposition.Report`. `LegacyKotlinImport` still exists and still overwrites
+   everything; it refuses to run without `-iAcceptDataLoss`.
 4. **Scene rebuild** when prefabs/materials/serialized refs change; code-only often does not.
 5. **Verify juice and campaign feel on device** with real drags — not Auto, not editor-only.
 6. **When implementing progression/dynamism**, update status tables in those docs; when

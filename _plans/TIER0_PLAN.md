@@ -60,7 +60,25 @@ export step from a retired repo and then migrating them is the one genuinely was
 
 ---
 
-## Phase A — move data authoring into Unity
+## Phase A — move data authoring into Unity — DONE 2026-08-06
+
+**Status: DONE.** Went as planned, with one thing the plan got right for the wrong reason: A1's
+"final import" turned out to be unnecessary — re-running the exporter produced a byte-identical
+`data.json`, so the assets were already current and nothing had to be migrated at all. The whole
+phase was A2's disarming plus A3/A4.
+
+Delivered: `LegacyKotlinImport.ImportOnce` behind `-iAcceptDataLoss` (sweep removed, sandbox
+side effect removed), `SandboxLevels.Generate` (verified byte-identical output),
+`LEVEL_AUTHORING.md`, `LevelDefinitionSO.designNotes`, and `LevelComposition.Report` + a live
+inspector sharing one set of thresholds.
+
+The validator found five warnings and one lock violation across the seven shipped campaign levels
+— see `HANDOVER.md`. Not fixed here; that is Phase D.
+
+The original plan text follows.
+
+---
+
 
 The pipeline works; the reason it exists is gone. The hazard is not the export step, it is that
 `DataImporter.Import` **overwrites hand-authored assets in place** — so the moment Unity becomes
