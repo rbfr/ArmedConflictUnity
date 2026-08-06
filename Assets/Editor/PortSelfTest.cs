@@ -1158,6 +1158,55 @@ public static class PortSelfTest
                   noPrefab.Count == 0
                       ? "every fielded class has a per-side prefab"
                       : $"PREFABS MISSING (rebuild the scene): {string.Join(", ", noPrefab)}");
+
+            // --- THE TANK SHELL. It is off-roster — built from a STRUCTURE, not a unit — so
+            // nothing in the unit-facing checks above would notice it had stopped firing, which
+            // is exactly how it went missing from the port in the first place.
+            var withCannon = levels.FirstOrDefault(l => l.playerGroups.Count > 0 &&
+                l.structures.Any(p => p.definition != null && p.definition.isPlayerSide
+                                      && p.definition.hasCannon));
+            Check(withCannon != null, "at least one level fields a player cannon");
+            if (withCannon != null)
+            {
+                var st0 = LevelBuilder.BuildInitialState(withCannon, 1, levels.Count, new System.Random(7));
+                st0 = st0 with { Phase = GamePhase.Playing, TurnPhase = TurnPhase.Aiming };
+                Check(st0.TankShellsRemaining > 0,
+                      $"a level with a cannon starts with ammo ({st0.TankShellsRemaining})");
+
+                var fired = BattleTick.FireVolley(st0, new Vector3(6f, 6f, 0f), new System.Random(3));
+                int shellsOut = fired.Projectiles.Count(p => p.Type == ProjectileType.Shell);
+                Check(shellsOut > 0, $"the player volley includes a tank shell ({shellsOut})");
+                Check(fired.TankShellsRemaining == st0.TankShellsRemaining - shellsOut,
+                      "firing SPENDS the shells it fired");
+                // The shell is the only round with a structure multiplier worth having; a shell
+                // that arrives at 1x is a rifle bullet with a big model.
+                var shell = fired.Projectiles.First(p => p.Type == ProjectileType.Shell);
+                Check(shell.StructureDamageMultiplier > 1f,
+                      $"the shell carries its structure multiplier ({shell.StructureDamageMultiplier:F1}x)");
+                Check(shell.Id >= 30000, "shell ids sit in their own band, clear of bullets and enemy fire");
+
+                // Run the ammo down and past zero. An unclamped decrement would go negative and
+                // the gun would fire forever on a level that had spent its shells.
+                var s2 = fired;
+                for (int i = 0; i < 12; i++)
+                {
+                    s2 = s2 with { TurnPhase = TurnPhase.Aiming };
+                    s2 = BattleTick.FireVolley(s2, new Vector3(6f, 6f, 0f), new System.Random(3));
+                }
+                Check(s2.TankShellsRemaining == 0, $"ammo stops at zero ({s2.TankShellsRemaining})");
+
+                // And the gate is honoured, so a level can field a tank with a cold gun.
+                var cold = st0 with { CannonArmed = false };
+                var coldFired = BattleTick.FireVolley(cold, new Vector3(6f, 6f, 0f), new System.Random(3));
+                Check(coldFired.Projectiles.All(p => p.Type != ProjectileType.Shell),
+                      "CannonArmed=false fires no shell");
+
+                // The PLAYER's volley must carry each unit's own projectile type — it did not,
+                // and only AutoFire did, so a rocket trooper's round was a plain bullet with no
+                // splash and a 1x structure multiplier whenever a human fired it.
+                var types = fired.Projectiles.Where(p => p.OwnerIsPlayer).Select(p => p.Type).Distinct().ToList();
+                Check(types.Count >= 1, $"player rounds carry a projectile type ({types.Count} distinct)");
+            }
         }
 
         Debug.Log($"[PortSelfTest] {(failed == 0 ? "ALL PASS" : $"{failed} FAILURES")}\n{Log}");

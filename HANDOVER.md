@@ -672,3 +672,33 @@ to the unit, so a soldier can inherit a neighbour's animation phase when the ran
 thins. The old flat pool indexed by order too, so this is not a regression from the per-class
 change, and with full-roster volleys every unit is playing the same clip anyway. If per-unit
 animation state ever matters, the fix is to key slots by unit id rather than by position.
+
+
+## The tank shell, restored — 2026-08-06
+
+**The player tank never fired.** `TankShellsRemaining` and `CannonArmed` were in `GameState`,
+`LevelBuilder` totalled the ammo from every player structure with a cannon, `CannonSpec` imported
+cleanly with its muzzle offsets and its `velocityBoost`, the Shell projectile type existed and its
+prefab was pooled — and nothing ever built a shell. `FireVolley` spawned one bullet per unit and
+stopped.
+
+`BattleTick.CannonShells` is the missing piece: one heavy round per player-side structure that
+mounts a cannon, added to the volley the infantry just threw. It is OFF-ROSTER — built from a
+STRUCTURE, not a unit — so losing every soldier does not silence the tank, and the tank is not a
+body the enemy can shoot at. Ammo is finite and `CannonArmed` gates it, so a level can field a
+tank with a cold gun. No jitter: the infantry are spread on purpose, but a rifled gun puts its
+round where it is pointed and a wandering shell reads as a bug.
+
+**A test was passing over the hole the whole time.** `"the player tank contributes its cannon
+shells"` asserted `TankShellsRemaining > 0` after the level was built — that the ammo had been
+IMPORTED, never that anything fired it. Same family as the four failures this file already
+records: it measured the input and called it the output. The checks now fire a volley and assert
+a Shell comes out, that it carries its structure multiplier, that the ammo is SPENT, that it
+stops at zero, and that `CannonArmed=false` fires nothing.
+
+**And the same edit found a second hole.** The PLAYER's volley left `Type`, `SplashRadius` and
+`StructureDamageMultiplier` at their defaults, so every round a human fired was a plain bullet
+with no splash and a 1x structure multiplier. `AutoFire`, three methods down, set all three
+correctly — so the rocket trooper's 6x against buildings and the grenadier's 2x existed only
+under the debug driver, and a rocket rendered as a tracer. **Auto and the player firing through
+different code is exactly how that survived**; anything that only Auto exercises is not tested.

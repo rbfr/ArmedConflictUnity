@@ -956,6 +956,15 @@ public class BattleRunner : MonoBehaviour
             y += 46;
         }
 
+        // The tank's ammo is FINITE and there is no other way to know it is running out — the
+        // shell just stops appearing in the volley, which reads as the gun having broken. Shown
+        // only on levels that field a cannon at all.
+        if (state.TankShellsRemaining > 0 || HasCannon())
+        {
+            GUI.Label(new Rect(28, y, 900, 60), $"Tank shells: {state.TankShellsRemaining}", big);
+            y += 46;
+        }
+
         string turn = state.Phase switch
         {
             GamePhase.Victory => "VICTORY",
@@ -1081,6 +1090,16 @@ public class BattleRunner : MonoBehaviour
                     Z = cam.transform.position.z,
                 };
         }
+    }
+
+    /// <summary>Whether this level fields a player cannon at all — so the ammo readout appears
+    /// on a level that HAS a tank and has spent its shells, and never on one that has none.</summary>
+    bool HasCannon()
+    {
+        foreach (var st in state.Structures)
+            if (st.Definition != null && st.Definition.isPlayerSide && st.Definition.hasCannon)
+                return true;
+        return false;
     }
 
     /// <summary>

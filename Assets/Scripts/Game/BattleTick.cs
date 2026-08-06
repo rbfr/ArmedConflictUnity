@@ -626,16 +626,103 @@ namespace ArmedConflict.Game
                     X: u.X, Y: u.Y + 0.35f, Z: u.Z,
                     Vx: aimVelocity.x + jitter, Vy: aimVelocity.y + jitter, Vz: 0f,
                     Damage: u.Definition != null ? u.Definition.damage : 8,
-                    OwnerIsPlayer: true));
+                    OwnerIsPlayer: true)
+                {
+                    // The PLAYER's volley used to leave all three of these at their defaults, so
+                    // every round the player fired was a plain bullet with no splash and a 1x
+                    // structure multiplier — while AutoFire, three methods down, set them
+                    // correctly. The rocket trooper's 6x against buildings and the grenadier's 2x
+                    // existed only under the debug driver, and a rocket rendered as a tracer.
+                    Type = u.Definition != null ? u.Definition.projectileType : ProjectileType.Bullet,
+                    SplashRadius = u.Definition != null ? u.Definition.splashRadius : 0f,
+                    StructureDamageMultiplier =
+                        u.Definition != null ? u.Definition.structureDamageMultiplier : 1f,
+                });
             }
+
+            int shellSlot = s.NextShellSlot;
+            // velocityBoost, straight from the data. The tank sits BEHIND the infantry line, so a
+            // shell thrown at the line's own velocity lands short of where the volley does; the
+            // boost is what puts the heavy round with the rest of the shot. Z is NOT boosted —
+            // the boost exists to buy range, and scaling the cross-field component with it would
+            // also throw the shell sideways.
+            var shells = CannonShells(s, ref shellSlot,
+                (muzzle, c) => new Vector3(aimVelocity.x * c.velocityBoost,
+                                           aimVelocity.y * c.velocityBoost,
+                                           aimVelocity.z));
+            rounds.AddRange(shells);
 
             return s with
             {
                 Projectiles = rounds,
                 NextBulletSlot = slot,
+                NextShellSlot = shellSlot,
+                TankShellsRemaining = s.TankShellsRemaining - shells.Count,
                 TurnPhase = TurnPhase.Resolving,
                 TurnSide = TurnSide.Player,
             };
+        }
+
+        /// <summary>Shell ids sit in their own band, like the bullets' 10000 and the enemy's
+        /// 20000. Raw ids have to stay globally unique — hit tracking keys off them.</summary>
+        const int ShellIdBase = 30000;
+
+        /// <summary>
+        /// The player tank's contribution: one heavy shell per player-side structure that mounts
+        /// a cannon, added to the volley the infantry just threw.
+        ///
+        /// It is OFF-ROSTER — there is no UnitEntity behind it, which is why it is built from the
+        /// STRUCTURE rather than in the unit loop. Losing every soldier does not silence the tank,
+        /// and the tank is not a body the enemy can shoot at.
+        ///
+        /// Ammo is FINITE (`CannonSpec.ammoPerBattle`, totalled into TankShellsRemaining when the
+        /// level is built) and `CannonArmed` gates it, so a level can field a tank with a cold gun
+        /// and no battle can be won by leaning on the heavy round every turn.
+        ///
+        /// NO JITTER, unlike the infantry. They get a random spread because a volley of identical
+        /// arcs reads as one round drawn N times; a rifled gun puts its round where it is pointed,
+        /// and a wandering tank shell reads as a bug rather than as spread.
+        /// </summary>
+        /// <param name="solve">Muzzle position and cannon spec in, launch velocity out. The two
+        /// callers want different things — the player's drag scaled by the gun's boost, and Auto's
+        /// own solve at a target — and passing the velocity in ready-made cannot work, because it
+        /// is the MUZZLE that Auto has to solve from and only this method knows where that is.
+        /// </param>
+        static List<ProjectileEntity> CannonShells(GameState s, ref int slot,
+                                                  System.Func<Vector3, CannonSpec, Vector3> solve)
+        {
+            var shells = new List<ProjectileEntity>();
+            int allowed = s.CannonArmed ? s.TankShellsRemaining : 0;
+            if (allowed <= 0) return shells;
+
+            foreach (var st in s.Structures)
+            {
+                if (shells.Count >= allowed) break;
+                var def = st.Definition;
+                if (def == null || !def.isPlayerSide || !def.hasCannon || def.cannon == null) continue;
+                var c = def.cannon;
+
+                // A structure entity's Y is the CENTRE of its box (placement.y * worldScale +
+                // size/2), so the muzzle offset is taken from the BASE. Read off the centre it
+                // would hang the muzzle half a tank in the air.
+                var muzzle = new Vector3(st.X + c.muzzleOffsetX,
+                                         st.Y - def.size / 2f + c.muzzleOffsetY,
+                                         st.Z);
+                var v = solve(muzzle, c);
+
+                shells.Add(new ProjectileEntity(
+                    Id: ShellIdBase + slot++,
+                    X: muzzle.x, Y: muzzle.y, Z: muzzle.z,
+                    Vx: v.x, Vy: v.y, Vz: v.z,
+                    Damage: c.damage,
+                    OwnerIsPlayer: true)
+                {
+                    Type = ProjectileType.Shell,
+                    SplashRadius = c.splashRadius,
+                    StructureDamageMultiplier = c.structureDamageMultiplier,
+                });
+            }
+            return shells;
         }
 
         /// <summary>
@@ -691,10 +778,33 @@ namespace ArmedConflict.Game
                 }
             }
 
+            // The tank fires under Auto too, solving from its OWN muzzle at the enemy nearest to
+            // it. Note the standing caveat: Auto targets enemy UNITS, so on a rig whose only
+            // enemies are off-screen immortals it throws the shell past the buildings and
+            // structure HP never moves. Judge a tank round against a structure with a real drag.
+            int shellSlot = s.NextShellSlot;
+            var shells = CannonShells(s, ref shellSlot, (muzzle, c) =>
+            {
+                UnitEntity nearest = null;
+                float best = float.MaxValue;
+                foreach (var e in s.EnemyUnits)
+                {
+                    float dx = e.X - muzzle.x, dy = e.Y - muzzle.y;
+                    float d = dx * dx + dy * dy;
+                    if (d < best) { best = d; nearest = e; }
+                }
+                if (nearest == null) return Vector3.zero;
+                return TrajectoryPhysics.SolveVelocity(
+                    muzzle, new Vector3(nearest.X, nearest.Y, nearest.Z), angleDegrees: 50f);
+            });
+            rounds.AddRange(shells);
+
             return s with
             {
                 Projectiles = rounds,
                 NextBulletSlot = slot,
+                NextShellSlot = shellSlot,
+                TankShellsRemaining = s.TankShellsRemaining - shells.Count,
                 TurnPhase = TurnPhase.Resolving,
                 TurnSide = TurnSide.Player,
             };
