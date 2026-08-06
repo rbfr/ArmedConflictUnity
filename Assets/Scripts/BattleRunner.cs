@@ -16,9 +16,14 @@ using ArmedConflict.UI;
 public class BattleRunner : MonoBehaviour
 {
     [SerializeField] Camera cam;
-    /// <summary>All 29 levels, campaign then test rigs, in `LevelDefinitions.all` order — the
-    /// order the level number indexes. A player has no AssetDatabase, so every level the session
-    /// can reach has to be a serialized reference.</summary>
+    /// <summary>
+    /// Every level: the CAMPAIGN BLOCK FIRST, then the test rigs, each ordered by its own level
+    /// number (SpikeSceneBattle sorts them that way). A player has no AssetDatabase, so every
+    /// level the session can reach has to be a serialized reference.
+    ///
+    /// The campaign leading and being contiguous is the whole split: the player-facing path is
+    /// "index &lt; campaignCount" and needs no second array.
+    /// </summary>
     [SerializeField] LevelDefinitionSO[] levels;
     [SerializeField] LevelScenery scenery;
     [SerializeField] GameObject playerUnitPrefab;
@@ -68,6 +73,23 @@ public class BattleRunner : MonoBehaviour
     LevelDefinitionSO level;
     int levelIndex;
     int battleId;
+
+    /// <summary>
+    /// How many leading entries of `levels` are campaign levels. Everything at or beyond this is
+    /// a dev rig and is NOT part of the player-facing path — PRODUCT_DIRECTION 0.1: "test rigs are
+    /// not the campaign".
+    /// </summary>
+    int campaignCount;
+
+    /// <summary>
+    /// Unlocks the test rigs for the ◀ ▶ stepper. OFF by default, so nothing a player can press
+    /// walks off the end of the campaign into the unit parade.
+    ///
+    /// Deliberately a runtime toggle rather than `Debug.isDebugBuild`: the rigs have to stay
+    /// reachable in a RELEASE build, because that is the only build performance may be measured
+    /// on and sweeping them from adb is how missing geometry gets found.
+    /// </summary>
+    bool showRigs;
 
     BattleUI ui;
     /// <summary>
@@ -180,7 +202,10 @@ public class BattleRunner : MonoBehaviour
         QualitySettings.vSyncCount = 0;
 
         random = new System.Random(12345);
+        // ALL levels, including rigs — ProgressStore excludes test levels from TotalStars itself,
+        // and it has to be able to read a best-star result for anything reachable.
         ProgressStore.AllLevels = levels;
+        campaignCount = levels?.Count(l => l != null && !l.isTestLevel) ?? 0;
 
         ui = BattleUI.Create();
         ui.OnRetry = () => LoadLevel(levelIndex);
@@ -190,6 +215,13 @@ public class BattleRunner : MonoBehaviour
         BuildPools();
         LoadLevel(0);
     }
+
+    /// <summary>
+    /// The highest index navigation may reach — the end of the campaign, or the end of everything
+    /// once the rigs are unlocked. Guards against a campaign of zero, which would otherwise clamp
+    /// to -1 and index out of the array.
+    /// </summary>
+    int LastReachableIndex => (showRigs || campaignCount <= 0 ? levels.Length : campaignCount) - 1;
 
     /// <summary>
     /// Swaps the whole battle over to another level: new state, new scenery, pools emptied.
@@ -202,11 +234,11 @@ public class BattleRunner : MonoBehaviour
     public void LoadLevel(int index)
     {
         if (levels == null || levels.Length == 0) { Debug.LogError("[Battle] no levels"); return; }
-        levelIndex = Mathf.Clamp(index, 0, levels.Length - 1);
+        levelIndex = Mathf.Clamp(index, 0, LastReachableIndex);
         level = levels[levelIndex];
 
         // battleId advances per load so nothing keyed on it can collide with the level before it.
-        state = LevelBuilder.BuildInitialState(level, ++battleId, levels.Length, random);
+        state = LevelBuilder.BuildInitialState(level, ++battleId, campaignCount, random);
         state = state with { Phase = GamePhase.Playing, TurnPhase = TurnPhase.Aiming };
 
         scenery.Build(level, state.Structures);
@@ -745,8 +777,10 @@ public class BattleRunner : MonoBehaviour
         {
             var award = TurnFlow.AwardVictory(level, state.PlayerUnits.Count,
                                               state.InitialPlayerCount);
+            // NEXT is bounded by the CAMPAIGN, never by the array — winning the last campaign
+            // level must not offer to walk the player into the unit parade.
             ui.ShowVictory(award, state.PlayerUnits.Count, state.InitialPlayerCount,
-                           hasNextLevel: levelIndex < levels.Length - 1);
+                           hasNextLevel: levelIndex < campaignCount - 1);
             Debug.Log($"[Battle] victory: {award.Stars}★, +{award.Coins} coins" +
                       (award.BonusTag != null ? $" ({award.BonusTag})" : "") +
                       $", balance {ProgressStore.Coins()}");
@@ -1254,10 +1288,13 @@ public class BattleRunner : MonoBehaviour
     /// than left to be covered: IMGUI always draws after the canvas, so they would have painted
     /// straight over the card and gone on swallowing its taps.
     ///
-    /// The ◀ ▶ stepper is always on, and is the DEBUG switcher the shipping build also carries:
-    /// it is the only way to sweep 29 levels for crashes and missing geometry from adb without a
-    /// three-minute rebuild each time. It is also why LoadLevel has to be correct from ANY phase,
-    /// not just from a finished battle.
+    /// The ◀ ▶ stepper is the DEBUG switcher: the only way to sweep every level for crashes and
+    /// missing geometry from adb without a three-minute rebuild each time. It is also why
+    /// LoadLevel has to be correct from ANY phase, not just from a finished battle.
+    ///
+    /// It walks the CAMPAIGN ONLY until RIGS is pressed. Before that split the stepper ran off the
+    /// end of the campaign straight into the unit parade, which is fine for a developer and not
+    /// something a player should ever be one tap from.
     /// </summary>
     void DrawLevelNav()
     {
@@ -1272,8 +1309,24 @@ public class BattleRunner : MonoBehaviour
             LoadLevel(levelIndex - 1);
         if (GUI.Button(new Rect(Screen.width - 130f, NavTop, 100f, 90f), "▶", nav))
             LoadLevel(levelIndex + 1);
-        GUI.Label(new Rect(Screen.width - 250f, NavTop + 94f, 220f, 40f),
-                  $"L{level.levelNumber} ({levelIndex + 1}/{levels.Length})", style);
+        // The readout counts within whatever block is reachable, so "3/7" means three of seven
+        // CAMPAIGN levels rather than three of twenty-four assorted scenes.
+        GUI.Label(new Rect(Screen.width - 250f, NavTop + 94f, 260f, 40f),
+                  $"L{level.levelNumber} ({levelIndex + 1}/{LastReachableIndex + 1})" +
+                  (level.isTestLevel ? " RIG" : ""), style);
+
+        // RIGS unlocks the test levels for the stepper. The campaign is the only thing reachable
+        // without it, which is what "test rigs are not the campaign" means in practice — but the
+        // rigs stay one tap away in a RELEASE build, because sweeping them from adb is how
+        // missing geometry gets found and a development build cannot be trusted for anything else.
+        var rigStyle = new GUIStyle(nav) { fontSize = 26 };
+        if (GUI.Button(new Rect(Screen.width - 490f, NavTop, 100f, 90f),
+                       showRigs ? "RIGS\nON" : "RIGS", rigStyle))
+        {
+            showRigs = !showRigs;
+            // Locking them again while standing on one would leave the session out of bounds.
+            if (!showRigs && levelIndex > LastReachableIndex) LoadLevel(LastReachableIndex);
+        }
 
         // CAM sits beside the stepper, matching the shipping build's placement.
         if (GUI.Button(new Rect(Screen.width - 370f, NavTop, 100f, 90f), "CAM", nav))

@@ -195,8 +195,15 @@ PLAYER LINE ONLY (~6 wide), scout/resolve framing is set by the enemy cluster IN
 edges (under ~11), one dominant structure plus at most two small supports, 14-18 units of
 separation TANK→DOMINANT STRUCTURE, and garrison the MAJORITY of the enemy roster on structures.
 
-**Test levels must be renumbered whenever the campaign changes size** — the switcher indexes by
-position, and `PortSelfTest` asserts `levelNumber == index + 1`.
+**Test rigs no longer need renumbering when the campaign changes size** (2026-08-06). The scene
+builder orders CAMPAIGN-then-RIGS, so the campaign block leads and is indexed by position while a
+rig's number indexes nothing. `PortSelfTest` asserts contiguity **within the campaign only** — and
+that half matters more than it did, because the orphan sweep is gone and a stale level asset can
+no longer be deleted for you.
+
+**The ◀ ▶ stepper walks the CAMPAIGN only** until the `RIGS` button unlocks the test block. A
+runtime toggle rather than a debug-build check, because the rigs must stay reachable in a release
+build — that is the only build worth measuring anything on.
 
 **The 17 TEST RIGS are disposable instruments** — change them freely to exercise a mechanic. The
 CAMPAIGN is no longer scrap: as of `PRODUCT_DIRECTION.md` it is the product's teaching funnel and

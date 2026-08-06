@@ -1181,13 +1181,30 @@ public static class PortSelfTest
 
             Check(levels.Count == 24, $"all 24 levels present ({levels.Count})");
 
-            // levelNumber MUST equal index + 1: the switcher indexes the array by position and
-            // every HUD readout names the level by number. The Kotlin carries the same rule, and
-            // it is what forced the test rigs to be renumbered when the campaign grew.
-            var misnumbered = levels.Where((l, i) => l.levelNumber != i + 1).ToList();
+            // CONTIGUITY IS A CAMPAIGN RULE ONLY, as of the 2026-08-06 campaign/rig split.
+            //
+            // It used to be asserted across all 24 — which is what forced every test rig to be
+            // renumbered whenever the campaign changed size, a standing chore and a standing bug.
+            // SpikeSceneBattle now orders campaign-then-rigs, so the campaign block leads and is
+            // indexed by position; a rig's number is free and indexes nothing.
+            //
+            // The campaign half still matters, and matters MORE than before: the orphan sweep is
+            // gone (see LegacyKotlinImport), so a stale level asset can no longer be deleted for
+            // us, and this check is the only thing that catches one rejoining the campaign.
+            var campaign = levels.Where(l => !l.isTestLevel).OrderBy(l => l.levelNumber).ToList();
+            var misnumbered = campaign.Where((l, i) => l.levelNumber != i + 1).ToList();
             Check(misnumbered.Count == 0,
-                  "levelNumber == index + 1 for every level" +
-                  (misnumbered.Count == 0 ? "" : $" (first bad: {misnumbered[0].displayName})"));
+                  $"campaign levelNumbers are contiguous from 1 ({campaign.Count} levels)" +
+                  (misnumbered.Count == 0 ? "" : $" (first bad: {misnumbered[0].displayName} " +
+                                                 $"is L{misnumbered[0].levelNumber})"));
+
+            // Ids are the PlayerPrefs keys the star results are stored under, so a duplicate
+            // silently makes two levels share a best-star record. The rigs are excluded from
+            // TotalStars but still record stars, so this covers all 24.
+            var dupIds = levels.GroupBy(l => l.id).Where(g => g.Count() > 1).ToList();
+            Check(dupIds.Count == 0,
+                  "every level id is unique — ids key the saved star results" +
+                  (dupIds.Count == 0 ? "" : $" (duplicated: {dupIds[0].Key})"));
 
             var missing = new SortedSet<string>();
             var unitClasses = new SortedSet<string>();

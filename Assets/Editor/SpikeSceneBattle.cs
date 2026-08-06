@@ -25,13 +25,20 @@ public static class SpikeSceneBattle
     {
         var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
 
-        // ALL levels, ordered by their own level number — the order the switcher indexes, and the
-        // order `LevelDefinitions.all` has in the Kotlin. Sorting by filename would interleave
-        // Level10 with Level1 and drop the eight named test rigs somewhere arbitrary.
+        // CAMPAIGN FIRST, then the test rigs; each block ordered by its own level number.
+        //
+        // The campaign block being contiguous and leading is what lets BattleRunner treat
+        // "index < campaignCount" as the player-facing path without a second array, and it is why
+        // a test rig's levelNumber no longer has to be renumbered every time the campaign changes
+        // size. That renumbering was a standing chore and a standing bug: the switcher indexes by
+        // position, so a rig left on its old number silently moved.
+        //
+        // Sorting by filename would interleave Level10 with Level1 and scatter the named rigs.
         var levels = AssetDatabase.FindAssets("t:LevelDefinitionSO")
             .Select(g => AssetDatabase.LoadAssetAtPath<LevelDefinitionSO>(AssetDatabase.GUIDToAssetPath(g)))
             .Where(l => l != null)
-            .OrderBy(l => l.levelNumber)
+            .OrderBy(l => l.isTestLevel)
+            .ThenBy(l => l.levelNumber)
             .ToArray();
         if (levels.Length == 0) { Debug.LogError("[Battle] no level assets"); return; }
         var level = levels[0];

@@ -1,6 +1,10 @@
 # TIER0_PLAN.md — implementation plan for `PRODUCT_DIRECTION.md` Tier 0
 
-Written 2026-08-06. Sequenced plan for the product spine (0.1–0.6). **Nothing here is built yet.**
+Written 2026-08-06. Sequenced plan for the product spine (0.1–0.6).
+
+**Phases A, B and C are DONE** (2026-08-06), all confirmed on device. Remaining: **D** (campaign
+content to 12 levels), **E** (loadout), **F** (enemy turn juice). Each phase heading below carries
+what actually shipped, including where it differed from the plan.
 
 Two decisions were taken with Rob before this plan was written, and the sequencing depends on
 both:
@@ -136,7 +140,17 @@ identical result before and after A2, plus a device sweep of all 24 levels.
 
 ---
 
-## Phase B — split the campaign from the test rigs
+## Phase B — split the campaign from the test rigs — DONE 2026-08-06
+
+**Status: DONE**, and confirmed on device. Simpler than planned: done with ONE array ordered
+campaign-then-rigs rather than the two serialized arrays B1 proposed, which avoids two indexing
+schemes. The stepper is gated by a runtime `RIGS` toggle rather than a build flag, because the
+rigs must stay reachable in a release build. See `HANDOVER.md`.
+
+The original plan text follows.
+
+---
+
 
 **B1.** `SpikeSceneBattle` emits two serialized arrays instead of one: `campaignLevels[]`
 (`!isTestLevel`, ordered by `levelNumber`) and `testLevels[]`.
@@ -278,9 +292,9 @@ This also clears three of the juice-checklist items for the cost of one UI compo
 
 | Phase | Blocks | Blocked by | Rough shape |
 |---|---|---|---|
-| A — data → Unity | D | — | Editor tooling; one careful migration |
-| B — campaign split | D | — | Small; two arrays and a test change |
-| C — victory + coins | — | — | One call site + the first uGUI canvas |
+| A — data → Unity | D | — | **DONE** — the migration was a no-op; the work was disarming the importer |
+| B — campaign split | D | — | **DONE** — one ordered array, a RIGS gate, a test change |
+| C — victory + coins | — | — | **DONE** — one call site + the first uGUI canvas |
 | D — 12 levels | — | A, B | The calendar bulk; content, not code |
 | E — loadout | — | C (canvas) | New data + new screen + balance audit |
 | F — enemy juice | — | C (canvas) | Wiring three unused data fields to popups |

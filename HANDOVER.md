@@ -1007,3 +1007,40 @@ that pass.
 One limitation to know: "dominant structure" is resolved as the WIDEST enemy structure
 (`hitWidth`, falling back to `size`). For a tall-narrow tower that is a weak proxy, and on L5 it
 picked the CommandBunker over the tower the level is named for.
+
+## Campaign split from the test rigs — DONE 2026-08-06
+
+Phase B of `_plans/TIER0_PLAN.md`. `PRODUCT_DIRECTION.md` pillar 10: "test rigs are not the
+campaign."
+
+Done with ONE array, not two. `SpikeSceneBattle` now orders **campaign-then-rigs** (`OrderBy
+isTestLevel, ThenBy levelNumber`), so the campaign block leads and is contiguous, and the
+player-facing path is simply `index < campaignCount`. A second serialized array would have meant
+two indexing schemes and a conversion between them at every call site.
+
+- **The ◀ ▶ stepper walks the campaign only.** A `RIGS` button unlocks the test block.
+  Deliberately a runtime toggle and NOT `Debug.isDebugBuild`: the rigs have to stay reachable in a
+  RELEASE build, because that is the only build performance may be measured on and sweeping them
+  from adb is how missing geometry gets found. Locking them while standing on one snaps back to
+  the last campaign level.
+- **NEXT on the victory card is bounded by the campaign**, so winning the last campaign level no
+  longer offers to walk the player into the unit parade.
+- **The nav readout counts within the reachable block** — "L7 (7/7)", not 7 of 24 — and marks a
+  rig with `RIG`.
+
+### The renumbering chore is retired
+
+`PortSelfTest` asserted `levelNumber == index + 1` across all 24, which is what forced every test
+rig to be renumbered whenever the campaign changed size. It now asserts contiguity **within the
+campaign only**; a rig's number indexes nothing. Phase D changes the campaign's size by five or
+more levels, so this had to come first.
+
+That half of the check matters MORE than it used to: the orphan sweep is gone, so a stale level
+asset can no longer be deleted for us, and this is the only thing that catches one rejoining the
+campaign at its old number. A duplicate-id check was added alongside it — ids key the saved star
+results, so a duplicate silently makes two levels share a best-star record.
+
+### Confirmed on device
+
+Release build on the Pixel 10 Pro XL: ten ▶ taps from L1 stop at L7 and stay there; `RIGS` then
+reaches L8 (TEST — Tier Collapse); locking again snaps L8 back to L7; the readout reads L7 (7/7).

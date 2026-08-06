@@ -337,7 +337,7 @@ locks and unit measurement.
 |------|--------|
 | Direction captured | 2026-08-06 |
 | Sequenced plan for Tier 0 | `_plans/TIER0_PLAN.md`, phases A–F |
-| 0.1 campaign restructure | **not started** (still 7 campaign + 17 rigs) — plan phases B and D |
+| 0.1 campaign restructure | **rigs gated 2026-08-06** (phase B done: campaign is a closed path, RIGS unlocks the rest). Content still 7 levels — needs phase D |
 | 0.2 onboarding arc | not started — plan phase D |
 | 0.3 victory screen | **DONE 2026-08-06**, confirmed on device. Stars, reasons, coin count-up, bonus banner, retry/next |
 | 0.4a coins felt | **DONE** — the economy was fully ported and never called; one call site turned it on. Balance is now persistent on screen |
