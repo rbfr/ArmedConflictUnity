@@ -738,6 +738,24 @@ public static class PortSelfTest
             Check(shake == 0f, "shake decays to EXACTLY zero, never a lingering epsilon");
             Check(CosmeticSystems.DecayShake(0f, 1f) == 0f, "decaying past zero cannot go negative");
 
+            // HIT FLASH. Same failure shape as the shake: something the renderer tests for and
+            // nothing clears leaves a unit permanently lit. -1 is the only "off" value, and it
+            // has to come back on its own.
+            Check(CosmeticSystems.StepHitFlash(-1f, 1f / 60f) == -1f,
+                  "an unhit unit stays unflashed however long it lives");
+            float flash = 0f;
+            int frames = 0;
+            while (flash >= 0f && frames < 1000) { flash = CosmeticSystems.StepHitFlash(flash, 1f / 60f); frames++; }
+            Check(flash == -1f, "a flash ends, and ends at exactly -1 rather than an epsilon");
+            Check(frames > 1 && frames <= 12,
+                  $"a flash lasts a handful of frames, not a beat ({frames} at 60Hz)");
+            // Rate independence, the same property DecayPerTick60 exists for: the panel is pinned
+            // to 60 today, and the flash must not get longer if that ever changes.
+            float atThirty = 0f;
+            int thirtyFrames = 0;
+            while (atThirty >= 0f && thirtyFrames < 1000) { atThirty = CosmeticSystems.StepHitFlash(atThirty, 1f / 30f); thirtyFrames++; }
+            Near(thirtyFrames / 30f, frames / 60f, 1f / 30f, "the flash lasts the same TIME at 30Hz");
+
             // Ragdoll rest height: a body must never sink through the floor at any rotation.
             for (int deg = 0; deg < 360; deg += 7)
             {

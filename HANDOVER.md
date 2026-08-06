@@ -577,3 +577,67 @@ come from the level data (`ClassCounts`), not a constant:
 and never made them bigger, so a hero authored at 1.9x rendered at exactly crowd size. Invisible
 while every class shared one model, and the whole point of the hero the moment it has its own
 greatcoat-and-cap body. `SyncUnits` now multiplies it onto the prefab's normalised scale.
+
+## Hit flash and the free camera — 2026-08-06
+
+**A struck unit now flashes.** A unit that takes damage and SURVIVES lights up near-white for
+0.12s (`CosmeticSystems.HitFlashSeconds`). Before this, a wounded soldier was audible and nothing
+else — the tick counted `TotalWoundedHits` but nothing on screen said WHICH body had been hit, and
+with 32 HP against 8 damage most hits wound rather than kill.
+
+A flash rather than a bar or a floating number, chosen against the game's own framing: a crowd
+unit is ~89px with neighbours about two body widths away, so there is no room for a readable bar
+over each one, and a full-roster volley would throw a dozen damage numbers that overlap each other
+and the soldiers they describe.
+
+- `UnitEntity.HitFlashAge` follows `KnockbackAge`'s shape: -1 is off, a hit sets 0, and it counts
+  up. It is advanced in `ApplyDamage` for EVERY unit, hit or not — that is the one place per tick
+  that sees them all, and advancing it only in the damaged branch starts a flash nothing ever ends.
+- A KILL does not flash. The death clip and the ragdoll already say what happened; lighting a body
+  on the frame it starts falling reads as a second, unrelated event.
+- The renderer writes only on the TRANSITION, and via a `MaterialPropertyBlock` — pooled slots
+  share one material per tone per class, so tinting the material would flash every soldier of that
+  class at once. Turning it off CLEARS the block rather than writing a colour back, so nothing has
+  to know which of the four tones a given mesh was wearing.
+- Near-white, not red: several faction palettes are already red, so a red flash on a Redguard
+  soldier is close to invisible.
+
+**And the free camera is back**, ported from Android's `ui/battle/DebugCamera.kt`: a CAM button
+beside the level stepper, a six-button pad, and a live x/y/z readout. It HOLDS, through volleys and
+the victory screen — that is the whole feature. It confirmed L1's bunker garrison stands correctly
+on its deck in about ten seconds, which is the kind of question that otherwise costs a volley, a
+screen recording and a frame hunt.
+
+Two things it is worth knowing about:
+
+- **Its x is GAME space, not Unity space.** `GameSpace.CameraX` negates, so a raw Unity x made the
+  "→" button pan the view LEFT — it visibly did on the first device run. The readout matters as
+  much as the button: it exists to be written down and compared against level data, which is
+  authored in game x, and a tool that reports the mirror image of the coordinate you are hunting
+  is worse than no readout at all.
+- **It suppresses shake.** A tool for judging whether a thing is in the right PLACE cannot have
+  the view jittering under it.
+
+### Method note, because it cost an hour
+
+The flash was diagnosed as "not rendering" from a screen recording twice before it turned out to
+be working the whole time. Both times the detector was wrong, not the code: the first pass hunted
+near-white pixels on WINTER ground, which is near-white, and the second sampled frames five
+seconds after the volley instead of the one second where the rounds actually land. What settled it
+was a temporary probe logging both ends — the tick arming the flash and the renderer applying it —
+which printed `flash=True renderers=11 mat=Universal Render Pipeline/Lit` on the first run.
+
+That is the same lesson this file already records four times over, in a new costume: **verify
+CONTENT, and prefer positive evidence over a plausible cause.** A pixel search that finds nothing
+is not evidence of absence until you have proved the search can find the thing when it IS there.
+
+### Known, pre-existing: a unit's slot is not stable across frames
+
+`UnitSlots.Take` hands slots out in roster order, so when a soldier dies everyone behind him
+shifts down one slot. Per frame the assignment is still a bijection — every live unit gets a slot
+of its own class at its own position — so the flash and the positions are correct. But anything
+slot-STICKY drifts: `UnitAnim`'s clip time and its hidden→visible re-arm belong to the SLOT, not
+to the unit, so a soldier can inherit a neighbour's animation phase when the rank in front of him
+thins. The old flat pool indexed by order too, so this is not a regression from the per-class
+change, and with full-roster volleys every unit is playing the same clip anyway. If per-unit
+animation state ever matters, the fix is to key slots by unit id rather than by position.

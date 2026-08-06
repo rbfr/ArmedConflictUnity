@@ -134,8 +134,8 @@ namespace ArmedConflict.Game
             }
 
             // --- 3. damage and deaths ----------------------------------------------------
-            var enemyUnits = ApplyDamage(s.EnemyUnits, hits, out var enemyKilled);
-            var playerUnits = ApplyDamage(s.PlayerUnits, hits, out var playerKilled);
+            var enemyUnits = ApplyDamage(s.EnemyUnits, hits, dt, out var enemyKilled);
+            var playerUnits = ApplyDamage(s.PlayerUnits, hits, dt, out var playerKilled);
 
             // --- 4. structures and collapse ----------------------------------------------
             var structures = s.Structures.ToList();
@@ -489,19 +489,31 @@ namespace ArmedConflict.Game
         }
 
         static List<UnitEntity> ApplyDamage(IReadOnlyList<UnitEntity> units, HitResult hits,
-                                            out int killed)
+                                            float dt, out int killed)
         {
             killed = 0;
             var outp = new List<UnitEntity>(units.Count);
             foreach (var u in units)
             {
-                if (!hits.UnitDamage.TryGetValue(u.Id, out int dmg)) { outp.Add(u); continue; }
+                // The flash has to be advanced for EVERY unit, hit or not — this is the one place
+                // per tick that sees them all. Doing it only in the damaged branch would start a
+                // flash that nothing ever ends, and the unit would stay lit for the rest of the
+                // battle.
+                float flash = CosmeticSystems.StepHitFlash(u.HitFlashAge, dt);
+                if (!hits.UnitDamage.TryGetValue(u.Id, out int dmg))
+                {
+                    outp.Add(flash == u.HitFlashAge ? u : u with { HitFlashAge = flash });
+                    continue;
+                }
                 int hp = u.Hp - dmg;
                 if (hp <= 0) { killed++; continue; }
                 outp.Add(u with
                 {
                     Hp = hp,
                     KnockbackAge = hits.ExplosiveHitUnitIds.Contains(u.Id) ? 0f : u.KnockbackAge,
+                    // Restarted from zero on every hit, so a unit taking a second round mid-flash
+                    // flashes again rather than finishing the first one and going quiet.
+                    HitFlashAge = 0f,
                 });
             }
             return outp;

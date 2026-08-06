@@ -25,6 +25,33 @@ namespace ArmedConflict.Game
         public static float DecayPerTick60(float perTick, float dt)
             => Mathf.Pow(perTick, dt * 60f);
 
+        // ---- hit flash ------------------------------------------------------------------
+
+        /// <summary>
+        /// How long a struck-but-surviving unit reads as struck. Short on purpose: the game
+        /// throws FULL-ROSTER volleys, so a dozen of these light up in the same instant, and
+        /// anything long enough to overlap the next volley stops being an event and becomes a
+        /// second uniform colour. Seven frames at 60Hz.
+        ///
+        /// A flash rather than a bar or a number, decided 2026-08-06. At the framing the player
+        /// actually sees, a crowd unit is ~89px tall and its neighbours are about two body widths
+        /// away — there is no room for a readable bar over each one, and a dozen damage numbers
+        /// at once overlap each other and the soldiers they describe.
+        /// </summary>
+        public const float HitFlashSeconds = 0.12f;
+
+        /// <summary>
+        /// Advances a unit's flash by one tick. -1 means inactive, which is also what it returns
+        /// once the flash has run its course — the renderer tests for >= 0 and nothing has to
+        /// remember whether a given unit was ever hit.
+        /// </summary>
+        public static float StepHitFlash(float age, float dt)
+        {
+            if (age < 0f) return -1f;
+            float next = age + dt;
+            return next >= HitFlashSeconds ? -1f : next;
+        }
+
         // ---- camera shake ---------------------------------------------------------------
 
         public const float ShakeDecayPerSecond = 2.5f;

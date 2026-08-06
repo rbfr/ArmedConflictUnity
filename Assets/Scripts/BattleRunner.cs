@@ -82,6 +82,14 @@ public class BattleRunner : MonoBehaviour
     Texture2D dot;
     MaterialPropertyBlock blastProps;
 
+    // Hit flash. Near-white rather than red: the enemy army is already red under several faction
+    // palettes, so a red flash on a Redguard soldier is nearly invisible — and the player's own
+    // line has to read the same way when IT is being shot at.
+    static readonly Color HitFlashColor = new(1f, 0.94f, 0.86f);
+    static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
+    MaterialPropertyBlock flashProps;
+    readonly HashSet<GameObject> flashing = new();
+
     void Start()
     {
         Application.targetFrameRate = 60;
@@ -462,6 +470,10 @@ public class BattleRunner : MonoBehaviour
             var go = slots.Take(key);
             if (go == null) continue;
             go.SetActive(true);
+            // A unit killed WHILE flashing hands its slot straight to its own corpse, and nothing
+            // on this path would ever turn the tint off again — the body would lie there lit for
+            // the rest of the battle.
+            SetHitFlash(go, false);
             float dScale = slots.BaseScale(key) *
                            (d.Definition != null ? d.Definition.renderScale : 1f);
             if (!Mathf.Approximately(go.transform.localScale.x, dScale))
@@ -599,6 +611,40 @@ public class BattleRunner : MonoBehaviour
             if (go.TryGetComponent<UnitAnim>(out var a)) a.Fire();
     }
 
+    /// <summary>
+    /// Lights a struck unit up for the length of its flash.
+    ///
+    /// Two things make this less trivial than it looks. Pooled slots SHARE their materials — one
+    /// per tone per class — so tinting a renderer's material would flash every soldier of that
+    /// class at once; the override has to be a MaterialPropertyBlock, which is per renderer
+    /// instance. And the whole body goes one colour rather than each tone brightening its own,
+    /// which is deliberate: at 89px the read wanted is "that silhouette just took a round", and a
+    /// four-tone body brightened tone-by-tone stays a four-tone body.
+    ///
+    /// Writes only on the TRANSITION. A dozen units × eleven renderers, re-blocked every frame,
+    /// is real cost for a picture that did not change — and this game has already paid once for a
+    /// per-frame repair that measured as free on a light level and was not.
+    /// </summary>
+    void SetHitFlash(GameObject go, bool on)
+    {
+        if (on == flashing.Contains(go)) return;
+        flashProps ??= new MaterialPropertyBlock();
+        if (on) flashing.Add(go); else flashing.Remove(go);
+
+        foreach (var r in go.GetComponentsInChildren<MeshRenderer>(true))
+        {
+            if (on)
+            {
+                flashProps.SetColor(BaseColorId, HitFlashColor);
+                r.SetPropertyBlock(flashProps);
+            }
+            // Clearing the block, not writing the original colour back: the renderer then falls
+            // through to its shared material again, so nothing here has to know which of the four
+            // tones this particular mesh was wearing.
+            else r.SetPropertyBlock(null);
+        }
+    }
+
     /// <summary>Which rigged silhouette a unit renders as. The DATA still names the old
     /// unriggable models, so the key is the bare model name and the `_rigged` suffix lives on the
     /// asset — see RiggedUnits.Models.</summary>
@@ -645,6 +691,8 @@ public class BattleRunner : MonoBehaviour
             go.transform.position = GameSpace.ToUnity(u.X, u.Y, u.Z);
             go.transform.rotation = Quaternion.identity;
 
+            SetHitFlash(go, u.HitFlashAge >= 0f);
+
             // `renderScale` reached the port as a FORMATION number only — it spread the heroes
             // apart and never made them bigger, so a hero authored at 1.9x the crowd rendered at
             // exactly crowd size. Harmless while every class shared one model; the moment the
@@ -677,8 +725,57 @@ public class BattleRunner : MonoBehaviour
         }
     }
 
+    // ---- free camera (debug tool) --------------------------------------------------------
+
+    /// <summary>
+    /// DEBUG-ONLY free camera, ported from the Android build's `ui/battle/DebugCamera.kt`.
+    ///
+    /// Why it exists: the gameplay camera is entirely state-driven — it frames the player line
+    /// while aiming and the enemy cluster on scout and resolve — so LOOKING at something (a
+    /// garrison that is floating, a structure's deck, a prop that is the wrong size) means firing
+    /// a volley and catching the one moment the camera happens to swing past it, then hunting for
+    /// that frame in a screen recording. The floating-garrison and detached-turret bugs were both
+    /// confirmed in seconds once the camera could simply be parked in front of them.
+    ///
+    /// It HOLDS, including through volleys and the victory screen. That is the whole feature —
+    /// a camera that resumes its solve the moment something happens is the problem, not the tool.
+    ///
+    /// x/y are world units and z is camera distance, exactly as on Android. The ground-plane solve
+    /// still runs against them (BattleCamera.Apply reads the camera's ACTUAL height, not the
+    /// constant), so the horizon stays where the backdrop puts it at any height.
+    ///
+    /// X IS GAME SPACE, NOT UNITY SPACE, and both halves of that matter. `GameSpace.CameraX`
+    /// negates — Unity is left-handed and screen-right is -x — so a raw Unity x made the "→"
+    /// button pan the view LEFT, which it visibly did on the first device run. And the readout
+    /// exists to be written down and compared against level data, which is authored in game x; a
+    /// tool that reports the mirror image of the coordinate you are hunting is worse than no
+    /// readout.
+    /// </summary>
+    struct FreeCam
+    {
+        public float X, Y, Z;
+        public FreeCam Pan(float d) { X += d; return this; }
+        public FreeCam Lift(float d) { Y = Mathf.Clamp(Y + d, 0.1f, 30f); return this; }
+        public FreeCam Dolly(float d) { Z = Mathf.Clamp(Z + d, 1.5f, 60f); return this; }
+    }
+
+    // Steps: roughly one soldier laterally and half a soldier vertically at crowd scale, so a few
+    // taps move a visible amount without overshooting the thing being inspected.
+    const float PanStep = 0.5f, LiftStep = 0.25f, DollyStep = 0.5f;
+
+    bool freeCamOn;
+    FreeCam freeCam;
+
     void ApplyCamera()
     {
+        if (freeCamOn)
+        {
+            // No shake. Shake is a per-frame random offset, and a tool for judging whether a thing
+            // is in the right PLACE cannot have the view jittering underneath it.
+            BattleCamera.Apply(cam, GameSpace.CameraX(freeCam.X), freeCam.Y, freeCam.Z);
+            return;
+        }
+
         // The tick keeps CameraFollowX continuous now, so there is no fallback to snap to.
         float camXGame = state.CameraFollowX ?? state.PlayerCamXAnchor;
         float camZ = state.CameraFollowZ ?? 11f;
@@ -791,6 +888,7 @@ public class BattleRunner : MonoBehaviour
         GUI.enabled = true;
 
         DrawLevelNav();
+        DrawFreeCamPad();
         DrawHud();
     }
 
@@ -833,5 +931,49 @@ public class BattleRunner : MonoBehaviour
             LoadLevel(levelIndex + 1);
         GUI.Label(new Rect(Screen.width - 250f, NavTop + 94f, 220f, 40f),
                   $"L{level.levelNumber} ({levelIndex + 1}/{levels.Length})", style);
+
+        // CAM sits beside the stepper, matching the shipping build's placement.
+        if (GUI.Button(new Rect(Screen.width - 370f, NavTop, 100f, 90f), "CAM", nav))
+        {
+            freeCamOn = !freeCamOn;
+            // SEEDED FROM THE LIVE CAMERA, so switching it on does not move the picture. Starting
+            // from a fixed home position means every investigation begins by flying back to
+            // whatever you were already looking at.
+            if (freeCamOn)
+                freeCam = new FreeCam
+                {
+                    // Back through the same negation, so the seed is a game x like the readout.
+                    X = GameSpace.CameraX(cam.transform.position.x),
+                    Y = cam.transform.position.y,
+                    Z = cam.transform.position.z,
+                };
+        }
+    }
+
+    /// <summary>
+    /// The free camera's control pad. BUTTONS rather than a drag gesture, for two reasons: the
+    /// aim mechanic already owns dragging, and discrete taps are what `adb shell input tap` can
+    /// drive during a scripted investigation. The READOUT is part of the tool, not decoration —
+    /// it is how a position found by eye gets written down and reproduced next session.
+    /// </summary>
+    void DrawFreeCamPad()
+    {
+        if (!freeCamOn) return;
+
+        var b = new GUIStyle(GUI.skin.button) { fontSize = 34 };
+        const float W = 96f, H = 84f, Gap = 8f;
+        float x0 = 30f, y0 = Screen.height - 560f;
+
+        Rect At(int col, int row) => new(x0 + col * (W + Gap), y0 + row * (H + Gap), W, H);
+
+        if (GUI.Button(At(0, 0), "↑", b)) freeCam = freeCam.Lift(LiftStep);
+        if (GUI.Button(At(0, 1), "↓", b)) freeCam = freeCam.Lift(-LiftStep);
+        if (GUI.Button(At(1, 0), "←", b)) freeCam = freeCam.Pan(-PanStep);
+        if (GUI.Button(At(1, 1), "→", b)) freeCam = freeCam.Pan(PanStep);
+        if (GUI.Button(At(2, 0), "IN", b)) freeCam = freeCam.Dolly(-DollyStep);
+        if (GUI.Button(At(2, 1), "OUT", b)) freeCam = freeCam.Dolly(DollyStep);
+
+        GUI.Label(new Rect(x0, y0 - 46f, 700f, 44f),
+                  $"CAM  x {freeCam.X:F2}   y {freeCam.Y:F2}   z {freeCam.Z:F2}", style);
     }
 }
