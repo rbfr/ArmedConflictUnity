@@ -1,4 +1,22 @@
-# Handover — Unity port, as of 2026-08-05 (level navigation session appended)
+# Handover — Unity port, as of 2026-08-05
+
+## START HERE — state in ten lines
+
+- **Both repos are COMMITTED AND PUSHED.** Unity `main` at `d56ba9f`; Android
+  `projectile-refinement` at `f9af006` (a branch, not merged to its `main`).
+- The Unity port **plays all 24 levels** end to end at a steady 60 fps, with animated units.
+- **Campaign is 7 levels, ONE PER BIOME** (Mountains, Forest, MountainsDusk, Winter, Desert,
+  CityRuins, Ocean) plus 17 test rigs. Total 24.
+- **Roster is 8 unit definitions / 7 models / 6 pickable**, cut from 15 on 2026-08-05.
+- **281 self-test checks pass.** Run them after every change (command below).
+- Android is still the shipping build and still the SOURCE OF TRUTH for all game data. Level and
+  unit edits happen THERE, in Kotlin, then re-export and re-import — never hand-edit the
+  ScriptableObjects.
+- Biggest open thread: **every unit class still renders as the same rifleman.**
+
+Then read the traps sections — most of them cost a build to find, and several are invisible
+outside a real device build.
+
 
 Read this first, then `README.md`, then `SPIKE_RESULTS.md` / `MIGRATION_SCOPE.md` if you need the
 history. Everything below was verified on the device, not assumed.
@@ -21,9 +39,12 @@ key cannot push here. This repo uses `~/.ssh/armedconflictunity_deploy` via the
 
 ## What works
 
-All 24 levels are reachable and L1 plays end to end at a steady 60 fps: drag to aim, volley, swept collision, damage, structure
-collapse, turn handover, victory. With sound both sides, biome backdrop, per-type projectiles,
-unit weapons, fading explosions, scorch marks, rubble, a battle HUD and an Auto button.
+All 24 levels are reachable and play end to end at a steady 60 fps: drag to aim, volley, swept
+collision, damage, structure collapse, turn handover, victory. With sound both sides, a per-level
+biome backdrop, per-type projectiles, unit weapons, fading explosions, scorch marks, structures
+that shed their own geometry as they take damage, a battle HUD, level navigation and an Auto
+button. Units are ANIMATED — idle, a two-handed hold, recoil, death — and both lines raise their
+rifles to the angle they are actually firing at.
 
 All eight `GameViewModel` slices are ported (`LevelBuilder`, `CollisionSystem`,
 `ProjectileSystem`, `TurnFlow`, `CameraDirector`, `CosmeticSystems`, `HelicopterSystem`,
@@ -31,7 +52,7 @@ All eight `GameViewModel` slices are ported (`LevelBuilder`, `CollisionSystem`,
 `TrajectoryPhysics`, `SweptCollision`, `ProgressStore`, `EconomyStore`. `data/` is complete at
 24 levels — 7 campaign (one per biome) plus 17 test rigs.
 
-**265 checks, all passing.** They assert the behaviour the Kotlin comments describe, not just
+**281 checks, all passing.** They assert the behaviour the Kotlin comments describe, not just
 that the code compiles. Run them after every change:
 
 ```bash
@@ -418,45 +439,79 @@ node may carry children.
 Verified on device on the demolition rig: the garrison post's wall panels vanish one at a time as
 HP falls 225 → 121, and shed rubble settles against its base.
 
-## Open items
+## Open items — in the order I would take them
 
-1. **Loadout screen** (~415 lines) — the last large UI item. Battle HUD, aim overlay, background
-   and audio are all done, so the UI estimate in `MIGRATION_SCOPE.md` is much smaller than it was.
-2. ~~**Rubble is spawned and stepped but never observed falling.**~~ **DONE 2026-08-05** — and the
-   reason it was never observed is worth keeping: `Auto` targets the nearest enemy UNIT, so on
-   every rig whose only enemies are the off-screen immortals it throws the whole volley PAST the
-   buildings and structure HP never moves. Structure work has to be driven by a real aimed drag.
-   The demolition rig copies L2's geometry so the shot is solvable: tank -9.5 to subject +6.5 is
-   16 units, and range = v²/g means v = 8, i.e. 89% of the 9 maximum at 45°.
-3. **Release build gaps** — debug-signed, APK not AAB, `versionCode` never increments.
+1. **Unit art: every class still renders as the same rifleman.** The largest thread by far, and
+   the port has NO class differentiation at all on screen today. The go/no-go passed — one
+   rifleman rebuilt on Kenney's joint hierarchy, animated, on device — so what remains is
+   rewriting `build_units_v6.py`'s `finish()` for the limb hierarchy, regenerating, and wiring
+   `modelAsset` → prefab.
+   **It is now a much smaller job than the docs elsewhere imply**: the roster cut took it from
+   ten silhouettes to SIX, and the rig already carries aim elevation. Read
+   `UNIT_VARIETY_DESIGN.md`'s "what's been tried" first — seven attempts are recorded, several of
+   which looked right in a Blender render and failed in real un-zoomed gameplay. Note step 1
+   touches the builder the shipping Android build also uses.
+
+2. **A decision, not a task: re-tune incendiary, or leave it.** `burnDamage = 6` was calibrated to
+   finish the 8hp Sniper in one tick and that unit no longer exists (the roster cut gave the
+   Sniper the Marksman's 16hp). It was deliberately NOT raised — doubling a 300-coin consumable is
+   a balance call, not a side effect of deleting a class — so a tick is now a ~37% chip rather
+   than a kill. `AmmoTest` anchors to the roster's frailest unit, so it will not silently expire.
+
+3. **Loadout screen** (~415 lines) — the last large UI item. Battle HUD, aim overlay, background,
+   audio and level navigation are all done, so `MIGRATION_SCOPE.md`'s UI estimate is stale high.
+
+4. **`snowfall` is imported and ignored** — Winter's falling flakes are not ported. Winter is one
+   campaign level now rather than eleven, so this is much less urgent than it was.
+
+5. **Release build gaps** — debug-signed, APK not AAB, `versionCode` never increments.
    Deliberately deferred; see the README.
-4. **`snowfall` is imported and ignored** — Winter's falling flakes are not ported. Eleven levels
-   use that biome, so it is the largest single thing the backdrop still owes the Kotlin build.
-   Ocean is a plain gradient band with no sun or surf; no level uses it today.
-5. **Unit art is still one rifleman for every class** — see the unit-art section above. Step 1 of
-   that thread (rewriting `build_units_v6.py`'s `finish()` for the limb hierarchy across all 11
-   classes) is untouched. This is now the largest open thread.
 
-### Device sweep — DONE 2026-08-05
+6. **Unverified, small:** the unit parade (L9) was rebuilt from two rows to a single row of six
+   and has NOT been looked at on device. Reasoned rather than measured: six at 1.1 spacing is a
+   half-width of ~2.75 against the two-row version's ~2.2, so it should frame slightly wider but
+   far tighter than the nine-in-a-row case that caused the two rows in the first place.
 
-All 29 stepped through on the Pixel 10 Pro XL with the ◀ ▶ nav: every level loaded, in the right
-order, with no exception and no missing-model warning. Rosters and structure counts match the
-Kotlin. **Per-level biomes are confirmed working on device** — green, desert, city-ruins and
-winter backdrops all appear, which no build before this one could show.
+### Things that will bite, gathered in one place
 
-Two things worth knowing before reading a sweep screenshot:
+- **`Auto` cannot test STRUCTURES.** It targets the nearest enemy UNIT, so on any rig whose only
+  enemies are the off-screen immortals it throws the whole volley past the buildings and structure
+  HP never moves. This is why "rubble never observed falling" survived for weeks. Structure work
+  needs a real aimed drag — the demolition rig copies L2's geometry so the shot is solvable:
+  16 units, range = v²/g, so v = 8, i.e. 89% of the 9 maximum at 45°.
 - **Enemy structures are OFF-FRAME at aiming framing, and that is correct.** The Aiming camera
-  frames the PLAYER LINE ONLY. Every campaign level looks structure-less in a still taken at
-  Aiming; drive a volley and the follow camera pans onto them. Verified on L1 — garrison post,
-  defenders standing on the roof DECK, tracers, kills registering 9 → 7 → 6, turn handover,
-  60 fps, drag 0ms.
-- The buttons are placed clear of the status-bar/gesture insets so an adb tap cannot land on the
-  system UI: ◀ (880, 235), ▶ (1000, 235), AUTO (180, 2259).
+  frames the PLAYER LINE ONLY, so every campaign level looks structure-less in a still. Drive a
+  volley and the follow camera pans onto them.
+- **The device drops off USB.** Twice in one session, not enumerating in `lsusb` at all; `adb
+  kill-server` does not recover it and it needs a physical replug.
+- **Never judge a visual from the preview alone.** `BackdropPreview` renders from x = 0 while the
+  game camera sits over the player line, and it silently rendered every biome as bare sky and
+  ground for a whole session (Unity fake-null after an unused-asset unload).
+
+### Device sweep — DONE 2026-08-05, at 29 levels
+
+Every level loaded on the Pixel 10 Pro XL via the ◀ ▶ nav, in the right order, with no exception
+and no missing-model warning. **Per-level biomes confirmed on device** — green, desert,
+city-ruins and winter backdrops all appear, which no build before this one could show.
+
+Swept BEFORE the campaign was cut to 7 biome levels; the 7 survivors were re-swept afterwards and
+all load. The 17 test rigs have not been re-swept since the roster cut, and two of them were
+rebuilt by it (the unit parade and the demolition rig), so that is the cheapest sanity pass if
+anything looks wrong.
+
+On-screen buttons sit clear of the status-bar and gesture insets so an adb tap cannot land on the
+system UI: ◀ (880, 235), ▶ (1000, 235), AUTO (180, 2259).
 
 ## Owed to the ANDROID repo
 
 - ~~The garrison-ceiling bug is probably live there.~~ **FIXED there 2026-08-05**: `hitsStructure`
   now bounds the box by `deckY` where one is measured, with a regression test. Re-measuring the
   whole set says the outpost was the only mismatch.
-- **Three uncommitted files** in that repo: the `CLAUDE.md` edits (persona, migration decision,
-  garrison note) and the untracked `UNITY_SPIKE.md` / `GODOT_SPIKE.md`. Rob commits on explicit ask.
+- **Nothing is owed and nothing is uncommitted.** That repo is at `f9af006` on
+  `projectile-refinement`, pushed, working tree clean, 50 tests 0 failures. The branch is 11
+  commits ahead of its own `main` and has never been merged or PR'd — GitHub offered
+  `https://github.com/rbfr/ArmedConflict/pull/new/projectile-refinement`.
+- **Game DATA still lives there**, and that will not change while the Kotlin is the source of
+  truth. Any level, unit, roster or stage edit is a Kotlin edit followed by
+  `python3 tools/export_kotlin_data.py ~/AndroidStudioProjects/ArmedConflict` and
+  `DataImporter.Import` — even when the session is otherwise entirely Unity work.
