@@ -738,6 +738,29 @@ public static class PortSelfTest
             Check(shake == 0f, "shake decays to EXACTLY zero, never a lingering epsilon");
             Check(CosmeticSystems.DecayShake(0f, 1f) == 0f, "decaying past zero cannot go negative");
 
+            // HEALTH BAR CLOCK. Same failure shape as the shake: something the renderer tests for
+            // and nothing clears leaves a bar over a soldier for the rest of the battle. -1 is the
+            // only "off" value and it has to come back on its own.
+            Check(CosmeticSystems.StepHitAge(-1f, 1f / 60f) == -1f,
+                  "a unit that has not been hit never shows a bar");
+            float age = 0f;
+            int frames = 0;
+            while (age >= 0f && frames < 100000) { age = CosmeticSystems.StepHitAge(age, 1f / 60f); frames++; }
+            Check(age == -1f, "the bar retires, and at exactly -1 rather than an epsilon");
+            Near(frames / 60f, CosmeticSystems.HealthBarSeconds, 2f / 60f,
+                 $"the bar lasts its stated few seconds ({frames / 60f:F2}s)");
+            // Rate independence — the panel is pinned to 60 today and must not be relied on.
+            float at30 = 0f;
+            int f30 = 0;
+            while (at30 >= 0f && f30 < 100000) { at30 = CosmeticSystems.StepHitAge(at30, 1f / 30f); f30++; }
+            Near(f30 / 30f, frames / 60f, 1f / 15f, "the bar lasts the same TIME at 30Hz");
+            // And it FADES rather than blinking out: full early, zero at the end.
+            Check(CosmeticSystems.HealthBarAlpha(0f) == 1f, "a fresh bar is fully opaque");
+            Near(CosmeticSystems.HealthBarAlpha(CosmeticSystems.HealthBarSeconds), 0f, 1e-4f,
+                 "and has faded to nothing by the time it retires");
+            Check(CosmeticSystems.HealthBarAlpha(CosmeticSystems.HealthBarSeconds - 0.35f) < 1f,
+                  "the last stretch is a fade, not a cut");
+
 
             // Ragdoll rest height: a body must never sink through the floor at any rotation.
             for (int deg = 0; deg < 360; deg += 7)

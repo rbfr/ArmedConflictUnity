@@ -134,8 +134,8 @@ namespace ArmedConflict.Game
             }
 
             // --- 3. damage and deaths ----------------------------------------------------
-            var enemyUnits = ApplyDamage(s.EnemyUnits, hits, out var enemyKilled);
-            var playerUnits = ApplyDamage(s.PlayerUnits, hits, out var playerKilled);
+            var enemyUnits = ApplyDamage(s.EnemyUnits, hits, dt, out var enemyKilled);
+            var playerUnits = ApplyDamage(s.PlayerUnits, hits, dt, out var playerKilled);
 
             // --- 4. structures and collapse ----------------------------------------------
             var structures = s.Structures.ToList();
@@ -489,19 +489,31 @@ namespace ArmedConflict.Game
         }
 
         static List<UnitEntity> ApplyDamage(IReadOnlyList<UnitEntity> units, HitResult hits,
-                                            out int killed)
+                                            float dt, out int killed)
         {
             killed = 0;
             var outp = new List<UnitEntity>(units.Count);
             foreach (var u in units)
             {
-                if (!hits.UnitDamage.TryGetValue(u.Id, out int dmg)) { outp.Add(u); continue; }
+                // The since-hit clock has to advance for EVERY unit, hit or not — this is the one
+                // place per tick that sees them all. Advancing it only in the damaged branch
+                // starts a bar that nothing ever takes down, and the unit wears it for the rest
+                // of the battle.
+                float age = CosmeticSystems.StepHitAge(u.LastHitAge, dt);
+                if (!hits.UnitDamage.TryGetValue(u.Id, out int dmg))
+                {
+                    outp.Add(age == u.LastHitAge ? u : u with { LastHitAge = age });
+                    continue;
+                }
                 int hp = u.Hp - dmg;
                 if (hp <= 0) { killed++; continue; }
                 outp.Add(u with
                 {
                     Hp = hp,
                     KnockbackAge = hits.ExplosiveHitUnitIds.Contains(u.Id) ? 0f : u.KnockbackAge,
+                    // Re-armed from zero on every hit, so a unit under sustained fire keeps its
+                    // bar up instead of having it expire mid-bombardment.
+                    LastHitAge = 0f,
                 });
             }
             return outp;

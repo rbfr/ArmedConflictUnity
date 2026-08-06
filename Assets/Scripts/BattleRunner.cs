@@ -89,11 +89,10 @@ public class BattleRunner : MonoBehaviour
 
     // ---- health bars ---------------------------------------------------------------------
     //
-    // Shown ONLY over a unit that has taken damage, and it stays up while the unit is still
-    // wounded rather than fading — the useful question mid-battle is "which of these survivors is
-    // one round from dying", and an answer that has already faded out cannot be read when the
-    // next volley is being aimed. A unit at full health carries nothing, which is what keeps a
-    // 26-strong line clean at the start of a turn.
+    // Shown when a unit is HIT and faded out a few seconds later, driven by UnitEntity.LastHitAge
+    // rather than by "is currently wounded". The player has read the hit by then; a bar that
+    // persists for as long as the damage does turns a 26-strong line into a second HUD laid over
+    // the army. A unit that has not been hit recently carries nothing.
     //
     // Sized against UnitGeometry.UnitScaleUnits, like every other body-relative thing in this
     // project. The WIDTH is bounded by Formation.MountedColumnSpacing (0.187) rather than by the
@@ -111,7 +110,8 @@ public class BattleRunner : MonoBehaviour
     static readonly Color BarLow = new(0.82f, 0.20f, 0.16f);
     static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
 
-    readonly List<(GameObject Root, Transform Fill, MeshRenderer FillRenderer)> healthBars = new();
+    readonly List<(GameObject Root, Transform Fill, MeshRenderer FillRenderer,
+                   MeshRenderer BackRenderer)> healthBars = new();
     MaterialPropertyBlock barProps;
 
     void Start()
@@ -393,16 +393,14 @@ public class BattleRunner : MonoBehaviour
 
             var back = QuadMesh.Create("back", root.transform, healthBarSource);
             back.transform.localScale = new Vector3(BarWidth, BarHeight, 1f);
-            var backProps = new MaterialPropertyBlock();
-            backProps.SetColor(BaseColorId, BarBackColor);
-            back.GetComponent<MeshRenderer>().SetPropertyBlock(backProps);
 
             var fill = QuadMesh.Create("fill", root.transform, healthBarSource);
             // Nearer the camera in WORLD terms, which after the X-flip is local -z.
             fill.transform.localPosition = new Vector3(0f, 0f, -0.002f);
 
             root.SetActive(false);
-            healthBars.Add((root, fill.transform, fill.GetComponent<MeshRenderer>()));
+            healthBars.Add((root, fill.transform, fill.GetComponent<MeshRenderer>(),
+                            back.GetComponent<MeshRenderer>()));
         }
     }
 
@@ -428,11 +426,14 @@ public class BattleRunner : MonoBehaviour
     {
         foreach (var u in units)
         {
-            int max = u.Definition != null ? Mathf.Max(u.Definition.maxHp, 1) : 1;
-            if (u.Hp >= max) continue;                       // untouched units stay clean
+            // Driven by the since-hit CLOCK, not by "is wounded". A bar that stays up for as long
+            // as a unit is damaged becomes a second HUD laid over the army — by then the player
+            // has read the hit, and what is left is clutter competing with the soldiers.
+            if (u.LastHitAge < 0f) continue;
             if (used >= healthBars.Count) break;
 
-            var (root, fill, fillRenderer) = healthBars[used++];
+            int max = u.Definition != null ? Mathf.Max(u.Definition.maxHp, 1) : 1;
+            var (root, fill, fillRenderer, backRenderer) = healthBars[used++];
             root.SetActive(true);
 
             float scale = u.Definition != null ? u.Definition.renderScale : 1f;
@@ -450,8 +451,19 @@ public class BattleRunner : MonoBehaviour
             // charging meter rather than a wound.
             fill.localPosition = new Vector3(-(inner - inner * frac) * 0.5f, 0f, -0.002f);
 
-            barProps.SetColor(BaseColorId, frac > 0.6f ? BarHigh : frac > 0.3f ? BarMid : BarLow);
+            // BOTH quads fade, not just the fill — fading the fill alone leaves the dark backing
+            // plate behind as a floating black tick over the soldier's head, which is a worse
+            // artefact than the bar it was trying to retire.
+            float alpha = CosmeticSystems.HealthBarAlpha(u.LastHitAge);
+            var c = frac > 0.6f ? BarHigh : frac > 0.3f ? BarMid : BarLow;
+            c.a = alpha;
+            barProps.SetColor(BaseColorId, c);
             fillRenderer.SetPropertyBlock(barProps);
+
+            var back = BarBackColor;
+            back.a = alpha;
+            barProps.SetColor(BaseColorId, back);
+            backRenderer.SetPropertyBlock(barProps);
         }
         return used;
     }

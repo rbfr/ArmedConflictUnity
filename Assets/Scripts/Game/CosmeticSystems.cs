@@ -25,6 +25,41 @@ namespace ArmedConflict.Game
         public static float DecayPerTick60(float perTick, float dt)
             => Mathf.Pow(perTick, dt * 60f);
 
+        // ---- health bars ----------------------------------------------------------------
+
+        /// <summary>
+        /// How long a unit's health bar stays up after it is hit, and how much of that is spent
+        /// fading out. It does NOT persist for as long as the unit is wounded: the player has
+        /// already read the hit by then, and a line of permanent bars is a second HUD sitting on
+        /// top of the army.
+        ///
+        /// Re-armed from zero on every hit, so a unit under sustained fire keeps its bar up
+        /// rather than having it expire mid-bombardment.
+        /// </summary>
+        public const float HealthBarSeconds = 3f;
+        public const float HealthBarFadeSeconds = 0.7f;
+
+        /// <summary>
+        /// Advances the since-hit clock. -1 means "not showing", which is also what this returns
+        /// once the bar has run its course — the renderer tests for >= 0 and nothing else has to
+        /// remember whether a given unit was ever hit.
+        /// </summary>
+        public static float StepHitAge(float age, float dt)
+        {
+            if (age < 0f) return -1f;
+            float next = age + dt;
+            return next >= HealthBarSeconds ? -1f : next;
+        }
+
+        /// <summary>Opacity for a bar at this age: solid, then fading over the last stretch.</summary>
+        public static float HealthBarAlpha(float age)
+        {
+            if (age < 0f) return 0f;
+            float remaining = HealthBarSeconds - age;
+            return remaining >= HealthBarFadeSeconds ? 1f
+                 : Mathf.Clamp01(remaining / HealthBarFadeSeconds);
+        }
+
         // ---- camera shake ---------------------------------------------------------------
 
         public const float ShakeDecayPerSecond = 2.5f;

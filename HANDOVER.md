@@ -587,9 +587,19 @@ common case was the unreported one.
 
 - **Hidden until the unit has taken damage**, which needs NO new state: "has been hit" is
   `Hp < Definition.maxHp`. A whole line at the start of a turn carries nothing.
-- **It stays up while the unit is still wounded** rather than fading. The useful question when the
-  next volley is being aimed is "which of these survivors is one round from dying", and an answer
-  that has already faded cannot be read at the moment it is wanted.
+- **It FADES OUT a few seconds after the hit** (`CosmeticSystems.HealthBarSeconds`, 3s, with the
+  last 0.7s spent fading), driven by `UnitEntity.LastHitAge` rather than by "is currently
+  wounded". It first shipped persistent-while-damaged and that was rejected in play: the player
+  has read the hit by then, and a bar over every damaged survivor turns a 26-strong line into a
+  second HUD laid on top of the army. Re-armed from zero on every hit, so a unit under sustained
+  fire keeps its bar rather than having it expire mid-bombardment.
+- **BOTH quads fade, not just the fill.** Fading the coloured fill alone leaves the dark backing
+  plate behind as a floating black tick over the soldier's head — a worse artefact than the bar it
+  was retiring.
+- **The material has to be a TRANSPARENT asset** (`HealthBarFadeSource.mat`, from the same
+  `FadeSource` helper the ocean sun uses). An opaque URP/Unlit ignores alpha completely: the bar
+  would hold full strength and then vanish on a single frame, which is the failure this repo
+  already paid for once on the backdrop.
 - Green above 0.6, amber above 0.3, red below. The fill is anchored to the LEFT edge, so damage
   eats it from one side; a centred fill shrinks toward the middle from both ends and reads as a
   charging meter rather than a wound.

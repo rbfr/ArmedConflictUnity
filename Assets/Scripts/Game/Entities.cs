@@ -46,6 +46,17 @@ namespace ArmedConflict.Game
         /// </summary>
         public float KnockbackAge { get; init; } = -1f;
         public float KnockbackDirX { get; init; }
+
+        /// <summary>
+        /// Seconds since this unit last took damage and survived, or -1 for "not recently hit".
+        /// Drives the health bar, which shows on a hit and fades out a few seconds later.
+        ///
+        /// Per-unit rather than a counter, which is the whole point: the tick already tallies
+        /// TotalWoundedHits, and a running total can say SOMETHING was wounded but never WHICH.
+        /// A kill does not set it — the death clip and the ragdoll say what happened, and a bar
+        /// appearing over a body as it starts to fall is a second, contradictory event.
+        /// </summary>
+        public float LastHitAge { get; init; } = -1f;
     }
 
     public record StructureEntity(

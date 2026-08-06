@@ -140,10 +140,13 @@ public static class SpikeSceneBattle
         so.FindProperty("explosionPrefab").objectReferenceValue = blastPrefab;
         so.FindProperty("scorchPrefab").objectReferenceValue = scorchPrefab;
         so.FindProperty("debrisPrefab").objectReferenceValue = MakeDebrisPrefab(mats);
-        // UNLIT: a health bar is UI that happens to live in the world. A lit one would take the
-        // biome's light and read as a different colour per level, which is the one thing a
-        // green/amber/red cue must never do.
-        Mat2("healthBarSource", Unlit("HealthBar", Color.white));
+        // UNLIT and TRANSPARENT. Unlit because a health bar is UI that happens to live in the
+        // world, and a lit one takes the biome's light and reads as a different colour per level
+        // — the one thing a green/amber/red cue must never do. TRANSPARENT because the bar FADES
+        // out, and an opaque URP/Unlit ignores alpha entirely: the bar would hold full strength
+        // and then vanish on one frame. This repo has paid for that once already, on the ocean
+        // sun (see BackdropFadeSource).
+        Mat2("healthBarSource", FadeSource("HealthBar"));
         so.FindProperty("audioFx").objectReferenceValue = MakeAudio(camGo);
         so.FindProperty("poolRoot").objectReferenceValue = poolRoot.transform;
 
@@ -214,9 +217,9 @@ public static class SpikeSceneBattle
     /// flipping _Surface and the blend modes on a copy of an opaque material at runtime does not
     /// reliably switch the shader variant, and the sun kept a visible rectangular quad edge.
     /// </summary>
-    static Material FadeSource()
+    static Material FadeSource(string name = "Backdrop")
     {
-        const string Path = "Assets/Materials/BackdropFadeSource.mat";
+        string Path = $"Assets/Materials/{name}FadeSource.mat";
         var m = AssetDatabase.LoadAssetAtPath<Material>(Path);
         if (m == null)
         {
