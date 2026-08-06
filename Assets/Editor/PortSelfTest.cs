@@ -1114,12 +1114,15 @@ public static class PortSelfTest
                   (misnumbered.Count == 0 ? "" : $" (first bad: {misnumbered[0].displayName})"));
 
             var missing = new SortedSet<string>();
+            var unitClasses = new SortedSet<string>();
             int built = 0;
             foreach (var l in levels)
             {
                 var st = LevelBuilder.BuildInitialState(l, 1, levels.Count, new System.Random(7));
                 built++;
                 Check(st.PlayerUnits.Count > 0, null);
+                foreach (var u in st.PlayerUnits.Concat(st.EnemyUnits))
+                    unitClasses.Add(LevelScenery.ModelKey(u.Definition.modelAsset));
                 foreach (var s in st.Structures)
                     if (!haveModel.Contains(LevelScenery.ModelKey(s.Definition.modelAsset)))
                         missing.Add(s.Definition.modelAsset);
@@ -1132,6 +1135,28 @@ public static class PortSelfTest
                   missing.Count == 0
                       ? "every structure and prop the campaign places has an imported model"
                       : $"MODELS NOT IMPORTED: {string.Join(", ", missing)}");
+
+            // Every unit CLASS the levels actually field needs its own rigged silhouette and a
+            // prefab per side, or BattleRunner has no pool to hand it a slot from and the soldier
+            // renders as nothing at all. This is the guard for that: a class added to the Kotlin
+            // roster without a matching build_units_rigged.py builder fails HERE, in a second,
+            // rather than as a gap in a firing line on a device.
+            var noArt = unitClasses.Where(k => !RiggedUnits.Models.Contains(k)).ToList();
+            Check(noArt.Count == 0,
+                  noArt.Count == 0
+                      ? $"every unit class the campaign fields has a rigged model ({unitClasses.Count})"
+                      : $"UNIT CLASSES WITH NO RIGGED MODEL: {string.Join(", ", noArt)}");
+
+            var noPrefab = new SortedSet<string>();
+            foreach (var k in unitClasses)
+                foreach (var side in new[] { "Player", "Enemy" })
+                    if (AssetDatabase.LoadAssetAtPath<GameObject>(
+                            $"Assets/Prefabs/{side}Unit_{k}.prefab") == null)
+                        noPrefab.Add($"{side}Unit_{k}");
+            Check(noPrefab.Count == 0,
+                  noPrefab.Count == 0
+                      ? "every fielded class has a per-side prefab"
+                      : $"PREFABS MISSING (rebuild the scene): {string.Join(", ", noPrefab)}");
         }
 
         Debug.Log($"[PortSelfTest] {(failed == 0 ? "ALL PASS" : $"{failed} FAILURES")}\n{Log}");

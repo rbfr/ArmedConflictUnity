@@ -21,6 +21,14 @@ public class BattleRunner : MonoBehaviour
     [SerializeField] LevelScenery scenery;
     [SerializeField] GameObject playerUnitPrefab;
     [SerializeField] GameObject enemyUnitPrefab;
+    /// <summary>
+    /// The per-class unit art: three parallel arrays, keyed by the same bare model name
+    /// LevelScenery uses. Empty means "one silhouette for the whole roster" — the state this
+    /// build shipped in until 2026-08-06, where every class rendered as the rifleman.
+    /// </summary>
+    [SerializeField] string[] unitClassKeys = new string[0];
+    [SerializeField] GameObject[] playerUnitClassPrefabs = new GameObject[0];
+    [SerializeField] GameObject[] enemyUnitClassPrefabs = new GameObject[0];
     [SerializeField] GameObject projectilePrefab;
     [SerializeField] GameObject gunPrefab;
     [SerializeField] GameObject bulletPrefab;
@@ -37,8 +45,7 @@ public class BattleRunner : MonoBehaviour
 
     GameState state;
     System.Random random;
-    readonly List<GameObject> playerSlots = new();
-    readonly List<GameObject> enemySlots = new();
+    UnitSlots playerUnits, enemyUnits;
     readonly List<GameObject> shotSlots = new();
     readonly List<GameObject> playerGuns = new();
     readonly List<GameObject> enemyGuns = new();
@@ -134,8 +141,8 @@ public class BattleRunner : MonoBehaviour
 
     void HideAll()
     {
-        foreach (var go in playerSlots) go.SetActive(false);
-        foreach (var go in enemySlots) go.SetActive(false);
+        foreach (var go in playerUnits.All) go.SetActive(false);
+        foreach (var go in enemyUnits.All) go.SetActive(false);
         foreach (var go in playerGuns) go.SetActive(false);
         foreach (var go in enemyGuns) go.SetActive(false);
         foreach (var kv in shotPools) foreach (var go in kv.Value) go.SetActive(false);
@@ -144,12 +151,124 @@ public class BattleRunner : MonoBehaviour
         foreach (var go in debrisSlots) go.SetActive(false);
     }
 
+    /// <summary>
+    /// A side's unit render slots, POOLED PER CLASS.
+    ///
+    /// One pool per side no longer works once the classes have different geometry: a slot is a
+    /// GameObject wrapping one model, and swapping the model on it is exactly the mid-session
+    /// mint the Filament build kept paying for. So the pool is a table, and a unit is handed a
+    /// slot of its OWN class.
+    ///
+    /// Sizes come from the level data rather than a constant — see ClassCounts. A pool that runs
+    /// out drops a soldier off the screen silently, and a constant big enough to be safe for every
+    /// class would be seven times the objects.
+    /// </summary>
+    sealed class UnitSlots
+    {
+        readonly Dictionary<string, List<GameObject>> byClass = new();
+        readonly Dictionary<string, int> used = new();
+        /// <summary>Every slot, for the blanket hide on a level switch.</summary>
+        public readonly List<GameObject> All = new();
+        /// <summary>The slots handed out this frame, in roster order — what a volley fires.</summary>
+        public readonly List<GameObject> Live = new();
+
+        /// <summary>
+        /// The scale the prefab was normalised to, per class. Kept because `renderScale` is a
+        /// MULTIPLIER on it — a hero is 1.9x a crowd unit — and the normalisation factor differs
+        /// per model, so the two cannot be collapsed into one number.
+        /// </summary>
+        readonly Dictionary<string, float> baseScale = new();
+
+        public void Add(string key, GameObject go, float normalisedScale)
+        {
+            if (!byClass.TryGetValue(key, out var list)) byClass[key] = list = new List<GameObject>();
+            list.Add(go);
+            All.Add(go);
+            baseScale[key] = normalisedScale;
+        }
+
+        public float BaseScale(string key) => baseScale.TryGetValue(key, out var s) ? s : 1f;
+
+        public void BeginFrame()
+        {
+            Live.Clear();
+            // Rebuilt rather than cleared-and-reinserted: the key set never changes after the
+            // pools are built, so this is a fixed handful of writes.
+            foreach (var key in byClass.Keys) used[key] = 0;
+        }
+
+        /// <summary>
+        /// The next free slot of this class, or null. Null is a REAL possibility — a class the
+        /// level data never places has no pool at all — so every caller has to handle it rather
+        /// than assume the roster and the pools agree.
+        /// </summary>
+        public GameObject Take(string key)
+        {
+            if (!byClass.TryGetValue(key, out var list)) return null;
+            int n = used[key];
+            if (n >= list.Count) return null;
+            used[key] = n + 1;
+            return list[n];
+        }
+
+        /// <summary>Hides everything this frame did not hand out.</summary>
+        public void HideRest()
+        {
+            foreach (var kv in byClass)
+            {
+                var list = kv.Value;
+                for (int i = used[kv.Key]; i < list.Count; i++)
+                    if (list[i].activeSelf) list[i].SetActive(false);
+            }
+        }
+    }
+
+    /// <summary>
+    /// How many slots each class needs, per side: the most that class is ever placed on one
+    /// level, across every level in the build.
+    ///
+    /// Live units and RAGDOLLS share a pool, and that is why the count is everything the level
+    /// ever SPAWNS rather than everything alive at once — a corpse holds its slot while the live
+    /// roster shrinks, so at the end of a battle the two together still add up to the roster the
+    /// level started with. Reinforcement waves and boss phases are counted for the same reason,
+    /// even though nothing in the port spawns them yet: the day something does, a garrison
+    /// arriving to find no slots left would show up as units that simply never appear.
+    /// </summary>
+    Dictionary<string, int> ClassCounts(bool playerSide)
+    {
+        var max = new Dictionary<string, int>();
+        foreach (var lv in levels)
+        {
+            if (lv == null) continue;
+            var per = new Dictionary<string, int>();
+            void Count(IEnumerable<EnemyGroup> groups)
+            {
+                if (groups == null) return;
+                foreach (var g in groups)
+                {
+                    if (g?.definition == null) continue;
+                    string key = LevelScenery.ModelKey(g.definition.modelAsset);
+                    per[key] = (per.TryGetValue(key, out var n) ? n : 0) + Mathf.Max(0, g.count);
+                }
+            }
+            Count(playerSide ? lv.playerGroups : lv.enemyGroups);
+            if (!playerSide)
+            {
+                foreach (var w in lv.reinforcementWaves) Count(w?.spawnGroups);
+                foreach (var b in lv.bossPhases) Count(b?.spawnGroups);
+            }
+            foreach (var kv in per)
+                if (!max.TryGetValue(kv.Key, out var m) || kv.Value > m) max[kv.Key] = kv.Value;
+        }
+        return max;
+    }
+
     void BuildPools()
     {
+        playerUnits = BuildUnitSlots(true);
+        enemyUnits = BuildUnitSlots(false);
         for (int i = 0; i < UnitPoolSize; i++)
         {
-            playerSlots.Add(Spawn(playerUnitPrefab, $"p{i}"));
-            enemySlots.Add(Spawn(enemyUnitPrefab, $"e{i}"));
             playerGuns.Add(Spawn(gunPrefab, $"pg{i}"));
             enemyGuns.Add(Spawn(gunPrefab, $"eg{i}"));
         }
@@ -168,6 +287,38 @@ public class BattleRunner : MonoBehaviour
         for (int i = 0; i < 32; i++) blastSlots.Add(Spawn(explosionPrefab, $"x{i}"));
         for (int i = 0; i < BattleTick.ScorchSlots; i++) scorchSlots.Add(Spawn(scorchPrefab, $"sc{i}"));
         for (int i = 0; i < BattleTick.DebrisSlots; i++) debrisSlots.Add(Spawn(debrisPrefab, $"db{i}"));
+    }
+
+    /// <summary>
+    /// Builds one side's per-class pools. A class the art does not cover falls back to that
+    /// side's single prefab rather than being skipped: the roster is the Kotlin's to change, and
+    /// a unit with no model must still render as SOMETHING — an invisible soldier that still
+    /// shoots is the worst of the failure modes available here.
+    /// </summary>
+    UnitSlots BuildUnitSlots(bool playerSide)
+    {
+        var slots = new UnitSlots();
+        var prefabs = playerSide ? playerUnitClassPrefabs : enemyUnitClassPrefabs;
+        var fallback = playerSide ? playerUnitPrefab : enemyUnitPrefab;
+        char tag = playerSide ? 'p' : 'e';
+
+        var byKey = new Dictionary<string, GameObject>();
+        for (int i = 0; i < unitClassKeys.Length && i < prefabs.Length; i++)
+            if (prefabs[i] != null) byKey[unitClassKeys[i]] = prefabs[i];
+
+        foreach (var kv in ClassCounts(playerSide))
+        {
+            var prefab = byKey.TryGetValue(kv.Key, out var p) ? p : fallback;
+            if (prefab == null) continue;
+            // A little headroom over the largest single level. Nothing in the tick lets a side
+            // exceed what the level placed, so this is slack rather than a bound — but a pool
+            // that runs one short drops a soldier with no error anywhere.
+            int size = kv.Value + 2;
+            float normalised = prefab.transform.localScale.x;
+            for (int i = 0; i < size; i++)
+                slots.Add(kv.Key, Spawn(prefab, $"{tag}_{kv.Key}{i}"), normalised);
+        }
+        return slots;
     }
 
     GameObject Spawn(GameObject prefab, string name)
@@ -296,18 +447,25 @@ public class BattleRunner : MonoBehaviour
 
     void Render()
     {
-        SyncUnits(state.PlayerUnits, playerSlots, playerGuns, aimingRight: true);
-        SyncUnits(state.EnemyUnits, enemySlots, enemyGuns, aimingRight: false);
+        playerUnits.BeginFrame();
+        enemyUnits.BeginFrame();
+        SyncUnits(state.PlayerUnits, playerUnits, playerGuns, aimingRight: true);
+        SyncUnits(state.EnemyUnits, enemyUnits, enemyGuns, aimingRight: false);
 
-        // Ragdolls reuse the same pools past the live roster.
-        int p = state.PlayerUnits.Count, e = state.EnemyUnits.Count;
+        // Ragdolls draw from the SAME per-class pools as the living, after them — a corpse is
+        // still a soldier of its class, and giving it a slot of some other class would have a
+        // sniper fall over as a rifleman.
         foreach (var d in state.DyingUnits)
         {
-            var pool = d.IsPlayerSide ? playerSlots : enemySlots;
-            int idx = d.IsPlayerSide ? p++ : e++;
-            if (idx >= pool.Count) continue;
-            var go = pool[idx];
+            var slots = d.IsPlayerSide ? playerUnits : enemyUnits;
+            string key = UnitClassKey(d.Definition);
+            var go = slots.Take(key);
+            if (go == null) continue;
             go.SetActive(true);
+            float dScale = slots.BaseScale(key) *
+                           (d.Definition != null ? d.Definition.renderScale : 1f);
+            if (!Mathf.Approximately(go.transform.localScale.x, dScale))
+                go.transform.localScale = Vector3.one * dScale;
             go.transform.position = GameSpace.ToUnity(d.X, d.Y, d.Z);
             // An animated unit FALLS OVER in its own clip, so the ragdoll's topple rotation is
             // the no-animation workaround for exactly this and must not be applied on top —
@@ -319,8 +477,8 @@ public class BattleRunner : MonoBehaviour
             }
             else go.transform.rotation = Quaternion.Euler(0f, 0f, -d.Rotation);
         }
-        for (int i = p; i < playerSlots.Count; i++) playerSlots[i].SetActive(false);
-        for (int i = e; i < enemySlots.Count; i++) enemySlots[i].SetActive(false);
+        playerUnits.HideRest();
+        enemyUnits.HideRest();
         // Guns follow the LIVE roster only — a ragdoll drops its weapon rather than carrying
         // one through a tumble, which is also what the shipping build does.
         for (int i = state.PlayerUnits.Count; i < playerGuns.Count; i++) playerGuns[i].SetActive(false);
@@ -434,13 +592,20 @@ public class BattleRunner : MonoBehaviour
     /// </summary>
     void VolleyAnim(bool playerSide)
     {
-        var pool = playerSide ? playerSlots : enemySlots;
-        int live = playerSide ? state.PlayerUnits.Count : state.EnemyUnits.Count;
-        for (int i = 0; i < live && i < pool.Count; i++)
-            if (pool[i].TryGetComponent<UnitAnim>(out var a)) a.Fire();
+        // The LIVE list, not the first N of a pool: slots are per class now, so "the first N
+        // slots" is not the roster any more — it is the first N of whichever class happens to be
+        // enumerated first, which would fire some soldiers twice and leave others still.
+        foreach (var go in (playerSide ? playerUnits : enemyUnits).Live)
+            if (go.TryGetComponent<UnitAnim>(out var a)) a.Fire();
     }
 
-    void SyncUnits(IReadOnlyList<UnitEntity> units, List<GameObject> pool,
+    /// <summary>Which rigged silhouette a unit renders as. The DATA still names the old
+    /// unriggable models, so the key is the bare model name and the `_rigged` suffix lives on the
+    /// asset — see RiggedUnits.Models.</summary>
+    static string UnitClassKey(UnitDefinitionSO def)
+        => def == null ? "unit_rifleman" : LevelScenery.ModelKey(def.modelAsset);
+
+    void SyncUnits(IReadOnlyList<UnitEntity> units, UnitSlots slots,
                    List<GameObject> guns, bool aimingRight)
     {
         // BOTH lines elevate, from different quantities, because they aim differently.
@@ -461,17 +626,38 @@ public class BattleRunner : MonoBehaviour
         // by GameSpace, so the offset is applied in GAME space and converted with the body —
         // applying it after conversion would put every gun on the wrong shoulder.
         float sign = aimingRight ? 1f : -1f;
-        for (int i = 0; i < units.Count && i < pool.Count; i++)
+        for (int i = 0; i < units.Count; i++)
         {
             var u = units[i];
-            bool wasHidden = !pool[i].activeSelf;
-            pool[i].SetActive(true);
-            pool[i].transform.position = GameSpace.ToUnity(u.X, u.Y, u.Z);
-            pool[i].transform.rotation = Quaternion.identity;
+            // A unit whose class has no pool renders as nothing. That is a data/art disagreement
+            // rather than a runtime condition, and PortSelfTest asserts against it — say so once
+            // here rather than leaving a silently missing soldier to be found on a device.
+            string key = UnitClassKey(u.Definition);
+            var go = slots.Take(key);
+            if (go == null)
+            {
+                Debug.LogWarning($"[Battle] no render slot for {u.Definition?.id} ({key})");
+                continue;
+            }
+            slots.Live.Add(go);
+            bool wasHidden = !go.activeSelf;
+            go.SetActive(true);
+            go.transform.position = GameSpace.ToUnity(u.X, u.Y, u.Z);
+            go.transform.rotation = Quaternion.identity;
+
+            // `renderScale` reached the port as a FORMATION number only — it spread the heroes
+            // apart and never made them bigger, so a hero authored at 1.9x the crowd rendered at
+            // exactly crowd size. Harmless while every class shared one model; the moment the
+            // hero has its own greatcoat-and-cap silhouette, drawing it at 55px throws away the
+            // whole point of a body that shares no geometry with the crowd.
+            float want = slots.BaseScale(key) *
+                         (u.Definition != null ? u.Definition.renderScale : 1f);
+            if (!Mathf.Approximately(go.transform.localScale.x, want))
+                go.transform.localScale = Vector3.one * want;
             // Slots are recycled, so a slot that was last used by a CORPSE comes back still
             // holding the death pose. Re-arm it on hidden→visible, the same rule the Android
             // build's culling repair uses, and stagger the idle so the line is not a chorus line.
-            if (pool[i].TryGetComponent<UnitAnim>(out var anim))
+            if (go.TryGetComponent<UnitAnim>(out var anim))
             {
                 if (wasHidden) anim.Desync(u.Id);
                 else anim.Set(UnitAnim.Idle);
@@ -483,7 +669,7 @@ public class BattleRunner : MonoBehaviour
             // A rigged unit carries its weapon on its own arm, so the pooled gun would be a
             // second rifle hanging in the air beside it.
             if (i >= guns.Count) continue;
-            if (pool[i].GetComponent<UnitAnim>() != null) { guns[i].SetActive(false); continue; }
+            if (anim != null) { guns[i].SetActive(false); continue; }
             guns[i].SetActive(true);
             guns[i].transform.position = GameSpace.ToUnity(
                 u.X + sign * 0.14f, u.Y + 0.30f, u.Z - 0.02f);

@@ -8,11 +8,13 @@
 - **Campaign is 7 levels, ONE PER BIOME** (Mountains, Forest, MountainsDusk, Winter, Desert,
   CityRuins, Ocean) plus 17 test rigs. Total 24.
 - **Roster is 8 unit definitions / 7 models / 6 pickable**, cut from 15 on 2026-08-05.
-- **281 self-test checks pass.** Run them after every change (command below).
+- **Self-test checks pass.** Run them after every change (command below).
 - Android is still the shipping build and still the SOURCE OF TRUTH for all game data. Level and
   unit edits happen THERE, in Kotlin, then re-export and re-import — never hand-edit the
   ScriptableObjects.
-- Biggest open thread: **every unit class still renders as the same rifleman.**
+- **Every class now renders as itself** (2026-08-06) — seven rigged silhouettes, per-class render
+  slots, and the fourth colour tone. See "Per-class unit art" below. That was the biggest open
+  thread and it is closed; what is left on it is Rob's judgement in moving play.
 
 Then read the traps sections — most of them cost a build to find, and several are invisible
 outside a real device build.
@@ -515,3 +517,63 @@ system UI: ◀ (880, 235), ▶ (1000, 235), AUTO (180, 2259).
   truth. Any level, unit, roster or stage edit is a Kotlin edit followed by
   `python3 tools/export_kotlin_data.py ~/AndroidStudioProjects/ArmedConflict` and
   `DataImporter.Import` — even when the session is otherwise entirely Unity work.
+
+## Per-class unit art — DONE, 2026-08-06
+
+Every unit class used to render as the same rifleman. It now renders as itself: seven rigged
+silhouettes (six crowd classes plus the hero), on the SAME skeleton, so one set of retargeted
+Kenney clips still drives all of them. Verified on device — the L9 parade shows six readable
+outlines, a 24-level sweep logs no missing slots, and a four-volley run on L18 (26 v 26) holds
+60 fps with no exceptions.
+
+Three things had to change together, and only the first is art:
+
+**The models.** `tools/blender/build_units_rigged.py` in the Android repo supersedes
+`build_unit_rigged.py` (which built the rifleman alone as the go/no-go test). It ports v6's
+per-class props — ghillie, ammo drum, rocket tubes, shell bags, riot shield, greatcoat and cap —
+onto the limb hierarchy, keeping v6's own measurements and comments, because those numbers are
+the output of seven documented attempts in `UNIT_VARIETY_DESIGN.md`.
+
+- **POSE is gone and that is fine.** v6 differentiated partly with a lean, a hunch and a
+  fore/aft stagger; the idle clip owns those now. Per that doc every pose-only pass was reported
+  as "the same soldier" at gameplay scale, so the loss is small. STANCE survives — a leg pivot's
+  position is free, and the machine gunner still stands wider than the sniper.
+- **Z is remapped through LANDMARKS, not scaled flat.** v6 puts a shoulder at 72% of height and
+  the rig at 80%, and the hero has its own landmarks again (its waist is a belt at 0.86, not a leg
+  seam at 0.67). A flat `z * K` floats a pauldron most of a shoulder off the body and the hero's
+  cap a head above its neck.
+- The port is checked by MEASUREMENT: `python3 tools/measure_units.py` reports the legs/torso/head
+  band profile for the whole set, and `--legacy` measures the v6 originals for comparison. The
+  rigged set reproduces the legacy spread almost exactly (hero 37/32/27 px against 38/33/29).
+  **Judge the SPREAD ACROSS THE SET, never one class alone** — hitting every individual target is
+  what destroyed the spread in that doc's Attempt 7. Note the projection plane differs from
+  `measure_structures.py`: a unit is seen in PROFILE, and UP IS ALWAYS glTF Y (Blender's exporter
+  converts Z-up on the way out — reading Z as up measures the model from above and every band
+  comes back the same width, which is exactly what the first run of that tool did).
+
+**The fourth tone.** `Tone()` implemented skin / accent / uniform and had no `trim`, so every
+prop above fell through to the side's uniform colour — the ghillie, the ammo drum and the rocket
+tips were all just more green. `RiggedUnits.TrimColor` carries SceneHost's per-class palette over
+verbatim. Trim is held CONSTANT across both armies on purpose: the uniform says which side a
+soldier is on and the trim says which class he is, and a faction palette touching the trim would
+collapse the two readings into one.
+
+**Per-class render slots.** `BattleRunner` pooled one prefab per side, which cannot work once the
+classes have different geometry — swapping the model on a live slot is exactly the mid-session
+mint the Filament build kept paying for. `UnitSlots` is a pool PER CLASS per side, and the sizes
+come from the level data (`ClassCounts`), not a constant:
+
+- Live units and RAGDOLLS share a pool, so a class is sized by everything a level ever SPAWNS
+  rather than by everything alive at once — a corpse holds its slot while the live roster shrinks.
+- Index arithmetic that assumed one flat pool had to go. `VolleyAnim` used to fire the first N
+  slots; with per-class pools "the first N" is the first N of whichever class enumerates first,
+  which would fire some soldiers twice and leave others standing. It reads `UnitSlots.Live`, which
+  `SyncUnits` fills in roster order.
+- `PortSelfTest` asserts every class the campaign FIELDS has both a rigged model and a per-side
+  prefab. A class added to the Kotlin roster with no builder fails there in a second; without it,
+  it is a soldier who never appears, found on a device.
+
+**And `renderScale` reached the port as a formation number only** — it spread the heroes apart
+and never made them bigger, so a hero authored at 1.9x rendered at exactly crowd size. Invisible
+while every class shared one model, and the whole point of the hero the moment it has its own
+greatcoat-and-cap body. `SyncUnits` now multiplies it onto the prefab's normalised scale.

@@ -26,6 +26,47 @@ public static class RiggedUnits
     const string Clips = "Assets/Models/Kenney/character-m.glb";
 
     /// <summary>
+    /// The rigged roster, keyed by the `modelAsset` the Kotlin data names — minus the `_rigged`
+    /// suffix, because the DATA still points at the old unriggable models and will keep doing so
+    /// while the Filament build ships. The lookup is by key so a class the Kotlin adds later
+    /// falls back to the rifleman rather than rendering nothing.
+    ///
+    /// Six crowd silhouettes and one hero. Every one is the SAME skeleton with the same joint
+    /// names, so one set of retargeted clips drives all of them — that is the whole reason the
+    /// per-class art could be done at all without seven sets of animation.
+    /// </summary>
+    public static readonly string[] Models =
+    {
+        "unit_rifleman", "unit_sniper", "unit_mg", "unit_rocket",
+        "unit_grenadier", "unit_shield", "unit_hero",
+    };
+
+    public static string ModelPath(string key) => $"Assets/Models/{key}_rigged.glb";
+
+    /// <summary>
+    /// The per-class signature colour, carried over verbatim from SceneHost.unitTrimColor in the
+    /// Android build — where every one of these values is the output of an on-device judgement
+    /// that is recorded next to it. Two are worth knowing without opening that file: the machine
+    /// gunner's brass was DARKENED because at full brightness the ammo pack read as a separate
+    /// object stuck to the soldier, and the heavy's steel was darkened once the weapons stopped
+    /// being near-white and it became the brightest thing in the frame.
+    ///
+    /// This is the FOURTH tone, and the port did not have it. Without it every prop below —
+    /// ghillie, ammo drum, rocket tips, shells, riot shield, hero sash — falls through to the
+    /// side's uniform colour and the class reads as a slightly lumpy rifleman.
+    /// </summary>
+    public static Color TrimColor(string modelKey) => modelKey switch
+    {
+        "unit_hero" => new Color(0.34f, 0.36f, 0.40f),      // armour plate steel
+        "unit_sniper" => new Color(0.30f, 0.36f, 0.20f),    // ghillie moss
+        "unit_mg" => new Color(0.44f, 0.35f, 0.16f),        // aged brass belt and drum
+        "unit_rocket" => new Color(0.78f, 0.32f, 0.10f),    // warning-orange rocket tips
+        "unit_grenadier" => new Color(0.56f, 0.62f, 0.26f), // lime shells, matching the grenade
+        "unit_shield" => new Color(0.35f, 0.42f, 0.52f),    // gunmetal riot shield
+        _ => new Color(0.13f, 0.13f, 0.11f),                // fallback = gear dark
+    };
+
+    /// <summary>
     /// Prints every imported clip's curve paths. Run before trusting a retarget: a Legacy clip
     /// binds by PATH, and a path that matches nothing fails SILENTLY — the limb just never moves,
     /// which looks exactly like a model that was authored wrong.
@@ -59,17 +100,47 @@ public static class RiggedUnits
     /// </summary>
     public static void Verify()
     {
-        var prefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/PlayerUnit.prefab");
-        if (prefab == null) { Debug.LogError("[Verify] build the scene first"); return; }
+        // EVERY prefab, not just one. There are fourteen now — seven silhouettes on each side —
+        // and they are built from seven separate GLBs, so "the rifleman animates" stops being
+        // evidence about the sniper the moment a second model exists. A joint misnamed in one
+        // builder is exactly the failure this catches, and it is silent everywhere else.
+        int failures = 0, checkedPrefabs = 0;
+        foreach (var side in new[] { "Player", "Enemy" })
+            foreach (var key in Models)
+                failures += VerifyPrefab($"Assets/Prefabs/{side}Unit_{key}.prefab", ref checkedPrefabs);
+
+        if (checkedPrefabs == 0)
+        {
+            Debug.LogError("[Verify] no unit prefabs found — build the scene first");
+            if (Application.isBatchMode) EditorApplication.Exit(1);
+            return;
+        }
+        Debug.Log(failures == 0
+            ? $"[Verify] RETARGET OK across {checkedPrefabs} prefabs"
+            : $"[Verify] {failures} FAILURES across {checkedPrefabs} prefabs");
+        if (failures > 0 && Application.isBatchMode) EditorApplication.Exit(1);
+    }
+
+    static int VerifyPrefab(string path, ref int checkedPrefabs)
+    {
+        var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(path);
+        if (prefab == null) { Debug.LogError($"[Verify] missing {path}"); return 1; }
         var go = (GameObject)PrefabUtility.InstantiatePrefab(prefab);
         var anim = go.GetComponentInChildren<Animation>();
-        if (anim == null) { Debug.LogError("[Verify] no Animation component"); Object.DestroyImmediate(go); return; }
+        if (anim == null)
+        {
+            Debug.LogError($"[Verify] {path}: no Animation component");
+            Object.DestroyImmediate(go);
+            return 1;
+        }
+        checkedPrefabs++;
+        string label = System.IO.Path.GetFileNameWithoutExtension(path);
 
         int failures = 0;
         foreach (var clipName in Wanted)
         {
             var state = anim[clipName];
-            if (state == null) { Debug.LogError($"[Verify] clip '{clipName}' missing"); failures++; continue; }
+            if (state == null) { Debug.LogError($"[Verify] {label}: clip '{clipName}' missing"); failures++; continue; }
 
             // EVERY curve in the clip must address a transform that actually exists. This is the
             // check that catches a broken retarget, and the per-joint sampling below is NOT: if
@@ -80,7 +151,7 @@ public static class RiggedUnits
             foreach (var b in AnimationUtility.GetCurveBindings(state.clip))
             {
                 if (b.path.Length == 0 || anim.transform.Find(b.path) != null) continue;
-                Debug.LogError($"[Verify] {clipName}: curve path '{b.path}' matches no transform " +
+                Debug.LogError($"[Verify] {label} {clipName}: curve path '{b.path}' matches no transform " +
                                "— the retarget did not land");
                 failures++;
                 break;                              // one report per clip is enough
@@ -89,7 +160,7 @@ public static class RiggedUnits
             foreach (var joint in new[] { "torso", "torso/arm-left", "torso/arm-right", "torso/head" })
             {
                 var t = anim.transform.Find(joint);
-                if (t == null) { Debug.LogError($"[Verify] no joint '{joint}'"); failures++; continue; }
+                if (t == null) { Debug.LogError($"[Verify] {label}: no joint '{joint}'"); failures++; continue; }
 
                 // Sample ACROSS the clip, not just at its midpoint. A looping idle is a breathing
                 // cycle whose extremes fall at the quarters, so t=0 and t=length/2 are the same
@@ -123,19 +194,19 @@ public static class RiggedUnits
 
                 if (varies && moved < 0.01f)
                 {
-                    Debug.LogError($"[Verify] {clipName}: '{joint}' has a VARYING rotation curve " +
+                    Debug.LogError($"[Verify] {label} {clipName}: '{joint}' has a VARYING rotation curve " +
                                    "but never moves — the retarget did not land");
                     failures++;
                 }
                 else if (rot.Length > 0 && !varies)
-                    Debug.Log($"[Verify] {clipName}: '{joint}' holds a constant pose (by design)");
+                    Debug.Log($"[Verify] {label} {clipName}: '{joint}' holds a constant pose (by design)");
                 else if (rot.Length > 0)
-                    Debug.Log($"[Verify] {clipName}: '{joint}' rotates up to {moved:F1}° across the clip");
+                    Debug.Log($"[Verify] {label} {clipName}: '{joint}' rotates up to {moved:F1}° across the clip");
             }
         }
         Object.DestroyImmediate(go);
-        Debug.Log(failures == 0 ? "[Verify] RETARGET OK" : $"[Verify] {failures} FAILURES");
-        if (failures > 0 && Application.isBatchMode) EditorApplication.Exit(1);
+        if (failures > 0) Debug.LogError($"[Verify] {label}: {failures} failures");
+        return failures;
     }
 
     static string Path(Transform t, Transform root)
@@ -191,10 +262,12 @@ public static class RiggedUnits
     const float SHOULDER_Z = 0.80f * RigHeight;
 
     public static GameObject MakePrefab(string name, Material body, Material accent, Material skin,
-                                        Material gun, bool facesScreenRight)
+                                        Material gun, bool facesScreenRight,
+                                        string modelKey = null, Material trim = null)
     {
-        var src = AssetDatabase.LoadAssetAtPath<GameObject>(Model);
-        if (src == null) { Debug.LogError($"[RiggedUnits] missing {Model}"); return null; }
+        string path = modelKey == null ? Model : ModelPath(modelKey);
+        var src = AssetDatabase.LoadAssetAtPath<GameObject>(path);
+        if (src == null) { Debug.LogError($"[RiggedUnits] missing {path}"); return null; }
 
         var root = new GameObject(name);
 
@@ -209,7 +282,7 @@ public static class RiggedUnits
         var model = (GameObject)PrefabUtility.InstantiatePrefab(src);
         model.transform.SetParent(facing.transform, false);
 
-        Tone(root, body, accent, skin);
+        Tone(root, body, accent, trim, skin);
         Normalize(root, UnitGeometry.UnitScaleUnits);
 
         // The Animation component goes on the GLB's own root, NOT the prefab root: clip paths are
@@ -306,14 +379,20 @@ public static class RiggedUnits
         return new AnimationCurve(keys);
     }
 
-    /// <summary>The four-tone convention, unchanged: colour binds to MESH names by prefix while
-    /// animation binds to JOINT names by path, and neither knows about the other.</summary>
-    static void Tone(GameObject go, Material body, Material accent, Material skin)
+    /// <summary>The FOUR-tone convention: colour binds to MESH names by prefix while animation
+    /// binds to JOINT names by path, and neither knows about the other.
+    ///
+    /// Order matters and is the Filament build's, kept identical on purpose — skin, then trim,
+    /// then accent, then the side's uniform. `trim` was the tone the port was missing; a null
+    /// falls back to accent so a caller that has no per-class colour still gets dark gear rather
+    /// than a prop in the uniform colour.</summary>
+    static void Tone(GameObject go, Material body, Material accent, Material trim, Material skin)
     {
         foreach (var r in go.GetComponentsInChildren<MeshRenderer>())
         {
             string n = r.gameObject.name;
             if (skin != null && n.StartsWith("skin")) r.sharedMaterial = skin;
+            else if (n.StartsWith("trim")) r.sharedMaterial = trim != null ? trim : accent;
             else if (n.StartsWith("accent")) r.sharedMaterial = accent;
             else r.sharedMaterial = body;
         }

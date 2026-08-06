@@ -63,6 +63,22 @@ public static class SpikeSceneBattle
                                                      new Color(0.92f, 0.55f, 0.5f), facesScreenRight: false),
             _ => MakeUnitPrefab("EnemyUnit", mats.enemyUniform, mats.enemyGear, mats.skin),
         };
+
+        // PER-CLASS prefabs, one per silhouette per side. The pair above stays as the FALLBACK a
+        // class with no rigged model of its own falls through to; these are what the runner
+        // actually pools. Only the Rigged art path has them — the other two exist to A/B the
+        // rig itself, and giving a stand-in six silhouettes it does not have would defeat that.
+        string[] classKeys = Art == UnitArt.Rigged ? RiggedUnits.Models : new string[0];
+        var playerClassPrefabs = classKeys
+            .Select(k => RiggedUnits.MakePrefab($"PlayerUnit_{k}", mats.playerUniform, mats.playerGear,
+                                                mats.skin, mats.gun, facesScreenRight: true,
+                                                modelKey: k, trim: TrimMat(k)))
+            .Cast<Object>().ToArray();
+        var enemyClassPrefabs = classKeys
+            .Select(k => RiggedUnits.MakePrefab($"EnemyUnit_{k}", mats.enemyUniform, mats.enemyGear,
+                                                mats.skin, mats.gun, facesScreenRight: false,
+                                                modelKey: k, trim: TrimMat(k)))
+            .Cast<Object>().ToArray();
         var shotPrefab = MakeShellPrefab(mats);
         var gunPrefab = MakeGunPrefab(mats);
         var blastPrefab = MakeBlastPrefab();
@@ -108,6 +124,11 @@ public static class SpikeSceneBattle
         so.FindProperty("scenery").objectReferenceValue = scenery;
         so.FindProperty("playerUnitPrefab").objectReferenceValue = playerPrefab;
         so.FindProperty("enemyUnitPrefab").objectReferenceValue = enemyPrefab;
+        // Three parallel arrays rather than a serialized dictionary — Unity does not serialise
+        // one, and the runner keys off the same model name LevelScenery already uses.
+        FillStrings(so.FindProperty("unitClassKeys"), classKeys);
+        Fill(so.FindProperty("playerUnitClassPrefabs"), playerClassPrefabs);
+        Fill(so.FindProperty("enemyUnitClassPrefabs"), enemyClassPrefabs);
         so.FindProperty("projectilePrefab").objectReferenceValue = shotPrefab;
         so.FindProperty("bulletPrefab").objectReferenceValue = MakeProjectilePrefab(
             "Bullet", "projectile_bullet", 0.22f, mats.tracer, mats.tracerTail);
@@ -210,6 +231,13 @@ public static class SpikeSceneBattle
         array.arraySize = values.Length;
         for (int i = 0; i < values.Length; i++)
             array.GetArrayElementAtIndex(i).objectReferenceValue = values[i];
+    }
+
+    static void FillStrings(SerializedProperty array, string[] values)
+    {
+        array.arraySize = values.Length;
+        for (int i = 0; i < values.Length; i++)
+            array.GetArrayElementAtIndex(i).stringValue = values[i];
     }
 
     static GameObject MakeUnitPrefab(string name, Material body, Material gear, Material skin)
@@ -432,6 +460,16 @@ public static class SpikeSceneBattle
     };
 
     static Material L(string n) => AssetDatabase.LoadAssetAtPath<Material>($"Assets/Materials/{n}.mat");
+
+    /// <summary>
+    /// One shared trim material per CLASS, not per side. The Filament build holds trim constant
+    /// across both armies on purpose: the uniform says which side a soldier is on and the trim
+    /// says which class he is, and letting the faction palette touch the trim too would collapse
+    /// the two readings into one. Lit, like the uniforms — an unlit prop reads as an emissive
+    /// sticker at gameplay distance.
+    /// </summary>
+    static Material TrimMat(string classKey)
+        => Lit($"UnitTrim_{classKey}", RiggedUnits.TrimColor(classKey), 0.1f, 0.25f);
 
     static Material Unlit(string n, Color c) => Make(n, c, "Universal Render Pipeline/Unlit", 0f, 0f);
     static Material Lit(string n, Color c, float metallic, float smoothness)
