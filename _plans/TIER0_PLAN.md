@@ -2,9 +2,9 @@
 
 Written 2026-08-06. Sequenced plan for the product spine (0.1–0.6).
 
-**Phases A, B, C and D are DONE** (2026-08-06), all confirmed on device. Remaining: **E**
-(loadout) and **F** (enemy turn juice). Each phase heading below carries what actually shipped,
-including where it differed from the plan.
+**Phases A, B, C, D and F are DONE** (2026-08-06), all confirmed on device. Remaining: **E**
+(loadout). Each phase heading below carries what actually shipped, including where it differed
+from the plan.
 
 Two decisions were taken with Rob before this plan was written, and the sequencing depends on
 both:
@@ -285,7 +285,15 @@ deferred historically and never done.
 
 ---
 
-## Phase F — enemy turn juice (0.6)
+## Phase F — enemy turn juice (0.6) — DONE 2026-08-06
+
+**Status: DONE**, confirmed on device. Two channels (flash banner, standing telegraph strip) and a
+threat-naming turn handover. See `HANDOVER.md`.
+
+The original plan text follows.
+
+---
+
 
 Self-contained; no dependency on any other phase. The windup already exists
 (`enemyWindup` / `TurnFlow.EnemyWindupSeconds`). What is missing is that **the game never says
@@ -309,7 +317,7 @@ This also clears three of the juice-checklist items for the cost of one UI compo
 | C — victory + coins | — | — | **DONE** — one call site + the first uGUI canvas |
 | D — 12 levels | — | A, B | **DONE** — plus wiring two dead event systems |
 | E — loadout | — | C (canvas) | New data + new screen + balance audit |
-| F — enemy juice | — | C (canvas) | Wiring three unused data fields to popups |
+| F — enemy juice | — | C (canvas) | **DONE** — two channels + a threat-naming handover |
 
 Standing rules for every phase: `PortSelfTest.Run` after each change; scene rebuild whenever
 prefabs, materials or serialized references move (all of Phase C); verify feel on device with real

@@ -92,6 +92,8 @@ public class BattleRunner : MonoBehaviour
     bool showRigs;
 
     BattleUI ui;
+    /// <summary>The turn-handover line, held for the enemy turn. Outranked by a real event.</summary>
+    string turnBanner;
     /// <summary>
     /// The battle whose end has already been paid for. The award must run EXACTLY ONCE per
     /// battle: the Playing->over edge is a single frame, but a level with no enemies resolves on
@@ -698,13 +700,21 @@ public class BattleRunner : MonoBehaviour
         if (!dragging && state.TurnPhase == TurnPhase.Aiming) aimPoseDegrees = 0f;
         DriveAudio(before, state);
 
-        // Mid-battle events have no UI yet — the announcement banner is Phase F. Until then this
-        // is the only way to see that a boss phase or a reinforcement wave actually fired, and
-        // both had never once run in a shipping build before 2026-08-06.
+        // Mid-battle events, and the turn handover, both go through the ONE banner channel.
+        // Two competing banners is how a game ends up telling the player nothing at all.
+        //
+        // An event outranks the turn: "Their heavies are here!" matters more than "enemy turn",
+        // and they land on the same frame when a wave arrives on the handover.
         if (state.BossAnnouncement != before.BossAnnouncement &&
             !string.IsNullOrEmpty(state.BossAnnouncement))
             Debug.Log($"[Battle] EVENT: {state.BossAnnouncement} " +
                       $"(enemies {before.EnemyUnits.Count} -> {state.EnemyUnits.Count})");
+
+        if (before.TurnPhase != TurnPhase.EnemyWindup && state.TurnPhase == TurnPhase.EnemyWindup)
+            turnBanner = ThreatLine(state);
+        else if (state.TurnPhase == TurnPhase.Aiming) turnBanner = null;
+
+        ui.SetEvents(state.BossAnnouncement ?? turnBanner, state.TelegraphText);
 
         ResolveBattleEnd();
 
@@ -763,6 +773,24 @@ public class BattleRunner : MonoBehaviour
     {
         if (state.PlayerUnits.Count == 0) return new Vector3(-9.5f, 0.9f, 0f);
         return new Vector3(state.PlayerUnits.Average(u => u.X), 0.9f, 0f);
+    }
+
+    /// <summary>
+    /// What the enemy turn is about to do, in one line the player can act on.
+    ///
+    /// PRODUCT_DIRECTION 0.6: "fear is engagement, silence is punishment". The enemy turn used to
+    /// pass with nothing on screen but a HUD word, so a charge closing to contact and an ordinary
+    /// volley looked identical until the damage landed.
+    ///
+    /// The ADVANCE is named first because it is the only thing the player can lose the level to
+    /// this turn — a marching group that reaches the line fights in melee, and no amount of
+    /// counting rifles matters if it arrives.
+    /// </summary>
+    static string ThreatLine(GameState state)
+    {
+        int advancing = state.EnemyUnits.Count(u => u.AdvancePerTurn > 0f);
+        if (advancing > 0) return $"{advancing} closing on your line";
+        return state.EnemyUnits.Count > 0 ? "Enemy turn" : null;
     }
 
     /// <summary>

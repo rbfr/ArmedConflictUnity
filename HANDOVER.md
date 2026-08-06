@@ -1108,3 +1108,30 @@ The 12 levels were written by `CampaignAuthor.cs`, run once and then removed —
 levels' worth of GUID references by hand is not viable, but a script that can rewrite every level
 wholesale is exactly the hazard `LegacyKotlinImport` was guarded against. The assets are the
 artifact. `CampaignAudit.Dump` is kept: it is read-only and prints what each level actually is.
+
+## Enemy turn juice — DONE 2026-08-06
+
+Phase F of `_plans/TIER0_PLAN.md`, `PRODUCT_DIRECTION.md` 0.6. Phase D made the events FIRE; this
+makes them SAY something. `telegraphText` and `announcement` had been imported and displayed
+nowhere since the port.
+
+**Two channels, and the difference between them is the whole of pillar 7.**
+
+- The **banner** is a flash — something just happened ("Their heavies are here!"), or the turn just
+  changed.
+- The **telegraph strip** is a standing condition — something is ABOUT to happen, and it stays up
+  for the entire turn being warned about. `GameState.TelegraphText`, recomputed from scratch every
+  tick rather than latched, so it clears itself the moment the wave lands. A warning with a fade
+  timer has blindsided anyone who looked away, which is the thing the pillar exists to prevent.
+
+**The turn handover names the threat, not the phase.** `ThreatLine` reports the ADVANCE first —
+"3 closing on your line" — because a marching group reaching the line is the only thing that can
+lose the level this turn, and counting rifles does not matter if it arrives. It falls back to
+"Enemy turn". An event outranks it: both land on the same frame when a wave arrives on the
+handover, and two competing banners tell the player nothing.
+
+Confirmed on device, L10: the red strip reads "Heavy support inbound — 1 turn" through the whole
+of turn 3, the wave lands on turn 4, the strip clears itself.
+
+The strip started at y-104 and ran straight through the CAM / RIGS / stepper cluster. Harmless for
+input (it takes no raycasts) but it read as a broken layout; it sits below the banner now.

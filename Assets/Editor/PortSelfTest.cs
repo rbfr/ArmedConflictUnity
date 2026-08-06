@@ -1292,6 +1292,32 @@ public static class PortSelfTest
                 Check(!string.IsNullOrEmpty(after.BossAnnouncement),
                       "and raises its announcement");
 
+                // TELEGRAPHS. A wave arriving on turn N must warn on turn N-1 and the warning must
+                // still be standing for the whole of that turn — pillar 7. Driven off the real
+                // level so a wave authored with no telegraph text cannot pass.
+                var waveLevel = levels.First(l => !l.isTestLevel && l.reinforcementWaves.Count > 0);
+                var wave0 = waveLevel.reinforcementWaves[0];
+                var ws = LevelBuilder.BuildInitialState(waveLevel, 1, 12, new System.Random(4))
+                         with { Phase = GamePhase.Playing, TurnPhase = TurnPhase.Aiming };
+
+                var early = BattleTick.Step(ws with { TurnNumber = wave0.arrivesOnTurn - 2 },
+                                            0.016f, waveLevel, new System.Random(4));
+                Check(string.IsNullOrEmpty(early.TelegraphText),
+                      "no telegraph two turns out — a warning that early is just noise");
+
+                var warned = BattleTick.Step(ws with { TurnNumber = wave0.arrivesOnTurn - 1 },
+                                             0.016f, waveLevel, new System.Random(4));
+                Check(warned.TelegraphText == wave0.telegraphText,
+                      "the telegraph stands on the turn before the wave arrives");
+                Check(warned.EnemyUnits.Count == ws.EnemyUnits.Count,
+                      "and the telegraph does not spend the wave — it must still arrive");
+
+                var landed = BattleTick.Step(warned with { TurnNumber = wave0.arrivesOnTurn },
+                                             0.016f, waveLevel, new System.Random(4));
+                Check(landed.EnemyUnits.Count > ws.EnemyUnits.Count, "the wave then arrives");
+                Check(string.IsNullOrEmpty(landed.TelegraphText),
+                      "and the warning clears itself once it has");
+
                 var again = BattleTick.Step(after, 0.016f, bossLevel, new System.Random(3));
                 Check(again.EnemyUnits.Count == after.EnemyUnits.Count,
                       "and does NOT fire a second time on the next tick");

@@ -60,7 +60,10 @@ namespace ArmedConflict.UI
         GameObject nextButton, retryButton;
         TMP_Text retryLabel;
 
-        Coroutine sequence;
+        GameObject eventBanner, telegraphStrip;
+        TMP_Text eventText, telegraphText;
+        string shownAnnouncement, shownTelegraph;
+        Coroutine sequence, bannerPop;
         int shownBalance;
 
         /// <summary>
@@ -113,6 +116,7 @@ namespace ArmedConflict.UI
             gameObject.AddComponent<GraphicRaycaster>();
 
             BuildCoinPill();
+            BuildEventBanner();
             BuildEndPanel();
             endPanel.SetActive(false);
         }
@@ -156,6 +160,9 @@ namespace ArmedConflict.UI
         {
             if (sequence != null) { StopCoroutine(sequence); sequence = null; }
             endPanel.SetActive(false);
+            // The banners belong to the battle that raised them — a stale "reinforcements!" on
+            // the next level would be a lie, and the strip would sit there forever.
+            SetEvents(null, null);
         }
 
         /// <summary>
@@ -352,6 +359,78 @@ namespace ArmedConflict.UI
             Stretch(coinBalanceText.rectTransform);
             coinBalanceText.margin = new Vector4(80f, 0f, 16f, 0f);
             coinBalanceText.SetText("{0}", 0);
+        }
+
+        /// <summary>
+        /// Two channels, and the difference between them is the whole of pillar 7.
+        ///
+        /// The BANNER is a flash: something just happened ("Their heavies are here!"). The
+        /// TELEGRAPH STRIP is a standing condition: something is ABOUT to happen, and it stays on
+        /// screen for the entire turn the player is being warned about. A warning that fades has
+        /// blindsided anyone who looked away, which is the thing the pillar exists to prevent.
+        ///
+        /// Both sit under the coin pill and above the battlefield, clear of the safe-area insets.
+        /// </summary>
+        void BuildEventBanner()
+        {
+            var safe = (RectTransform)transform.Find("SafeArea");
+
+            var strip = NewRect("Telegraph", safe);
+            strip.anchorMin = strip.anchorMax = new Vector2(0.5f, 1f);
+            strip.pivot = new Vector2(0.5f, 1f);
+            // BELOW the event banner, not above it. At -104 the strip ran straight through the
+            // CAM / RIGS / stepper cluster and the level readout — harmless for input, since it
+            // does not take raycasts, but it read as a broken layout.
+            strip.anchoredPosition = new Vector2(0f, -286f);
+            strip.sizeDelta = new Vector2(760f, 62f);
+            var stripBg = strip.gameObject.AddComponent<Image>();
+            stripBg.color = new Color(0.55f, 0.16f, 0.10f, 0.85f);
+            stripBg.raycastTarget = false;
+            telegraphStrip = strip.gameObject;
+
+            telegraphText = NewText("Text", strip, 34f, new Color(1f, 0.90f, 0.80f),
+                                    TextAlignmentOptions.Center);
+            Stretch(telegraphText.rectTransform);
+            telegraphStrip.SetActive(false);
+
+            var banner = NewRect("EventBanner", safe);
+            banner.anchorMin = banner.anchorMax = new Vector2(0.5f, 1f);
+            banner.pivot = new Vector2(0.5f, 1f);
+            banner.anchoredPosition = new Vector2(0f, -190f);
+            banner.sizeDelta = new Vector2(860f, 84f);
+            var bannerBg = banner.gameObject.AddComponent<Image>();
+            bannerBg.color = new Color(0f, 0f, 0f, 0.62f);
+            bannerBg.raycastTarget = false;
+            eventBanner = banner.gameObject;
+
+            eventText = NewText("Text", banner, 44f, new Color(1f, 0.86f, 0.35f),
+                                TextAlignmentOptions.Center);
+            Stretch(eventText.rectTransform);
+            eventBanner.SetActive(false);
+        }
+
+        /// <summary>
+        /// Drives both channels from the tick's state. Called every frame; does nothing unless
+        /// something changed, so it costs a reference comparison in the common case.
+        /// </summary>
+        public void SetEvents(string announcement, string telegraph)
+        {
+            if (telegraph != shownTelegraph)
+            {
+                shownTelegraph = telegraph;
+                bool on = !string.IsNullOrEmpty(telegraph);
+                telegraphStrip.SetActive(on);
+                if (on) telegraphText.text = telegraph;
+            }
+
+            if (announcement == shownAnnouncement) return;
+            shownAnnouncement = announcement;
+            bool show = !string.IsNullOrEmpty(announcement);
+            eventBanner.SetActive(show);
+            if (!show) return;
+            eventText.text = announcement;
+            if (bannerPop != null) StopCoroutine(bannerPop);
+            if (isActiveAndEnabled) bannerPop = StartCoroutine(Pop(eventBanner.GetComponent<RectTransform>()));
         }
 
         void BuildEndPanel()

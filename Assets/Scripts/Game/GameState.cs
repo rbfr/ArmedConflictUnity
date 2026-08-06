@@ -115,6 +115,18 @@ namespace ArmedConflict.Game
         public string BossAnnouncement { get; init; }
         public float BossAnnouncementTimer { get; init; }
         public IReadOnlyCollection<int> TriggeredReinforcementWaves { get; init; } = new HashSet<int>();
+
+        /// <summary>
+        /// The standing warning for a wave arriving NEXT turn, or null.
+        ///
+        /// Deliberately not an announcement with a timer: an announcement is a flash that reports
+        /// something that just happened, a telegraph is a condition that stays true until it
+        /// resolves. Pillar 7 is "telegraph, don't blindside", and a warning that fades after two
+        /// seconds has blindsided anyone who looked away — it has to still be on screen while the
+        /// player takes the turn it is warning them about.
+        /// </summary>
+        public string TelegraphText { get; init; }
+
         public float WindAccelZ { get; init; }
         public string WindShiftAnnouncement { get; init; }
         public float WindShiftAnnouncementTimer { get; init; }

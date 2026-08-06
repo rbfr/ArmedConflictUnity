@@ -343,6 +343,6 @@ locks and unit measurement.
 | 0.4a coins felt | **DONE** — the economy was fully ported and never called; one call site turned it on. Balance is now persistent on screen |
 | 0.4b something to buy | not started — needs a roster data source and the loadout screen (plan phase E) |
 | 0.5 star criteria + reasons | **DONE** — pure roster survival, reason shown on every victory |
-| 0.6 enemy turn juice | not started — plan phase F. Events now FIRE (2026-08-06) but `telegraphText` / `announcement` are still displayed nowhere |
+| 0.6 enemy turn juice | **DONE 2026-08-06** — flash banner + standing telegraph strip, handover names the advance |
 | Tier 1 ammo | per `DYNAMISM_DESIGN.md` status |
 | This doc | living — update priorities when Rob reorders work |

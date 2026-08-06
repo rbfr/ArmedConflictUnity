@@ -454,6 +454,7 @@ namespace ArmedConflict.Game
             string bossAnnouncement = s.BossAnnouncement;
             float bossTimer = Mathf.Max(0f, s.BossAnnouncementTimer - dt);
             if (bossTimer <= 0f) bossAnnouncement = null;
+            string telegraph = s.TelegraphText;
 
             if (phase == GamePhase.Playing && level != null)
             {
@@ -486,6 +487,19 @@ namespace ArmedConflict.Game
                     triggeredBoss.Add(i);
                     bossAnnouncement = trigger.announcement;
                     bossTimer = EventSystems.BossAnnouncementSeconds;
+                }
+
+                // The telegraph is recomputed from scratch every tick rather than latched, so it
+                // clears itself the moment the wave lands or the turn moves on. A latched warning
+                // is one that eventually gets left on screen.
+                telegraph = null;
+                for (int i = 0; i < level.reinforcementWaves.Count; i++)
+                {
+                    var w = level.reinforcementWaves[i];
+                    if (triggeredWaves.Contains(i)) continue;
+                    if (EventSystems.ReinforcementWaveBeat(w.arrivesOnTurn, turnNumber)
+                        == EventSystems.WaveTriggerBeat.Telegraph)
+                        telegraph = w.telegraphText;
                 }
 
                 for (int i = 0; i < level.reinforcementWaves.Count; i++)
@@ -530,6 +544,7 @@ namespace ArmedConflict.Game
                 NextExplosionSlot = nextExplosionSlot,
                 ShakeIntensity = shake,
                 TriggeredBossPhases = triggeredBoss,
+                TelegraphText = telegraph,
                 TriggeredReinforcementWaves = triggeredWaves,
                 BossAnnouncement = bossAnnouncement,
                 BossAnnouncementTimer = bossTimer,
