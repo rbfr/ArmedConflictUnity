@@ -25,8 +25,13 @@ Then read the traps sections — most of them cost a build to find, and several 
 outside a real device build.
 
 
-Read this first, then `README.md`, then `SPIKE_RESULTS.md` / `MIGRATION_SCOPE.md` if you need the
-history. Everything below was verified on the device, not assumed.
+Read this first, then `CLAUDE.md` for the standing rules, then `SPIKE_RESULTS.md` /
+`MIGRATION_SCOPE.md` if you need the port history. Everything below was verified on the device,
+not assumed.
+
+**The design docs now live in this repo** (moved 2026-08-06): `GAME_DESIGN_LOCKS.md`,
+`PROGRESSION_DESIGN.md`, `DYNAMISM_DESIGN.md`, `CAMERA_ARCHITECTURE.md`, `UNIT_VARIETY_DESIGN.md`,
+`STRUCTURE_VARIETY_DESIGN.md`. They still govern.
 
 ## Where things are
 
