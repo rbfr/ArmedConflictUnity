@@ -746,3 +746,46 @@ not. A future clip set that breaks that assumption says so in a second instead o
 **The general rule, worth applying to anything else recycled: stopping an animation does not undo
 it.** Ask what each clip WRITES, and make sure something restores every one of those channels —
 not just the ones the next clip happens to drive.
+
+
+## Contact shadows, and what this camera does to ground decals — 2026-08-06
+
+Reported as: on the snow level the soldiers look like they are "standing on white space".
+
+**The port had no unit shadows at all** — only a ported COMMENT in `BackgroundDefinitionSO`
+mentioning that `groundNear` feeds the contact-shadow tone. The Filament build has them; the port
+never got them. On the tan biomes that is nearly invisible, because the ground is far darker than
+the sky and the horizon carries the ground read on its own. On WINTER the ground is near-white
+under a pale sky, so with no shadow there is nothing at all saying where the surface is.
+
+Two things had to be right, and only the first is obvious:
+
+- **Tone comes from THIS level's ground**, scaled by 0.58 / 0.62 / 0.72 — the Filament build's
+  numbers, and they are not uniform on purpose. A flat grey that works on snow is a black blob on
+  CityRuins ash and invisible on Forest green, and BLUE is kept highest so the shade COOLS rather
+  than muddies. Snow shadow goes blue, not grey-brown.
+- **The ellipse is stretched 3.2x in DEPTH**, and that is forced by the camera rather than being a
+  style choice. The battle camera sits ~1.2 up at ~10 back — about SIX DEGREES above the ground
+  plane — so a decal lying flat is seen almost edge-on and its on-screen HEIGHT is its world depth
+  times the sine of that angle, about a tenth. A round shadow 28px wide projects to a 3px smear,
+  which is exactly what the first pass drew and why it read as nothing. Widening does not help
+  (it just makes a wider smear, and it collides with the neighbour's); DEPTH is free, because the
+  camera looks along it, and it is the only axis that buys screen height.
+
+**This applies to every ground decal in the game, not just shadows** — scorch marks are subject to
+the same projection and are why a burn reads as a smear. Anything new that lies flat on the ground
+has to be sized in depth, not in width.
+
+The falloff also needed a real solid core. The first version shouldered from 0.12 — nearly all
+penumbra — which on snow is a smudge too faint to be anything. And note `Mathf.SmoothStep` is a
+smoothed LERP BETWEEN its arguments rather than GLSL's `smoothstep`, so the useful knob is where
+the ramp STARTS, not a threshold; the texture builder now ramps explicitly instead.
+
+### Health bar: the track fades faster than the fill
+
+Equal alpha is not equal legibility. The track is near-black and the fill is a saturated colour,
+so against any of this game's grounds the dark track keeps far more contrast at the same alpha.
+Faded together, the colour washes out first and the bar spends its last half-second as a DARK
+HUSK over a soldier's head — which is very likely what "black means dead, right?" was actually
+reporting, more than low health was. `HealthBarTrackAlpha` squares the fill's alpha, so a bar
+always dissolves down to its COLOUR and never down to a black rectangle.

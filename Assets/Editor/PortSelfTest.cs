@@ -760,6 +760,18 @@ public static class PortSelfTest
                  "and has faded to nothing by the time it retires");
             Check(CosmeticSystems.HealthBarAlpha(CosmeticSystems.HealthBarSeconds - 0.35f) < 1f,
                   "the last stretch is a fade, not a cut");
+            // The TRACK must never outlive the FILL. Equal alpha is not equal legibility: a
+            // near-black track holds contrast against every ground in this game long after a
+            // saturated fill has washed out, so fading them together ends the bar as a black
+            // rectangle — reported as "black means dead, right?".
+            bool trackNeverLeads = true;
+            for (float t = 0f; t <= CosmeticSystems.HealthBarSeconds; t += 0.05f)
+                if (CosmeticSystems.HealthBarTrackAlpha(t) > CosmeticSystems.HealthBarAlpha(t) + 1e-5f)
+                    trackNeverLeads = false;
+            Check(trackNeverLeads, "the empty track is never more opaque than the fill on it");
+            Check(CosmeticSystems.HealthBarTrackAlpha(CosmeticSystems.HealthBarSeconds - 0.2f)
+                  < CosmeticSystems.HealthBarAlpha(CosmeticSystems.HealthBarSeconds - 0.2f),
+                  "and it is visibly GONE first, so a bar dissolves to colour, not to black");
 
 
             // Ragdoll rest height: a body must never sink through the floor at any rotation.

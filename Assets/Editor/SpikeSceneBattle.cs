@@ -139,6 +139,7 @@ public static class SpikeSceneBattle
         so.FindProperty("gunPrefab").objectReferenceValue = gunPrefab;
         so.FindProperty("explosionPrefab").objectReferenceValue = blastPrefab;
         so.FindProperty("scorchPrefab").objectReferenceValue = scorchPrefab;
+        so.FindProperty("shadowPrefab").objectReferenceValue = MakeShadowPrefab();
         so.FindProperty("debrisPrefab").objectReferenceValue = MakeDebrisPrefab(mats);
         // UNLIT and TRANSPARENT. Unlit because a health bar is UI that happens to live in the
         // world, and a lit one takes the biome's light and reads as a different colour per level
@@ -390,6 +391,63 @@ public static class SpikeSceneBattle
         go.GetComponent<MeshRenderer>().sharedMaterial = mat;
         System.IO.Directory.CreateDirectory("Assets/Prefabs");
         var prefab = PrefabUtility.SaveAsPrefabAsset(go, "Assets/Prefabs/Scorch.prefab");
+        Object.DestroyImmediate(go);
+        return prefab;
+    }
+
+    /// <summary>
+    /// The unit CONTACT SHADOW: a soft dark ellipse on the ground under every living soldier.
+    ///
+    /// This is the cue that says a unit is STANDING ON something rather than floating in front of
+    /// it, and the port shipped without it — which is invisible on the tan biomes, where the
+    /// ground is much darker than the sky and the horizon carries the read on its own, and
+    /// obvious on WINTER, where a near-white ground against a pale sky leaves the soldiers
+    /// hanging in white space. Reported exactly that way.
+    ///
+    /// Softer shoulder than the scorch: a burn has an edge, a shadow does not.
+    /// </summary>
+    static GameObject MakeShadowPrefab()
+    {
+        var go = GameObject.CreatePrimitive(PrimitiveType.Quad);
+        go.name = "UnitShadow";
+        Object.DestroyImmediate(go.GetComponent<Collider>());
+
+        const int Size = 64;
+        var tex = new Texture2D(Size, Size, TextureFormat.RGBA32, false)
+        { wrapMode = TextureWrapMode.Clamp };
+        for (int y = 0; y < Size; y++)
+        for (int x = 0; x < Size; x++)
+        {
+            float dx = (x + 0.5f) / Size - 0.5f, dy = (y + 0.5f) / Size - 0.5f;
+            float d = Mathf.Sqrt(dx * dx + dy * dy) * 2f;
+            // A real SOLID CORE, then a soft shoulder. The first pass shouldered from 0.12 — 
+            // nearly all penumbra — which on snow left a smudge too faint to read as anything.
+            // Note Mathf.SmoothStep is a smoothed LERP BETWEEN its arguments, not GLSL's
+            // smoothstep (this repo has paid for that once, on the ocean sun), so the useful
+            // knob here is where the ramp STARTS, not a threshold.
+            float a = d < 0.42f ? 1f : Mathf.Clamp01(1f - (d - 0.42f) / 0.58f);
+            a *= a;                                     // ease the shoulder out
+            tex.SetPixel(x, y, new Color(1f, 1f, 1f, a));
+        }
+        tex.Apply();
+        AssetDatabase.CreateAsset(tex, "Assets/Materials/ShadowTex.asset");
+
+        var mat = new Material(Shader.Find("Universal Render Pipeline/Unlit"))
+        { color = Color.white };      // tinted per level at runtime — see BattleRunner.TintShadows
+        mat.mainTexture = tex;
+        mat.SetFloat("_Surface", 1f);
+        mat.SetFloat("_Blend", 0f);
+        mat.SetFloat("_SrcBlend", (float)UnityEngine.Rendering.BlendMode.SrcAlpha);
+        mat.SetFloat("_DstBlend", (float)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+        mat.SetFloat("_ZWrite", 0f);
+        // UNDER the scorch marks, which sit at Transparent-1: a burn is on top of the snow and a
+        // shadow is cast onto it, so a shadow drawn over a scorch reads as the wrong order.
+        mat.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Transparent - 2;
+        mat.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
+        AssetDatabase.CreateAsset(mat, "Assets/Materials/UnitShadow.mat");
+        go.GetComponent<MeshRenderer>().sharedMaterial = mat;
+        System.IO.Directory.CreateDirectory("Assets/Prefabs");
+        var prefab = PrefabUtility.SaveAsPrefabAsset(go, "Assets/Prefabs/UnitShadow.prefab");
         Object.DestroyImmediate(go);
         return prefab;
     }

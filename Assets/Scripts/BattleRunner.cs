@@ -38,6 +38,8 @@ public class BattleRunner : MonoBehaviour
     [SerializeField] GameObject explosionPrefab;
     [SerializeField] GameObject scorchPrefab;
     [SerializeField] GameObject debrisPrefab;
+    /// <summary>The soft ellipse under a living soldier — see SyncShadows.</summary>
+    [SerializeField] GameObject shadowPrefab;
     [SerializeField] BattleAudio audioFx;
     [SerializeField] Transform poolRoot;
     /// <summary>Unlit white, tinted per bar with a property block. Unlit on purpose — a health
@@ -128,6 +130,38 @@ public class BattleRunner : MonoBehaviour
                    MeshRenderer BackRenderer)> healthBars = new();
     MaterialPropertyBlock barProps;
 
+    // ---- contact shadows -------------------------------------------------------------------
+    //
+    // A soft dark ellipse under every LIVING unit. It is the cue that a soldier is standing ON
+    // the ground rather than floating in front of it, and the port shipped without one: harmless
+    // on the tan biomes, where the ground is far darker than the sky and the horizon carries the
+    // read by itself, and badly wrong on WINTER, where a near-white ground under a pale sky left
+    // the line hanging in white space.
+    //
+    // Diameter is body-relative, like everything else here.
+    const float ShadowDiameter = 0.48f * UnitGeometry.UnitScaleUnits;
+
+    /// <summary>
+    /// How much longer the ellipse is in DEPTH than across. This is not a style choice — it is
+    /// forced by the camera.
+    ///
+    /// The battle camera sits about 1.2 up at 10 back, i.e. roughly SIX DEGREES above the ground
+    /// plane. A decal lying flat is therefore seen almost edge-on, and its on-screen HEIGHT is its
+    /// world depth times the sine of that angle — about a tenth. A round shadow 28px wide projects
+    /// to a 3px smear, which is what the first pass drew and why it read as nothing at all.
+    ///
+    /// Width cannot fix it: widening the shadow only makes a wider smear, and it starts colliding
+    /// with the neighbouring soldier's. DEPTH is free — the camera looks along it — and it is the
+    /// only axis that buys screen height. Same projection argument the unit silhouettes are
+    /// governed by, pointing the other way.
+    /// </summary>
+    const float ShadowDepthStretch = 3.2f;
+    /// <summary>Just off the ground, and BELOW the scorch plane so the two never z-fight.</summary>
+    const float ShadowY = 0.006f;
+
+    readonly List<GameObject> shadowSlots = new();
+    Material shadowMat;
+
     void Start()
     {
         Application.targetFrameRate = 60;
@@ -173,6 +207,7 @@ public class BattleRunner : MonoBehaviour
             foreach (var s in scorchSlots)
                 s.GetComponent<MeshRenderer>().sharedMaterial = scenery.ScorchMaterial;
 
+        TintShadows();
         HideAll();
         enemyWindup = 0f;
         dragging = false;
@@ -196,6 +231,7 @@ public class BattleRunner : MonoBehaviour
         foreach (var go in scorchSlots) go.SetActive(false);
         foreach (var go in debrisSlots) go.SetActive(false);
         foreach (var b in healthBars) b.Root.SetActive(false);
+        foreach (var sh in shadowSlots) sh.SetActive(false);
     }
 
     /// <summary>
@@ -332,6 +368,7 @@ public class BattleRunner : MonoBehaviour
             shotPools[type] = pool;
         }
         BuildHealthBars();
+        BuildShadows();
         for (int i = 0; i < 32; i++) blastSlots.Add(Spawn(explosionPrefab, $"x{i}"));
         for (int i = 0; i < BattleTick.ScorchSlots; i++) scorchSlots.Add(Spawn(scorchPrefab, $"sc{i}"));
         for (int i = 0; i < BattleTick.DebrisSlots; i++) debrisSlots.Add(Spawn(debrisPrefab, $"db{i}"));
@@ -419,6 +456,82 @@ public class BattleRunner : MonoBehaviour
     }
 
     /// <summary>
+    /// One shadow per unit that can be on the field at once, pre-warmed with everything else, and
+    /// ONE shared runtime material — every shadow on a level is the same colour, so a property
+    /// block per instance would be per-frame work for no difference.
+    /// </summary>
+    void BuildShadows()
+    {
+        if (shadowPrefab == null) return;
+        for (int i = 0; i < healthBars.Count; i++)
+        {
+            var go = Spawn(shadowPrefab, $"sh{i}");
+            // The quad's own normal faces -Z; a 90° pitch lays it flat on the ground.
+            go.transform.rotation = Quaternion.Euler(90f, 0f, 0f);
+            // After the 90-degree pitch the quad's local Y runs along world Z, so localScale.y
+            // is the DEPTH of the ellipse — the axis that buys on-screen height at this camera.
+            go.transform.localScale =
+                new Vector3(ShadowDiameter, ShadowDiameter * ShadowDepthStretch, 1f);
+            var r = go.GetComponent<MeshRenderer>();
+            if (shadowMat == null) shadowMat = new Material(r.sharedMaterial);
+            r.sharedMaterial = shadowMat;
+            shadowSlots.Add(go);
+        }
+    }
+
+    /// <summary>
+    /// Re-tints the shadows from THIS level's ground, so the ellipse reads as shade rather than
+    /// as a dark sticker: the same grey that works on snow is a black blob on the ash of
+    /// CityRuins and invisible on the Forest's dark green.
+    ///
+    /// The factors are the Filament build's, and they are not uniform. 0.70 was too light to
+    /// register on snow — Winter's ground is nearly white, so a 70% scale of it is still nearly
+    /// white — and BLUE is kept highest so the shade COOLS rather than muddies. Snow shadow goes
+    /// blue, not grey-brown.
+    /// </summary>
+    void TintShadows()
+    {
+        if (shadowMat == null) return;
+        var g = level != null && level.background != null
+            ? level.background.groundColor
+            : new Color(0.7f, 0.7f, 0.7f);
+        // Fully opaque: the softness comes from the texture's own falloff, and dropping the
+        // material alpha on top of it just washed the whole ellipse out on the bright biomes,
+        // which is where it is needed most.
+        shadowMat.color = new Color(g.r * 0.58f, g.g * 0.62f, g.b * 0.72f, 1f);
+    }
+
+    /// <summary>
+    /// Puts a shadow under every LIVING unit. Ragdolls get none: a corpse is falling and then
+    /// lying down, and a crisp ellipse pinned under a tumbling body reads as a sticker.
+    /// </summary>
+    void SyncShadows()
+    {
+        int used = 0;
+        used = PlaceShadows(state.PlayerUnits, used);
+        used = PlaceShadows(state.EnemyUnits, used);
+        for (int i = used; i < shadowSlots.Count; i++)
+            if (shadowSlots[i].activeSelf) shadowSlots[i].SetActive(false);
+    }
+
+    int PlaceShadows(IReadOnlyList<UnitEntity> units, int used)
+    {
+        foreach (var u in units)
+        {
+            if (used >= shadowSlots.Count) break;
+            var go = shadowSlots[used++];
+            go.SetActive(true);
+            // At the unit's FOOT, not at its body: a garrison stands on a deck, so the shadow
+            // follows the unit's own y rather than the world floor.
+            go.transform.position = GameSpace.ToUnity(u.X, u.Y + ShadowY, u.Z);
+            float scale = u.Definition != null ? u.Definition.renderScale : 1f;
+            go.transform.localScale = new Vector3(ShadowDiameter * scale,
+                                                  ShadowDiameter * ShadowDepthStretch * scale, 1f);
+        }
+        return used;
+    }
+
+    /// <summary>
     /// Puts a bar over every unit that has taken damage, on both sides.
     ///
     /// Both sides on purpose: the tactically useful reading is which ENEMY is one round from
@@ -479,8 +592,11 @@ public class BattleRunner : MonoBehaviour
             barProps.SetColor(BaseColorId, c);
             fillRenderer.SetPropertyBlock(barProps);
 
+            // The track fades FASTER than the fill — see HealthBarTrackAlpha. Equal alpha leaves
+            // the dark track as the last thing standing, so the bar ends its life as a black
+            // rectangle rather than as a colour dissolving away.
             var back = BarBackColor;
-            back.a = alpha;
+            back.a = CosmeticSystems.HealthBarTrackAlpha(u.LastHitAge);
             barProps.SetColor(BaseColorId, back);
             backRenderer.SetPropertyBlock(barProps);
         }
@@ -652,6 +768,7 @@ public class BattleRunner : MonoBehaviour
         playerUnits.HideRest();
         enemyUnits.HideRest();
         SyncHealthBars();
+        SyncShadows();
         // Guns follow the LIVE roster only — a ragdoll drops its weapon rather than carrying
         // one through a tumble, which is also what the shipping build does.
         for (int i = state.PlayerUnits.Count; i < playerGuns.Count; i++) playerGuns[i].SetActive(false);

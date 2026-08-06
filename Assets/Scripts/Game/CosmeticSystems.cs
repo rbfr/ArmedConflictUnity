@@ -60,6 +60,25 @@ namespace ArmedConflict.Game
                  : Mathf.Clamp01(remaining / HealthBarFadeSeconds);
         }
 
+        /// <summary>
+        /// Opacity for the EMPTY TRACK, which fades FASTER than the fill on top of it.
+        ///
+        /// Equal alpha is not equal legibility. The track is near-black and the fill is a
+        /// saturated colour, so against any of this game's grounds — pale winter, tan desert —
+        /// the dark track keeps far more contrast at the same alpha than the colour does. Faded
+        /// together, the colour washes out first and the bar spends its last half-second as a
+        /// DARK HUSK: a black rectangle over a soldier's head, which is exactly what "black means
+        /// dead, right?" was reporting.
+        ///
+        /// Squaring makes the track the first thing to go, so a bar always dissolves down to its
+        /// COLOUR and never down to a black bar.
+        /// </summary>
+        public static float HealthBarTrackAlpha(float age)
+        {
+            float a = HealthBarAlpha(age);
+            return a * a;
+        }
+
         // ---- camera shake ---------------------------------------------------------------
 
         public const float ShakeDecayPerSecond = 2.5f;
