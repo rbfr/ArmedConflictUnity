@@ -55,11 +55,28 @@ public class UnitAnim : MonoBehaviour
     float shownAim;
     bool dead;
 
+    /// <summary>
+    /// The model root's authored rest transform, captured before any clip has played.
+    ///
+    /// `die` is the ONLY clip that drives the root — everything else is rotation on the joints
+    /// below it — and Legacy `Animation` leaves a transform wherever the clip last sampled it when
+    /// you stop. So stopping the death and restarting the idle brings every joint back EXCEPT the
+    /// root, which stays face-up on the floor: the body plays a perfect breathing loop lying on
+    /// its back. Re-arming a recycled slot has to put the root back by hand.
+    /// </summary>
+    Vector3 restPos;
+    Quaternion restRot;
+
     void Awake()
     {
         anim = GetComponentInChildren<Animation>();
         if (anim == null) return;
         anim.playAutomatically = false;
+
+        // BEFORE anything plays — this is the only moment the root is guaranteed to be at its
+        // authored rest rather than at the last frame of whatever clip ran on this slot.
+        restPos = anim.transform.localPosition;
+        restRot = anim.transform.localRotation;
 
         armL = anim.transform.Find("torso/arm-left");
         armR = anim.transform.Find("torso/arm-right");
@@ -120,9 +137,16 @@ public class UnitAnim : MonoBehaviour
         s.weight = 1f;
     }
 
+    /// <summary>
+    /// Back on your feet. The ROOT is restored explicitly — see restPos: no clip below `die`
+    /// touches it, so without this a recycled slot keeps the corpse's root transform and the unit
+    /// stands its breathing loop up while still lying on its back.
+    /// </summary>
     void Stand()
     {
         if (anim == null) return;
+        anim.transform.localPosition = restPos;
+        anim.transform.localRotation = restRot;
         if (anim[Idle] != null) anim.Play(Idle);
         if (anim[Hold] != null) anim.Play(Hold);
     }

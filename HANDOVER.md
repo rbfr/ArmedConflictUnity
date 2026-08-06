@@ -720,3 +720,29 @@ with no splash and a 1x structure multiplier. `AutoFire`, three methods down, se
 correctly — so the rocket trooper's 6x against buildings and the grenadier's 2x existed only
 under the debug driver, and a rocket rendered as a tracer. **Auto and the player firing through
 different code is exactly how that survived**; anything that only Auto exercises is not tested.
+
+
+## The corpse that came back — 2026-08-06
+
+Restarting a level brought the whole enemy line back **lying on their backs**, playing a perfect
+breathing loop on the ground.
+
+`die` is the ONLY clip that drives the ROOT; every other clip is rotation on the joints below it.
+Legacy `Animation` leaves a transform wherever the clip last sampled it when you stop, so
+`anim.Stop()` + restart-the-idle brings back every joint EXCEPT the root — which stays face-down
+on the floor. `UnitAnim.Stand()` now restores the root's authored rest transform explicitly,
+captured in `Awake` before any clip has played (the only moment it is guaranteed to be at rest
+rather than at the last frame of whatever ran on that slot).
+
+**This was LATENT, and per-class pooling exposed it.** With one flat 48-slot pool per side, a
+corpse took a high index that a fresh roster of ten never reached, so the death pose sat in a slot
+nobody looked at. Per-class pools are sized to what the level actually fields, so a corpse takes
+the slot immediately after the living — and a reload hands those exact slots straight to the new
+roster. The pooling change did not break this; it stopped hiding it.
+
+`PortSelfTest` asserts the SHAPE rather than the symptom: `die` drives the root and `idle` does
+not. A future clip set that breaks that assumption says so in a second instead of on a device.
+
+**The general rule, worth applying to anything else recycled: stopping an animation does not undo
+it.** Ask what each clip WRITES, and make sure something restores every one of those channels —
+not just the ones the next clip happens to drive.

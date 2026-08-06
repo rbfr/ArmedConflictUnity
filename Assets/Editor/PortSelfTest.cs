@@ -1182,6 +1182,39 @@ public static class PortSelfTest
                       ? "every fielded class has a per-side prefab"
                       : $"PREFABS MISSING (rebuild the scene): {string.Join(", ", noPrefab)}");
 
+            // --- WHY UnitAnim.Stand() RESTORES THE ROOT BY HAND.
+            //
+            // `die` drives the ROOT; nothing below it does. Legacy Animation leaves a transform
+            // wherever the clip last sampled it, so stopping the death and restarting the idle
+            // brings back every joint EXCEPT the root — and a recycled slot then plays a perfect
+            // breathing loop while lying on its back. That shipped: restarting a level came back
+            // with the whole enemy line dead on the ground.
+            //
+            // This asserts the SHAPE of the problem rather than the symptom, so a future clip set
+            // that breaks the assumption says so here instead of on a device.
+            var animPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(
+                "Assets/Prefabs/PlayerUnit_unit_rifleman.prefab");
+            if (animPrefab != null)
+            {
+                var animation = animPrefab.GetComponentInChildren<Animation>();
+                Check(animation != null, "the unit prefab carries an Animation component");
+                if (animation != null)
+                {
+                    bool DrivesRoot(string clipName)
+                    {
+                        var st = animation[clipName];
+                        if (st?.clip == null) return false;
+                        foreach (var b in AnimationUtility.GetCurveBindings(st.clip))
+                            if (string.IsNullOrEmpty(b.path)) return true;
+                        return false;
+                    }
+                    Check(DrivesRoot(UnitAnim.Die),
+                          "`die` drives the ROOT — which is why a corpse's root has to be restored");
+                    Check(!DrivesRoot(UnitAnim.Idle),
+                          "`idle` does NOT drive the root, so it cannot undo a death on its own");
+                }
+            }
+
             // --- THE TANK SHELL. It is off-roster — built from a STRUCTURE, not a unit — so
             // nothing in the unit-facing checks above would notice it had stopped firing, which
             // is exactly how it went missing from the port in the first place.
