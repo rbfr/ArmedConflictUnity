@@ -185,6 +185,16 @@ namespace ArmedConflict.Game
     {
         public bool Asleep { get; init; }
         public bool IsRubble => Ttl >= float.MaxValue;
+
+        /// <summary>
+        /// Vertical squash, 1 = the cube a tumbling chunk renders as.
+        ///
+        /// A RUIN is not a pile of cubes. Masonry that has come down lies FLAT and WIDE — the
+        /// silhouette is what makes a wreck read as a collapsed building rather than as scattered
+        /// crates, and at this camera's ~6° the height of a lump is most of what you can see of
+        /// it. Slabs use ~0.3.
+        /// </summary>
+        public float Squash { get; init; } = 1f;
     }
 
     public record ScorchMark(int Id, float X, float Z)

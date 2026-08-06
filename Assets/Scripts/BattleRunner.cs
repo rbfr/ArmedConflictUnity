@@ -1015,7 +1015,9 @@ public class BattleRunner : MonoBehaviour
                 debrisSlots[i].SetActive(true);
                 debrisSlots[i].transform.position = GameSpace.ToUnity(d.X, d.Y, d.Z);
                 debrisSlots[i].transform.rotation = Quaternion.Euler(0f, 0f, -d.Rotation);
-                debrisSlots[i].transform.localScale = Vector3.one * d.Size;
+                // Squash is 1 for a tumbling chunk and ~0.3 for a settled ruin slab.
+                debrisSlots[i].transform.localScale =
+                    new Vector3(d.Size, d.Size * d.Squash, d.Size);
             }
             else debrisSlots[i].SetActive(false);
         }

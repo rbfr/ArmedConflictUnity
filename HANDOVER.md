@@ -1190,3 +1190,45 @@ shooter, and calls a level that breaks under a LEGAL loadout a product bug. **Th
 been run** — it needs real drags per level, and `Auto` cannot measure difficulty (it never misses
 and is structure-blind). The framing half is enforced by the checks above; the difficulty half is
 still owed. It was deferred historically too; it is now the last open item in Tier 0.
+
+## Ruins, instead of blocks everywhere — 2026-08-06
+
+Rob: "I want to see better ruins when a structure is destroyed, not just the structure disappears
+and then we have all of these blocks everywhere." Both halves of that were real, and they had
+DIFFERENT causes.
+
+**1. The building vanished.** Destruction removed the structure and threw TEN CUBES at random
+angles with `Ttl = float.MaxValue`. Nothing marked where the building had stood.
+
+Now a RUIN is PLACED rather than launched: 3-6 wide flat slabs lying inside the structure's own
+footprint, already `Asleep`, persisting for the level. Sizes descend from the centre outward so it
+reads as a collapsed mound rather than a row of equal lumps, and rotations are within ±11° —
+masonry settles askew, it does not stand on end. `DebrisPiece.Squash` (0.3 for a slab, 1 for a
+tumbling chunk) is what makes it lie FLAT: at this camera's ~6° the height of a lump is most of
+what you can see of it, so a cube reads as a crate and a slab reads as fallen masonry. The
+collapse still throws chunks, but they are transient now.
+
+**2. "Blocks everywhere" was mostly NOT the destruction.** It was the SHED pieces — the chunks a
+structure throws off as it takes damage, which also carried `DebrisRubbleTtl`. A structure sheds
+up to a dozen chunk groups over its life, every one of them permanent, so they piled up across the
+field as loose blocks with nothing to do with where the building stood. They are transient now.
+The lasting record of DAMAGE is the structure's own missing geometry; the lasting record of
+DESTRUCTION is the ruin.
+
+**3. They were also nearly black.** The debris prefab used `structEnemyAccent` (0.30/0.24/0.18),
+which at debris size on open ground reads as scorch rather than stone. It uses the structure BODY
+tone now (0.52/0.44/0.34), so rubble reads as the building it came from.
+
+### NOT VISUALLY CONFIRMED
+
+The build is clean and the self-tests pass, but **the finished ruin has not been seen on device**
+— the phone was needed back with the outpost at 26 HP. What HAS been confirmed on hardware is the
+diagnosis: the screenshot that prompted this showed ~14 near-black blocks strewn far wider than
+the structure's footprint, which is what identified the shed pieces rather than the destruction
+burst as the main culprit.
+
+To finish the check: L1, BEGIN, then repeat `input swipe 540 1150 204 1486 400`. That drag is
+derived, not guessed — `ppu = 1080 * 0.0208 = 22.46 px` per drag-unit and `DragSpeedScale = 0.384`,
+so L1's 16.5-unit tank→outpost separation needs `v = sqrt(16.5 * 4) = 8.12`, a 475 px drag, 336 px
+on each axis at 45°, downward to launch upward. It lands on target: structure HP fell 90 → 50 → 28
+over successive volleys. Budget ~10 volleys, since garrison units absorb hits first.

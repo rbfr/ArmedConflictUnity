@@ -469,7 +469,10 @@ public static class SpikeSceneBattle
         var go = GameObject.CreatePrimitive(PrimitiveType.Cube);
         go.name = "Debris";
         Object.DestroyImmediate(go.GetComponent<Collider>());
-        go.GetComponent<MeshRenderer>().sharedMaterial = mats.structEnemyAccent;
+        // The BODY tone, not the accent. Rubble is the building's masonry, so it should read as
+        // that building — and the accent is 0.30/0.24/0.18, which at debris size on open ground
+        // reads as near-black scorch rather than stone.
+        go.GetComponent<MeshRenderer>().sharedMaterial = mats.structEnemy;
         System.IO.Directory.CreateDirectory("Assets/Prefabs");
         var prefab = PrefabUtility.SaveAsPrefabAsset(go, "Assets/Prefabs/Debris.prefab");
         Object.DestroyImmediate(go);

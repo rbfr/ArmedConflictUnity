@@ -41,6 +41,13 @@ namespace ArmedConflict.Game
         const float ChunkShedVy = 0.5f;
         const float ChunkShedSpreadVx = 0.9f;
 
+        /// <summary>
+        /// How flat a settled ruin slab lies. At this camera's ~6° the HEIGHT of a lump is most
+        /// of what reads, so a cube of rubble looks like a crate and a slab looks like masonry
+        /// that has come down.
+        /// </summary>
+        const float RuinSquash = 0.3f;
+
         static readonly Dictionary<int, float> EmptyAim = new();
 
 
@@ -313,7 +320,14 @@ namespace ArmedConflict.Game
                                 Rotation: (float)random.NextDouble() * 360f,
                                 RotationSpeed: ((float)random.NextDouble() - 0.5f) * 240f,
                                 Size: sz,
-                                Ttl: CosmeticSystems.DebrisRubbleTtl));
+                                // TRANSIENT, not permanent. These fall off as the building takes
+                                // damage, and there are up to a dozen groups over a structure's
+                                // life — kept forever they piled up across the field as loose
+                                // blocks with nothing to do with where the building stood, which
+                                // is most of what "blocks everywhere" was. The lasting record of
+                                // damage is the structure's OWN missing geometry; the lasting
+                                // record of destruction is the ruin.
+                                Ttl: CosmeticSystems.DebrisTtlSeconds));
                         }
                     }
                     after.Add(st with { ShedChunks = shed });
@@ -330,26 +344,66 @@ namespace ArmedConflict.Game
                     if (st == null) continue;
                     float halfW = (st.Definition.hasHitWidth ? st.Definition.hitWidth
                                                              : st.Definition.size) / 2f;
-                    // Rubble PERSISTS for the rest of the level (ttl = MaxValue) and sleeps once
-                    // settled. A wrecked structure that leaves nothing behind reads as if it was
-                    // deleted rather than destroyed.
-                    for (int i = 0; i < 10 && pieces.Count < DebrisSlots; i++)
+
+                    // THE RUIN. Placed, not launched: a row of wide flat slabs lying inside the
+                    // structure's OWN FOOTPRINT, already asleep, persisting for the rest of the
+                    // level.
+                    //
+                    // This replaces ten cubes fired off at random angles with permanent ttl. That
+                    // version had both halves wrong — the building vanished outright, so nothing
+                    // marked where it had been, and its masonry ended up strewn across the field
+                    // as loose blocks that never went away. A wreck should sit in the hole the
+                    // building left.
+                    //
+                    // Sizes descend across the row and the tallest sits at the centre, so the pile
+                    // reads as a collapsed mound rather than a wall of equal lumps.
+                    int slabs = Mathf.Clamp(Mathf.RoundToInt(halfW * 2.6f), 3, 6);
+                    for (int i = 0; i < slabs && pieces.Count < DebrisSlots; i++)
+                    {
+                        float t = slabs == 1 ? 0f : i / (float)(slabs - 1);      // 0..1 across
+                        float fromCentre = Mathf.Abs(t - 0.5f) * 2f;             // 1 at the edges
+                        float width = st.Definition.size * (0.34f - 0.12f * fromCentre)
+                                    * (0.85f + 0.3f * (float)random.NextDouble());
+                        pieces.Add(new DebrisPiece(
+                            Id: nextDebris++,
+                            DefinitionId: st.Definition.id,
+                            Accent: i % 3 == 1,
+                            // Spread across the footprint, never beyond it.
+                            X: st.X + (t - 0.5f) * halfW * 1.7f
+                                    + ((float)random.NextDouble() - 0.5f) * 0.12f,
+                            Y: width * RuinSquash * 0.5f,                        // resting on the ground
+                            Z: st.Z + ((float)random.NextDouble() - 0.5f) * 0.25f,
+                            Vx: 0f, Vy: 0f,
+                            // A few degrees only. Masonry settles askew; it does not stand on end.
+                            Rotation: ((float)random.NextDouble() - 0.5f) * 22f,
+                            RotationSpeed: 0f,
+                            Size: width,
+                            Ttl: CosmeticSystems.DebrisRubbleTtl)
+                        {
+                            Asleep = true,
+                            Squash = RuinSquash,
+                        });
+                    }
+
+                    // The moment of collapse still throws chunks — but they are TRANSIENT now, so
+                    // nothing loose is left on the field once the dust settles.
+                    for (int i = 0; i < 6 && pieces.Count < DebrisSlots; i++)
                     {
                         float ang = (float)random.NextDouble() * Mathf.PI * 2f;
-                        float speed = 1.5f + (float)random.NextDouble() * 2.5f;
+                        float speed = 1.0f + (float)random.NextDouble() * 1.6f;
                         pieces.Add(new DebrisPiece(
                             Id: nextDebris++,
                             DefinitionId: st.Definition.id,
                             Accent: i % 3 == 0,
-                            X: st.X + ((float)random.NextDouble() - 0.5f) * halfW * 1.6f,
+                            X: st.X + ((float)random.NextDouble() - 0.5f) * halfW,
                             Y: st.Y + (float)random.NextDouble() * st.Definition.size * 0.6f,
                             Z: st.Z,
                             Vx: Mathf.Cos(ang) * speed,
                             Vy: 1.5f + (float)random.NextDouble() * 2.5f,
                             Rotation: (float)random.NextDouble() * 360f,
                             RotationSpeed: ((float)random.NextDouble() - 0.5f) * 500f,
-                            Size: st.Definition.size * (0.10f + 0.10f * (float)random.NextDouble()),
-                            Ttl: CosmeticSystems.DebrisRubbleTtl));
+                            Size: st.Definition.size * (0.08f + 0.07f * (float)random.NextDouble()),
+                            Ttl: CosmeticSystems.DebrisTtlSeconds));
                     }
                 }
                 debris = pieces;
