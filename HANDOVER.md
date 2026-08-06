@@ -9,9 +9,14 @@
   CityRuins, Ocean) plus 17 test rigs. Total 24.
 - **Roster is 8 unit definitions / 7 models / 6 pickable**, cut from 15 on 2026-08-05.
 - **Self-test checks pass.** Run them after every change (command below).
-- Android is still the shipping build and still the SOURCE OF TRUTH for all game data. Level and
-  unit edits happen THERE, in Kotlin, then re-export and re-import — never hand-edit the
-  ScriptableObjects.
+- **THE ANDROID BUILD IS RETIRED** (2026-08-06, Rob: "we're not paying attention to the Android
+  one anymore, we're going forward with Unity"). It is no longer the shipping build, no longer
+  maintained, and its unmerged `projectile-refinement` branch is not a loose end anybody needs to
+  tidy. Keep the repo for reference — its comments are the record of every trap this port inherited.
+- **The Kotlin is still the DATA pipeline, and that is now the one thing keeping the old repo in
+  play.** Levels and unit stats are authored in Kotlin, exported and imported; the ScriptableObjects
+  are still generated and must never be hand-edited. That is a live decision to revisit, not a
+  law — see "Data authoring, once Android is retired" below.
 - **Every class now renders as itself** (2026-08-06) — seven rigged silhouettes, per-class render
   slots, and the fourth colour tone. See "Per-class unit art" below. That was the biggest open
   thread and it is closed; what is left on it is Rob's judgement in moving play.
@@ -29,7 +34,7 @@ history. Everything below was verified on the device, not assumed.
 
 | | |
 |---|---|
-| `~/AndroidStudioProjects/ArmedConflict` | Kotlin + SceneView/Filament. **Still the shipping build.** Now legacy. |
+| `~/AndroidStudioProjects/ArmedConflict` | Kotlin + SceneView/Filament. **RETIRED 2026-08-06** — reference and data authoring only. |
 | `~/UnityProjects/ArmedConflictSpike` | this repo → `github.com/rbfr/ArmedConflictUnity` |
 
 Unity was chosen on 2026-08-04 after a four-step spike passed every criterion. Godot was
@@ -817,3 +822,26 @@ same box the projectile path uses, including the deck-vs-size distinction that o
 garrison unkillable. Two hand-rolled copies of that arithmetic is exactly how the two would drift.
 
 NOT yet judged in play: whether 0.32/38 is the right amount of lean. It is deliberately subtle.
+
+
+## Data authoring, once Android is retired — OPEN, 2026-08-06
+
+The Android build stopped being the shipping build on 2026-08-06. One thing did not move with it:
+**game DATA is still authored in Kotlin** and reaches Unity one way, through
+`tools/export_kotlin_data.py` -> `data.json` -> `DataImporter` -> ScriptableObjects.
+
+That was obviously right while Android was the product and Unity was the port. It is no longer
+obviously right, and it is worth an explicit decision rather than drifting:
+
+- **Keeping it** costs a second repo, a second toolchain and an export step on every level tweak,
+  in a codebase nobody ships any more. It also keeps a real hazard alive: `DataImporter` REBUILDS
+  the eight roster/grouping sandboxes itself because the exporter cannot parse their Kotlin
+  generator, so the two halves of the level list already come from different places.
+- **Moving authoring into Unity** means the ScriptableObjects become the source and can be edited
+  directly — but it throws away a parser that has been debugged hard (`FortressTier` silently
+  dropped, `Capture` losing optional fields, ARGB losing its low byte to a float mantissa), and
+  the Kotlin files carry a great deal of design commentary that would need a home.
+
+Nothing here is urgent — the pipeline works. But the reason it exists is gone, so the next person
+to be annoyed by an export step should treat that annoyance as a real signal, not as friction to
+be absorbed.
