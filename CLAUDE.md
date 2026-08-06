@@ -42,12 +42,16 @@ anywhere:
 
 | | |
 |---|---|
+| `PRODUCT_DIRECTION.md` | **what to build next** — retention, dopamine model, campaign packaging, priority stack. Plan product work against this |
 | `GAME_DESIGN_LOCKS.md` | decisions that are CLOSED — turn structure, win/loss, physics, scope |
 | `PROGRESSION_DESIGN.md` | coins, loadout, unlocks, consumables — phased spec + build status |
 | `DYNAMISM_DESIGN.md` | per-turn ammo, mid-battle events, faction/biome variety + coverage table |
 | `CAMERA_ARCHITECTURE.md` | the camera model. **LOCKED** — do not change camera/aim without an ask |
 | `UNIT_VARIETY_DESIGN.md` | seven attempts at unit legibility and why each fell short. Read before touching unit art |
 | `STRUCTURE_VARIETY_DESIGN.md` | the same for structures |
+
+Nothing in `PRODUCT_DIRECTION.md` overrides a lock. When prioritising features, that file
+wins over ad-hoc "nice to have" systems.
 
 The Kotlin in the retired repo still references them by name in dozens of comments. Those
 references are still correct about WHAT to read — just read it here.

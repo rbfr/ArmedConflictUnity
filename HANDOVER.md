@@ -33,6 +33,11 @@ not assumed.
 `PROGRESSION_DESIGN.md`, `DYNAMISM_DESIGN.md`, `CAMERA_ARCHITECTURE.md`, `UNIT_VARIETY_DESIGN.md`,
 `STRUCTURE_VARIETY_DESIGN.md`. They still govern.
 
+**Product / retention direction (2026-08-06):** `PRODUCT_DIRECTION.md` — priority stack
+(campaign spine → victory/meta juice → ammo/events → identity → daily/monetization), dopamine
+model, 12-level beat chart, anti-goals, and soft-launch success criteria. Claude should plan
+engagement/content work against that file; it does not override locks.
+
 ## Where things are
 
 **Two repos, deliberately separate. Do not merge them.**

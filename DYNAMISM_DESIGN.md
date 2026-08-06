@@ -6,6 +6,11 @@ lock. The core verb (drag → volley → watch) stays untouched; this plan attac
 repetition sources the progression layer didn't: **every turn has the same shape, there is
 no in-battle decision beyond the drag, and it's always green-vs-red on the same field.**
 
+**Build priority:** `PRODUCT_DIRECTION.md` places this layer in **Tier 1** (after the
+12-level campaign spine and victory/meta juice). Do not start ammo/events/factions as the
+main thread while the player-facing map is still 7 campaign levels + test rigs with a
+silent victory screen.
+
 ## Design pillars (decided 2026-07-19, treat as soft locks)
 
 - **Every turn contains a decision beyond the drag.** The drag stays sacred (no landing

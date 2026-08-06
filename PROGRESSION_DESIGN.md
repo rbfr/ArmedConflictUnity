@@ -6,6 +6,11 @@ fills the hook the locks explicitly reserve (`Roster`, `StageDefinition.unlockRe
 The follow-on gameplay-dynamism layer (ammo types, mid-battle events, visual variety) is
 spec'd in `DYNAMISM_DESIGN.md`.
 
+**Build priority / packaging:** see `PRODUCT_DIRECTION.md` (2026-08-06). That doc decides
+*when* this layer is felt in the player funnel (Tier 0 meta juice before new toys); this
+file remains the authoritative *how* for coins, loadout, unlocks, consumables, and Phase 4
+retention stubs.
+
 ## Design pillars (decided, treat as soft locks)
 
 - **Engagement first, monetization stubbed.** Build the full coin/loadout/consumable loops
