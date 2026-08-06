@@ -22,6 +22,6 @@ MonoBehaviour:
   bulletVariant: 0
   projectilesPerVolley: 1
   splashRadius: 0.9
-  structureDamageMultiplier: 1
+  structureDamageMultiplier: 2
   meleeDamage: 0
   renderScale: 1

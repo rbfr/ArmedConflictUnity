@@ -26,6 +26,17 @@ public static class DataImporter
     static readonly Dictionary<string, BackgroundDefinitionSO> Backgrounds = new();
     static readonly Dictionary<string, LevelDefinitionSO> Levels = new();
 
+    /// <summary>
+    /// Level-LOCAL variants minted during THIS run (PlayerTank__Level6 and friends). They are
+    /// legitimately absent from the Kotlin's own declarations, so the sweep has to be told about
+    /// them — but by RECORDING them, not by exempting the "__" name pattern. The pattern version
+    /// let PlayerTank__Level6 survive the campaign cut: Level6 used to be The Keep and had a
+    /// six-shell tank, it is Ash Boulevard now and has none, and the variant sat there referenced
+    /// by nothing. An exemption that covers a whole shape of name cannot tell a live variant from
+    /// a dead one.
+    /// </summary>
+    static readonly HashSet<string> LocalVariants = new();
+
     public static void Import()
     {
         string path = ArgOr("-dataJson", "data.json");
@@ -42,6 +53,8 @@ public static class DataImporter
             Fail($"exporter reported {unparsed.Count} unparsed definitions — fix the export first");
             return;
         }
+
+        LocalVariants.Clear();
 
         foreach (var d in new[] { "Units", "Structures", "Backgrounds", "Levels", "Stages" })
             Directory.CreateDirectory($"{Root}/{d}");
@@ -72,21 +85,20 @@ public static class DataImporter
         AssetDatabase.SaveAssets();
         var absent = names.Where(n => n != null && !Levels.ContainsKey(n)).ToList();
 
-        // DELETE ORPHANS. The importer creates and updates, and used to do nothing else — so a
-        // level removed from the Kotlin left its .asset behind, and SpikeSceneBattle collects
-        // EVERY LevelDefinitionSO it can find and orders them by levelNumber. A deleted level
-        // therefore rejoined the campaign silently, at whatever number it used to hold. Found
-        // when the campaign was cut to seven biome levels on 2026-08-05 and six assets were left
-        // stranded. The Kotlin is the source of truth in BOTH directions: what it no longer
-        // declares must not survive here.
-        foreach (var orphan in AssetDatabase.FindAssets("t:LevelDefinitionSO", new[] { $"{Root}/Levels" })
-                     .Select(AssetDatabase.GUIDToAssetPath)
-                     .Where(p => !Levels.ContainsKey(Path.GetFileNameWithoutExtension(p)))
-                     .ToList())
-        {
-            Debug.Log($"[DataImport] removing orphaned level asset {Path.GetFileName(orphan)}");
-            AssetDatabase.DeleteAsset(orphan);
-        }
+        // DELETE ORPHANS, in EVERY folder the importer owns. It creates and updates, and used
+        // to do nothing else — so anything removed from the Kotlin left its .asset behind.
+        //
+        // For LEVELS that is an outright bug: SpikeSceneBattle collects every LevelDefinitionSO
+        // it can find and orders them by levelNumber, so a deleted level rejoined the campaign
+        // silently at whatever number it used to hold. Six were stranded by the biome cut.
+        // For the other three it is inert clutter rather than a live fault — but the rule is the
+        // same either way, and the roster cut immediately stranded seven UNITS, which is how a
+        // levels-only sweep proved to be the special case rather than the fix. The Kotlin is the
+        // source of truth in BOTH directions: what it no longer declares must not survive here.
+        Sweep("Levels", Levels.Keys);
+        Sweep("Units", Units.Keys);
+        Sweep("Structures", Structures.Keys);
+        Sweep("Backgrounds", Backgrounds.Keys);
 
         Debug.Log($"[DataImport] units={Units.Count} structures={Structures.Count} " +
                   $"backgrounds={Backgrounds.Count} levels={Levels.Count} " +
@@ -98,6 +110,23 @@ public static class DataImporter
         foreach (var lv in Levels.Values.Where(l => !l.isTestLevel).OrderBy(l => l.levelNumber))
             Debug.Log($"[DataImport] L{lv.levelNumber} {lv.displayName}: " +
                       $"{lv.enemyGroups.Sum(g => g.count)} enemies, {lv.structures.Count} structures");
+    }
+
+    /// <summary>Removes any asset in a GameData folder the Kotlin no longer declares.</summary>
+    static void Sweep(string folder, IEnumerable<string> keep)
+    {
+        var live = new HashSet<string>(keep);
+        foreach (var orphan in AssetDatabase.FindAssets("", new[] { $"{Root}/{folder}" })
+                     .Select(AssetDatabase.GUIDToAssetPath)
+                     .Where(p => p.EndsWith(".asset"))
+                     .Where(p => !live.Contains(Path.GetFileNameWithoutExtension(p)))
+                     .Distinct()
+                     .ToList())
+        {
+            if (LocalVariants.Contains(Path.GetFileNameWithoutExtension(orphan))) continue;
+            Debug.Log($"[DataImport] removing orphaned {folder} asset {Path.GetFileName(orphan)}");
+            AssetDatabase.DeleteAsset(orphan);
+        }
     }
 
     // ------------------------------------------------------------------ builders
@@ -454,6 +483,7 @@ public static class DataImporter
             }
         }
         EditorUtility.SetDirty(v);
+        LocalVariants.Add(System.IO.Path.GetFileNameWithoutExtension(variantPath));
         Debug.Log($"[DataImport] {levelName}: level-local {baseAsset.name} " +
                   $"({string.Join(",", overrides.Keys)}) -> {System.IO.Path.GetFileName(variantPath)}");
         return v;

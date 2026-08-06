@@ -16,12 +16,12 @@ MonoBehaviour:
   displayName: Enemy Sniper
   modelAsset: models/unit_sniper.glb
   gunModelAsset: models/gun_sniper.glb
-  maxHp: 8
-  damage: 16
+  maxHp: 16
+  damage: 20
   projectileType: 0
   bulletVariant: 2
   projectilesPerVolley: 1
   splashRadius: 0
-  structureDamageMultiplier: 0.25
+  structureDamageMultiplier: 0.5
   meleeDamage: 0
   renderScale: 1

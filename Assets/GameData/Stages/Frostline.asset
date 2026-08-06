@@ -18,5 +18,5 @@ MonoBehaviour:
   levels:
   - {fileID: 11400000, guid: be68ea60b193003d297578e849e6cdae, type: 2}
   starsToUnlock: 9
-  unlockRewardId: mortar_team
+  unlockRewardId: grenadier
   completionCoinBonus: 0

@@ -119,7 +119,7 @@ NavMeshSettings:
     debug:
       m_Flags: 0
   m_NavMeshData: {fileID: 0}
---- !u!1 &720358889
+--- !u!1 &631348668
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -127,8 +127,39 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 720358891}
-  - component: {fileID: 720358890}
+  - component: {fileID: 631348669}
+  m_Layer: 0
+  m_Name: Pool
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &631348669
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 631348668}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &1028790633
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1028790635}
+  - component: {fileID: 1028790634}
   m_Layer: 0
   m_Name: Directional Light
   m_TagString: Untagged
@@ -136,13 +167,13 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!108 &720358890
+--- !u!108 &1028790634
 Light:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 720358889}
+  m_GameObject: {fileID: 1028790633}
   m_Enabled: 1
   serializedVersion: 11
   m_Type: 1
@@ -201,13 +232,13 @@ Light:
   m_LightUnit: 1
   m_LuxAtDistance: 1
   m_EnableSpotReflector: 1
---- !u!4 &720358891
+--- !u!4 &1028790635
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 720358889}
+  m_GameObject: {fileID: 1028790633}
   serializedVersion: 2
   m_LocalRotation: {x: 0.40821794, y: -0.23456973, z: 0.10938166, w: 0.8754261}
   m_LocalPosition: {x: 0, y: 0, z: 0}
@@ -216,7 +247,7 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!1 &795909585
+--- !u!1 &1953651803
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -224,12 +255,12 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 795909591}
-  - component: {fileID: 795909590}
-  - component: {fileID: 795909589}
-  - component: {fileID: 795909588}
-  - component: {fileID: 795909587}
-  - component: {fileID: 795909586}
+  - component: {fileID: 1953651809}
+  - component: {fileID: 1953651808}
+  - component: {fileID: 1953651807}
+  - component: {fileID: 1953651806}
+  - component: {fileID: 1953651805}
+  - component: {fileID: 1953651804}
   m_Layer: 0
   m_Name: Main Camera
   m_TagString: MainCamera
@@ -237,13 +268,13 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!114 &795909586
+--- !u!114 &1953651804
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 795909585}
+  m_GameObject: {fileID: 1953651803}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 372ebe60123ac960babcdef7c15145e0, type: 3}
@@ -257,19 +288,19 @@ MonoBehaviour:
   victory: {fileID: 8300000, guid: a7e6bd53f66e35af8ac1bafe9fdd9d5b, type: 3}
   defeat: {fileID: 8300000, guid: 5879d820bf2ab70e0ae3d39b6098ca26, type: 3}
   helicopterLoop: {fileID: 8300000, guid: d588d170ef66720e0b0f5c3f79f6817d, type: 3}
---- !u!114 &795909587
+--- !u!114 &1953651805
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 795909585}
+  m_GameObject: {fileID: 1953651803}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 6194d6f90b1553813a01cdd2e497d04e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  cam: {fileID: 795909590}
+  cam: {fileID: 1953651808}
   levels:
   - {fileID: 11400000, guid: 2e279103f6cb9a49e9c9e671913d041e, type: 2}
   - {fileID: 11400000, guid: 10007778b5275b9fb85bbe6f1ccd0f16, type: 2}
@@ -295,7 +326,7 @@ MonoBehaviour:
   - {fileID: 11400000, guid: ebb88b549ca10608f81c413ec0b0d4ea, type: 2}
   - {fileID: 11400000, guid: 9ae5736fb385f832aa25b4c10c7a4cc8, type: 2}
   - {fileID: 11400000, guid: a575861e0dc4fc3f4ab4d7b8c359d72f, type: 2}
-  scenery: {fileID: 795909588}
+  scenery: {fileID: 1953651806}
   playerUnitPrefab: {fileID: 6657620453530379141, guid: 69d5f0974c1498993bccd89701741591, type: 3}
   enemyUnitPrefab: {fileID: 8045661490507818107, guid: f9695026d7bedd0b586743b3a15f3c25, type: 3}
   projectilePrefab: {fileID: 1699614252002985461, guid: 7d9a7b210aef282c7ab9845540745738, type: 3}
@@ -306,15 +337,15 @@ MonoBehaviour:
   explosionPrefab: {fileID: 5465493074394163905, guid: 7c20f121f7679fb3f9ec501979c4940c, type: 3}
   scorchPrefab: {fileID: 3466446947106732326, guid: d2dc56918c834276087326c2d86264ce, type: 3}
   debrisPrefab: {fileID: 9114317041617455683, guid: 53b6ed278ac0eb86ebff597ef5db6395, type: 3}
-  audioFx: {fileID: 795909586}
-  poolRoot: {fileID: 1917237627}
---- !u!114 &795909588
+  audioFx: {fileID: 1953651804}
+  poolRoot: {fileID: 631348669}
+--- !u!114 &1953651806
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 795909585}
+  m_GameObject: {fileID: 1953651803}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 74acf434c1efab61d8e5ac4d6ea70046, type: 3}
@@ -334,7 +365,6 @@ MonoBehaviour:
   - fortress_tier_wide
   - garrison_post
   - gun_launcher
-  - gun_marksman
   - gun_mg
   - gun_rocket
   - gun_sniper
@@ -350,12 +380,9 @@ MonoBehaviour:
   - sandbags
   - tower_base
   - tower_platform
-  - unit_engineer
   - unit_grenadier
   - unit_hero
-  - unit_marksman
   - unit_mg
-  - unit_mortar
   - unit_rifleman
   - unit_rifleman_rigged
   - unit_rocket
@@ -376,7 +403,6 @@ MonoBehaviour:
   - {fileID: 8771091787928289351, guid: cba48f11ae982133a93d0474acd7f725, type: 3}
   - {fileID: 8771091787928289351, guid: 39071018084ebf6268b32676d4b8a5ec, type: 3}
   - {fileID: -2071090039991819333, guid: dfff554431cc37db0b86dbbc92297a1d, type: 3}
-  - {fileID: -2071090039991819333, guid: 7f536ea3ce576d91e846c093c1f87d4d, type: 3}
   - {fileID: -2071090039991819333, guid: cf1559fd7f626457586163f2013d1f74, type: 3}
   - {fileID: -2071090039991819333, guid: 3a07e9239999ba677bb26b9e28c06102, type: 3}
   - {fileID: -2071090039991819333, guid: b4b7cc1eab1518bcea23033965e42d30, type: 3}
@@ -392,12 +418,9 @@ MonoBehaviour:
   - {fileID: 8771091787928289351, guid: 9c67ac854dbb92d9aba3383b1efeaa74, type: 3}
   - {fileID: 8771091787928289351, guid: d41a7581a84afcd50ae7613b0a3f1108, type: 3}
   - {fileID: 8771091787928289351, guid: 62779e525ec62250f93f3c5043c804a0, type: 3}
-  - {fileID: 8771091787928289351, guid: d1a9e7463379d2272afca6867bfc5466, type: 3}
   - {fileID: 8771091787928289351, guid: 01f1b76f3ea91f8e08f48d6db9a18ae9, type: 3}
   - {fileID: 8771091787928289351, guid: 1c51500b0a7a744d7a657f0c0a0f55e1, type: 3}
-  - {fileID: 8771091787928289351, guid: 6b546668d7885ff6a8bafc513e98ea4a, type: 3}
   - {fileID: 8771091787928289351, guid: 53321501227f423d7b18bdbbeb6eaeb6, type: 3}
-  - {fileID: 8771091787928289351, guid: d782b32fffc42560bb3a3e16f26600d5, type: 3}
   - {fileID: 8771091787928289351, guid: 3e5addc47b04afc98bbe2063e3fd7c62, type: 3}
   - {fileID: 6273503512926234890, guid: fab180a2a7c943ed89394d4f89d19872, type: 3}
   - {fileID: 8771091787928289351, guid: 235d35673ba52f2eda3c07e92dfff10c, type: 3}
@@ -412,21 +435,21 @@ MonoBehaviour:
   structEnemy: {fileID: 2100000, guid: 404c95db0784e9a91a3385c9832d7b91, type: 2}
   structEnemyAccent: {fileID: 2100000, guid: 0178a517a011517188fcf2acc9dfc72a, type: 2}
   scorchSource: {fileID: 2100000, guid: cfc09ef8f3e437e44a2673cd3d8a71b6, type: 2}
---- !u!81 &795909589
+--- !u!81 &1953651807
 AudioListener:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 795909585}
+  m_GameObject: {fileID: 1953651803}
   m_Enabled: 1
---- !u!20 &795909590
+--- !u!20 &1953651808
 Camera:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 795909585}
+  m_GameObject: {fileID: 1953651803}
   m_Enabled: 1
   serializedVersion: 2
   m_ClearFlags: 2
@@ -471,44 +494,13 @@ Camera:
   m_OcclusionCulling: 1
   m_StereoConvergence: 10
   m_StereoSeparation: 0.022
---- !u!4 &795909591
+--- !u!4 &1953651809
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 795909585}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!1 &1917237626
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 1917237627}
-  m_Layer: 0
-  m_Name: Pool
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &1917237627
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1917237626}
+  m_GameObject: {fileID: 1953651803}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
@@ -521,6 +513,6 @@ Transform:
 SceneRoots:
   m_ObjectHideFlags: 0
   m_Roots:
-  - {fileID: 1917237627}
-  - {fileID: 720358891}
-  - {fileID: 795909591}
+  - {fileID: 631348669}
+  - {fileID: 1028790635}
+  - {fileID: 1953651809}

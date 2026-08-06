@@ -406,6 +406,26 @@ public class BattleRunner : MonoBehaviour
             bool live = liveIds.Contains(id);
             if (go.activeSelf != live) go.SetActive(live);
         }
+
+        // A damaged structure LOSES the geometry it just shed. The count comes from the tick's
+        // own ShedChunks rather than being recomputed here — the two used to derive it separately
+        // in the Filament build, which is the kind of duplication that drifts until a building
+        // drops a piece it still has, or loses one with nothing falling off it.
+        //
+        // Chunks are proud add-ons over an intact core, so hiding one exposes bare structure
+        // rather than opening a hole. Renderers are toggled, not the GameObjects: a chunk node
+        // may carry children, and deactivating it would take them with it.
+        foreach (var st in state.Structures)
+        {
+            var groups = scenery.ChunkGroups(st.Id);
+            for (int g = 0; g < groups.Length; g++)
+            {
+                bool shown = g >= st.ShedChunks;
+                var list = groups[g];
+                for (int r = 0; r < list.Count; r++)
+                    if (list[r] != null && list[r].enabled != shown) list[r].enabled = shown;
+            }
+        }
     }
 
     /// <summary>

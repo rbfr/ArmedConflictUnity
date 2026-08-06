@@ -35,9 +35,9 @@
    "displayName": "Sniper",
    "modelAsset": "models/unit_sniper.glb",
    "gunModelAsset": "models/gun_sniper.glb",
-   "maxHp": 8,
-   "damage": 16,
-   "structureDamageMultiplier": 0.25,
+   "maxHp": 16,
+   "damage": 20,
+   "structureDamageMultiplier": 0.5,
    "bulletVariant": {
     "__ref": "BulletVariant.Sniper"
    }
@@ -95,7 +95,8 @@
    "projectileType": {
     "__ref": "ProjectileType.Grenade"
    },
-   "splashRadius": 0.9
+   "splashRadius": 0.9,
+   "structureDamageMultiplier": 2.0
   },
   "EnemyGrenadier": {
    "__ctor": "Grenadier.copy",
@@ -117,76 +118,6 @@
    "__ctor": "ShieldBearer.copy",
    "id": "enemy_shield_bearer",
    "displayName": "Enemy Shield Bearer"
-  },
-  "MortarTeam": {
-   "__ctor": "UnitDefinition",
-   "id": "mortar_team",
-   "displayName": "Mortar Team",
-   "modelAsset": "models/unit_mortar.glb",
-   "gunModelAsset": "models/gun_launcher.glb",
-   "maxHp": 20,
-   "damage": 8,
-   "projectileType": {
-    "__ref": "ProjectileType.Shell"
-   },
-   "splashRadius": 1.2,
-   "structureDamageMultiplier": 2.0
-  },
-  "Marksman": {
-   "__ctor": "UnitDefinition",
-   "id": "marksman",
-   "displayName": "Marksman",
-   "modelAsset": "models/unit_marksman.glb",
-   "gunModelAsset": "models/gun_marksman.glb",
-   "maxHp": 16,
-   "damage": 20,
-   "structureDamageMultiplier": 0.5,
-   "bulletVariant": {
-    "__ref": "BulletVariant.Sniper"
-   }
-  },
-  "Engineer": {
-   "__ctor": "UnitDefinition",
-   "id": "engineer",
-   "displayName": "Engineer",
-   "modelAsset": "models/unit_engineer.glb",
-   "gunModelAsset": "models/gun_launcher.glb",
-   "maxHp": 48,
-   "damage": 6,
-   "projectileType": {
-    "__ref": "ProjectileType.Grenade"
-   },
-   "splashRadius": 0.5,
-   "structureDamageMultiplier": 3.0
-  },
-  "FirebaseCommander": {
-   "__ctor": "HeavyRifleman.copy",
-   "id": "firebase_commander",
-   "displayName": "Firebase Commander",
-   "maxHp": 180,
-   "damage": 10
-  },
-  "NestCommander": {
-   "__ctor": "Sniper.copy",
-   "id": "nest_commander",
-   "displayName": "Nest Commander",
-   "maxHp": 100,
-   "damage": 22
-  },
-  "CityHallGuardian": {
-   "__ctor": "RocketTrooper.copy",
-   "id": "city_hall_guardian",
-   "displayName": "City Hall Guardian",
-   "maxHp": 220,
-   "damage": 8,
-   "structureDamageMultiplier": 8.0
-  },
-  "FrostlineCommander": {
-   "__ctor": "HeavyRifleman.copy",
-   "id": "frostline_commander",
-   "displayName": "Frostline Commander",
-   "maxHp": 200,
-   "damage": 12
   },
   "CitadelSovereign": {
    "__ctor": "HeavyRifleman.copy",
@@ -2523,52 +2454,7 @@
     {
      "__ctor": "EnemyGroup",
      "count": 1,
-     "anchorX": -2.2,
-     "anchorZ": 0.7,
-     "__positional": [
-      {
-       "__ref": "UnitDefinitions.MortarTeam"
-      }
-     ]
-    },
-    {
-     "__ctor": "EnemyGroup",
-     "count": 1,
-     "anchorX": -1.1,
-     "anchorZ": 0.7,
-     "__positional": [
-      {
-       "__ref": "UnitDefinitions.Grenadier"
-      }
-     ]
-    },
-    {
-     "__ctor": "EnemyGroup",
-     "count": 1,
-     "anchorX": 0.0,
-     "anchorZ": 0.7,
-     "__positional": [
-      {
-       "__ref": "UnitDefinitions.HeavyRifleman"
-      }
-     ]
-    },
-    {
-     "__ctor": "EnemyGroup",
-     "count": 1,
-     "anchorX": 1.1,
-     "anchorZ": 0.7,
-     "__positional": [
-      {
-       "__ref": "UnitDefinitions.Engineer"
-      }
-     ]
-    },
-    {
-     "__ctor": "EnemyGroup",
-     "count": 1,
-     "anchorX": 2.2,
-     "anchorZ": 0.7,
+     "anchorX": -2.75,
      "__positional": [
       {
        "__ref": "UnitDefinitions.Rifleman"
@@ -2579,7 +2465,16 @@
      "__ctor": "EnemyGroup",
      "count": 1,
      "anchorX": -1.65,
-     "anchorZ": -0.7,
+     "__positional": [
+      {
+       "__ref": "UnitDefinitions.HeavyRifleman"
+      }
+     ]
+    },
+    {
+     "__ctor": "EnemyGroup",
+     "count": 1,
+     "anchorX": -0.55,
      "__positional": [
       {
        "__ref": "UnitDefinitions.MachineGunner"
@@ -2589,19 +2484,17 @@
     {
      "__ctor": "EnemyGroup",
      "count": 1,
-     "anchorX": -0.55,
-     "anchorZ": -0.7,
+     "anchorX": 0.55,
      "__positional": [
       {
-       "__ref": "UnitDefinitions.Sniper"
+       "__ref": "UnitDefinitions.Grenadier"
       }
      ]
     },
     {
      "__ctor": "EnemyGroup",
      "count": 1,
-     "anchorX": 0.55,
-     "anchorZ": -0.7,
+     "anchorX": 1.65,
      "__positional": [
       {
        "__ref": "UnitDefinitions.RocketTrooper"
@@ -2611,11 +2504,10 @@
     {
      "__ctor": "EnemyGroup",
      "count": 1,
-     "anchorX": 1.65,
-     "anchorZ": -0.7,
+     "anchorX": 2.75,
      "__positional": [
       {
-       "__ref": "UnitDefinitions.Marksman"
+       "__ref": "UnitDefinitions.Sniper"
       }
      ]
     }
@@ -3126,7 +3018,7 @@
    "playerGroups": [
     {
      "__ctor": "EnemyGroup",
-     "count": 4,
+     "count": 6,
      "anchorX": -7.2,
      "__positional": [
       {
@@ -3140,17 +3032,7 @@
      "anchorX": -5.9,
      "__positional": [
       {
-       "__ref": "UnitDefinitions.Engineer"
-      }
-     ]
-    },
-    {
-     "__ctor": "EnemyGroup",
-     "count": 2,
-     "anchorX": -4.9,
-     "__positional": [
-      {
-       "__ref": "UnitDefinitions.MortarTeam"
+       "__ref": "UnitDefinitions.Grenadier"
       }
      ]
     }
@@ -3538,7 +3420,7 @@
     }
    ],
    "starsToUnlock": 6,
-   "unlockRewardId": "engineer"
+   "unlockRewardId": "machine_gunner"
   },
   "Frostline": {
    "__ctor": "StageDefinition",
@@ -3551,7 +3433,7 @@
     }
    ],
    "starsToUnlock": 9,
-   "unlockRewardId": "mortar_team"
+   "unlockRewardId": "grenadier"
   }
  },
  "levelOrder": [

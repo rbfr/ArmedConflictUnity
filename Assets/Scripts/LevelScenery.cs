@@ -32,6 +32,14 @@ public class LevelScenery : MonoBehaviour
     readonly Dictionary<int, GameObject> structures = new();
 
     /// <summary>
+    /// Damage-chunk groups per structure id, in ascending group number — the renderers that get
+    /// hidden as the building sheds. Collected ONCE at build time: the grouping is a string parse
+    /// over every child node, and doing it per frame for every structure is exactly the kind of
+    /// per-slot rescan the Filament build's profile warns about.
+    /// </summary>
+    readonly Dictionary<int, List<Renderer>[]> chunkGroups = new();
+
+    /// <summary>
     /// Runtime Materials, Textures and Meshes are not reclaimed when the GameObject holding them
     /// is destroyed — Unity collects ASSETS, not instances. Everything created per level is
     /// recorded here and destroyed on Clear, or walking the campaign leaks a backdrop and a
@@ -51,6 +59,35 @@ public class LevelScenery : MonoBehaviour
     public GameObject Structure(int id) => structures.TryGetValue(id, out var go) ? go : null;
 
     public int ModelCount => modelPrefabs == null ? 0 : modelPrefabs.Length;
+
+    public List<Renderer>[] ChunkGroups(int id)
+        => chunkGroups.TryGetValue(id, out var g) ? g : System.Array.Empty<List<Renderer>>();
+
+    /// <summary>
+    /// Groups the model's `chunk_N` nodes by their TRAILING NUMBER, ascending. The prefix varies
+    /// with the tone the piece wears — `chunk_3`, `accent_chunk_3` and `trim_chunk_3` are all one
+    /// group — so the number is the only thing that identifies it, and matching on the prefix
+    /// would shed a wall's stone and leave its trim hanging in the air.
+    /// </summary>
+    static List<Renderer>[] CollectChunkGroups(GameObject go)
+    {
+        var byNumber = new SortedDictionary<int, List<Renderer>>();
+        foreach (var r in go.GetComponentsInChildren<Renderer>(true))
+        {
+            string n = r.gameObject.name;
+            if (!n.Contains("chunk")) continue;
+            int end = n.Length;
+            while (end > 0 && char.IsDigit(n[end - 1])) end--;
+            if (end == n.Length) continue;                       // "chunk" with no number
+            if (!int.TryParse(n.Substring(end), out int num)) continue;
+            if (!byNumber.TryGetValue(num, out var list))
+                byNumber[num] = list = new List<Renderer>();
+            list.Add(r);
+        }
+        var groups = new List<Renderer>[byNumber.Count];
+        byNumber.Values.CopyTo(groups, 0);
+        return groups;
+    }
 
     public void Build(LevelDefinitionSO level, IReadOnlyList<StructureEntity> placed)
     {
@@ -96,6 +133,7 @@ public class LevelScenery : MonoBehaviour
             Tone(go, st.Definition.isPlayerSide ? structPlayer : structEnemy,
                  st.Definition.isPlayerSide ? structPlayerAccent : structEnemyAccent, null);
             structures[st.Id] = go;
+            chunkGroups[st.Id] = CollectChunkGroups(go);
         }
 
         // Props are authored at z=0 like every campaign prop, and are cosmetic — nothing collides
@@ -121,6 +159,7 @@ public class LevelScenery : MonoBehaviour
         if (root != null) Destroy(root.gameObject);
         root = null;
         structures.Clear();
+        chunkGroups.Clear();
         foreach (var o in owned) if (o != null) Destroy(o);
         owned.Clear();
         ScorchMaterial = null;

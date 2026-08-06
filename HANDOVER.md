@@ -384,13 +384,50 @@ and deliberately fall back to the last one, so it asserted 4 distinct factions a
 derives its numbers from `StageDefinitions`. **50 tests, 0 failures.** A test that hardcodes level
 numbers expires the next time the campaign is re-cut.
 
+## Structures shed their own geometry — ported 2026-08-05
+
+Reported as "just squares/bricks that fly" against the Filament build's real damage. The port had
+the DATA (`damageChunks`, measured per structure), the entity field (`StructureEntity.ShedChunks`)
+and the curve (`StructureDamage.ShedChunkCount`) — and nothing called any of them. Destruction
+threw ten random cubes sized off `size`, so a hit building shed bricks that had never been part of
+it, and only ever at the moment it died.
+
+Now, as in the Kotlin: `chunk_N` groups vanish from the model in ascending N as HP drops, and the
+tick spawns the SAME group as falling rubble from exactly where that geometry stood. The gap in
+the silhouette plus the pile at the foot is the damage read, and it persists for the battle.
+
+Both halves derive from `ShedChunkCount` — the renderer reads the tick's own `ShedChunks` rather
+than recomputing, so they cannot disagree and drop a piece the building still has.
+
+Carried across from the Kotlin, each of which was a visible failure there first:
+- A group splits along its LONGEST axis, so a sandbag course scatters as bags instead of dropping
+  as one long bar.
+- A piece is sized from its VOLUME, cube-rooted and clamped — NOT the mean of its dimensions. The
+  mean is dominated by the long axis of a flat plate: a wide tier's wall plate means out at 0.73,
+  three times the largest destruction chunk, which read as slabs bigger than the wall they fell off.
+- Barely thrown (vy 0.5, vx spread 0.9): it is coming loose under its own weight, so it reads as
+  falling OFF the building rather than being launched.
+
+Unity-side notes: chunk groups are collected ONCE at scenery build time, because grouping is a
+string parse over every child node and doing it per frame per structure is the per-slot rescan the
+Filament profile warns about. Grouping is by TRAILING NUMBER, not prefix — `chunk_3`,
+`accent_chunk_3` and `trim_chunk_3` are one group, and matching the prefix would shed a wall's
+stone and leave its trim hanging. Renderers are toggled rather than GameObjects, since a chunk
+node may carry children.
+
+Verified on device on the demolition rig: the garrison post's wall panels vanish one at a time as
+HP falls 225 → 121, and shed rubble settles against its base.
+
 ## Open items
 
 1. **Loadout screen** (~415 lines) — the last large UI item. Battle HUD, aim overlay, background
    and audio are all done, so the UI estimate in `MIGRATION_SCOPE.md` is much smaller than it was.
-2. **Rubble is spawned and stepped but never observed falling** — still true after the sweep:
-   `Auto` targets UNITS, so L1's structure HP never moved off 90 across three volleys. It needs a
-   run driven deliberately at a structure (L19, the demolition rig, is the level for it).
+2. ~~**Rubble is spawned and stepped but never observed falling.**~~ **DONE 2026-08-05** — and the
+   reason it was never observed is worth keeping: `Auto` targets the nearest enemy UNIT, so on
+   every rig whose only enemies are the off-screen immortals it throws the whole volley PAST the
+   buildings and structure HP never moves. Structure work has to be driven by a real aimed drag.
+   The demolition rig copies L2's geometry so the shot is solvable: tank -9.5 to subject +6.5 is
+   16 units, and range = v²/g means v = 8, i.e. 89% of the 9 maximum at 45°.
 3. **Release build gaps** — debug-signed, APK not AAB, `versionCode` never increments.
    Deliberately deferred; see the README.
 4. **`snowfall` is imported and ignored** — Winter's falling flakes are not ported. Eleven levels

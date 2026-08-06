@@ -48,58 +48,40 @@ MonoBehaviour:
     hasStandWidth: 0
     hpScale: 1
   playerGroups:
-  - definition: {fileID: 11400000, guid: a03d8f9bb2ebda414b85f7a95dedc2e5, type: 2}
+  - definition: {fileID: 11400000, guid: 42221a45b5be3eb57b1b2bd28b9aaac0, type: 2}
     count: 1
-    anchorX: -2.2
-    anchorZ: 0.7
-    standingOnStructureId: 
-    advancePerTurn: 0
-  - definition: {fileID: 11400000, guid: 5cd89868ef7ce0884a623d1199a379f2, type: 2}
-    count: 1
-    anchorX: -1.1
-    anchorZ: 0.7
+    anchorX: -2.75
+    anchorZ: 0
     standingOnStructureId: 
     advancePerTurn: 0
   - definition: {fileID: 11400000, guid: b0ed0cea13055fdd2b11e22af0e864e2, type: 2}
     count: 1
-    anchorX: 0
-    anchorZ: 0.7
-    standingOnStructureId: 
-    advancePerTurn: 0
-  - definition: {fileID: 11400000, guid: 75da4497f759276eda4379361e2f0c4c, type: 2}
-    count: 1
-    anchorX: 1.1
-    anchorZ: 0.7
-    standingOnStructureId: 
-    advancePerTurn: 0
-  - definition: {fileID: 11400000, guid: 42221a45b5be3eb57b1b2bd28b9aaac0, type: 2}
-    count: 1
-    anchorX: 2.2
-    anchorZ: 0.7
+    anchorX: -1.65
+    anchorZ: 0
     standingOnStructureId: 
     advancePerTurn: 0
   - definition: {fileID: 11400000, guid: 9b24a3bf17c51633cab20028fb1a787d, type: 2}
     count: 1
-    anchorX: -1.65
-    anchorZ: -0.7
+    anchorX: -0.55
+    anchorZ: 0
     standingOnStructureId: 
     advancePerTurn: 0
-  - definition: {fileID: 11400000, guid: bc720e3a7e2e4fd75aa060dbb24b72c8, type: 2}
+  - definition: {fileID: 11400000, guid: 5cd89868ef7ce0884a623d1199a379f2, type: 2}
     count: 1
-    anchorX: -0.55
-    anchorZ: -0.7
+    anchorX: 0.55
+    anchorZ: 0
     standingOnStructureId: 
     advancePerTurn: 0
   - definition: {fileID: 11400000, guid: 78df349efe93c4808aaf91ecd66e5ee7, type: 2}
     count: 1
-    anchorX: 0.55
-    anchorZ: -0.7
+    anchorX: 1.65
+    anchorZ: 0
     standingOnStructureId: 
     advancePerTurn: 0
-  - definition: {fileID: 11400000, guid: a6010896b74f27f52977be9c74618644, type: 2}
+  - definition: {fileID: 11400000, guid: bc720e3a7e2e4fd75aa060dbb24b72c8, type: 2}
     count: 1
-    anchorX: 1.65
-    anchorZ: -0.7
+    anchorX: 2.75
+    anchorZ: 0
     standingOnStructureId: 
     advancePerTurn: 0
   background: {fileID: 11400000, guid: 3fa14de554194d444b3254b308e3bb7f, type: 2}

@@ -34,6 +34,13 @@ namespace ArmedConflict.Game
         public const int ScorchSlots = 36;
         public const int DebrisSlots = 96;
         /// <summary>Shared empty map, so clearing the enemy pose never allocates.</summary>
+        // Shed-piece sizing band, shared with the destruction rubble so the two kinds of
+        // wreckage read as one material.
+        const float ChunkPieceMinSize = 0.10f;
+        const float ChunkPieceMaxSize = 0.30f;
+        const float ChunkShedVy = 0.5f;
+        const float ChunkShedSpreadVx = 0.9f;
+
         static readonly Dictionary<int, float> EmptyAim = new();
 
 
@@ -237,6 +244,83 @@ namespace ArmedConflict.Game
 
             var debris = StepDebris(s.Debris, dt);
             int nextDebris = s.NextDebrisSlot;
+
+            // --- 4b. STRUCTURES SHED THEIR OWN GEOMETRY ------------------------------------
+            //
+            // A damaged structure loses named `chunk_N` groups from its model in ascending N,
+            // and the tick drops the SAME group as falling rubble from exactly where that
+            // geometry stood. The gap in the silhouette plus the pile at its foot is the damage
+            // read — it needs no decal, and it persists for the battle.
+            //
+            // Both halves derive from ShedChunkCount, so the geometry that vanishes and the
+            // rubble that appears can never be different groups. The port had the data, the
+            // entity field and the curve, and nothing called any of them: destruction threw ten
+            // random cubes sized off `size`, which is why a hit building shed bricks that had
+            // never been part of it.
+            if (structures.Any(st => st.Definition.damageChunks.Count > 0
+                                  && StructureDamage.ShedChunkCount(
+                                         st.HpFraction, st.Definition.damageChunks.Count) > st.ShedChunks))
+            {
+                var shedPieces = new List<DebrisPiece>(debris);
+                var after = new List<StructureEntity>(structures.Count);
+                foreach (var st in structures)
+                {
+                    int groups = st.Definition.damageChunks.Count;
+                    int shed = groups == 0 ? 0
+                             : StructureDamage.ShedChunkCount(st.HpFraction, groups);
+                    if (groups == 0 || shed <= st.ShedChunks) { after.Add(st); continue; }
+
+                    // The model origin, where every chunk offset is measured from.
+                    float baseY = st.Y - st.Definition.size / 2f;
+                    for (int index = st.ShedChunks; index < shed; index++)
+                    {
+                        var chunk = st.Definition.damageChunks[index];
+
+                        // Split the group along its LONGEST axis, which is how these groups are
+                        // built — a sandbag course is a row of bags, a wall plate is one slab —
+                        // so a row scatters as a row instead of dropping as one long bar.
+                        var dims = new[] { chunk.sizeX, chunk.sizeY, chunk.sizeZ };
+                        int longest = dims[0] >= dims[1] && dims[0] >= dims[2] ? 0
+                                    : dims[1] >= dims[2] ? 1 : 2;
+                        float span = dims[longest];
+                        int pieces = Mathf.Max(chunk.pieces, 1);
+                        dims[longest] = span / pieces;
+
+                        // Debris renders as a CUBE of one edge, so a piece is sized from its
+                        // VOLUME, never the mean of its dimensions. The mean is dominated by the
+                        // long axis of a flat plate: a wide tier's wall plate is 1.25 x 0.75 x
+                        // 0.20, mean 0.73 — three times the largest destruction chunk, which read
+                        // on device as slabs leaning against a wall bigger than the wall.
+                        float size = Mathf.Clamp(
+                            Mathf.Pow(Mathf.Max(dims[0] * dims[1] * dims[2], 1e-6f), 1f / 3f),
+                            ChunkPieceMinSize, ChunkPieceMaxSize);
+
+                        for (int k = 0; k < pieces && shedPieces.Count < DebrisSlots; k++)
+                        {
+                            float along = pieces == 1 ? 0f : ((k + 0.5f) / pieces - 0.5f) * span;
+                            float sz = size * (0.8f + 0.35f * (float)random.NextDouble());
+                            shedPieces.Add(new DebrisPiece(
+                                Id: nextDebris++,
+                                DefinitionId: st.Definition.id,
+                                Accent: (index + k) % 3 == 0,
+                                X: st.X + chunk.offsetX + (longest == 0 ? along : 0f),
+                                Y: baseY + chunk.offsetY + (longest == 1 ? along : 0f),
+                                Z: st.Z + chunk.offsetZ + (longest == 2 ? along : 0f),
+                                // Barely thrown: it is coming loose under its own weight, so it
+                                // reads as falling OFF the building rather than being launched.
+                                Vx: ((float)random.NextDouble() - 0.5f) * 2f * ChunkShedSpreadVx,
+                                Vy: ChunkShedVy * (1f + (float)random.NextDouble()),
+                                Rotation: (float)random.NextDouble() * 360f,
+                                RotationSpeed: ((float)random.NextDouble() - 0.5f) * 240f,
+                                Size: sz,
+                                Ttl: CosmeticSystems.DebrisRubbleTtl));
+                        }
+                    }
+                    after.Add(st with { ShedChunks = shed });
+                }
+                structures = after;
+                debris = shedPieces;
+            }
             if (destroyedIds.Count > 0)
             {
                 var pieces = new List<DebrisPiece>(debris);
