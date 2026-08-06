@@ -1044,3 +1044,67 @@ results, so a duplicate silently makes two levels share a best-star record.
 
 Release build on the Pixel 10 Pro XL: ten ▶ taps from L1 stop at L7 and stay there; `RIGS` then
 reaches L8 (TEST — Tier Collapse); locking again snaps L8 back to L7; the readout reads L7 (7/7).
+
+## Campaign to twelve levels — DONE 2026-08-06
+
+Phase D of `_plans/TIER0_PLAN.md`. **12 campaign levels + 17 rigs = 29.** Every level owes one
+beat from `PRODUCT_DIRECTION.md`'s chart and says which in its `designNotes`. Two stages of six,
+bosses on 6 and 12. **`LevelComposition.Report`: 12 levels, 0 warnings, 0 errors** — the five that
+were breaking their own rules are fixed.
+
+| L | Level | Biome | Beat |
+|---|---|---|---|
+| 1 | Patrol Encounter | Mountains | teach the drag |
+| 2 | Garrison Post | Forest | structures matter |
+| 3 | Watchpost Ridge | MountainsDusk | prioritise threats |
+| 4 | Ash Boulevard | CityRuins | the charge |
+| 5 | Tower Assault | Desert | elevation |
+| 6 | **Ridge Bastion** | Mountains | **stage boss A** |
+| 7 | Barracks Line | Winter | toughness |
+| 8 | **Timberline Crossing** | Forest | combine |
+| 9 | **Dusk Redoubt** | MountainsDusk | outnumbered |
+| 10 | **Rubble Yard** | CityRuins | reinforcement race |
+| 11 | Oceanfront | Ocean | elite exam |
+| 12 | **The Citadel** | Desert | finale |
+
+Bold are new. Ash Boulevard moved from 6 to 4 (panic belongs early), Barracks Line from 4 to 7,
+Oceanfront from 7 to 11.
+
+**Campaign assets are named for their IDENTITY now** — `AshBoulevard.asset`, not `Level4.asset`.
+The order moves as the funnel is tuned and a filename disagreeing with `levelNumber` is a trap.
+
+### Two systems were dead and are now wired
+
+This phase found the same shape of bug Phase C did, twice.
+
+- **WIND IS COSMETIC.** `TrajectoryPhysics` applies `windAccelZ` to Z; the collision test is
+  X/Y only (`SegmentDistanceSq(prevX, prevY, ...)`) and Z appears in `CollisionSystem` solely to
+  place the detonation visual. Wind cannot change what a shot hits. It has also never been set on
+  a level in either build. Beats 7 and 8 were built on wind and were re-cut onto real variables —
+  toughness (HeavyRifleman at 64 hp, forcing concentration) and a combine of elevation + melee.
+  **Do not author a wind level until wind does something.** Making it real is a PHYSICS change and
+  needs an ask.
+- **BOSS PHASES AND REINFORCEMENT WAVES WERE NEVER FIRED.** `EventSystems` has decided both
+  correctly since the port and nothing ever called it: `bossPhases` and `reinforcementWaves` were
+  read only by `BattleRunner`, and only to size the pools. Now wired into `BattleTick` step 7b,
+  spawning through `LevelBuilder.BuildUnits` so an arrival is built exactly like the opening
+  roster. Confirmed on device — L10 turn 4: `EVENT: Their heavies are here! (enemies 6 -> 10)`.
+
+### What Auto still cannot test
+
+`Auto` cannot trigger a BOSS PHASE. It targets the nearest enemy unit, so on Ridge Bastion it
+clears everything else before the keep's garrison and the level resolves as a victory first. The
+boss path is covered end-to-end by `PortSelfTest` instead — it razes the trigger structure, runs a
+real `BattleTick.Step`, and asserts the phase fires once, spawns, announces, and does not re-fire.
+**Seeing the Sovereign on a real device still needs an aimed drag at the keep.**
+
+A trap that check paid for immediately: `LevelBuilder.BuildInitialState` does NOT set `Phase`
+(`BattleRunner.LoadLevel` does, right after), so a state built for a test takes `Step`'s
+cosmetic-only early return and no event fires. Set `Phase = Playing` on any hand-built state.
+
+### One-off authoring script, deliberately deleted
+
+The 12 levels were written by `CampaignAuthor.cs`, run once and then removed — creating five
+levels' worth of GUID references by hand is not viable, but a script that can rewrite every level
+wholesale is exactly the hazard `LegacyKotlinImport` was guarded against. The assets are the
+artifact. `CampaignAudit.Dump` is kept: it is read-only and prints what each level actually is.

@@ -697,6 +697,15 @@ public class BattleRunner : MonoBehaviour
         // a volley that has now resolved.
         if (!dragging && state.TurnPhase == TurnPhase.Aiming) aimPoseDegrees = 0f;
         DriveAudio(before, state);
+
+        // Mid-battle events have no UI yet — the announcement banner is Phase F. Until then this
+        // is the only way to see that a boss phase or a reinforcement wave actually fired, and
+        // both had never once run in a shipping build before 2026-08-06.
+        if (state.BossAnnouncement != before.BossAnnouncement &&
+            !string.IsNullOrEmpty(state.BossAnnouncement))
+            Debug.Log($"[Battle] EVENT: {state.BossAnnouncement} " +
+                      $"(enemies {before.EnemyUnits.Count} -> {state.EnemyUnits.Count})");
+
         ResolveBattleEnd();
 
         Render();

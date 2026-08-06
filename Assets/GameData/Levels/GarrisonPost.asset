@@ -1,0 +1,85 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5b0d9d07915ade0a58fba81655b19cb0, type: 3}
+  m_Name: Level2
+  m_EditorClassIdentifier: 
+  id: level_2
+  displayName: Garrison Post
+  levelNumber: 2
+  levelGoal: "Bring down the firing platform \u2014 the garrison falls with it"
+  enemyGroups:
+  - definition: {fileID: 11400000, guid: b51688fb293b69e5cab2885bcaa975b8, type: 2}
+    count: 5
+    anchorX: 3
+    anchorZ: 0
+    standingOnStructureId: 
+    advancePerTurn: 0
+  - definition: {fileID: 11400000, guid: b51688fb293b69e5cab2885bcaa975b8, type: 2}
+    count: 6
+    anchorX: 6.5
+    anchorZ: 0.12
+    standingOnStructureId: post
+    advancePerTurn: 0
+  structures:
+  - id: player_tank
+    definition: {fileID: 11400000, guid: 5d4cd70c32b12f2429c5cbd2a376b2ba, type: 2}
+    x: -9.5
+    y: 0
+    z: 0
+    collapseWith: 
+    restsOn: 
+    standWidth: -1
+    hasStandWidth: 0
+    hpScale: 1
+  - id: post
+    definition: {fileID: 11400000, guid: fbbfacb3df61fd8f492723bbb6150200, type: 2}
+    x: 6.5
+    y: 0
+    z: 0
+    collapseWith: 
+    restsOn: 
+    standWidth: -1
+    hasStandWidth: 0
+    hpScale: 1
+  playerGroups:
+  - definition: {fileID: 11400000, guid: 42221a45b5be3eb57b1b2bd28b9aaac0, type: 2}
+    count: 2
+    anchorX: -9.5
+    anchorZ: 0.12
+    standingOnStructureId: player_tank
+    advancePerTurn: 0
+  - definition: {fileID: 11400000, guid: 42221a45b5be3eb57b1b2bd28b9aaac0, type: 2}
+    count: 8
+    anchorX: -7
+    anchorZ: 0
+    standingOnStructureId: 
+    advancePerTurn: 0
+  background: {fileID: 11400000, guid: 92fddeead9d05ffcaa23ec9b4679b905, type: 2}
+  heliChance: 0
+  props:
+  - modelAsset: models/barbed_wire.glb
+    x: 1.6
+    z: 0.4
+    scale: 0.9
+    slowsAdvance: 0
+    halfWidth: 1
+  levelBase: 50
+  deployBudget: 8
+  bossPhases: []
+  windAccelZ: 0
+  reinforcementWaves: []
+  staticCamera: 0
+  isTestLevel: 0
+  designNotes: "Beat 2: the structure IS the objective. One dominant post, majority
+    garrisoned, so the efficient way to kill the roster is to bring the platform
+    down. The reference composition every later level is measured against \u2014
+    it passes all six rules untouched."

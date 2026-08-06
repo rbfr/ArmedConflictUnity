@@ -1,0 +1,107 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5b0d9d07915ade0a58fba81655b19cb0, type: 3}
+  m_Name: Level3
+  m_EditorClassIdentifier: 
+  id: level_3
+  displayName: Watchpost Ridge
+  levelNumber: 3
+  levelGoal: "Silence the ridge \u2014 bunker and watch tower both"
+  enemyGroups:
+  - definition: {fileID: 11400000, guid: b51688fb293b69e5cab2885bcaa975b8, type: 2}
+    count: 4
+    anchorX: 1
+    anchorZ: 0
+    standingOnStructureId: 
+    advancePerTurn: 0
+  - definition: {fileID: 11400000, guid: b51688fb293b69e5cab2885bcaa975b8, type: 2}
+    count: 4
+    anchorX: 5.5
+    anchorZ: 0.12
+    standingOnStructureId: bunker
+    advancePerTurn: 0
+  - definition: {fileID: 11400000, guid: db1f649e9127f6c1b8ed266c10d64185, type: 2}
+    count: 3
+    anchorX: 8
+    anchorZ: 0.12
+    standingOnStructureId: tower
+    advancePerTurn: 0
+  structures:
+  - id: player_tank
+    definition: {fileID: 11400000, guid: 5d4cd70c32b12f2429c5cbd2a376b2ba, type: 2}
+    x: -9.5
+    y: 0
+    z: 0
+    collapseWith: 
+    restsOn: 
+    standWidth: -1
+    hasStandWidth: 0
+    hpScale: 1
+  - id: bunker
+    definition: {fileID: 11400000, guid: 503b76a9ccab71014b099da433b220fb, type: 2}
+    x: 5.5
+    y: 0
+    z: 0
+    collapseWith: 
+    restsOn: 
+    standWidth: -1
+    hasStandWidth: 0
+    hpScale: 1
+  - id: tower
+    definition: {fileID: 11400000, guid: 687b6a02fa884c12ca4709fecc0fdee2, type: 2}
+    x: 8
+    y: 0
+    z: 0
+    collapseWith: 
+    restsOn: 
+    standWidth: -1
+    hasStandWidth: 0
+    hpScale: 1
+  playerGroups:
+  - definition: {fileID: 11400000, guid: 42221a45b5be3eb57b1b2bd28b9aaac0, type: 2}
+    count: 2
+    anchorX: -9.5
+    anchorZ: 0.12
+    standingOnStructureId: player_tank
+    advancePerTurn: 0
+  - definition: {fileID: 11400000, guid: 42221a45b5be3eb57b1b2bd28b9aaac0, type: 2}
+    count: 6
+    anchorX: -7.2
+    anchorZ: 0
+    standingOnStructureId: 
+    advancePerTurn: 0
+  - definition: {fileID: 11400000, guid: 5cd89868ef7ce0884a623d1199a379f2, type: 2}
+    count: 2
+    anchorX: -5.6
+    anchorZ: 0
+    standingOnStructureId: 
+    advancePerTurn: 0
+  background: {fileID: 11400000, guid: ceacd19c49b3bcc34a39d64e003283c3, type: 2}
+  heliChance: 0
+  props:
+  - modelAsset: models/sandbags.glb
+    x: 0.2
+    z: 0.35
+    scale: 0.9
+    slowsAdvance: 0
+    halfWidth: 1
+  levelBase: 60
+  deployBudget: 12
+  bossPhases: []
+  windAccelZ: 0
+  reinforcementWaves: []
+  staticCamera: 0
+  isTestLevel: 0
+  designNotes: "Beat 3: prioritise. Snipers on the tower out-damage everything on
+    the field (20 dmg at 16 hp) so they are the read, and they are the FURTHEST target
+    \u2014 the player must choose between the near bunker and the real threat. Bunker
+    moved 3.8 -> 5.5 to bring tank->dominant separation from 13.3 into range."

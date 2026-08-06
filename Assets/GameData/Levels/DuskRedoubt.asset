@@ -1,0 +1,114 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5b0d9d07915ade0a58fba81655b19cb0, type: 3}
+  m_Name: DuskRedoubt
+  m_EditorClassIdentifier: 
+  id: level_9
+  displayName: Dusk Redoubt
+  levelNumber: 9
+  levelGoal: "Outnumbered two to one \u2014 break them before they reach the line"
+  enemyGroups:
+  - definition: {fileID: 11400000, guid: aecf03c40cb9b8f4d85d97ef12b4289f, type: 2}
+    count: 6
+    anchorX: 1
+    anchorZ: 0
+    standingOnStructureId: 
+    advancePerTurn: 1
+  - definition: {fileID: 11400000, guid: b51688fb293b69e5cab2885bcaa975b8, type: 2}
+    count: 3
+    anchorX: 2
+    anchorZ: 0
+    standingOnStructureId: 
+    advancePerTurn: 0
+  - definition: {fileID: 11400000, guid: 0cc2a054cb1b0b38086ae4f985d09207, type: 2}
+    count: 5
+    anchorX: 2.5
+    anchorZ: 0.12
+    standingOnStructureId: bunker
+    advancePerTurn: 0
+  - definition: {fileID: 11400000, guid: b51688fb293b69e5cab2885bcaa975b8, type: 2}
+    count: 8
+    anchorX: 5.5
+    anchorZ: 0.12
+    standingOnStructureId: barracks
+    advancePerTurn: 0
+  structures:
+  - id: player_tank
+    definition: {fileID: 11400000, guid: 5d4cd70c32b12f2429c5cbd2a376b2ba, type: 2}
+    x: -9.5
+    y: 0
+    z: 0
+    collapseWith: 
+    restsOn: 
+    standWidth: -1
+    hasStandWidth: 0
+    hpScale: 1
+  - id: bunker
+    definition: {fileID: 11400000, guid: 96c53e04c1e2e50778f909b147a957bc, type: 2}
+    x: 2.5
+    y: 0
+    z: 0
+    collapseWith: 
+    restsOn: 
+    standWidth: -1
+    hasStandWidth: 0
+    hpScale: 1
+  - id: barracks
+    definition: {fileID: 11400000, guid: 95d24e4e2581b55ea876178f5d94a3b4, type: 2}
+    x: 5.5
+    y: 0
+    z: 0
+    collapseWith: 
+    restsOn: 
+    standWidth: -1
+    hasStandWidth: 0
+    hpScale: 1
+  playerGroups:
+  - definition: {fileID: 11400000, guid: 42221a45b5be3eb57b1b2bd28b9aaac0, type: 2}
+    count: 2
+    anchorX: -9.5
+    anchorZ: 0.12
+    standingOnStructureId: player_tank
+    advancePerTurn: 0
+  - definition: {fileID: 11400000, guid: 42221a45b5be3eb57b1b2bd28b9aaac0, type: 2}
+    count: 8
+    anchorX: -7
+    anchorZ: 0
+    standingOnStructureId: 
+    advancePerTurn: 0
+  background: {fileID: 11400000, guid: ceacd19c49b3bcc34a39d64e003283c3, type: 2}
+  heliChance: 0
+  props:
+  - modelAsset: models/barbed_wire.glb
+    x: -1.2
+    z: 0.3
+    scale: 0.9
+    slowsAdvance: 1
+    halfWidth: 1
+  - modelAsset: models/barbed_wire.glb
+    x: 0.2
+    z: 0.3
+    scale: 0.9
+    slowsAdvance: 1
+    halfWidth: 1
+  levelBase: 150
+  deployBudget: 15
+  bossPhases: []
+  windAccelZ: 0
+  reinforcementWaves: []
+  staticCamera: 0
+  isTestLevel: 0
+  designNotes: "Beat 9: tension inverted. Twenty-two against ten, six of them advancing,
+    so for the first time the player is losing on arithmetic and has to win on concentration.
+    Win condition is unchanged (roster), which is the point \u2014 it FEELS like
+    a defence without being a different game. Two wire props, both slowing, because
+    at this count an unslowed charge arrives before the third volley."

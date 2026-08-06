@@ -13,11 +13,15 @@ MonoBehaviour:
   m_Name: EnemyStronghold
   m_EditorClassIdentifier: 
   id: stage_stronghold
-  displayName: Ridge and Frostline
-  tagline: Towers and bunkers, from the dusk ridge into the snow
+  displayName: The Citadel Road
+  tagline: Everything they have left is dug in.
   levels:
-  - {fileID: 11400000, guid: 6d5d15852a6b97386b010dc15a1e896d, type: 2}
   - {fileID: 11400000, guid: 7639fd788b95975ab8eb6df851cdc9da, type: 2}
-  starsToUnlock: 3
+  - {fileID: 11400000, guid: 0c95590cf76d24434959e07b094e106f, type: 2}
+  - {fileID: 11400000, guid: 0b0c87abd627d97f5a3433803d8fa9b2, type: 2}
+  - {fileID: 11400000, guid: b5a3723b7947bd402815d14614961146, type: 2}
+  - {fileID: 11400000, guid: be68ea60b193003d297578e849e6cdae, type: 2}
+  - {fileID: 11400000, guid: dc1074de96bbddaebb7d2a5ae361534d, type: 2}
+  starsToUnlock: 8
   unlockRewardId: rocket_trooper
-  completionCoinBonus: 0
+  completionCoinBonus: 300

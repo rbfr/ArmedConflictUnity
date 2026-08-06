@@ -10,36 +10,30 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 5b0d9d07915ade0a58fba81655b19cb0, type: 3}
-  m_Name: Level6
+  m_Name: Level5
   m_EditorClassIdentifier: 
-  id: level_7
-  displayName: Ash Boulevard
-  levelNumber: 6
-  levelGoal: Break the assault before it reaches your line
+  id: level_5
+  displayName: Tower Assault
+  levelNumber: 5
+  levelGoal: "Cut the tower's legs \u2014 what stands on it falls with it"
   enemyGroups:
-  - definition: {fileID: 11400000, guid: aecf03c40cb9b8f4d85d97ef12b4289f, type: 2}
-    count: 5
-    anchorX: 0
-    anchorZ: 0
-    standingOnStructureId: 
-    advancePerTurn: 1.1
   - definition: {fileID: 11400000, guid: b51688fb293b69e5cab2885bcaa975b8, type: 2}
     count: 4
-    anchorX: 1.2
+    anchorX: 1.5
     anchorZ: 0
     standingOnStructureId: 
+    advancePerTurn: 0
+  - definition: {fileID: 11400000, guid: b51688fb293b69e5cab2885bcaa975b8, type: 2}
+    count: 4
+    anchorX: 5
+    anchorZ: 0.12
+    standingOnStructureId: bunker
     advancePerTurn: 0
   - definition: {fileID: 11400000, guid: 0cc2a054cb1b0b38086ae4f985d09207, type: 2}
-    count: 4
-    anchorX: 4.8
-    anchorZ: 0.12
-    standingOnStructureId: block
-    advancePerTurn: 0
-  - definition: {fileID: 11400000, guid: b51688fb293b69e5cab2885bcaa975b8, type: 2}
     count: 3
-    anchorX: 8.6
+    anchorX: 8
     anchorZ: 0.12
-    standingOnStructureId: checkpoint
+    standingOnStructureId: tow_top
     advancePerTurn: 0
   structures:
   - id: player_tank
@@ -52,9 +46,9 @@ MonoBehaviour:
     standWidth: -1
     hasStandWidth: 0
     hpScale: 1
-  - id: block
-    definition: {fileID: 11400000, guid: 95d24e4e2581b55ea876178f5d94a3b4, type: 2}
-    x: 4.8
+  - id: bunker
+    definition: {fileID: 11400000, guid: 503b76a9ccab71014b099da433b220fb, type: 2}
+    x: 5
     y: 0
     z: 0
     collapseWith: 
@@ -62,13 +56,23 @@ MonoBehaviour:
     standWidth: -1
     hasStandWidth: 0
     hpScale: 1
-  - id: checkpoint
-    definition: {fileID: 11400000, guid: 9e4a843ea184e52d38fc6e753a77a825, type: 2}
-    x: 8.6
+  - id: tow_base
+    definition: {fileID: 11400000, guid: 317e2cd76dce7a9cfa56a62635184cbc, type: 2}
+    x: 8
     y: 0
     z: 0
     collapseWith: 
     restsOn: 
+    standWidth: -1
+    hasStandWidth: 0
+    hpScale: 1
+  - id: tow_top
+    definition: {fileID: 11400000, guid: a289ee6ee076f6213a44bbffcb15cc90, type: 2}
+    x: 8
+    y: 0.8
+    z: 0
+    collapseWith: 
+    restsOn: tow_base
     standWidth: -1
     hasStandWidth: 0
     hpScale: 1
@@ -80,30 +84,34 @@ MonoBehaviour:
     standingOnStructureId: player_tank
     advancePerTurn: 0
   - definition: {fileID: 11400000, guid: 42221a45b5be3eb57b1b2bd28b9aaac0, type: 2}
-    count: 6
-    anchorX: -7.2
+    count: 5
+    anchorX: -7.4
     anchorZ: 0
     standingOnStructureId: 
     advancePerTurn: 0
   - definition: {fileID: 11400000, guid: 5cd89868ef7ce0884a623d1199a379f2, type: 2}
     count: 2
-    anchorX: -5.6
+    anchorX: -5.9
     anchorZ: 0
     standingOnStructureId: 
     advancePerTurn: 0
-  background: {fileID: 11400000, guid: 01c2e6705a601b4ac80a3e7f022da10e, type: 2}
+  - definition: {fileID: 11400000, guid: bc720e3a7e2e4fd75aa060dbb24b72c8, type: 2}
+    count: 1
+    anchorX: -4.6
+    anchorZ: 0
+    standingOnStructureId: 
+    advancePerTurn: 0
+  background: {fileID: 11400000, guid: e189402158fef8374aba4dab97d743b2, type: 2}
   heliChance: 0
-  props:
-  - modelAsset: models/barbed_wire.glb
-    x: -1.5
-    z: 0.4
-    scale: 1
-    slowsAdvance: 1
-    halfWidth: 1.2
-  levelBase: 160
-  deployBudget: 14
+  props: []
+  levelBase: 110
+  deployBudget: 13
   bossPhases: []
   windAccelZ: 0
   reinforcementWaves: []
   staticCamera: 0
   isTestLevel: 0
+  designNotes: "Beat 5: fight upward. The platform garrison cannot be reached on
+    a flat arc, so the drag has to be lofted \u2014 the first level where the ANGLE
+    matters more than the power. Bunker moved 1.8 -> 5.0; at 11.3 the separation
+    was the worst in the campaign and the whole fight sat on top of the player."

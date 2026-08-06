@@ -12,22 +12,28 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 5b0d9d07915ade0a58fba81655b19cb0, type: 3}
   m_Name: Level7
   m_EditorClassIdentifier: 
-  id: level_ocean
+  id: level_11
   displayName: Oceanfront
-  levelNumber: 7
+  levelNumber: 11
   levelGoal: Clear the beach position
   enemyGroups:
-  - definition: {fileID: 11400000, guid: b51688fb293b69e5cab2885bcaa975b8, type: 2}
+  - definition: {fileID: 11400000, guid: bf072637e71b3742e87fc93d9a2db422, type: 2}
+    count: 3
+    anchorX: 2
+    anchorZ: 0
+    standingOnStructureId: 
+    advancePerTurn: 0
+  - definition: {fileID: 11400000, guid: 75e1a253a474334eb8576862998ca8e1, type: 2}
     count: 4
     anchorX: 6
-    anchorZ: 0
+    anchorZ: 0.12
     standingOnStructureId: beach_post
     advancePerTurn: 0
   - definition: {fileID: 11400000, guid: 0cc2a054cb1b0b38086ae4f985d09207, type: 2}
-    count: 2
-    anchorX: 8.4
-    anchorZ: 0
-    standingOnStructureId: 
+    count: 3
+    anchorX: 6
+    anchorZ: 0.12
+    standingOnStructureId: beach_post
     advancePerTurn: 0
   structures:
   - id: player_tank
@@ -52,24 +58,30 @@ MonoBehaviour:
     hpScale: 1
   playerGroups:
   - definition: {fileID: 11400000, guid: 42221a45b5be3eb57b1b2bd28b9aaac0, type: 2}
-    count: 4
-    anchorX: -8.6
-    anchorZ: 0
-    standingOnStructureId: 
-    advancePerTurn: 0
-  - definition: {fileID: 11400000, guid: 5cd89868ef7ce0884a623d1199a379f2, type: 2}
     count: 2
-    anchorX: -7.4
+    anchorX: -10.5
+    anchorZ: 0.12
+    standingOnStructureId: player_tank
+    advancePerTurn: 0
+  - definition: {fileID: 11400000, guid: 42221a45b5be3eb57b1b2bd28b9aaac0, type: 2}
+    count: 8
+    anchorX: -8
     anchorZ: 0
     standingOnStructureId: 
     advancePerTurn: 0
   background: {fileID: 11400000, guid: 6d79aa5e81fc8c7fc84dcf8e548ca824, type: 2}
   heliChance: 0
   props: []
-  levelBase: 0
-  deployBudget: 0
+  levelBase: 200
+  deployBudget: 15
   bossPhases: []
   windAccelZ: 0
   reinforcementWaves: []
   staticCamera: 0
   isTestLevel: 0
+  designNotes: 'Beat 11: the exam. The chart offers a helicopter here OR a focus-fire
+    test; HELI_ENABLED is false for camera-load reasons that are a real problem rather
+    than a stale flag, so this is the skill version. Rocket troopers and heavies
+    on one post: everything is either fragile-and-dangerous or tough-and-slow, and
+    the player has to sort them under a turn limit of their own patience. Was a 6v6
+    stub with no payout that broke the locked 7-30 roster scale.'

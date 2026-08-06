@@ -2,9 +2,9 @@
 
 Written 2026-08-06. Sequenced plan for the product spine (0.1–0.6).
 
-**Phases A, B and C are DONE** (2026-08-06), all confirmed on device. Remaining: **D** (campaign
-content to 12 levels), **E** (loadout), **F** (enemy turn juice). Each phase heading below carries
-what actually shipped, including where it differed from the plan.
+**Phases A, B, C and D are DONE** (2026-08-06), all confirmed on device. Remaining: **E**
+(loadout) and **F** (enemy turn juice). Each phase heading below carries what actually shipped,
+including where it differed from the plan.
 
 Two decisions were taken with Rob before this plan was written, and the sequencing depends on
 both:
@@ -226,7 +226,19 @@ star-reason string agrees with `StarsFor`'s thresholds.
 
 ---
 
-## Phase D — campaign content to 12 levels (0.1, 0.2)
+## Phase D — campaign content to 12 levels — DONE 2026-08-06
+
+**Status: DONE.** 12 levels, 0 composition warnings, swept on device. Two systems turned out to be
+dead and were wired or dropped — wind is cosmetic (beats 7/8 re-cut onto real variables), and boss
+phases and reinforcement waves had never fired. See `HANDOVER.md`.
+
+D3's onboarding work is only PARTLY done: L1-3 teach in the right order and L1 pays visibly, but
+"default squad = Begin in one tap" needs the loadout screen, which is Phase E.
+
+The original plan text follows.
+
+---
+
 
 The bulk of the calendar time. Author against `PRODUCT_DIRECTION.md`'s beat chart: 7 existing biome
 levels re-jobbed into the funnel, ~5 new. Biomes repeat — that is explicitly an art constraint, not
@@ -295,7 +307,7 @@ This also clears three of the juice-checklist items for the cost of one UI compo
 | A — data → Unity | D | — | **DONE** — the migration was a no-op; the work was disarming the importer |
 | B — campaign split | D | — | **DONE** — one ordered array, a RIGS gate, a test change |
 | C — victory + coins | — | — | **DONE** — one call site + the first uGUI canvas |
-| D — 12 levels | — | A, B | The calendar bulk; content, not code |
+| D — 12 levels | — | A, B | **DONE** — plus wiring two dead event systems |
 | E — loadout | — | C (canvas) | New data + new screen + balance audit |
 | F — enemy juice | — | C (canvas) | Wiring three unused data fields to popups |
 

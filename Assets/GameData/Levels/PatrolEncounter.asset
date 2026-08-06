@@ -18,13 +18,13 @@ MonoBehaviour:
   levelGoal: Wipe out the enemy patrol and take their outpost
   enemyGroups:
   - definition: {fileID: 11400000, guid: b51688fb293b69e5cab2885bcaa975b8, type: 2}
-    count: 6
+    count: 4
     anchorX: 4.5
     anchorZ: 0
     standingOnStructureId: 
     advancePerTurn: 0
   - definition: {fileID: 11400000, guid: b51688fb293b69e5cab2885bcaa975b8, type: 2}
-    count: 3
+    count: 5
     anchorX: 7
     anchorZ: 0.12
     standingOnStructureId: outpost
@@ -79,3 +79,8 @@ MonoBehaviour:
   reinforcementWaves: []
   staticCamera: 0
   isTestLevel: 0
+  designNotes: "Beat 1: teach the drag. Deliberately the softest line in the game
+    \u2014 one small objective, no elevation, no threat priority. Garrison raised
+    3->5 of 9 so the outpost reads as the target rather than as scenery (rule 5);
+    the ground group stays wide and forgiving because a first multi-kill is the whole
+    point."

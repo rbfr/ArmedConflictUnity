@@ -12,25 +12,25 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 5b0d9d07915ade0a58fba81655b19cb0, type: 3}
   m_Name: Level4
   m_EditorClassIdentifier: 
-  id: level_4
+  id: level_7
   displayName: Barracks Line
-  levelNumber: 4
+  levelNumber: 7
   levelGoal: Clear the barracks and drop the comms mast
   enemyGroups:
   - definition: {fileID: 11400000, guid: b51688fb293b69e5cab2885bcaa975b8, type: 2}
-    count: 5
+    count: 3
     anchorX: 1.2
     anchorZ: 0
     standingOnStructureId: 
     advancePerTurn: 0
-  - definition: {fileID: 11400000, guid: 0cc2a054cb1b0b38086ae4f985d09207, type: 2}
-    count: 4
+  - definition: {fileID: 11400000, guid: 75e1a253a474334eb8576862998ca8e1, type: 2}
+    count: 5
     anchorX: 4.8
     anchorZ: 0.12
     standingOnStructureId: barracks
     advancePerTurn: 0
-  - definition: {fileID: 11400000, guid: db1f649e9127f6c1b8ed266c10d64185, type: 2}
-    count: 2
+  - definition: {fileID: 11400000, guid: c7126b62e544121fe916bb99493e2264, type: 2}
+    count: 3
     anchorX: 8.6
     anchorZ: 0.12
     standingOnStructureId: mast
@@ -101,3 +101,8 @@ MonoBehaviour:
   reinforcementWaves: []
   staticCamera: 0
   isTestLevel: 0
+  designNotes: 'Beat 7: TOUGHNESS is the new variable. The chart asked for wind here;
+    wind is cosmetic in this build (drifts in Z, collision is X/Y) so it would have
+    taught a lie. Heavy riflemen at 64 hp instead: two volleys apiece, so spreading
+    fire stops working and concentration becomes mandatory rather than merely efficient.
+    First use of HeavyRifleman and Grenadier anywhere in the campaign.'

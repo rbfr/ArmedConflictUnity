@@ -442,6 +442,70 @@ namespace ArmedConflict.Game
                                   CameraDirector.MarchEscortSmoothTime);
             }
 
+            // --- 7b. MID-BATTLE EVENTS ----------------------------------------------------
+            //
+            // Boss phases and reinforcement waves. EventSystems has decided these correctly since
+            // the port and NOTHING EVER ASKED IT — `bossPhases` and `reinforcementWaves` were read
+            // only by BattleRunner, and only to size the pools. Three campaign levels are authored
+            // around them, so without this the Sovereign never appears and the "reinforcements"
+            // never arrive.
+            var triggeredBoss = new HashSet<int>(s.TriggeredBossPhases);
+            var triggeredWaves = new HashSet<int>(s.TriggeredReinforcementWaves);
+            string bossAnnouncement = s.BossAnnouncement;
+            float bossTimer = Mathf.Max(0f, s.BossAnnouncementTimer - dt);
+            if (bossTimer <= 0f) bossAnnouncement = null;
+
+            if (phase == GamePhase.Playing && level != null)
+            {
+                // A structure counts as destroyed once it has left the live list — collapse
+                // propagation already removed it there, so no separate "destroyed ever" set has
+                // to be carried on the state and kept in sync.
+                var liveStructureIds = new HashSet<int>(structures.Select(st => st.Id));
+                var runtimeIdByLevelId = new Dictionary<string, int>();
+                var destroyedEver = new HashSet<int>();
+                for (int i = 0; i < level.structures.Count; i++)
+                {
+                    string lid = level.structures[i].id;
+                    if (string.IsNullOrEmpty(lid)) continue;
+                    int runtimeId = LevelBuilder.StructureIdBase + i;
+                    runtimeIdByLevelId[lid] = runtimeId;
+                    if (!liveStructureIds.Contains(runtimeId)) destroyedEver.Add(runtimeId);
+                }
+
+                for (int i = 0; i < level.bossPhases.Count; i++)
+                {
+                    var trigger = level.bossPhases[i];
+                    if (!EventSystems.ShouldTriggerBossPhase(
+                            i, trigger, triggeredBoss,
+                            lid => EventSystems.IsTriggerDefeated(lid, runtimeIdByLevelId,
+                                                                 destroyedEver, level, enemyUnits)))
+                        continue;
+
+                    enemyUnits = Spawn(enemyUnits, level, trigger.spawnGroups,
+                                       EventSystems.BossWaveIdBase + i * 100, random);
+                    triggeredBoss.Add(i);
+                    bossAnnouncement = trigger.announcement;
+                    bossTimer = EventSystems.BossAnnouncementSeconds;
+                }
+
+                for (int i = 0; i < level.reinforcementWaves.Count; i++)
+                {
+                    var wave = level.reinforcementWaves[i];
+                    if (triggeredWaves.Contains(i)) continue;
+                    // ARRIVE only. The telegraph beat is a HUD concern (Phase F) and must not
+                    // consume the wave — spending it on the warning is how a telegraphed wave
+                    // ends up never arriving.
+                    if (EventSystems.ReinforcementWaveBeat(wave.arrivesOnTurn, turnNumber)
+                        != EventSystems.WaveTriggerBeat.Arrive) continue;
+
+                    enemyUnits = Spawn(enemyUnits, level, wave.spawnGroups,
+                                       EventSystems.ReinforcementWaveIdBase + i * 100, random);
+                    triggeredWaves.Add(i);
+                    bossAnnouncement = wave.announcement;
+                    bossTimer = EventSystems.BossAnnouncementSeconds;
+                }
+            }
+
             // STABLE half-widths, captured at level load. Deriving these from live spans made the
             // zoom twitch on every casualty, because the span of a shrinking set changes
             // discontinuously even when no survivor has moved.
@@ -465,6 +529,10 @@ namespace ArmedConflict.Game
                 Helicopter = helicopter,
                 NextExplosionSlot = nextExplosionSlot,
                 ShakeIntensity = shake,
+                TriggeredBossPhases = triggeredBoss,
+                TriggeredReinforcementWaves = triggeredWaves,
+                BossAnnouncement = bossAnnouncement,
+                BossAnnouncementTimer = bossTimer,
                 Phase = phase,
                 TurnSide = turnSide,
                 TurnPhase = turnPhase,
@@ -793,6 +861,30 @@ namespace ArmedConflict.Game
         /// way to drive a level from adb, and it is useless for judging balance. Difficulty has
         /// to be measured with real drags, which spread.
         /// </summary>
+        /// <summary>
+        /// Adds a mid-battle group to the enemy line.
+        ///
+        /// Goes through LevelBuilder.BuildUnits so an arrival is constructed exactly like the
+        /// opening roster — same formation, same jitter, same garrison resolution. Rebuilding
+        /// that here would be a second definition of what a unit is, and the two would drift.
+        ///
+        /// The id base is spaced per wave (EventSystems' BossWaveIdBase / ReinforcementWaveIdBase,
+        /// stepped by 100) because ids must never collide with the living: PortSelfTest asserts
+        /// unit and structure ids never overlap, and a reused id would retarget an existing unit's
+        /// damage onto the newcomer.
+        /// </summary>
+        static List<UnitEntity> Spawn(List<UnitEntity> enemyUnits, LevelDefinitionSO level,
+                                      List<EnemyGroup> groups, int idBase, System.Random random)
+        {
+            if (groups == null || groups.Count == 0) return enemyUnits;
+            var arrivals = LevelBuilder.BuildUnits(level, groups, isPlayerSide: false,
+                                                   startId: idBase, random: random);
+            if (arrivals.Count == 0) return enemyUnits;
+            var combined = new List<UnitEntity>(enemyUnits);
+            combined.AddRange(arrivals);
+            return combined;
+        }
+
         public static GameState AutoFire(GameState s)
         {
             if (s.Phase != GamePhase.Playing || s.TurnPhase != TurnPhase.Aiming) return s;

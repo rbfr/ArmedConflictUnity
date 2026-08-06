@@ -10,30 +10,30 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 5b0d9d07915ade0a58fba81655b19cb0, type: 3}
-  m_Name: Level3
+  m_Name: TimberlineCrossing
   m_EditorClassIdentifier: 
-  id: level_3
-  displayName: Watchpost Ridge
-  levelNumber: 3
-  levelGoal: "Silence the ridge \u2014 bunker and watch tower both"
+  id: level_8
+  displayName: Timberline Crossing
+  levelNumber: 8
+  levelGoal: "Hold the treeline \u2014 they are climbing and charging at once"
   enemyGroups:
-  - definition: {fileID: 11400000, guid: b51688fb293b69e5cab2885bcaa975b8, type: 2}
+  - definition: {fileID: 11400000, guid: aecf03c40cb9b8f4d85d97ef12b4289f, type: 2}
     count: 4
-    anchorX: 1
+    anchorX: 0.8
     anchorZ: 0
     standingOnStructureId: 
-    advancePerTurn: 0
-  - definition: {fileID: 11400000, guid: b51688fb293b69e5cab2885bcaa975b8, type: 2}
-    count: 4
-    anchorX: 3.8
-    anchorZ: 0.12
-    standingOnStructureId: bunker
-    advancePerTurn: 0
+    advancePerTurn: 1
   - definition: {fileID: 11400000, guid: db1f649e9127f6c1b8ed266c10d64185, type: 2}
     count: 3
-    anchorX: 8
+    anchorX: 3
     anchorZ: 0.12
-    standingOnStructureId: tower
+    standingOnStructureId: watch
+    advancePerTurn: 0
+  - definition: {fileID: 11400000, guid: b51688fb293b69e5cab2885bcaa975b8, type: 2}
+    count: 6
+    anchorX: 6.5
+    anchorZ: 0.12
+    standingOnStructureId: post
     advancePerTurn: 0
   structures:
   - id: player_tank
@@ -46,9 +46,9 @@ MonoBehaviour:
     standWidth: -1
     hasStandWidth: 0
     hpScale: 1
-  - id: bunker
-    definition: {fileID: 11400000, guid: 503b76a9ccab71014b099da433b220fb, type: 2}
-    x: 3.8
+  - id: watch
+    definition: {fileID: 11400000, guid: 687b6a02fa884c12ca4709fecc0fdee2, type: 2}
+    x: 3
     y: 0
     z: 0
     collapseWith: 
@@ -56,9 +56,9 @@ MonoBehaviour:
     standWidth: -1
     hasStandWidth: 0
     hpScale: 1
-  - id: tower
-    definition: {fileID: 11400000, guid: 687b6a02fa884c12ca4709fecc0fdee2, type: 2}
-    x: 8
+  - id: post
+    definition: {fileID: 11400000, guid: fbbfacb3df61fd8f492723bbb6150200, type: 2}
+    x: 6.5
     y: 0
     z: 0
     collapseWith: 
@@ -74,30 +74,28 @@ MonoBehaviour:
     standingOnStructureId: player_tank
     advancePerTurn: 0
   - definition: {fileID: 11400000, guid: 42221a45b5be3eb57b1b2bd28b9aaac0, type: 2}
-    count: 6
-    anchorX: -7.2
+    count: 8
+    anchorX: -7
     anchorZ: 0
     standingOnStructureId: 
     advancePerTurn: 0
-  - definition: {fileID: 11400000, guid: 5cd89868ef7ce0884a623d1199a379f2, type: 2}
-    count: 2
-    anchorX: -5.6
-    anchorZ: 0
-    standingOnStructureId: 
-    advancePerTurn: 0
-  background: {fileID: 11400000, guid: ceacd19c49b3bcc34a39d64e003283c3, type: 2}
+  background: {fileID: 11400000, guid: 92fddeead9d05ffcaa23ec9b4679b905, type: 2}
   heliChance: 0
   props:
-  - modelAsset: models/sandbags.glb
-    x: 0.2
-    z: 0.35
+  - modelAsset: models/barbed_wire.glb
+    x: -0.5
+    z: 0.3
     scale: 0.9
-    slowsAdvance: 0
+    slowsAdvance: 1
     halfWidth: 1
-  levelBase: 60
-  deployBudget: 12
+  levelBase: 130
+  deployBudget: 13
   bossPhases: []
   windAccelZ: 0
   reinforcementWaves: []
   staticCamera: 0
   isTestLevel: 0
+  designNotes: 'Beat 8: combine, no new verb. Elevation (beat 5) and the charge (beat
+    4) at the same time, on beat 2''s biome so nothing about the setting is new either.
+    The player already has every skill this needs; the question is whether they can
+    choose an order under pressure. Wire slows the advance for whoever notices it.'

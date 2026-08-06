@@ -184,10 +184,15 @@ flat, vertex colours or small shared textures.
 
 ## Levels
 
-**Currently seven campaign levels** (Mountains, Forest, MountainsDusk, Winter, Desert, CityRuins,
-Ocean) plus 17 test rigs — 24 total. **Heading for 12–18** under `PRODUCT_DIRECTION.md` Tier 0.1:
-one level per biome was an ART constraint, never a content limit, so biomes REPEAT with different
-jobs. Author against the beat chart in that file.
+**TWELVE campaign levels plus 17 test rigs — 29 total** (2026-08-06). Every biome is used and
+five repeat: one level per biome was an ART constraint, never a content limit. Each level owes ONE
+BEAT from `PRODUCT_DIRECTION.md`'s chart, and its `designNotes` says which and why.
+
+**Campaign assets are named for their IDENTITY, not their number** — `AshBoulevard.asset`, not
+`Level4.asset`. The ordering moves as the funnel is tuned, and a filename that disagrees with
+`levelNumber` is a trap. Test rigs keep their `Level*Test` names.
+
+Two stages of six (`ValleyFront` 1-6, `EnemyStronghold` 7-12), bosses on 6 and 12.
 
 The six composition rules live in **`LEVEL_AUTHORING.md`** (moved out of the Kotlin 2026-08-06)
 and are checked by `LevelComposition.Report`. Shortest form: the Aiming camera frames the

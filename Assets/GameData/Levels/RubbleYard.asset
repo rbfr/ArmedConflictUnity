@@ -10,24 +10,30 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 5b0d9d07915ade0a58fba81655b19cb0, type: 3}
-  m_Name: Level2
+  m_Name: RubbleYard
   m_EditorClassIdentifier: 
-  id: level_2
-  displayName: Garrison Post
-  levelNumber: 2
-  levelGoal: "Bring down the firing platform \u2014 the garrison falls with it"
+  id: level_10
+  displayName: Rubble Yard
+  levelNumber: 10
+  levelGoal: Clear the yard before their armour arrives
   enemyGroups:
   - definition: {fileID: 11400000, guid: b51688fb293b69e5cab2885bcaa975b8, type: 2}
-    count: 5
-    anchorX: 3
+    count: 3
+    anchorX: 1
     anchorZ: 0
     standingOnStructureId: 
     advancePerTurn: 0
+  - definition: {fileID: 11400000, guid: 0cc2a054cb1b0b38086ae4f985d09207, type: 2}
+    count: 4
+    anchorX: 2.5
+    anchorZ: 0.12
+    standingOnStructureId: shell
+    advancePerTurn: 0
   - definition: {fileID: 11400000, guid: b51688fb293b69e5cab2885bcaa975b8, type: 2}
     count: 6
-    anchorX: 6.5
+    anchorX: 6
     anchorZ: 0.12
-    standingOnStructureId: post
+    standingOnStructureId: depot
     advancePerTurn: 0
   structures:
   - id: player_tank
@@ -40,9 +46,19 @@ MonoBehaviour:
     standWidth: -1
     hasStandWidth: 0
     hpScale: 1
-  - id: post
+  - id: shell
+    definition: {fileID: 11400000, guid: 9e4a843ea184e52d38fc6e753a77a825, type: 2}
+    x: 2.5
+    y: 0
+    z: 0
+    collapseWith: 
+    restsOn: 
+    standWidth: -1
+    hasStandWidth: 0
+    hpScale: 1
+  - id: depot
     definition: {fileID: 11400000, guid: fbbfacb3df61fd8f492723bbb6150200, type: 2}
-    x: 6.5
+    x: 6
     y: 0
     z: 0
     collapseWith: 
@@ -63,19 +79,28 @@ MonoBehaviour:
     anchorZ: 0
     standingOnStructureId: 
     advancePerTurn: 0
-  background: {fileID: 11400000, guid: 92fddeead9d05ffcaa23ec9b4679b905, type: 2}
+  background: {fileID: 11400000, guid: 01c2e6705a601b4ac80a3e7f022da10e, type: 2}
   heliChance: 0
-  props:
-  - modelAsset: models/barbed_wire.glb
-    x: 1.6
-    z: 0.4
-    scale: 0.9
-    slowsAdvance: 0
-    halfWidth: 1
-  levelBase: 50
-  deployBudget: 8
+  props: []
+  levelBase: 170
+  deployBudget: 15
   bossPhases: []
   windAccelZ: 0
-  reinforcementWaves: []
+  reinforcementWaves:
+  - arrivesOnTurn: 4
+    spawnGroups:
+    - definition: {fileID: 11400000, guid: 75e1a253a474334eb8576862998ca8e1, type: 2}
+      count: 4
+      anchorX: 9
+      anchorZ: 0
+      standingOnStructureId: 
+      advancePerTurn: 0
+    announcement: Their heavies are here!
+    telegraphText: "Heavy support inbound \u2014 1 turn"
   staticCamera: 0
   isTestLevel: 0
+  designNotes: "Beat 10: a clock. The wave is telegraphed a full turn ahead per pillar
+    7 \u2014 'telegraph, don't blindside' \u2014 so the pressure is anticipation
+    rather than ambush. This is the first level in the project to fire a ReinforcementWave;
+    telegraphText and announcement have been imported and displayed nowhere since
+    the port, and Phase F is what makes them visible."

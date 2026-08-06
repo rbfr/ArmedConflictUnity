@@ -290,8 +290,12 @@ public static class PortSelfTest
 
         // --- LevelBuilder, against the REAL imported L1 asset
         {
-            var l1 = AssetDatabase.LoadAssetAtPath<LevelDefinitionSO>("Assets/GameData/Levels/Level1.asset");
-            if (l1 == null) { Check(false, "Level1 asset present"); }
+            // Campaign level assets are named for their IDENTITY, not their number — the
+            // ordering moves as the beat chart is authored against, and Level4.asset meaning
+            // "level 7" was a trap waiting to happen.
+            var l1 = AssetDatabase.LoadAssetAtPath<LevelDefinitionSO>(
+                "Assets/GameData/Levels/PatrolEncounter.asset");
+            if (l1 == null) { Check(false, "PatrolEncounter asset present"); }
             else
             {
                 var st = LevelBuilder.BuildInitialState(l1, battleId: 1, totalLevels: 29,
@@ -310,7 +314,9 @@ public static class PortSelfTest
                 // The garrison must stand on the outpost's measured deck, not on `size`.
                 var outpost = st.Structures.First(s2 => s2.Definition.id == "outpost");
                 var garrison = st.EnemyUnits.Where(u => u.StandingOnStructureId != null).ToList();
-                Check(garrison.Count == 3, "3 enemies are garrisoned on the outpost");
+                // 5 since the Phase D authoring pass — composition rule 5 wants the
+                // majority of the roster on the structure, even on the teaching level.
+                Check(garrison.Count == 5, "5 enemies are garrisoned on the outpost");
                 float deck = 0.560f * 2.5f;   // deckY already scaled at import
                 foreach (var g in garrison)
                     Near(g.Y, deck, 1e-3f, "garrison stands on the measured deckY, not on size");
@@ -1179,7 +1185,11 @@ public static class PortSelfTest
                     .Where(p => p.EndsWith(".glb") && !p.Contains("/Kenney/"))
                     .Select(LevelScenery.ModelKey));
 
-            Check(levels.Count == 24, $"all 24 levels present ({levels.Count})");
+            Check(levels.Count == 29, $"all 29 levels present ({levels.Count})");
+
+            Check(levels.Count(l => !l.isTestLevel) == 12,
+                  "the campaign is 12 levels — PRODUCT_DIRECTION Tier 0.1's funnel, "
+                  + $"one beat each ({levels.Count(l => !l.isTestLevel)})");
 
             // CONTIGUITY IS A CAMPAIGN RULE ONLY, as of the 2026-08-06 campaign/rig split.
             //
@@ -1205,6 +1215,92 @@ public static class PortSelfTest
             Check(dupIds.Count == 0,
                   "every level id is unique — ids key the saved star results" +
                   (dupIds.Count == 0 ? "" : $" (duplicated: {dupIds[0].Key})"));
+
+            // MID-BATTLE EVENTS reference level data by NAME, and a name that matches nothing
+            // fails silently — the phase simply never fires and the level plays as an ordinary
+            // fight. Nothing about that looks broken from the outside, which is why it is
+            // asserted rather than trusted.
+            foreach (var l in levels)
+            {
+                var structureIds = new HashSet<string>(
+                    l.structures.Where(s2 => !string.IsNullOrEmpty(s2.id)).Select(s2 => s2.id));
+
+                foreach (var b in l.bossPhases)
+                {
+                    Check(b.triggerStructureIds != null && b.triggerStructureIds.Count > 0,
+                          $"{l.displayName}: a boss phase has trigger structures " +
+                          "(an empty set never fires — ShouldTriggerBossPhase refuses it)");
+                    foreach (var tid in b.triggerStructureIds ?? new List<string>())
+                        Check(structureIds.Contains(tid),
+                              $"{l.displayName}: boss trigger '{tid}' names a structure the level has");
+                    foreach (var g in b.spawnGroups)
+                        Check(g.definition != null && g.count > 0,
+                              $"{l.displayName}: every boss spawn group has a unit and a count");
+                }
+
+                foreach (var w in l.reinforcementWaves)
+                {
+                    // Turn 1 is the player's first move and the telegraph lands a turn early, so
+                    // a wave arriving before turn 2 can never be warned about.
+                    Check(w.arrivesOnTurn >= 2,
+                          $"{l.displayName}: a reinforcement wave arrives on turn " +
+                          $"{w.arrivesOnTurn} — it must be >= 2 so the telegraph has a turn to run");
+                    Check(!string.IsNullOrEmpty(w.telegraphText),
+                          $"{l.displayName}: a reinforcement wave carries telegraph text " +
+                          "(pillar 7: telegraph, don't blindside)");
+                    foreach (var g in w.spawnGroups)
+                        Check(g.definition != null && g.count > 0,
+                              $"{l.displayName}: every wave spawn group has a unit and a count");
+                }
+            }
+
+            // END TO END: a boss phase must actually put units on the field. The decision
+            // function has been tested since the port; what was never true is that anything
+            // CALLED it — bossPhases were read only to size the pools, so the Sovereign would
+            // have stayed off the board no matter how correct the arithmetic was.
+            {
+                var bossLevel = levels.First(l => !l.isTestLevel && l.bossPhases.Count > 0);
+                var st0 = LevelBuilder.BuildInitialState(bossLevel, 1, 12, new System.Random(3));
+                int before = st0.EnemyUnits.Count;
+
+                // Remove the trigger structures and their garrison, which is what defeating them
+                // looks like to the tick, then run one step.
+                var triggerIds = new HashSet<string>(bossLevel.bossPhases[0].triggerStructureIds);
+                var doomed = new HashSet<int>();
+                for (int i = 0; i < bossLevel.structures.Count; i++)
+                    if (triggerIds.Contains(bossLevel.structures[i].id))
+                        doomed.Add(LevelBuilder.StructureIdBase + i);
+
+                var razed = st0 with
+                {
+                    // BuildInitialState does not set Phase — BattleRunner.LoadLevel does, right
+                    // after. Without it Step takes the cosmetic-only path and no event fires,
+                    // which is exactly how this check failed the first time it was written.
+                    Phase = GamePhase.Playing,
+                    TurnPhase = TurnPhase.Aiming,
+                    Structures = st0.Structures.Where(s2 => !doomed.Contains(s2.Id)).ToList(),
+                    EnemyUnits = st0.EnemyUnits
+                        .Where(u => u.StandingOnStructureId == null
+                                 || !doomed.Contains(u.StandingOnStructureId.Value)).ToList(),
+                };
+                var after = BattleTick.Step(razed, 0.016f, bossLevel, new System.Random(3));
+
+                Check(after.TriggeredBossPhases.Count == 1,
+                      $"{bossLevel.displayName}: the boss phase fires once its structure is gone");
+                Check(after.EnemyUnits.Count > razed.EnemyUnits.Count,
+                      "and puts its spawn groups on the field");
+                Check(!string.IsNullOrEmpty(after.BossAnnouncement),
+                      "and raises its announcement");
+
+                var again = BattleTick.Step(after, 0.016f, bossLevel, new System.Random(3));
+                Check(again.EnemyUnits.Count == after.EnemyUnits.Count,
+                      "and does NOT fire a second time on the next tick");
+
+                var allIds2 = after.EnemyUnits.Select(u => u.Id)
+                    .Concat(after.PlayerUnits.Select(u => u.Id)).ToList();
+                Check(allIds2.Distinct().Count() == allIds2.Count,
+                      "spawned unit ids never collide with the units already fighting");
+            }
 
             var missing = new SortedSet<string>();
             var unitClasses = new SortedSet<string>();
