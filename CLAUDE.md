@@ -53,6 +53,10 @@ anywhere:
 Nothing in `PRODUCT_DIRECTION.md` overrides a lock. When prioritising features, that file
 wins over ad-hoc "nice to have" systems.
 
+**Plans in progress live in `_plans/`** — one file per piece of work, sequenced and checked off as
+it ships. A design doc says what is true and why; a plan says what is next and in what order, and
+is deleted or archived once its work is done. See `_plans/README.md`.
+
 The Kotlin in the retired repo still references them by name in dozens of comments. Those
 references are still correct about WHAT to read — just read it here.
 
@@ -68,6 +72,7 @@ DISPLAY=:1 $U -batchmode -quit -projectPath . -executeMethod SpikeSceneBattle.Bu
 DISPLAY=:1 $U -batchmode -quit -projectPath . -executeMethod SpikeBuild.Android     -logFile -
 DISPLAY=:1 $U -batchmode -quit -projectPath . -executeMethod RiggedUnits.Verify     -logFile -
 DISPLAY=:1 $U -batchmode -quit -projectPath . -executeMethod BackdropPreview.Shots  -logFile -
+DISPLAY=:1 $U -batchmode -quit -projectPath . -executeMethod BattleUIPreview.Shots  -logFile -
 
 export PATH=$HOME/Android/Sdk/platform-tools:$PATH
 export ANDROID_SERIAL=57121FDCQ005LC        # USB. The wireless transport drops on long builds.
@@ -115,6 +120,15 @@ authoring, once Android is retired". The pipeline works; the reason it exists is
 - Anything shaped by **alpha must clone a TRANSPARENT material ASSET**. An opaque URP/Unlit
   ignores alpha entirely — the thing holds full strength and then vanishes in one frame.
 - Pooled objects share a material: per-instance tinting needs a `MaterialPropertyBlock`.
+
+**UI (uGUI + TextMeshPro, added 2026-08-06)**
+- `BattleUI` builds its whole hierarchy IN CODE at runtime. No prefab and no serialized refs, so
+  **a UI change never needs a scene rebuild**. Build from `Create()`, not `Awake` — Awake does not
+  run in edit mode.
+- **No character outside ASCII in a TMP string.** The default font asset is ASCII-only and renders
+  `★` / `◆` as missing-glyph boxes, silently. Stars and the coin icon are drawn sprites.
+- IMGUI draws AFTER a ScreenSpaceOverlay canvas, so anything IMGUI still draws sits on top of the
+  UI and keeps eating its taps.
 
 **Coordinates and rendering**
 - `GameSpace.ToUnity` **negates X**. Route every placement through it — a mirrored scene looks

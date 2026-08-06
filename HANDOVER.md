@@ -855,3 +855,92 @@ obviously right, and it is worth an explicit decision rather than drifting:
 Nothing here is urgent — the pipeline works. But the reason it exists is gone, so the next person
 to be annoyed by an export step should treat that annoyance as a real signal, not as friction to
 be absorbed.
+
+## Data authoring — DECIDED 2026-08-06: it moves into Unity
+
+Rob closed the question above: **authoring moves into Unity.** The ScriptableObjects become the
+source of truth. Not yet executed — it is Phase A of `_plans/TIER0_PLAN.md`, and the work is
+mostly DISARMING the importer rather than migrating anything, because the assets are already
+correct and nothing gets re-parsed.
+
+The one thing that must not be skipped: `DataImporter.Sweep` deletes any asset the Kotlin no
+longer declares. That is correct while Kotlin is authoritative and is a data-destroying bug the
+moment Unity is. It goes, `BuildSandboxLevels` comes out of the import path, and `Import` gets a
+guard rather than the "never re-run this" comment it has carried for months.
+
+## The victory screen and a live economy — 2026-08-06
+
+`PRODUCT_DIRECTION.md` Tier 0.3/0.4a/0.5. **The port had a complete, tested, entirely DEAD
+economy**: `EconomyStore`, `ProgressStore` and `TurnFlow.AwardVictory` were all ported and correct,
+`AwardVictory` had ZERO callers, and no coin was ever earned or star ever recorded in a running
+build. The whole of it came alive through one call site — `BattleRunner.ResolveBattleEnd`.
+
+Keyed on `battleId`, NOT on a `Playing -> over` edge. An edge is one frame and the award has to
+survive everything that keeps ticking after it (the free camera alone keeps a finished battle
+running indefinitely); keying on the battle makes "pay once per battle" the literal invariant. A
+replay pays again on purpose — the one-time parts are gated inside `GrantVictoryPayout` by
+`previousBestStars`.
+
+### The UI layer is BUILT IN CODE, and that is deliberate
+
+`ArmedConflict.UI.BattleUI` constructs its whole hierarchy at runtime — no prefab, no serialized
+references, therefore **no scene rebuild for any UI change**. The editor GUI runs over VNC on
+llvmpipe where laying out a canvas by hand is genuinely painful, and there is no designer who
+would edit it in the inspector. It is still real retained-mode uGUI, built once, allocating
+nothing per frame.
+
+`Build()` is called explicitly from `Create()` rather than from `Awake` — **Awake does not run in
+edit mode** without `[ExecuteAlways]`, which left every widget null the first time the preview
+harness built this canvas from an editor method.
+
+### Traps this phase paid for
+
+- **NOTHING OUTSIDE ASCII MAY APPEAR IN A TMP STRING.** The default `LiberationSans SDF` font
+  asset is built over ASCII only, so `★` and `◆` render as missing-glyph boxes — silently, with no
+  error. This was written into the code with a comment explaining it, and then `★` and `◆` were
+  used in four strings anyway; only the rendered image caught it. The panel's stars and the coin
+  icon are DRAWN SPRITES for this reason, and `TurnFlow.StarReason` says "3 stars" in ASCII with a
+  self-test check asserting it contains no `★`. (The em-dash `—` does render — the asset covers
+  Latin-1 punctuation. Verify anything else before using it.)
+- **`AssetDatabase.ImportPackage` is ASYNCHRONOUS and imports NOTHING under `-quit`.** It is the
+  documented way to install TMP's essential resources and it silently does nothing headless. They
+  are unpacked directly instead by `tools/import_tmp_essentials.py` — a `.unitypackage` is a
+  gzipped tar of one folder per asset holding `asset`, `asset.meta` (the GUID, which must come
+  across) and `pathname`. One-time; the output is committed.
+- **IMGUI always draws AFTER a ScreenSpaceOverlay canvas.** The old RESTART / NEXT buttons had to
+  be REMOVED, not merely covered — they would have painted over the card and gone on eating its
+  taps.
+- **A ScreenSpaceOverlay canvas never appears in a camera's target texture.** An offscreen shot of
+  one comes back empty; `BattleUIPreview` switches the canvas to `ScreenSpaceCamera` for the render.
+- **Do not measure "did the text render" in pixels.** The first attempt counted pixels differing
+  from the backdrop and reported 98.5% — meaningless, because the card's full-screen dim covers
+  every pixel whether a glyph resolved or not. Ask TMP: `textInfo.characterCount` is non-zero only
+  when a font asset resolved AND the string laid out. Count ACTIVE labels only; a hidden button's
+  label never lays out and reads as a false failure.
+
+### CONFIRMED ON DEVICE 2026-08-06
+
+Pixel 10 Pro XL, release build. L1 driven to victory on AUTO:
+
+```
+[Battle] victory: 3★, +230 coins (Daily Bonus!), balance 230
+```
+
+Fired exactly once. The card rendered with every glyph, held a steady 60 fps, and the coin pill
+carried 230 into L2. **NEXT was tapped and L2 loaded** — the EventSystem, touch and uGUI buttons
+all work on hardware, which nothing in the editor could have shown. The card cleared on the level
+switch. CAM hid the whole canvas and brought it back.
+
+`Auto` is enough to confirm the card, the payout and the buttons. It says nothing about
+difficulty, and the 3★ it produces is optimistic — measure balance with real drags.
+
+**The dim looked broken and was not.** Eyeballing the screenshot said the full-screen dim had
+failed to render; sampling the same pixels with the canvas hidden said otherwise — ratio 0.55,
+which is exactly a 0.72-alpha black composited in LINEAR space and written out as sRGB
+(0.28^(1/2.2) = 0.56). A URP overlay dim always reads far lighter than its alpha suggests. Do not
+judge one by eye, and do not "fix" it by raising the alpha.
+
+### Verify this again with
+
+`DISPLAY=:1 $U -batchmode -quit -projectPath . -executeMethod BattleUIPreview.Shots -logFile -`
+writes the three cards to `Builds/ui/` and reports how many labels actually laid out glyphs.

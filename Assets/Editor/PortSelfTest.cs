@@ -615,6 +615,31 @@ public static class PortSelfTest
             ProgressStore.ResetAll();
             Check(TurnFlow.AwardDefeat(lvl) == 15, "defeat still pays 15% of base");
 
+            // Star REASONS — PRODUCT_DIRECTION 0.5 shows the player why, every time, and the
+            // number it promises has to be the number the award code actually pays on.
+            bool survivorsAgree = true;
+            for (int n = 1; n <= 30; n++)
+                for (int want = 2; want <= 3; want++)
+                {
+                    int need = TurnFlow.SurvivorsFor(want, n);
+                    if (TurnFlow.StarsFor(need, n) < want) survivorsAgree = false;
+                    if (need > 0 && TurnFlow.StarsFor(need - 1, n) >= want) survivorsAgree = false;
+                }
+            Check(survivorsAgree,
+                  "SurvivorsFor is the FEWEST survivors StarsFor still rewards, for every roster " +
+                  "size — the promise on the victory card and the payout cannot disagree");
+
+            Check(TurnFlow.SurvivorsFor(3, 14) == 11, "3★ on a 14-unit roster needs 11 alive");
+            Check(TurnFlow.StarReason(10, 14) == "Lost 4 of 14 — keep 11 alive for 3 stars",
+                  "a 2-star result names the shortfall and the next threshold in whole units");
+            Check(TurnFlow.StarReason(10, 14).IndexOf('★') < 0,
+                  "and says it in ASCII — the default TMP font renders ★ as a missing-glyph box");
+            Check(TurnFlow.StarReason(14, 14).Contains("14 of 14"),
+                  "a clean sweep reports what was kept and promises nothing further");
+            Check(!TurnFlow.StarReason(14, 14).Contains("for 4"),
+                  "and never dangles a fourth star");
+            Check(TurnFlow.StarReason(3, 0) == "", "a zero-unit roster has no reason to give");
+
             ProgressStore.ResetAll();
             ProgressStore.AllLevels = new List<LevelDefinitionSO>();
         }

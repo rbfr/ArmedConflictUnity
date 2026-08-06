@@ -4,6 +4,7 @@ using UnityEngine;
 using ArmedConflict.Data;
 using ArmedConflict.Game;
 using ArmedConflict.Render;
+using ArmedConflict.UI;
 
 /// <summary>
 /// Drives a real battle: owns the GameState, ticks it, takes the drag, renders the result.
@@ -67,6 +68,17 @@ public class BattleRunner : MonoBehaviour
     LevelDefinitionSO level;
     int levelIndex;
     int battleId;
+
+    BattleUI ui;
+    /// <summary>
+    /// The battle whose end has already been paid for. The award must run EXACTLY ONCE per
+    /// battle: the Playing->over edge is a single frame, but a level with no enemies resolves on
+    /// its first tick and the free camera keeps the finished battle ticking indefinitely
+    /// afterwards, so an edge test alone is not a guarantee. battleId already advances per
+    /// LoadLevel, which makes it the right key — a REPLAY is a new battle and does pay again,
+    /// deliberately (the one-time parts are handled inside GrantVictoryPayout by previousBest).
+    /// </summary>
+    int awardedBattleId = -1;
 
     // input
     bool dragging;
@@ -170,6 +182,11 @@ public class BattleRunner : MonoBehaviour
         random = new System.Random(12345);
         ProgressStore.AllLevels = levels;
 
+        ui = BattleUI.Create();
+        ui.OnRetry = () => LoadLevel(levelIndex);
+        ui.OnNext = () => LoadLevel(levelIndex + 1);
+        ui.SetCoins(ProgressStore.Coins());
+
         BuildPools();
         LoadLevel(0);
     }
@@ -209,6 +226,11 @@ public class BattleRunner : MonoBehaviour
 
         TintShadows();
         HideAll();
+        // The end panel belongs to the battle that raised it. It must come down here rather than
+        // on the button that caused the switch, because the ◀ ▶ stepper leaves a finished battle
+        // too and would otherwise carry a stale VICTORY card onto the next level.
+        ui.Hide();
+        ui.SetCoins(ProgressStore.Coins());
         enemyWindup = 0f;
         dragging = false;
         aimVel = Vector3.zero;
@@ -643,6 +665,7 @@ public class BattleRunner : MonoBehaviour
         // a volley that has now resolved.
         if (!dragging && state.TurnPhase == TurnPhase.Aiming) aimPoseDegrees = 0f;
         DriveAudio(before, state);
+        ResolveBattleEnd();
 
         Render();
         ApplyCamera();
@@ -699,6 +722,43 @@ public class BattleRunner : MonoBehaviour
     {
         if (state.PlayerUnits.Count == 0) return new Vector3(-9.5f, 0.9f, 0f);
         return new Vector3(state.PlayerUnits.Average(u => u.X), 0.9f, 0f);
+    }
+
+    /// <summary>
+    /// Pays the battle out and raises the end panel.
+    ///
+    /// This is the call the port never had. EconomyStore, ProgressStore and TurnFlow.AwardVictory
+    /// were all ported, tested and correct — and reached by nothing, so no coin was ever earned
+    /// and no star ever recorded in a running build. One call site turns the whole meta layer on.
+    ///
+    /// Deliberately keyed on battleId rather than on a Playing->over EDGE. An edge is a single
+    /// frame and the award has to survive everything that keeps ticking afterwards; keying on the
+    /// battle makes "pay once per battle" the literal invariant instead of a consequence of one.
+    /// </summary>
+    void ResolveBattleEnd()
+    {
+        if (state.Phase == GamePhase.Playing) return;
+        if (awardedBattleId == battleId) return;
+        awardedBattleId = battleId;
+
+        if (state.Phase == GamePhase.Victory)
+        {
+            var award = TurnFlow.AwardVictory(level, state.PlayerUnits.Count,
+                                              state.InitialPlayerCount);
+            ui.ShowVictory(award, state.PlayerUnits.Count, state.InitialPlayerCount,
+                           hasNextLevel: levelIndex < levels.Length - 1);
+            Debug.Log($"[Battle] victory: {award.Stars}★, +{award.Coins} coins" +
+                      (award.BonusTag != null ? $" ({award.BonusTag})" : "") +
+                      $", balance {ProgressStore.Coins()}");
+        }
+        else
+        {
+            int coins = TurnFlow.AwardDefeat(level);
+            ui.ShowDefeat(coins);
+            Debug.Log($"[Battle] defeat: +{coins} coins, balance {ProgressStore.Coins()}");
+        }
+        // The pill is NOT snapped to the new balance here — the panel's count-up climbs it, and
+        // setting it now would give the animation nothing left to show.
     }
 
     /// <summary>
@@ -1187,11 +1247,12 @@ public class BattleRunner : MonoBehaviour
     }
 
     /// <summary>
-    /// Level navigation. Two parts, and they answer different needs.
+    /// Level navigation — the DEBUG switcher, and only that now.
     ///
-    /// RESTART / NEXT appear when the battle is over, because a game that ends on a victory
-    /// screen with nowhere to go is not a game — this was the port's largest hole, and every
-    /// session before it was L1 or nothing.
+    /// RESTART / NEXT used to be drawn here as IMGUI buttons at screen centre when the battle
+    /// ended. They belong to the victory panel now (BattleUI), and they had to be REMOVED rather
+    /// than left to be covered: IMGUI always draws after the canvas, so they would have painted
+    /// straight over the card and gone on swallowing its taps.
     ///
     /// The ◀ ▶ stepper is always on, and is the DEBUG switcher the shipping build also carries:
     /// it is the only way to sweep 29 levels for crashes and missing geometry from adb without a
@@ -1200,18 +1261,6 @@ public class BattleRunner : MonoBehaviour
     /// </summary>
     void DrawLevelNav()
     {
-        bool over = state.Phase == GamePhase.Victory || state.Phase == GamePhase.Defeat;
-        if (over)
-        {
-            float w = 300f, h = 130f, y = Screen.height * 0.5f;
-            if (GUI.Button(new Rect(Screen.width * 0.5f - w - 20f, y, w, h), "RESTART"))
-                LoadLevel(levelIndex);
-            GUI.enabled = levelIndex < levels.Length - 1;
-            if (GUI.Button(new Rect(Screen.width * 0.5f + 20f, y, w, h), "NEXT LEVEL"))
-                LoadLevel(levelIndex + 1);
-            GUI.enabled = true;
-        }
-
         // BELOW THE STATUS BAR. At y=24 these sat inside the display cutout inset (161px on this
         // panel), so an adb tap aimed at them lands on the system status bar and can pull the
         // notification shade down over the game — which is how earlier scripted sessions ended up
@@ -1230,6 +1279,9 @@ public class BattleRunner : MonoBehaviour
         if (GUI.Button(new Rect(Screen.width - 370f, NavTop, 100f, 90f), "CAM", nav))
         {
             freeCamOn = !freeCamOn;
+            // The end card yields to the free camera. Inspecting a FINISHED battle is most of
+            // what this tool is for, and a full-screen dim over it would take that away.
+            ui.SetVisible(!freeCamOn);
             // SEEDED FROM THE LIVE CAMERA, so switching it on does not move the picture. Starting
             // from a fixed home position means every investigation begins by flying back to
             // whatever you were already looking at.

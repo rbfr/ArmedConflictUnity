@@ -84,6 +84,44 @@ namespace ArmedConflict.Game
             return 1;
         }
 
+        /// <summary>
+        /// The fewest survivors that earns <paramref name="stars"/>.
+        ///
+        /// Deliberately derived by asking StarsFor rather than by re-deriving the thresholds:
+        /// two copies of "0.75 and 0.4" drift, and this one is shown to the player as a promise
+        /// ("keep 11 alive for 3★"). A promise the award code disagrees with is worse than no
+        /// promise. Rosters are 7-30 units, so the scan is free.
+        /// </summary>
+        public static int SurvivorsFor(int stars, int initialCount)
+        {
+            for (int s = 0; s <= initialCount; s++)
+                if (StarsFor(s, initialCount) >= stars) return s;
+            return initialCount;
+        }
+
+        /// <summary>
+        /// The one-line reason for a star result, in units the player can say out loud.
+        ///
+        /// PRODUCT_DIRECTION 0.5 asks for the reason on EVERY victory, and this costs nothing to
+        /// honour: the star rule is pure roster survival, so the reason is always a count and the
+        /// next threshold is always reachable by keeping N more alive. Nothing here is random or
+        /// hidden, which is what "opaque or RNG-gated 3★ is a bug" is asking for.
+        /// </summary>
+        public static string StarReason(int survivors, int initialCount)
+        {
+            if (initialCount <= 0) return "";
+
+            int stars = StarsFor(survivors, initialCount);
+            if (stars >= 3) return $"Kept {survivors} of {initialCount} — a clean sweep";
+
+            int need = SurvivorsFor(stars + 1, initialCount);
+            int lost = initialCount - survivors;
+            // "3 stars", not "3★". The default TMP font asset is built over ASCII, so U+2605
+            // renders as a missing-glyph box — confirmed on the rendered card, not guessed. The
+            // stars on the panel are drawn sprites for the same reason.
+            return $"Lost {lost} of {initialCount} — keep {need} alive for {stars + 1} stars";
+        }
+
         public class VictoryAward
         {
             public int Stars;

@@ -334,7 +334,13 @@ locks and unit measurement.
 | Item | State |
 |------|--------|
 | Direction captured | 2026-08-06 |
-| Tier 0 campaign restructure | **not started** (still 7 campaign + 17 rigs as of handover) |
-| Victory / meta juice pass | track against checklist above |
+| Sequenced plan for Tier 0 | `_plans/TIER0_PLAN.md`, phases A–F |
+| 0.1 campaign restructure | **not started** (still 7 campaign + 17 rigs) — plan phases B and D |
+| 0.2 onboarding arc | not started — plan phase D |
+| 0.3 victory screen | **DONE 2026-08-06**, confirmed on device. Stars, reasons, coin count-up, bonus banner, retry/next |
+| 0.4a coins felt | **DONE** — the economy was fully ported and never called; one call site turned it on. Balance is now persistent on screen |
+| 0.4b something to buy | not started — needs a roster data source and the loadout screen (plan phase E) |
+| 0.5 star criteria + reasons | **DONE** — pure roster survival, reason shown on every victory |
+| 0.6 enemy turn juice | not started — plan phase F. `telegraphText` / `announcement` are imported and never displayed |
 | Tier 1 ammo | per `DYNAMISM_DESIGN.md` status |
 | This doc | living — update priorities when Rob reorders work |
