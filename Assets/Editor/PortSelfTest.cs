@@ -1211,6 +1211,105 @@ public static class PortSelfTest
             // Ids are the PlayerPrefs keys the star results are stored under, so a duplicate
             // silently makes two levels share a best-star record. The rigs are excluded from
             // TotalStars but still record stars, so this covers all 24.
+            // --- LOADOUT ---------------------------------------------------------------------
+            {
+                var roster = AssetDatabase.LoadAssetAtPath<RosterDefinitionSO>(
+                    "Assets/GameData/Roster.asset");
+                Check(roster != null && roster.slots.Count > 0, "the roster asset exists");
+
+                if (roster != null)
+                {
+                    ProgressStore.ResetAll();
+                    System.Func<string, bool> unlocked = ProgressStore.IsUnitUnlocked;
+
+                    Check(roster.slots.Any(s2 => s2.coinPrice == 0),
+                          "at least one roster unit is free — a locked-out player has no squad");
+                    Check(roster.slots.All(s2 => s2.unit != null && s2.pointCost >= 1),
+                          "every roster slot has a unit and costs at least a point");
+                    Check(roster.slots.OrderBy(s2 => s2.pointCost).First().coinPrice == 0,
+                          "the CHEAPEST unit is the free one — Loadout.Default picks by point " +
+                          "cost, so a dear free unit would make the default squad unaffordable");
+
+                    foreach (var lv in levels.Where(l2 => !l2.isTestLevel))
+                    {
+                        var def = Loadout.Default(lv, roster, unlocked);
+                        Check(Loadout.IsLegal(def, lv, roster, unlocked),
+                              $"{lv.displayName}: the DEFAULT loadout is legal — pillar 8, a " +
+                              "player who taps straight through must lose nothing");
+                        Check(Loadout.UnitsUsed(def) == Loadout.Slots(lv),
+                              $"{lv.displayName}: the default fills every slot " +
+                              $"({Loadout.UnitsUsed(def)}/{Loadout.Slots(lv)}) — this is the " +
+                              "squad the level was balanced against");
+
+                        // THE FRAMING CONTRACT. Composition rule 1 measures the player line and
+                        // the aiming camera is framed on it, so no legal loadout may make the
+                        // line wider than the level was authored with. Checked against the real
+                        // built state, the same number LevelComposition reads.
+                        var asAuthored = LevelBuilder.BuildInitialState(lv, 1, 12, new System.Random(9));
+                        var chosen = Loadout.ToPlayerGroups(lv, def);
+                        var asPicked = LevelBuilder.BuildInitialState(
+                            lv, 1, 12, new System.Random(9), playerGroupsOverride: chosen);
+                        Check(asPicked.PlayerCamHalfWidth <= asAuthored.PlayerCamHalfWidth + 0.01f,
+                              $"{lv.displayName}: the default squad is no wider than the authored " +
+                              $"line ({asPicked.PlayerCamHalfWidth:F2} vs " +
+                              $"{asAuthored.PlayerCamHalfWidth:F2})");
+
+                        // A squad of the DEAREST affordable units must also fit the frame — that
+                        // is the widest a legal loadout can get once everything is unlocked.
+                        var dearest = roster.slots.OrderByDescending(s2 => s2.pointCost).First();
+                        int many = Mathf.Min(Loadout.Slots(lv),
+                                             Loadout.Budget(lv) / dearest.pointCost);
+                        if (many > 0)
+                        {
+                            var heavy = new List<Pick> { new(dearest.unit, many) };
+                            var st2 = LevelBuilder.BuildInitialState(
+                                lv, 1, 12, new System.Random(9),
+                                playerGroupsOverride: Loadout.ToPlayerGroups(lv, heavy));
+                            Check(st2.PlayerCamHalfWidth <= asAuthored.PlayerCamHalfWidth + 0.01f,
+                                  $"{lv.displayName}: an all-{dearest.unit.name} squad also fits " +
+                                  "the authored frame");
+                        }
+
+                        // The budget must never be so tight that the default cannot fill the
+                        // level, nor so loose that slots stop being the binding constraint.
+                        Check(Loadout.Budget(lv) >= Loadout.Slots(lv),
+                              $"{lv.displayName}: deployBudget ({Loadout.Budget(lv)}) covers at " +
+                              $"least one cheap body per slot ({Loadout.Slots(lv)})");
+                    }
+
+                    // Garrisons are level geometry and must survive any loadout.
+                    var withTank = levels.First(l2 => !l2.isTestLevel
+                        && l2.playerGroups.Any(g => !string.IsNullOrEmpty(g.standingOnStructureId)));
+                    var kept = Loadout.ToPlayerGroups(withTank,
+                        Loadout.Default(withTank, roster, unlocked));
+                    Check(kept.Count(g => !string.IsNullOrEmpty(g.standingOnStructureId))
+                          == withTank.playerGroups.Count(g => !string.IsNullOrEmpty(g.standingOnStructureId)),
+                          "a loadout never disturbs the garrisoned groups — the tank crew is " +
+                          "level geometry, not a squad pick");
+
+                    // Legality, at the edges.
+                    var one = levels.First(l2 => !l2.isTestLevel);
+                    var rifle = roster.slots.OrderBy(s2 => s2.pointCost).First();
+                    Check(!Loadout.IsLegal(new List<Pick>(), one, roster, unlocked),
+                          "an EMPTY loadout is illegal — that is not a decision, it is no battle");
+                    Check(!Loadout.IsLegal(
+                              new List<Pick> { new(rifle.unit, Loadout.Slots(one) + 1) },
+                              one, roster, unlocked),
+                          "overfilling the slots is illegal even when the points would allow it");
+                    Check(Loadout.IsLegal(
+                              new List<Pick> { new(rifle.unit, 1) }, one, roster, unlocked),
+                          "UNDER-filling is legal — fewer, better troops is a real choice");
+
+                    var locked = roster.slots.FirstOrDefault(s2 => s2.coinPrice > 0);
+                    if (locked != null)
+                        Check(!Loadout.IsLegal(new List<Pick> { new(locked.unit, 1) },
+                                               one, roster, unlocked),
+                              "a locked unit cannot be fielded before it is bought");
+
+                    ProgressStore.ResetAll();
+                }
+            }
+
             var dupIds = levels.GroupBy(l => l.id).Where(g => g.Count() > 1).ToList();
             Check(dupIds.Count == 0,
                   "every level id is unique — ids key the saved star results" +

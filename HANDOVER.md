@@ -1135,3 +1135,58 @@ of turn 3, the wave lands on turn 4, the strip clears itself.
 
 The strip started at y-104 and ran straight through the CAM / RIGS / stepper cluster. Harmless for
 input (it takes no raycasts) but it read as a broken layout; it sits below the banner now.
+
+## Loadout — DONE 2026-08-06
+
+Phase E, `PRODUCT_DIRECTION.md` 0.4b: "something to buy that changes the next battle".
+
+**SLOTS AND POINTS ARE SEPARATE, and that is the whole design.**
+
+- **Slots** = the number of ground troops the level was AUTHORED with, read off the level. Fixed,
+  because composition rule 1 measures the PLAYER LINE'S WIDTH and the aiming camera is framed on
+  it. A loadout that could field more bodies than the level was drawn for would zoom the camera
+  out, and nothing else in the layout can compensate.
+- **Points** = `deployBudget`, and they buy QUALITY. Eight slots and eight points is eight
+  riflemen; eight slots and sixteen points is four heavies and four riflemen, or two snipers and
+  six riflemen.
+
+So the squad never gets WIDER as the campaign goes on — it gets BETTER. Every authored level stays
+framed exactly as it was measured, the locked 7-30 scale holds by construction, and the budgets
+authored in Phase D turned out to need no change at all.
+
+`Loadout.ToPlayerGroups` TILES the picks across the authored width, so a three-type squad is
+exactly as wide as a one-type squad. Anchoring every pick at the same x would stack them; giving
+each a fixed spacing would make rule 1 fail on the player's choices rather than on the level.
+
+**The default is the old behaviour.** `Loadout.Default` fills every slot with the cheapest
+unlocked unit, which reproduces what each level fielded before the picker existed — pillar 8,
+"default paths cost nothing". BEGIN is live the moment the panel opens.
+
+Garrisoned player groups are NEVER touched: the tank crew is level geometry standing on a
+structure at a fixed anchor, not a squad pick.
+
+### Checks that matter
+
+`PortSelfTest` asserts, for EVERY campaign level: the default loadout is legal and fills every
+slot; the default squad is no wider than the authored line, measured through the real
+`LevelBuilder` on the same `PlayerCamHalfWidth` `LevelComposition` reads; an all-dearest-unit
+squad also fits that frame; and `deployBudget` covers at least one cheap body per slot. Plus the
+edges — an empty loadout is illegal, overfilling slots is illegal even when points allow it,
+under-filling is legal, and a locked unit cannot be fielded.
+
+### Two traps, both the same one
+
+IMGUI draws AFTER the canvas. The loadout panel is modal, so `OnGUI` returns early while it is
+open — otherwise the HUD and the ◀ ▶ stepper sit on top of the panel and stay TAPPABLE, and a
+player could change level out from under the squad they were choosing. Identical to the
+RESTART / NEXT problem in Phase C. The in-battle furniture (coin pill, banners) is also hidden
+while the picker is up: it belongs to a battle that has not started, and it ghosted through the
+panel's 97% fill.
+
+### NOT DONE: the balance audit
+
+`PRODUCT_DIRECTION.md` asks that every shipped level be clearable at stock tier by a competent
+shooter, and calls a level that breaks under a LEGAL loadout a product bug. **That audit has not
+been run** — it needs real drags per level, and `Auto` cannot measure difficulty (it never misses
+and is structure-blind). The framing half is enforced by the checks above; the difficulty half is
+still owed. It was deferred historically too; it is now the last open item in Tier 0.

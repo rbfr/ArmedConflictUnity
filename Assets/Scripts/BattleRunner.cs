@@ -52,6 +52,9 @@ public class BattleRunner : MonoBehaviour
     /// bar is UI that happens to live in the world, and a lit one changes colour with the biome's
     /// light, which is the one thing this cue must never do.</summary>
     [SerializeField] Material healthBarSource;
+    /// <summary>The loadout picker's menu. Optional — with no roster the levels field their
+    /// authored squads and the picker never opens, which is exactly the pre-loadout behaviour.</summary>
+    [SerializeField] RosterDefinitionSO roster;
 
     const int UnitPoolSize = 48;
     const int ProjectilePoolSize = 64;
@@ -94,6 +97,8 @@ public class BattleRunner : MonoBehaviour
     BattleUI ui;
     /// <summary>The turn-handover line, held for the enemy turn. Outranked by a real event.</summary>
     string turnBanner;
+    /// <summary>The squad chosen for THIS battle. Null means "as authored".</summary>
+    List<EnemyGroup> loadoutGroups;
     /// <summary>
     /// The battle whose end has already been paid for. The award must run EXACTLY ONCE per
     /// battle: the Playing->over edge is a single frame, but a level with no enemies resolves on
@@ -210,12 +215,12 @@ public class BattleRunner : MonoBehaviour
         campaignCount = levels?.Count(l => l != null && !l.isTestLevel) ?? 0;
 
         ui = BattleUI.Create();
-        ui.OnRetry = () => LoadLevel(levelIndex);
-        ui.OnNext = () => LoadLevel(levelIndex + 1);
+        ui.OnRetry = () => EnterLevel(levelIndex);
+        ui.OnNext = () => EnterLevel(levelIndex + 1);
         ui.SetCoins(ProgressStore.Coins());
 
         BuildPools();
-        LoadLevel(0);
+        EnterLevel(0);
     }
 
     /// <summary>
@@ -233,6 +238,35 @@ public class BattleRunner : MonoBehaviour
     /// repeat it here. What has to be reset is everything that reads a slot's PREVIOUS occupant:
     /// a hidden slot still holds the last level's pose, position and animation state.
     /// </summary>
+    /// <summary>
+    /// Opens the loadout picker for a level, then loads it with whatever squad comes back.
+    ///
+    /// This is the entry point for every PLAYER-facing level change. The ◀ ▶ debug stepper calls
+    /// LoadLevel directly and skips the picker on purpose — sweeping 29 levels for missing
+    /// geometry should not stop to ask about troops twenty-nine times.
+    /// </summary>
+    void EnterLevel(int index)
+    {
+        int clamped = Mathf.Clamp(index, 0, LastReachableIndex);
+        var target = levels[clamped];
+
+        if (roster == null || target.isTestLevel)
+        {
+            // No roster authored, or a rig: field the level exactly as written.
+            loadoutGroups = null;
+            LoadLevel(clamped);
+            return;
+        }
+
+        ui.Hide();
+        var picks = Loadout.Default(target, roster, ProgressStore.IsUnitUnlocked);
+        ui.ShowLoadout(target, roster, picks, chosen =>
+        {
+            loadoutGroups = Loadout.ToPlayerGroups(target, chosen);
+            LoadLevel(clamped);
+        });
+    }
+
     public void LoadLevel(int index)
     {
         if (levels == null || levels.Length == 0) { Debug.LogError("[Battle] no levels"); return; }
@@ -240,7 +274,8 @@ public class BattleRunner : MonoBehaviour
         level = levels[levelIndex];
 
         // battleId advances per load so nothing keyed on it can collide with the level before it.
-        state = LevelBuilder.BuildInitialState(level, ++battleId, campaignCount, random);
+        state = LevelBuilder.BuildInitialState(level, ++battleId, campaignCount, random,
+                                              playerGroupsOverride: loadoutGroups);
         state = state with { Phase = GamePhase.Playing, TurnPhase = TurnPhase.Aiming };
 
         scenery.Build(level, state.Structures);
@@ -726,6 +761,9 @@ public class BattleRunner : MonoBehaviour
 
     void HandleInput()
     {
+        // The picker is a modal screen; a drag behind it would fire a volley into a battle
+        // the player has not agreed to start yet.
+        if (ui != null && ui.LoadoutOpen) return;
         if (state.Phase != GamePhase.Playing) return;
         if (Input.touchCount == 0)
         {
@@ -1281,6 +1319,12 @@ public class BattleRunner : MonoBehaviour
     void OnGUI()
     {
         style ??= new GUIStyle(GUI.skin.label) { fontSize = 30, normal = { textColor = Color.white } };
+
+        // The loadout picker is MODAL and IMGUI always draws after the canvas, so none of this
+        // may run while it is open — the same trap the RESTART / NEXT buttons fell into. It is
+        // not merely ugly: the ◀ ▶ stepper would sit on top of the panel and stay tappable, so a
+        // player could change level out from under the squad they were choosing.
+        if (ui != null && ui.LoadoutOpen) return;
         if (dot == null)
         {
             dot = new Texture2D(1, 1);
@@ -1301,7 +1345,8 @@ public class BattleRunner : MonoBehaviour
         // AUTO — the debug driver. Deliberately labelled and placed like the shipping build's,
         // and deliberately NOT something to judge balance from: every round lands, which no
         // real drag does.
-        bool canAuto = state.Phase == GamePhase.Playing && state.TurnPhase == TurnPhase.Aiming;
+        bool canAuto = state.Phase == GamePhase.Playing && state.TurnPhase == TurnPhase.Aiming
+                    && !(ui != null && ui.LoadoutOpen);
         GUI.enabled = canAuto;
         if (GUI.Button(new Rect(30, Screen.height - 220, 300, 150), "AUTO"))
         {

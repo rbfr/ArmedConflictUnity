@@ -1,9 +1,12 @@
 using System;
 using System.Collections;
+using System.Collections.Generic;
+using System.Linq;
 using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
+using ArmedConflict.Data;
 using ArmedConflict.Game;
 
 namespace ArmedConflict.UI
@@ -66,6 +69,14 @@ namespace ArmedConflict.UI
         Coroutine sequence, bannerPop;
         int shownBalance;
 
+        GameObject loadoutPanel, beginButton, safeArea;
+        TMP_Text loadoutTitle, loadoutSummary, loadoutBalance;
+        LoadoutRow[] loadoutRows;
+        LevelDefinitionSO loadoutLevel;
+        RosterDefinitionSO loadoutRoster;
+        List<Pick> loadoutPicks = new();
+        Action<List<Pick>> onLoadoutBegin;
+
         /// <summary>
         /// Creates the canvas and its EventSystem. Called once from BattleRunner.Start — there is
         /// no UI in the scene asset at all, by design (see the class comment).
@@ -117,6 +128,7 @@ namespace ArmedConflict.UI
 
             BuildCoinPill();
             BuildEventBanner();
+            BuildLoadoutPanel();
             BuildEndPanel();
             endPanel.SetActive(false);
         }
@@ -328,6 +340,7 @@ namespace ArmedConflict.UI
             // cutout is 161px, but that number belongs to one device — Screen.safeArea is the
             // question actually being asked, and it is right on every device.
             var safe = NewRect("SafeArea", transform);
+            safeArea = safe.gameObject;
             var sa = Screen.safeArea;
             safe.anchorMin = new Vector2(sa.xMin / Screen.width, sa.yMin / Screen.height);
             safe.anchorMax = new Vector2(sa.xMax / Screen.width, sa.yMax / Screen.height);
@@ -431,6 +444,249 @@ namespace ArmedConflict.UI
             eventText.text = announcement;
             if (bannerPop != null) StopCoroutine(bannerPop);
             if (isActiveAndEnabled) bannerPop = StartCoroutine(Pop(eventBanner.GetComponent<RectTransform>()));
+        }
+
+        void BuildLoadoutPanel()
+        {
+            var panel = NewRect("LoadoutPanel", transform);
+            Stretch(panel);
+            loadoutPanel = panel.gameObject;
+            panel.gameObject.AddComponent<Image>().color = new Color(0.05f, 0.06f, 0.09f, 0.97f);
+
+            loadoutTitle = NewText("Title", panel, 62f, Color.white, TextAlignmentOptions.Center);
+            loadoutTitle.rectTransform.anchorMin = loadoutTitle.rectTransform.anchorMax
+                = new Vector2(0.5f, 1f);
+            loadoutTitle.rectTransform.pivot = new Vector2(0.5f, 1f);
+            loadoutTitle.rectTransform.anchoredPosition = new Vector2(0f, -180f);
+            loadoutTitle.rectTransform.sizeDelta = new Vector2(1000f, 90f);
+
+            loadoutSummary = NewText("Summary", panel, 40f, Gold, TextAlignmentOptions.Center);
+            loadoutSummary.rectTransform.anchorMin = loadoutSummary.rectTransform.anchorMax
+                = new Vector2(0.5f, 1f);
+            loadoutSummary.rectTransform.pivot = new Vector2(0.5f, 1f);
+            loadoutSummary.rectTransform.anchoredPosition = new Vector2(0f, -270f);
+            loadoutSummary.rectTransform.sizeDelta = new Vector2(1000f, 60f);
+
+            var bal = NewRect("Balance", panel);
+            bal.anchorMin = bal.anchorMax = new Vector2(0.5f, 1f);
+            bal.pivot = new Vector2(0.5f, 1f);
+            bal.anchoredPosition = new Vector2(0f, -336f);
+            bal.sizeDelta = new Vector2(260f, 64f);
+            var coin = NewRect("Coin", bal);
+            coin.anchorMin = coin.anchorMax = new Vector2(0f, 0.5f);
+            coin.pivot = new Vector2(0f, 0.5f);
+            coin.anchoredPosition = new Vector2(30f, 0f);
+            coin.sizeDelta = new Vector2(38f, 38f);
+            var ci = coin.gameObject.AddComponent<Image>();
+            ci.sprite = CoinSprite(); ci.color = Gold; ci.raycastTarget = false;
+            loadoutBalance = NewText("Text", bal, 38f, Gold, TextAlignmentOptions.Left);
+            Stretch(loadoutBalance.rectTransform);
+            loadoutBalance.margin = new Vector4(84f, 0f, 0f, 0f);
+
+            // One row per pickable unit, laid out top-down. Six of them, so a scroll view would
+            // be more machinery than the content needs.
+            loadoutRows = new LoadoutRow[8];
+            for (int i = 0; i < loadoutRows.Length; i++)
+                loadoutRows[i] = BuildLoadoutRow(panel, -430f - i * 168f, i);
+
+            beginButton = NewButton("Begin", panel, new Vector2(0f, -1800f), "BEGIN",
+                                    new Color(0.16f, 0.42f, 0.24f), OnBeginPressed, out _);
+            var brt = (RectTransform)beginButton.transform;
+            brt.sizeDelta = new Vector2(560f, 140f);
+
+            loadoutPanel.SetActive(false);
+        }
+
+        LoadoutRow BuildLoadoutRow(RectTransform parent, float y, int index)
+        {
+            var row = NewRect($"Row{index}", parent);
+            row.anchorMin = row.anchorMax = new Vector2(0.5f, 1f);
+            row.pivot = new Vector2(0.5f, 1f);
+            row.anchoredPosition = new Vector2(0f, y);
+            row.sizeDelta = new Vector2(1000f, 152f);
+            var bg = row.gameObject.AddComponent<Image>();
+            bg.color = new Color(1f, 1f, 1f, 0.05f);
+            bg.raycastTarget = false;
+
+            var name = NewText("Name", row, 40f, Body, TextAlignmentOptions.TopLeft);
+            Stretch(name.rectTransform);
+            name.margin = new Vector4(28f, 14f, 392f, 0f);
+
+            var line = NewText("Line", row, 28f, new Color(0.66f, 0.69f, 0.74f),
+                               TextAlignmentOptions.TopLeft);
+            Stretch(line.rectTransform);
+            // Clear of the BUY button (306 wide, 40 from the right edge) — at 320 the one-liner
+            // ran underneath it and the last words vanished.
+            line.margin = new Vector4(28f, 62f, 392f, 10f);
+            line.textWrappingMode = TextWrappingModes.Normal;
+
+            var count = NewText("Count", row, 48f, Gold, TextAlignmentOptions.Center);
+            count.rectTransform.anchorMin = count.rectTransform.anchorMax = new Vector2(1f, 0.5f);
+            count.rectTransform.pivot = new Vector2(1f, 0.5f);
+            count.rectTransform.anchoredPosition = new Vector2(-150f, 0f);
+            count.rectTransform.sizeDelta = new Vector2(90f, 90f);
+
+            var entry = loadoutRoster != null && index < loadoutRoster.slots.Count
+                        ? loadoutRoster.slots[index] : null;
+
+            var minus = NewButton("Minus", row, new Vector2(-250f, 0f), "-",
+                                  new Color(0.22f, 0.22f, 0.26f), () => AdjustRow(index, -1), out _);
+            var plus = NewButton("Plus", row, new Vector2(-40f, 0f), "+",
+                                 new Color(0.22f, 0.30f, 0.24f), () => AdjustRow(index, +1), out _);
+            foreach (var b in new[] { minus, plus })
+            {
+                var rt = (RectTransform)b.transform;
+                rt.anchorMin = rt.anchorMax = new Vector2(1f, 0.5f);
+                rt.pivot = new Vector2(1f, 0.5f);
+                rt.sizeDelta = new Vector2(96f, 96f);
+                rt.anchoredPosition = new Vector2(b == minus ? -250f : -40f, 0f);
+            }
+
+            var buy = NewButton("Buy", row, new Vector2(-40f, 0f), "BUY",
+                                new Color(0.36f, 0.28f, 0.10f), () => BuyRow(index), out var buyLabel);
+            var buyRt = (RectTransform)buy.transform;
+            buyRt.anchorMin = buyRt.anchorMax = new Vector2(1f, 0.5f);
+            buyRt.pivot = new Vector2(1f, 0.5f);
+            buyRt.sizeDelta = new Vector2(306f, 96f);
+            buyRt.anchoredPosition = new Vector2(-40f, 0f);
+            buyLabel.fontSize = 32f;
+
+            return new LoadoutRow
+            {
+                Root = row.gameObject, Name = name, Line = line, Count = count,
+                Minus = minus, Plus = plus, Buy = buy, BuyLabel = buyLabel,
+            };
+        }
+
+        // Index-based so the closures do not capture a roster that has not been assigned yet —
+        // the rows are built once, before any level has been chosen.
+        void AdjustRow(int index, int delta)
+        {
+            if (loadoutRoster == null || index >= loadoutRoster.slots.Count) return;
+            Adjust(loadoutRoster.slots[index], delta);
+        }
+
+        void BuyRow(int index)
+        {
+            if (loadoutRoster == null || index >= loadoutRoster.slots.Count) return;
+            Buy(loadoutRoster.slots[index]);
+        }
+
+        void OnBeginPressed()
+        {
+            if (!Loadout.IsLegal(loadoutPicks, loadoutLevel, loadoutRoster,
+                                 ProgressStore.IsUnitUnlocked)) return;
+            HideLoadout();
+            onLoadoutBegin?.Invoke(loadoutPicks);
+        }
+
+        class LoadoutRow
+        {
+            public GameObject Root, Minus, Plus, Buy;
+            public TMP_Text Name, Line, Count, BuyLabel;
+        }
+
+        // ================================================================================
+        // The loadout picker
+        // ================================================================================
+
+        /// <summary>
+        /// Raises the pre-battle picker. `onBegin` receives the chosen squad.
+        ///
+        /// The panel opens on the DEFAULT loadout already filled in and BEGIN already enabled —
+        /// pillar 8, "default paths cost nothing". A player who taps straight through gets
+        /// precisely the squad every level is balanced against, and never has to learn what a
+        /// point is.
+        /// </summary>
+        public void ShowLoadout(LevelDefinitionSO level, RosterDefinitionSO roster,
+                                List<Pick> picks, System.Action<List<Pick>> onBegin)
+        {
+            loadoutLevel = level;
+            loadoutRoster = roster;
+            loadoutPicks = picks;
+            onLoadoutBegin = onBegin;
+            loadoutPanel.SetActive(true);
+            // The in-battle furniture belongs to a battle that has not started. The picker
+            // carries its own balance, so leaving the pill up double-printed it and ghosted
+            // through the panel's 97% fill.
+            if (safeArea != null) safeArea.SetActive(false);
+            RefreshLoadout();
+        }
+
+        public void HideLoadout()
+        {
+            loadoutPanel.SetActive(false);
+            if (safeArea != null) safeArea.SetActive(true);
+        }
+        public bool LoadoutOpen => loadoutPanel != null && loadoutPanel.activeSelf;
+
+        void RefreshLoadout()
+        {
+            int slots = Loadout.Slots(loadoutLevel);
+            int budget = Loadout.Budget(loadoutLevel);
+            int used = Loadout.UnitsUsed(loadoutPicks);
+            int points = Loadout.PointsUsed(loadoutPicks, loadoutRoster);
+
+            loadoutTitle.text = $"{loadoutLevel.displayName}";
+            loadoutSummary.text = $"{used}/{slots} troops     {points}/{budget} points";
+            loadoutBalance.SetText("{0}", ProgressStore.Coins());
+
+            for (int i = 0; i < loadoutRows.Length; i++)
+            {
+                var row = loadoutRows[i];
+                if (i >= loadoutRoster.slots.Count) { row.Root.SetActive(false); continue; }
+                row.Root.SetActive(true);
+
+                var entry = loadoutRoster.slots[i];
+                bool unlocked = ProgressStore.IsUnitUnlocked(entry.unit.id);
+                int count = loadoutPicks.FirstOrDefault(p => p.Unit == entry.unit).Count;
+
+                row.Name.text = $"{entry.unit.displayName}  ({entry.pointCost}p)";
+                row.Line.text = entry.oneLiner;
+                row.Count.text = unlocked ? count.ToString() : "";
+
+                // A LOCKED unit shows its price and stays visible — the "visible horizon" the
+                // locks ask for. Hiding what you cannot afford removes the reason to earn coins.
+                row.Buy.SetActive(!unlocked);
+                row.Minus.SetActive(unlocked);
+                row.Plus.SetActive(unlocked);
+                row.BuyLabel.text = ProgressStore.Coins() >= entry.coinPrice
+                    ? $"BUY {entry.coinPrice}" : $"{entry.coinPrice}";
+                row.Name.color = unlocked ? Body : new Color(0.55f, 0.57f, 0.62f);
+            }
+
+            bool legal = Loadout.IsLegal(loadoutPicks, loadoutLevel, loadoutRoster,
+                                         ProgressStore.IsUnitUnlocked);
+            beginButton.GetComponent<Image>().color = legal
+                ? new Color(0.16f, 0.42f, 0.24f) : new Color(0.22f, 0.22f, 0.24f);
+        }
+
+        void Adjust(RosterSlot entry, int delta)
+        {
+            int count = loadoutPicks.FirstOrDefault(p => p.Unit == entry.unit).Count;
+            var next = loadoutPicks.Where(p => p.Unit != entry.unit).ToList();
+            int wanted = Mathf.Max(0, count + delta);
+            if (wanted > 0) next.Add(new Pick(entry.unit, wanted));
+
+            // Refuse the edit rather than clamping it: silently dropping somebody else's trooper
+            // to make room reads as the game taking a decision away.
+            if (delta > 0 && !Loadout.IsLegal(next, loadoutLevel, loadoutRoster,
+                                              ProgressStore.IsUnitUnlocked)) return;
+            if (delta < 0 && Loadout.UnitsUsed(next) == 0) return;
+
+            loadoutPicks = next;
+            RefreshLoadout();
+        }
+
+        void Buy(RosterSlot entry)
+        {
+            if (!EconomyStore.PurchaseUnit(new RosterEntry
+            {
+                Unit = entry.unit, CoinPrice = entry.coinPrice,
+                TierCosts = loadoutRoster.tierCosts,
+            })) return;
+            SetCoins(ProgressStore.Coins());
+            RefreshLoadout();
         }
 
         void BuildEndPanel()

@@ -161,7 +161,8 @@ namespace ArmedConflict.Game
             int battleId,
             int totalLevels,
             System.Random random = null,
-            System.Func<UnitDefinitionSO, UnitDefinitionSO> tierResolver = null)
+            System.Func<UnitDefinitionSO, UnitDefinitionSO> tierResolver = null,
+            IReadOnlyList<EnemyGroup> playerGroupsOverride = null)
         {
             random ??= new System.Random();
 
@@ -199,7 +200,11 @@ namespace ArmedConflict.Game
                 });
             }
 
-            var playerUnits = BuildUnits(level, level.playerGroups, true, PlayerUnitIdBase, random, tierResolver);
+            // The LOADOUT replaces the authored ground squad when one is supplied; the level's
+            // own groups are the fallback, and are exactly what Loadout.Default reproduces. So a
+            // player who never opens the picker fights the level as it was measured.
+            var playerUnits = BuildUnits(level, playerGroupsOverride ?? level.playerGroups,
+                                         true, PlayerUnitIdBase, random, tierResolver);
             var enemyUnits = BuildUnits(level, level.enemyGroups, false, EnemyUnitIdBase, random, tierResolver);
 
             // STABLE per-level anchors: the mean x of the INITIAL roster, computed once and never

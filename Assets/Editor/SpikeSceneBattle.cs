@@ -128,6 +128,10 @@ public static class SpikeSceneBattle
         var so = new SerializedObject(runner);
         so.FindProperty("cam").objectReferenceValue = cam;
         Fill(so.FindProperty("levels"), levels);
+        // The loadout picker's menu. Optional: with no roster asset the picker never opens and
+        // every level fields the squad it was authored with.
+        so.FindProperty("roster").objectReferenceValue =
+            AssetDatabase.LoadAssetAtPath<RosterDefinitionSO>("Assets/GameData/Roster.asset");
         so.FindProperty("scenery").objectReferenceValue = scenery;
         so.FindProperty("playerUnitPrefab").objectReferenceValue = playerPrefab;
         so.FindProperty("enemyUnitPrefab").objectReferenceValue = enemyPrefab;

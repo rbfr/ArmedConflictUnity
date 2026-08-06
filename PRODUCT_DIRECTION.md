@@ -338,10 +338,10 @@ locks and unit measurement.
 | Direction captured | 2026-08-06 |
 | Sequenced plan for Tier 0 | `_plans/TIER0_PLAN.md`, phases A–F |
 | 0.1 campaign restructure | **DONE 2026-08-06** — 12 levels, one beat each, rigs gated behind RIGS, 0 composition warnings |
-| 0.2 onboarding arc | **PARTLY** — L1-3 teach in order and L1 pays visibly; "default squad in one tap" needs the loadout (phase E) |
+| 0.2 onboarding arc | **DONE 2026-08-06** — L1-3 teach in order, L1 pays visibly, default squad is one tap |
 | 0.3 victory screen | **DONE 2026-08-06**, confirmed on device. Stars, reasons, coin count-up, bonus banner, retry/next |
 | 0.4a coins felt | **DONE** — the economy was fully ported and never called; one call site turned it on. Balance is now persistent on screen |
-| 0.4b something to buy | not started — needs a roster data source and the loadout screen (plan phase E) |
+| 0.4b something to buy | **DONE 2026-08-06** — roster, picker, unlocks. Slots fixed / points buy quality, so no loadout can break the framing |
 | 0.5 star criteria + reasons | **DONE** — pure roster survival, reason shown on every victory |
 | 0.6 enemy turn juice | **DONE 2026-08-06** — flash banner + standing telegraph strip, handover names the advance |
 | Tier 1 ammo | per `DYNAMISM_DESIGN.md` status |

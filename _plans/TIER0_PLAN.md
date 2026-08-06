@@ -2,9 +2,9 @@
 
 Written 2026-08-06. Sequenced plan for the product spine (0.1–0.6).
 
-**Phases A, B, C, D and F are DONE** (2026-08-06), all confirmed on device. Remaining: **E**
-(loadout). Each phase heading below carries what actually shipped, including where it differed
-from the plan.
+**ALL SIX PHASES ARE DONE** (2026-08-06), all confirmed on device. One item is explicitly
+owed: the Phase E BALANCE AUDIT — every level clearable at stock, measured with real drags.
+Each phase heading below carries what actually shipped, including where it differed from the plan.
 
 Two decisions were taken with Rob before this plan was written, and the sequencing depends on
 both:
@@ -268,7 +268,16 @@ the same correction.
 
 ---
 
-## Phase E — loadout and the first meaningful purchase (0.4b)
+## Phase E — loadout and the first meaningful purchase (0.4b) — DONE 2026-08-06
+
+**Status: DONE**, confirmed on device, with one item explicitly NOT done: the balance audit. See
+`HANDOVER.md`. Slots (fixed, from the level) and points (`deployBudget`, buying quality) turned
+out to be the design that makes a loadout safe against composition rule 1.
+
+The original plan text follows.
+
+---
+
 
 0.4 asks for "something to buy that changes the next battle." That is a real build, not wiring:
 
@@ -316,7 +325,7 @@ This also clears three of the juice-checklist items for the cost of one UI compo
 | B — campaign split | D | — | **DONE** — one ordered array, a RIGS gate, a test change |
 | C — victory + coins | — | — | **DONE** — one call site + the first uGUI canvas |
 | D — 12 levels | — | A, B | **DONE** — plus wiring two dead event systems |
-| E — loadout | — | C (canvas) | New data + new screen + balance audit |
+| E — loadout | — | C (canvas) | **DONE** except the balance audit, which is still owed |
 | F — enemy juice | — | C (canvas) | **DONE** — two channels + a threat-naming handover |
 
 Standing rules for every phase: `PortSelfTest.Run` after each change; scene rebuild whenever
