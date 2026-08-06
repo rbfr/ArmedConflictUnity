@@ -46,18 +46,6 @@ namespace ArmedConflict.Game
         /// </summary>
         public float KnockbackAge { get; init; } = -1f;
         public float KnockbackDirX { get; init; }
-
-        /// <summary>
-        /// Cosmetic "this one just took a hit" flash for a unit that SURVIVED. -1 = inactive;
-        /// otherwise counts up and the renderer tints the whole body while it is running.
-        ///
-        /// Per-unit rather than a counter, which is the whole point: the tick already tallies
-        /// TotalWoundedHits, and a running total can say that SOMETHING was wounded but never
-        /// WHICH. Set on any damaging hit that leaves the unit alive — a kill has the death
-        /// animation and the ragdoll to say what happened, and flashing a body on the frame it
-        /// starts falling over reads as a second, unrelated event.
-        /// </summary>
-        public float HitFlashAge { get; init; } = -1f;
     }
 
     public record StructureEntity(

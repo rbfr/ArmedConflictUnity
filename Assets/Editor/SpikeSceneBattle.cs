@@ -140,8 +140,18 @@ public static class SpikeSceneBattle
         so.FindProperty("explosionPrefab").objectReferenceValue = blastPrefab;
         so.FindProperty("scorchPrefab").objectReferenceValue = scorchPrefab;
         so.FindProperty("debrisPrefab").objectReferenceValue = MakeDebrisPrefab(mats);
+        // UNLIT: a health bar is UI that happens to live in the world. A lit one would take the
+        // biome's light and read as a different colour per level, which is the one thing a
+        // green/amber/red cue must never do.
+        Mat2("healthBarSource", Unlit("HealthBar", Color.white));
         so.FindProperty("audioFx").objectReferenceValue = MakeAudio(camGo);
         so.FindProperty("poolRoot").objectReferenceValue = poolRoot.transform;
+
+        void Mat2(string field, Material m)
+        {
+            if (m == null) Debug.LogError($"[Battle] BattleRunner.{field} is NULL");
+            so.FindProperty(field).objectReferenceValue = m;
+        }
         so.ApplyModifiedProperties();
 
         EditorSceneManager.SaveScene(scene, ScenePath);

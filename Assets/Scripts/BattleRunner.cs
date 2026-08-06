@@ -3,6 +3,7 @@ using System.Linq;
 using UnityEngine;
 using ArmedConflict.Data;
 using ArmedConflict.Game;
+using ArmedConflict.Render;
 
 /// <summary>
 /// Drives a real battle: owns the GameState, ticks it, takes the drag, renders the result.
@@ -39,6 +40,10 @@ public class BattleRunner : MonoBehaviour
     [SerializeField] GameObject debrisPrefab;
     [SerializeField] BattleAudio audioFx;
     [SerializeField] Transform poolRoot;
+    /// <summary>Unlit white, tinted per bar with a property block. Unlit on purpose — a health
+    /// bar is UI that happens to live in the world, and a lit one changes colour with the biome's
+    /// light, which is the one thing this cue must never do.</summary>
+    [SerializeField] Material healthBarSource;
 
     const int UnitPoolSize = 48;
     const int ProjectilePoolSize = 64;
@@ -82,13 +87,32 @@ public class BattleRunner : MonoBehaviour
     Texture2D dot;
     MaterialPropertyBlock blastProps;
 
-    // Hit flash. Near-white rather than red: the enemy army is already red under several faction
-    // palettes, so a red flash on a Redguard soldier is nearly invisible — and the player's own
-    // line has to read the same way when IT is being shot at.
-    static readonly Color HitFlashColor = new(1f, 0.94f, 0.86f);
+    // ---- health bars ---------------------------------------------------------------------
+    //
+    // Shown ONLY over a unit that has taken damage, and it stays up while the unit is still
+    // wounded rather than fading — the useful question mid-battle is "which of these survivors is
+    // one round from dying", and an answer that has already faded out cannot be read when the
+    // next volley is being aimed. A unit at full health carries nothing, which is what keeps a
+    // 26-strong line clean at the start of a turn.
+    //
+    // Sized against UnitGeometry.UnitScaleUnits, like every other body-relative thing in this
+    // project. The WIDTH is bounded by Formation.MountedColumnSpacing (0.187) rather than by the
+    // body: a garrison packs tighter than a ground line, so a bar sized to look right on an open
+    // field overlaps its neighbour's on a parapet, which is where damaged units are most often
+    // being counted.
+    const float BarWidth = 0.34f * UnitGeometry.UnitScaleUnits;    // 0.163 world, ~30px
+    const float BarHeight = 0.10f * UnitGeometry.UnitScaleUnits;   // 0.048 world, ~9px
+    const float BarGap = 0.13f * UnitGeometry.UnitScaleUnits;      // clearance over the helmet
+    const float BarBorder = 0.16f;                                 // inset of the fill, fraction
+
+    static readonly Color BarBackColor = new(0.08f, 0.08f, 0.09f, 1f);
+    static readonly Color BarHigh = new(0.35f, 0.78f, 0.28f);
+    static readonly Color BarMid = new(0.90f, 0.76f, 0.18f);
+    static readonly Color BarLow = new(0.82f, 0.20f, 0.16f);
     static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
-    MaterialPropertyBlock flashProps;
-    readonly HashSet<GameObject> flashing = new();
+
+    readonly List<(GameObject Root, Transform Fill, MeshRenderer FillRenderer)> healthBars = new();
+    MaterialPropertyBlock barProps;
 
     void Start()
     {
@@ -157,6 +181,7 @@ public class BattleRunner : MonoBehaviour
         foreach (var go in blastSlots) go.SetActive(false);
         foreach (var go in scorchSlots) go.SetActive(false);
         foreach (var go in debrisSlots) go.SetActive(false);
+        foreach (var b in healthBars) b.Root.SetActive(false);
     }
 
     /// <summary>
@@ -292,6 +317,7 @@ public class BattleRunner : MonoBehaviour
             for (int i = 0; i < ProjectilePoolSize; i++) pool.Add(Spawn(prefab, $"{type}{i}"));
             shotPools[type] = pool;
         }
+        BuildHealthBars();
         for (int i = 0; i < 32; i++) blastSlots.Add(Spawn(explosionPrefab, $"x{i}"));
         for (int i = 0; i < BattleTick.ScorchSlots; i++) scorchSlots.Add(Spawn(scorchPrefab, $"sc{i}"));
         for (int i = 0; i < BattleTick.DebrisSlots; i++) debrisSlots.Add(Spawn(debrisPrefab, $"db{i}"));
@@ -327,6 +353,107 @@ public class BattleRunner : MonoBehaviour
                 slots.Add(kv.Key, Spawn(prefab, $"{tag}_{kv.Key}{i}"), normalised);
         }
         return slots;
+    }
+
+    /// <summary>
+    /// Pre-warms one bar per unit that could ever be on the field at once, both sides together.
+    /// Built ONCE with everything else — a bar minted the frame a unit is first wounded is a
+    /// render slot created mid-gameplay, which is the failure the Filament build paid for
+    /// repeatedly.
+    ///
+    /// Two quads each, via QuadMesh: NEVER GameObject.CreatePrimitive in runtime code, because
+    /// IL2CPP strips the collider classes it silently attaches and the call takes the whole level
+    /// build down on device.
+    /// </summary>
+    void BuildHealthBars()
+    {
+        int need = 0;
+        foreach (var lv in levels)
+        {
+            if (lv == null) continue;
+            int n = 0;
+            foreach (var g in lv.playerGroups) n += Mathf.Max(0, g?.count ?? 0);
+            foreach (var g in lv.enemyGroups) n += Mathf.Max(0, g?.count ?? 0);
+            foreach (var w in lv.reinforcementWaves)
+                foreach (var g in w.spawnGroups) n += Mathf.Max(0, g?.count ?? 0);
+            foreach (var b in lv.bossPhases)
+                foreach (var g in b.spawnGroups) n += Mathf.Max(0, g?.count ?? 0);
+            need = Mathf.Max(need, n);
+        }
+
+        for (int i = 0; i < need; i++)
+        {
+            var root = new GameObject($"hb{i}");
+            root.transform.SetParent(poolRoot, false);
+            // A 180° turn about X, not about Y. The shared quad's normal faces -Z and has to be
+            // turned to face the camera; turning about Y would ALSO mirror local x, and the fill
+            // anchors to one end, so the bar would drain right-to-left. Flipping about X mirrors
+            // the vertical instead, which a symmetric bar cannot tell apart.
+            root.transform.rotation = Quaternion.Euler(180f, 0f, 0f);
+
+            var back = QuadMesh.Create("back", root.transform, healthBarSource);
+            back.transform.localScale = new Vector3(BarWidth, BarHeight, 1f);
+            var backProps = new MaterialPropertyBlock();
+            backProps.SetColor(BaseColorId, BarBackColor);
+            back.GetComponent<MeshRenderer>().SetPropertyBlock(backProps);
+
+            var fill = QuadMesh.Create("fill", root.transform, healthBarSource);
+            // Nearer the camera in WORLD terms, which after the X-flip is local -z.
+            fill.transform.localPosition = new Vector3(0f, 0f, -0.002f);
+
+            root.SetActive(false);
+            healthBars.Add((root, fill.transform, fill.GetComponent<MeshRenderer>()));
+        }
+    }
+
+    /// <summary>
+    /// Puts a bar over every unit that has taken damage, on both sides.
+    ///
+    /// Both sides on purpose: the tactically useful reading is which ENEMY is one round from
+    /// dying when the next volley is being aimed, and the player's own line has to answer the
+    /// same question when it is being shot at. The bar is driven from the ENTITY, not from a
+    /// render slot, so it does not care that slots are handed out per class.
+    /// </summary>
+    void SyncHealthBars()
+    {
+        barProps ??= new MaterialPropertyBlock();
+        int used = 0;
+        used = PlaceBars(state.PlayerUnits, used);
+        used = PlaceBars(state.EnemyUnits, used);
+        for (int i = used; i < healthBars.Count; i++)
+            if (healthBars[i].Root.activeSelf) healthBars[i].Root.SetActive(false);
+    }
+
+    int PlaceBars(IReadOnlyList<UnitEntity> units, int used)
+    {
+        foreach (var u in units)
+        {
+            int max = u.Definition != null ? Mathf.Max(u.Definition.maxHp, 1) : 1;
+            if (u.Hp >= max) continue;                       // untouched units stay clean
+            if (used >= healthBars.Count) break;
+
+            var (root, fill, fillRenderer) = healthBars[used++];
+            root.SetActive(true);
+
+            float scale = u.Definition != null ? u.Definition.renderScale : 1f;
+            // The bar clears the HELMET, so its height offset follows renderScale — but the bar
+            // ITSELF does not scale with it. A hero is 1.9x a crowd unit and a 1.9x bar would
+            // read as a different, more important kind of information.
+            root.transform.position = GameSpace.ToUnity(
+                u.X, u.Y + UnitGeometry.UnitScaleUnits * scale + BarGap, u.Z);
+
+            float frac = Mathf.Clamp01((float)u.Hp / max);
+            float inner = BarWidth * (1f - BarBorder);
+            fill.localScale = new Vector3(inner * frac, BarHeight * (1f - BarBorder * 2f), 1f);
+            // Anchored to the bar's left edge rather than centred, so damage eats it from one
+            // side. A centred fill shrinks toward the middle from both ends, which reads as a
+            // charging meter rather than a wound.
+            fill.localPosition = new Vector3(-(inner - inner * frac) * 0.5f, 0f, -0.002f);
+
+            barProps.SetColor(BaseColorId, frac > 0.6f ? BarHigh : frac > 0.3f ? BarMid : BarLow);
+            fillRenderer.SetPropertyBlock(barProps);
+        }
+        return used;
     }
 
     GameObject Spawn(GameObject prefab, string name)
@@ -470,10 +597,6 @@ public class BattleRunner : MonoBehaviour
             var go = slots.Take(key);
             if (go == null) continue;
             go.SetActive(true);
-            // A unit killed WHILE flashing hands its slot straight to its own corpse, and nothing
-            // on this path would ever turn the tint off again — the body would lie there lit for
-            // the rest of the battle.
-            SetHitFlash(go, false);
             float dScale = slots.BaseScale(key) *
                            (d.Definition != null ? d.Definition.renderScale : 1f);
             if (!Mathf.Approximately(go.transform.localScale.x, dScale))
@@ -491,6 +614,7 @@ public class BattleRunner : MonoBehaviour
         }
         playerUnits.HideRest();
         enemyUnits.HideRest();
+        SyncHealthBars();
         // Guns follow the LIVE roster only — a ragdoll drops its weapon rather than carrying
         // one through a tumble, which is also what the shipping build does.
         for (int i = state.PlayerUnits.Count; i < playerGuns.Count; i++) playerGuns[i].SetActive(false);
@@ -611,40 +735,6 @@ public class BattleRunner : MonoBehaviour
             if (go.TryGetComponent<UnitAnim>(out var a)) a.Fire();
     }
 
-    /// <summary>
-    /// Lights a struck unit up for the length of its flash.
-    ///
-    /// Two things make this less trivial than it looks. Pooled slots SHARE their materials — one
-    /// per tone per class — so tinting a renderer's material would flash every soldier of that
-    /// class at once; the override has to be a MaterialPropertyBlock, which is per renderer
-    /// instance. And the whole body goes one colour rather than each tone brightening its own,
-    /// which is deliberate: at 89px the read wanted is "that silhouette just took a round", and a
-    /// four-tone body brightened tone-by-tone stays a four-tone body.
-    ///
-    /// Writes only on the TRANSITION. A dozen units × eleven renderers, re-blocked every frame,
-    /// is real cost for a picture that did not change — and this game has already paid once for a
-    /// per-frame repair that measured as free on a light level and was not.
-    /// </summary>
-    void SetHitFlash(GameObject go, bool on)
-    {
-        if (on == flashing.Contains(go)) return;
-        flashProps ??= new MaterialPropertyBlock();
-        if (on) flashing.Add(go); else flashing.Remove(go);
-
-        foreach (var r in go.GetComponentsInChildren<MeshRenderer>(true))
-        {
-            if (on)
-            {
-                flashProps.SetColor(BaseColorId, HitFlashColor);
-                r.SetPropertyBlock(flashProps);
-            }
-            // Clearing the block, not writing the original colour back: the renderer then falls
-            // through to its shared material again, so nothing here has to know which of the four
-            // tones this particular mesh was wearing.
-            else r.SetPropertyBlock(null);
-        }
-    }
-
     /// <summary>Which rigged silhouette a unit renders as. The DATA still names the old
     /// unriggable models, so the key is the bare model name and the `_rigged` suffix lives on the
     /// asset — see RiggedUnits.Models.</summary>
@@ -690,8 +780,6 @@ public class BattleRunner : MonoBehaviour
             go.SetActive(true);
             go.transform.position = GameSpace.ToUnity(u.X, u.Y, u.Z);
             go.transform.rotation = Quaternion.identity;
-
-            SetHitFlash(go, u.HitFlashAge >= 0f);
 
             // `renderScale` reached the port as a FORMATION number only — it spread the heroes
             // apart and never made them bigger, so a hero authored at 1.9x the crowd rendered at

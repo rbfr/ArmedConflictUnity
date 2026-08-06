@@ -578,29 +578,44 @@ and never made them bigger, so a hero authored at 1.9x rendered at exactly crowd
 while every class shared one model, and the whole point of the hero the moment it has its own
 greatcoat-and-cap body. `SyncUnits` now multiplies it onto the prefab's normalised scale.
 
-## Hit flash and the free camera — 2026-08-06
+## Health bars and the free camera — 2026-08-06
 
-**A struck unit now flashes.** A unit that takes damage and SURVIVES lights up near-white for
-0.12s (`CosmeticSystems.HitFlashSeconds`). Before this, a wounded soldier was audible and nothing
-else — the tick counted `TotalWoundedHits` but nothing on screen said WHICH body had been hit, and
-with 32 HP against 8 damage most hits wound rather than kill.
+**A damaged unit now carries a health bar.** Before this, a wounded soldier was audible and
+nothing else — the tick counted `TotalWoundedHits`, but a running total can say that SOMETHING was
+hit and never WHICH, and with 32 HP against 8 damage most hits wound rather than kill, so the
+common case was the unreported one.
 
-A flash rather than a bar or a floating number, chosen against the game's own framing: a crowd
-unit is ~89px with neighbours about two body widths away, so there is no room for a readable bar
-over each one, and a full-roster volley would throw a dozen damage numbers that overlap each other
-and the soldiers they describe.
+- **Hidden until the unit has taken damage**, which needs NO new state: "has been hit" is
+  `Hp < Definition.maxHp`. A whole line at the start of a turn carries nothing.
+- **It stays up while the unit is still wounded** rather than fading. The useful question when the
+  next volley is being aimed is "which of these survivors is one round from dying", and an answer
+  that has already faded cannot be read at the moment it is wanted.
+- Green above 0.6, amber above 0.3, red below. The fill is anchored to the LEFT edge, so damage
+  eats it from one side; a centred fill shrinks toward the middle from both ends and reads as a
+  charging meter rather than a wound.
+- **Both sides.** The tactically useful reading is which ENEMY is nearly dead, and the player's
+  line has to answer the same question when it is being shot at.
 
-- `UnitEntity.HitFlashAge` follows `KnockbackAge`'s shape: -1 is off, a hit sets 0, and it counts
-  up. It is advanced in `ApplyDamage` for EVERY unit, hit or not — that is the one place per tick
-  that sees them all, and advancing it only in the damaged branch starts a flash nothing ever ends.
-- A KILL does not flash. The death clip and the ragdoll already say what happened; lighting a body
-  on the frame it starts falling reads as a second, unrelated event.
-- The renderer writes only on the TRANSITION, and via a `MaterialPropertyBlock` — pooled slots
-  share one material per tone per class, so tinting the material would flash every soldier of that
-  class at once. Turning it off CLEARS the block rather than writing a colour back, so nothing has
-  to know which of the four tones a given mesh was wearing.
-- Near-white, not red: several faction palettes are already red, so a red flash on a Redguard
-  soldier is close to invisible.
+Three things about how it is built, each of which is a rule this repo already paid for:
+
+- **Sized against `UnitGeometry.UnitScaleUnits`**, like every body-relative thing here. The WIDTH
+  is bounded by `Formation.MountedColumnSpacing` (0.187) rather than by the body: a garrison packs
+  tighter than a ground line, so a bar sized to look right on open ground overlaps its neighbour's
+  on a parapet — which is exactly where damaged units most need counting. It does NOT scale with
+  `renderScale`; only its height offset does, so a hero's bar clears his cap without becoming a
+  bigger, more important-looking bar.
+- **Quads come from `QuadMesh`, never `GameObject.CreatePrimitive`** — IL2CPP strips the collider
+  classes CreatePrimitive silently attaches, and on device that took the whole level build down.
+  The bar is turned to face the camera with a 180° flip about **X, not Y**: turning about Y would
+  also mirror local x, and the fill anchors to one end, so the bar would drain right-to-left.
+- **Pre-warmed with every other pool**, sized from the level data. A bar minted the frame a unit is
+  first wounded is a render slot created mid-gameplay, which is the failure the Filament build paid
+  for repeatedly.
+
+The bar REPLACED a hit flash (a near-white tint for 0.12s) built earlier the same day. The flash
+worked and was rejected on the ask: it says a unit was hit and cannot say how badly, and "how
+badly" is the part that changes what you aim at next. Its `HitFlashAge` field, tick step and
+self-test checks were all removed rather than left dormant.
 
 **And the free camera is back**, ported from Android's `ui/battle/DebugCamera.kt`: a CAM button
 beside the level stepper, a six-button pad, and a live x/y/z readout. It HOLDS, through volleys and
