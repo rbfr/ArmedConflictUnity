@@ -104,6 +104,33 @@ namespace ArmedConflict.Game
 
         // ---- ragdolls -------------------------------------------------------------------
 
+        /// <summary>
+        /// How much of a ragdoll's tumble an ANIMATED body actually shows, and the cap on it.
+        ///
+        /// The tick spins a corpse at 220 deg/s, which is right for the un-animated fallback — a
+        /// rigid plank has nothing else to say it is dying. A rigged body already has a death
+        /// CLIP folding it, so applying the full spin on top made it fold AND cartwheel, which is
+        /// why the renderer used to discard the rotation entirely. Discarding it went too far the
+        /// other way: a body flew backwards perfectly upright, like a statue on rails.
+        ///
+        /// A FRACTION of the tumble, capped, is the middle: the body pitches back as it is thrown
+        /// and then holds that lean while the clip does the folding. At 220 deg/s the cap is
+        /// reached about a third of a second in, so the lean rises and settles rather than
+        /// winding up.
+        /// </summary>
+        public const float RagdollLeanFraction = 0.32f;
+        public const float RagdollLeanMaxDegrees = 38f;
+
+        /// <summary>
+        /// The lean to draw for an animated corpse. Signed by the side, because a body tips the
+        /// way it is thrown and the two sides are thrown in opposite directions.
+        /// </summary>
+        public static float RagdollLeanDegrees(float rotation, bool isPlayerSide)
+        {
+            float lean = Mathf.Min(Mathf.Abs(rotation) * RagdollLeanFraction, RagdollLeanMaxDegrees);
+            return isPlayerSide ? -lean : lean;
+        }
+
         public const float RagdollMaxAgeSeconds = 5f;
         public const float RagdollBodyHeight = 0.5f;
         public const float RagdollBodyHalfWidth = 0.05f;

@@ -760,7 +760,11 @@ public class BattleRunner : MonoBehaviour
             // a body folding to the ground while also spinning flat reads as a glitch, not a death.
             if (go.TryGetComponent<UnitAnim>(out var dyingAnim))
             {
-                go.transform.rotation = Quaternion.identity;
+                // A FRACTION of the tumble, capped — not identity and not the whole spin. Full
+                // identity flew the body backwards perfectly upright, like a statue on rails;
+                // the full 220 deg/s made it fold AND cartwheel. See RagdollLeanDegrees.
+                go.transform.rotation = Quaternion.Euler(0f, 0f,
+                    -CosmeticSystems.RagdollLeanDegrees(d.Rotation, d.IsPlayerSide));
                 dyingAnim.Set(UnitAnim.Die);
             }
             else go.transform.rotation = Quaternion.Euler(0f, 0f, -d.Rotation);

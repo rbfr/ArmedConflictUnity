@@ -789,3 +789,31 @@ Faded together, the colour washes out first and the bar spends its last half-sec
 HUSK over a soldier's head — which is very likely what "black means dead, right?" was actually
 reporting, more than low health was. `HealthBarTrackAlpha` squares the fill's alpha, so a bar
 always dissolves down to its COLOUR and never down to a black rectangle.
+
+
+## Ragdolls: lean, and stopping at walls — 2026-08-06
+
+Two reports: bodies flew backwards perfectly upright, and they flew THROUGH structures.
+
+**The lean.** The tick has always spun a corpse at 220 deg/s, and the renderer was throwing that
+away for animated units (`rotation = identity`) — correctly, at the time, because applying the
+full spin on top of the `die` clip made a body fold AND cartwheel. Discarding it went too far the
+other way: a statue on rails. `RagdollLeanDegrees` shows a FRACTION of the tumble (0.32) with a
+CAP (38 deg), so the body pitches back as it is thrown and then holds that lean while the clip
+does the folding. The cap is reached about a third of a second in, so it rises and settles rather
+than winding up. Signed by side, because the two lines are thrown in opposite directions.
+
+**The walls.** `StepRagdolls` had no notion of structures at all, so a body sailed through a
+bunker — which is the one place a purely cosmetic system stops being cosmetic, because a body
+passing through a building says the building is not there. `BlockOnStructures` stops it at the
+face it arrived through and rests it on the ROOF if it cleared the wall.
+
+It blocks on EVERY structure, not just the opposing side's. Projectiles deliberately pass through
+FRIENDLY structures so a garrison can fire over its own fortress; a body has no such excuse, and
+the most visible case is a player unit thrown backwards into the player's own tank.
+
+`CollisionSystem.StructureBox` is now the one place that builds a structure's solid box — the
+same box the projectile path uses, including the deck-vs-size distinction that once made a
+garrison unkillable. Two hand-rolled copies of that arithmetic is exactly how the two would drift.
+
+NOT yet judged in play: whether 0.32/38 is the right amount of lean. It is deliberately subtle.

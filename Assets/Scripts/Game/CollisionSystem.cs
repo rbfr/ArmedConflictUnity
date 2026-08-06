@@ -198,6 +198,23 @@ namespace ArmedConflict.Game
         /// Take out a fortress's bottom tier and the whole stack comes down, garrisons with it.
         /// Fixpoint loop, because chains exist (tier3 rests on tier2 rests on tier1).
         /// </summary>
+        /// <summary>
+        /// A structure's solid box, in the one place that knows how to build it. The entity's Y is
+        /// the CENTRE of a size-tall box, so the base is Y - size/2, and the top is the measured
+        /// deck rather than `size` — the difference is what once made a garrison unkillable, and
+        /// it is the same difference that would let a body come to rest inside phantom masonry.
+        /// </summary>
+        public static void StructureBox(StructureEntity st, out float minX, out float maxX,
+                                        out float baseY, out float topY)
+        {
+            float halfW = (st.Definition.hasHitWidth ? st.Definition.hitWidth
+                                                     : st.Definition.size) / 2f;
+            minX = st.X - halfW;
+            maxX = st.X + halfW;
+            baseY = st.Y - st.Definition.size / 2f;
+            topY = baseY + (st.Definition.hasDeckY ? st.Definition.deckY : st.Definition.size);
+        }
+
         public static HashSet<int> PropagateCollapse(IReadOnlyList<StructureEntity> surviving,
                                                      IEnumerable<int> directlyDestroyedIds)
         {

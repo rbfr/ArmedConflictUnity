@@ -769,6 +769,21 @@ public static class PortSelfTest
                 if (CosmeticSystems.HealthBarTrackAlpha(t) > CosmeticSystems.HealthBarAlpha(t) + 1e-5f)
                     trackNeverLeads = false;
             Check(trackNeverLeads, "the empty track is never more opaque than the fill on it");
+
+            // RAGDOLL LEAN. A fraction of the tumble, capped — the two failure modes are the full
+            // spin (a body that folds AND cartwheels) and zero (a statue flying backwards on
+            // rails), and both have shipped.
+            Check(CosmeticSystems.RagdollLeanDegrees(0f, true) == 0f,
+                  "a body starts its fall upright");
+            Check(Mathf.Abs(CosmeticSystems.RagdollLeanDegrees(220f, true)) > 5f,
+                  "and leans measurably within the first second");
+            for (float spun = 0f; spun < 4000f; spun += 37f)
+                Check(Mathf.Abs(CosmeticSystems.RagdollLeanDegrees(spun, true))
+                          <= CosmeticSystems.RagdollLeanMaxDegrees + 1e-3f,
+                      spun == 0f ? "the lean is CAPPED, so it never winds up into a cartwheel" : null);
+            Check(CosmeticSystems.RagdollLeanDegrees(500f, true)
+                  * CosmeticSystems.RagdollLeanDegrees(500f, false) < 0f,
+                  "the two sides tip opposite ways, each the way it is thrown");
             Check(CosmeticSystems.HealthBarTrackAlpha(CosmeticSystems.HealthBarSeconds - 0.2f)
                   < CosmeticSystems.HealthBarAlpha(CosmeticSystems.HealthBarSeconds - 0.2f),
                   "and it is visibly GONE first, so a bar dissolves to colour, not to black");

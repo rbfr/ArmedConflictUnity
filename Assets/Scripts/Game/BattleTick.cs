@@ -68,7 +68,7 @@ namespace ArmedConflict.Game
             }
 
             // Ragdolls and shake advance regardless of phase.
-            var dyingUnits = StepRagdolls(s.DyingUnits, dt);
+            var dyingUnits = StepRagdolls(s.DyingUnits, dt, s.Structures);
             float shake = CosmeticSystems.DecayShake(s.ShakeIntensity, dt);
 
             if (s.Phase != GamePhase.Playing)
@@ -572,7 +572,44 @@ namespace ArmedConflict.Game
             return outp;
         }
 
-        static List<DyingUnitEntity> StepRagdolls(IReadOnlyList<DyingUnitEntity> dying, float dt)
+        /// <summary>
+        /// Stops a thrown body at a structure's face and rests it on a structure's roof.
+        ///
+        /// Corpses used to sail straight THROUGH buildings, which is the one place a purely
+        /// cosmetic system stops looking cosmetic: a body passing through a bunker says the
+        /// bunker is not there. Blocks on EVERY structure, not just the opposing side's —
+        /// projectiles are allowed through friendly walls so a garrison can fire over its own
+        /// fortress, but a body has no such excuse.
+        /// </summary>
+        static void BlockOnStructures(IReadOnlyList<StructureEntity> structures,
+                                      float fromX, float y, ref float x, ref float vx,
+                                      ref float restY)
+        {
+            foreach (var st in structures)
+            {
+                CollisionSystem.StructureBox(st, out float minX, out float maxX,
+                                             out float baseY, out float topY);
+
+                // Resting ON it: horizontally over the box and at or below its roof. Checked
+                // first, because a body that cleared the wall should land on the roof rather than
+                // be shoved back off the face it already passed.
+                if (x > minX && x < maxX && y >= baseY) restY = Mathf.Max(restY, topY);
+
+                // Stopped BY it: only while the body is inside the box's vertical span. Above the
+                // roof it is flying over, which is a real trajectory and not a miss.
+                if (y > topY || y < baseY) continue;
+                if (x <= minX || x >= maxX) continue;
+
+                // Put it back against the face it came in through, and kill the horizontal
+                // travel. Approaching from the right means resting against the right-hand face.
+                if (fromX >= maxX) { x = maxX; vx = 0f; }
+                else if (fromX <= minX) { x = minX; vx = 0f; }
+                else vx = 0f;                      // spawned inside: just stop, do not teleport
+            }
+        }
+
+        static List<DyingUnitEntity> StepRagdolls(IReadOnlyList<DyingUnitEntity> dying, float dt,
+                                                  IReadOnlyList<StructureEntity> structures)
         {
             var outp = new List<DyingUnitEntity>(dying.Count);
             foreach (var d in dying)
@@ -589,9 +626,12 @@ namespace ArmedConflict.Game
                     if (CosmeticSystems.ShouldRoll(d.Vx))
                     {
                         CosmeticSystems.StepRoll(d.Vx, dt, out float nvx, out float rollSpeed);
+                        float rx = d.X + nvx * dt;
+                        float restRolled = CosmeticSystems.RagdollRestY(d.Rotation);
+                        BlockOnStructures(structures, d.X, y, ref rx, ref nvx, ref restRolled);
                         outp.Add(d with
                         {
-                            X = d.X + nvx * dt, Y = CosmeticSystems.RagdollRestY(d.Rotation),
+                            X = rx, Y = restRolled,
                             Vx = nvx, Vy = 0f,
                             Rotation = d.Rotation + rollSpeed * dt,
                             RotationSpeed = rollSpeed, Age = age,
@@ -601,18 +641,25 @@ namespace ArmedConflict.Game
                     {
                         CosmeticSystems.StepFlop(d.Rotation, d.RotationSpeed, dt,
                                                  out float rot, out float rotSpeed);
+                        float sx = d.X, svx = 0f;
+                        float restFlop = CosmeticSystems.RagdollRestY(rot);
+                        BlockOnStructures(structures, d.X, y, ref sx, ref svx, ref restFlop);
                         outp.Add(d with
                         {
-                            Y = CosmeticSystems.RagdollRestY(rot), Vx = 0f, Vy = 0f,
+                            X = sx, Y = restFlop, Vx = 0f, Vy = 0f,
                             Rotation = rot, RotationSpeed = rotSpeed, Age = age,
                         });
                     }
                 }
                 else
                 {
+                    float ax = d.X + d.Vx * dt, avx = d.Vx, aRest = rest;
+                    BlockOnStructures(structures, d.X, y, ref ax, ref avx, ref aRest);
+                    // A body that hit a wall mid-flight keeps falling — it just stops travelling.
+                    // Clamping to the roof here is what rests it on top when it cleared the wall.
                     outp.Add(d with
                     {
-                        X = d.X + d.Vx * dt, Y = y, Vy = vy,
+                        X = ax, Y = Mathf.Max(y, aRest), Vy = y <= aRest ? 0f : vy, Vx = avx,
                         Rotation = d.Rotation + d.RotationSpeed * dt, Age = age,
                     });
                 }
