@@ -82,6 +82,11 @@ deliberate negative test found what it missed:
 were confirmed that way this session, and both negative runs are recorded with their numbers. A
 check never seen to fail is not evidence.
 
+**Both of these are now STANDING RULES in `CLAUDE.md`'s Debugging section**, so they apply every
+session without anyone having to remember this file. They sit beside the sibling rules they
+generalise — "prefer a PROBE to a detector" and "a search that finds nothing is not evidence of
+absence".
+
 The older lesson still stands and is what found the ammo system at all: **assume NOTHING in this
 port is wired just because it exists and has tests.** Five systems have now been found fully
 ported, unit-tested and reached by nothing — the economy, boss phases, reinforcement waves, stages,

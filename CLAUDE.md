@@ -232,6 +232,20 @@ each level owes one beat.
   onto HUD text, tracers, a boot and a bunker window, and twice declared a working feature broken.
 - **A search that finds nothing is not evidence of absence** until it has been shown to find the
   thing when it IS there.
+- **ASSERT THE OUTPUT, NOT THE INPUT.** A check on a factor is not a check on the result. Three
+  separate green tests hid real bugs on 2026-08-07: AP ammo asserted its multiplier was `2` and
+  passed while the round's real effect was **1.2x** (the engine multiplies `Damage` by that factor
+  and the ammo had already scaled `Damage` down); the tank shell asserted its ammo had been
+  IMPORTED, never that a shell was fired where aimed; and the older family — audio with correct
+  clips and no listener, backgrounds with the right count and no colour — is the same mistake.
+  Assert the thing the player would notice: the damage dealt, the round's landing point, the
+  pixels.
+- **RUN A NEW CHECK AGAINST THE OLD CODE BEFORE TRUSTING IT.** A check never seen to fail is not
+  evidence. Revert the fix, watch the check go red, restore it — it costs one extra run and it is
+  the only thing that proves the check reaches the code it claims to test. Two ragdoll checks
+  written for a real bug both passed against the buggy code, because one tick never carried the
+  body into the box at all; the shell and AP fixes were each confirmed this way, with the failing
+  numbers recorded.
 - `screencap` sometimes returns a black 15KB PNG with the screen on; pull a frame from
   `screenrecord` instead.
 
