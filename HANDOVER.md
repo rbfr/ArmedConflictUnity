@@ -1219,13 +1219,20 @@ DESTRUCTION is the ruin.
 which at debris size on open ground reads as scorch rather than stone. It uses the structure BODY
 tone now (0.52/0.44/0.34), so rubble reads as the building it came from.
 
-### NOT VISUALLY CONFIRMED
+### CONFIRMED ON DEVICE 2026-08-06
 
-The build is clean and the self-tests pass, but **the finished ruin has not been seen on device**
-— the phone was needed back with the outpost at 26 HP. What HAS been confirmed on hardware is the
-diagnosis: the screenshot that prompted this showed ~14 near-black blocks strewn far wider than
-the structure's footprint, which is what identified the shed pieces rather than the destruction
-burst as the main culprit.
+L1's outpost demolished with real aimed drags. Once its HP reached 0 the HUD's Structure line
+cleared and the site holds a LOW, FLAT, CLUSTERED mound of slabs where the building stood — and
+the field is otherwise clean, with none of the scattered blocks the original screenshot showed.
+
+The diagnosis was confirmed first, and it is what made the fix the right one: that screenshot had
+~14 near-black blocks strewn far wider than the structure's footprint, which identified the SHED
+pieces rather than the destruction burst as the main culprit.
+
+**A device-safety note.** Relaunching found the NOTIFICATION SHADE holding focus over the game
+(`mCurrentFocus=NotificationShade` while `mFocusedApp` was still the game). Taps in that state are
+exactly how earlier sessions ended up driving personal apps. `adb shell cmd statusbar collapse`
+clears it cleanly — no synthesized input, and no KEYCODE_BACK, which is the thing to avoid.
 
 To finish the check: L1, BEGIN, then repeat `input swipe 540 1150 204 1486 400`. That drag is
 derived, not guessed — `ppu = 1080 * 0.0208 = 22.46 px` per drag-unit and `DragSpeedScale = 0.384`,
