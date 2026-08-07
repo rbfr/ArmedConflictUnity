@@ -63,3 +63,36 @@ What it touches:
   "stopping an animation does not undo it" trap this repo has already hit once.
 - Cheap and worth checking: at this camera's ~6 degrees a body lying flat is seen nearly edge-on,
   so a sink of well under a unit may be enough to read as gone.
+
+---
+
+## Dead units interact with structures in physically impossible ways — reported 2026-08-07
+
+Rob: "dead units can have physically impossible interactions with structures." Not yet reproduced
+or characterised — no screenshot, so the exact failure is open.
+
+**There is prior work here, and it is the first place to look.** `StepRagdolls` originally had no
+notion of structures at all, so a body sailed straight THROUGH a building; it was given structure
+awareness (see "Ragdolls: lean, and stopping at walls" in `HANDOVER.md`). Rob's report says that
+is not the whole story. Plausible shapes, all consistent with "impossible":
+
+- A corpse coming to rest INSIDE a structure's box rather than against its face.
+- A body resting in mid-air where a structure USED to be — a garrison dies with its building, and
+  if the ragdoll still collides against the dead structure's box it would settle on nothing.
+- A corpse on a deck standing on a face it could not have reached, or intersecting a wall it was
+  thrown at from the wrong side.
+- The collision box is an AABB while the model is not, so a body can visually clip a sloped or
+  narrow silhouette (a comms mast, a tower platform) while being "outside" the box.
+
+The last two are the most likely given how the fix was written, and the SECOND one is the one I
+would check first: structures are removed from `state.Structures` when destroyed, so whether a
+ragdoll keeps colliding with a building that no longer exists depends on which list `StepRagdolls`
+is handed and when.
+
+**Capturing it is feasible and I should not have implied otherwise.** The FREE CAMERA (CAM) holds
+through volleys and the victory screen and flies anywhere, which is exactly the tool for parking
+in front of a corpse and looking at where it is relative to the wall — `HANDOVER.md` records that
+half this project's visual bugs were confirmed in seconds once the camera could be parked in front
+of the thing. A rig with a big structure and a garrison that dies on it (the demolition rig, or
+L12's citadel) plus a few volleys should reproduce it. Prefer a PROBE over a pixel search: log the
+ragdoll's resting position against the structure's box at rest, both ends, in one build.

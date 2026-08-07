@@ -468,17 +468,26 @@ namespace ArmedConflict.Game
                             // rather than forever after one incendiary round.
                             if (burning.Count > 0 && burnDamage > 0)
                             {
+                                int burnCount = 0, burnKills = 0;
                                 var afterBurn = new List<UnitEntity>(enemyUnits.Count);
                                 foreach (var u in enemyUnits)
                                 {
                                     if (!burning.Contains(u.Id)) { afterBurn.Add(u); continue; }
+                                    burnCount++;
                                     int hp = u.Hp - burnDamage;
                                     if (hp > 0) { afterBurn.Add(u with { Hp = hp, LastHitAge = 0f }); continue; }
                                     dyingUnits = dyingUnits.Concat(new[] { RagdollFrom(u) }).ToList();
-                                    enemyKilled++;
+                                    enemyKilled++; burnKills++;
                                 }
                                 enemyUnits = afterBurn;
                                 phase = TurnFlow.ResolvePhase(playerUnits.Count, enemyUnits.Count);
+                                // Kept deliberately. The burn has NO VISUAL yet, so without this
+                                // there is no way to confirm from a device that it fired at all —
+                                // and this repo has twice declared a working feature broken by
+                                // inferring from a detector instead of probing the path. Once per
+                                // turn at most, in the same family as the EVENT lines.
+                                Debug.Log($"[Burn] {burnCount} burning took {burnDamage} " +
+                                          $"({burnKills} died)");
                             }
                             burning.Clear();
                         }
