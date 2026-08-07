@@ -831,6 +831,68 @@ public static class PortSelfTest
                   "a body propped upright rests HIGHER than one lying flat");
             Near(CosmeticSystems.RagdollRestY(0f), 0f, 1e-6f, "a flat body rests on the ground");
 
+            // --- A CORPSE MUST NOT LEVITATE ONTO A ROOF IT NEVER REACHED.
+            //
+            // Reported by Rob 2026-08-07 as "dead units can have physically impossible
+            // interactions with structures". BlockOnStructures rested a body on a structure's
+            // ROOF whenever it was horizontally over the footprint and at or above the box's
+            // BASE — and a ground structure's base is the ground, so ANY corpse whose x fell
+            // inside a building's footprint was snapped to roof height. The condition's own
+            // comment says "a body that CLEARED THE WALL should land on the roof"; `y >= baseY`
+            // is not that test, `y >= topY` is.
+            //
+            // Driven through the real Step, because the bug lives in the interaction and not in
+            // either piece alone.
+            {
+                var corpseDef = ScriptableObject.CreateInstance<UnitDefinitionSO>();
+                corpseDef.id = "corpse"; corpseDef.maxHp = 32; corpseDef.damage = 8;
+                var towerDef = ScriptableObject.CreateInstance<StructureDefinitionSO>();
+                towerDef.id = "tower"; towerDef.maxHp = 100; towerDef.size = 4f;
+                towerDef.hasHitWidth = true; towerDef.hitWidth = 3f; towerDef.isPlayerSide = false;
+
+                // Box: baseY 0, topY 4, x from 3.5 to 6.5.
+                var tower = new StructureEntity(900, towerDef, 5f, 2f, 0f, 100);
+                CollisionSystem.StructureBox(tower, out _, out _, out float bY, out float tY);
+                Check(Mathf.Approximately(bY, 0f) && Mathf.Approximately(tY, 4f),
+                      $"test tower box is base {bY:F1} roof {tY:F1}");
+
+                // A body IN THE AIR, thrown into the tower's face well BELOW its roof — the
+                // real case. It is at y 1.5 against a roof of 4, arriving from the left. It must
+                // be stopped by the face and fall; it must NOT be lifted up the wall.
+                var thrown = new DyingUnitEntity(1, corpseDef, false, 3.4f, 1.5f, 0f, 4f, 0f, 0f);
+                var st = new GameState
+                {
+                    Phase = GamePhase.Playing,
+                    Structures = new List<StructureEntity> { tower },
+                    DyingUnits = new List<DyingUnitEntity> { thrown },
+                };
+                // Stepped until it actually crosses into the box — one tick is not enough to
+                // reach the face, and a check that never reaches the code it is testing is the
+                // kind of green light this repo has been burned by before.
+                float peakY = 0f;
+                var walk = st;
+                for (int i = 0; i < 40; i++)
+                {
+                    walk = BattleTick.Step(walk, 1f / 60f, null, new System.Random(1));
+                    var b = walk.DyingUnits.FirstOrDefault(d => d.Id == 1);
+                    if (b == null) break;
+                    peakY = Mathf.Max(peakY, b.Y);
+                }
+                Check(peakY <= 1.5f + 1e-3f,
+                      $"a corpse thrown into a wall BELOW the roof is never lifted up it " +
+                      $"(peak y {peakY:F2} from 1.50, roof {tY:F1})");
+
+                // And the behaviour that must SURVIVE the fix: a body genuinely above the roof
+                // still lands on it rather than falling through.
+                var overRoof = new DyingUnitEntity(2, corpseDef, false, 5f, 5f, 0f, 0f, -3f, 0f);
+                var st2 = st with { DyingUnits = new List<DyingUnitEntity> { overRoof } };
+                for (int i = 0; i < 120; i++) st2 = BattleTick.Step(st2, 1f / 60f, null, new System.Random(1));
+                var landed = st2.DyingUnits.FirstOrDefault(d => d.Id == 2);
+                Check(landed == null || landed.Y >= tY - 0.05f,
+                      $"a body falling from ABOVE still rests on the roof (y {landed?.Y:F2} " +
+                      $"vs roof {tY:F1})");
+            }
+
             // Rolling: friction bleeds speed, and rotation is locked to travel (like a log).
             CosmeticSystems.StepRoll(2f, 1f / 60f, out float nvx, out float roll);
             Check(nvx < 2f && nvx > 0f, "roll friction bleeds speed without reversing it");

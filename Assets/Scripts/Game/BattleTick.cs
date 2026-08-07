@@ -765,8 +765,14 @@ namespace ArmedConflict.Game
         /// projectiles are allowed through friendly walls so a garrison can fire over its own
         /// fortress, but a body has no such excuse.
         /// </summary>
+        /// <param name="fromY">
+        /// The body's PREVIOUS height. Needed for the same reason `fromX` is: whether a body
+        /// belongs on the roof is a question about where it CAME FROM, not where it is now. A
+        /// body descending onto the footprint was above the roof last tick; one flung into the
+        /// wall was not, and must be stopped by the face instead of lifted up it.
+        /// </param>
         static void BlockOnStructures(IReadOnlyList<StructureEntity> structures,
-                                      float fromX, float y, ref float x, ref float vx,
+                                      float fromX, float fromY, float y, ref float x, ref float vx,
                                       ref float restY)
         {
             foreach (var st in structures)
@@ -774,10 +780,18 @@ namespace ArmedConflict.Game
                 CollisionSystem.StructureBox(st, out float minX, out float maxX,
                                              out float baseY, out float topY);
 
-                // Resting ON it: horizontally over the box and at or below its roof. Checked
+                // Resting ON it: horizontally over the box and AT OR ABOVE ITS ROOF. Checked
                 // first, because a body that cleared the wall should land on the roof rather than
                 // be shoved back off the face it already passed.
-                if (x > minX && x < maxX && y >= baseY) restY = Mathf.Max(restY, topY);
+                //
+                // THE TEST IS THE ROOF, NOT THE BASE. This read `y >= baseY`, and a ground
+                // structure's base IS the ground — so any body that got horizontally inside the
+                // footprint at ANY height was rested on the roof. A corpse flung at a wall at
+                // chest height was snapped four units up the face and left standing on top of
+                // the building. That is Rob's "physically impossible interactions with
+                // structures", reported 2026-08-07; the condition's own comment already said
+                // "cleared the wall", which `y >= baseY` never tested.
+                if (x > minX && x < maxX && fromY >= topY) restY = Mathf.Max(restY, topY);
 
                 // Stopped BY it: only while the body is inside the box's vertical span. Above the
                 // roof it is flying over, which is a real trajectory and not a miss.
@@ -812,7 +826,7 @@ namespace ArmedConflict.Game
                         CosmeticSystems.StepRoll(d.Vx, dt, out float nvx, out float rollSpeed);
                         float rx = d.X + nvx * dt;
                         float restRolled = CosmeticSystems.RagdollRestY(d.Rotation);
-                        BlockOnStructures(structures, d.X, y, ref rx, ref nvx, ref restRolled);
+                        BlockOnStructures(structures, d.X, d.Y, y, ref rx, ref nvx, ref restRolled);
                         outp.Add(d with
                         {
                             X = rx, Y = restRolled,
@@ -827,7 +841,7 @@ namespace ArmedConflict.Game
                                                  out float rot, out float rotSpeed);
                         float sx = d.X, svx = 0f;
                         float restFlop = CosmeticSystems.RagdollRestY(rot);
-                        BlockOnStructures(structures, d.X, y, ref sx, ref svx, ref restFlop);
+                        BlockOnStructures(structures, d.X, d.Y, y, ref sx, ref svx, ref restFlop);
                         outp.Add(d with
                         {
                             X = sx, Y = restFlop, Vx = 0f, Vy = 0f,
@@ -838,7 +852,7 @@ namespace ArmedConflict.Game
                 else
                 {
                     float ax = d.X + d.Vx * dt, avx = d.Vx, aRest = rest;
-                    BlockOnStructures(structures, d.X, y, ref ax, ref avx, ref aRest);
+                    BlockOnStructures(structures, d.X, d.Y, y, ref ax, ref avx, ref aRest);
                     // A body that hit a wall mid-flight keeps falling — it just stops travelling.
                     // Clamping to the roof here is what rests it on top when it cleared the wall.
                     outp.Add(d with
