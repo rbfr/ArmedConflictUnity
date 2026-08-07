@@ -2,8 +2,12 @@
 
 Written 2026-08-06. Sequenced plan for the product spine (0.1–0.6).
 
-**ALL SIX PHASES ARE DONE** (2026-08-06), all confirmed on device. One item is explicitly
-owed: the Phase E BALANCE AUDIT — every level clearable at stock, measured with real drags.
+**ALL SIX PHASES ARE DONE** (2026-08-06), all confirmed on device. One item is PARTLY owed: the
+Phase E BALANCE AUDIT. Its **arithmetic half is done** — `BalanceAudit.Report` checks reach, the
+volley race and the melee clock headless over both ends of the legal loadout space, and it found
+and fixed a shipped level (L7) that no loadout could win; reach is now checked composition rule 7.
+The **device half — every level clearable at stock, measured with real drags — is still owed**,
+and the audit says which levels to drag first. See `HANDOVER.md`.
 Each phase heading below carries what actually shipped, including where it differed from the plan.
 
 Two decisions were taken with Rob before this plan was written, and the sequencing depends on
@@ -325,7 +329,7 @@ This also clears three of the juice-checklist items for the cost of one UI compo
 | B — campaign split | D | — | **DONE** — one ordered array, a RIGS gate, a test change |
 | C — victory + coins | — | — | **DONE** — one call site + the first uGUI canvas |
 | D — 12 levels | — | A, B | **DONE** — plus wiring two dead event systems |
-| E — loadout | — | C (canvas) | **DONE** except the balance audit, which is still owed |
+| E — loadout | — | C (canvas) | **DONE**; balance audit arithmetic half done (rule 7 + L7 fix), device drags still owed |
 | F — enemy juice | — | C (canvas) | **DONE** — two channels + a threat-naming handover |
 
 Standing rules for every phase: `PortSelfTest.Run` after each change; scene rebuild whenever

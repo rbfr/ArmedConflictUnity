@@ -104,4 +104,8 @@ MonoBehaviour:
   designNotes: "Beat 3: prioritise. Snipers on the tower out-damage everything on
     the field (20 dmg at 16 hp) so they are the read, and they are the FURTHEST target
     \u2014 the player must choose between the near bunker and the real threat. Bunker
-    moved 3.8 -> 5.5 to bring tank->dominant separation from 13.3 into range."
+    moved 3.8 -> 5.5 to bring tank->dominant separation from 13.3 into range. Rule
+    7 warns and is ACCEPTED: the back rank (the tank crew) needs 103% power to reach
+    the snipers, so its 2 rounds fall short while the front rank reaches at 92%. The
+    snipers being the furthest AND highest target is the beat; pulling them in to
+    silence the warning is pulling the level's teeth."

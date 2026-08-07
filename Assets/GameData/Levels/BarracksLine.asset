@@ -31,9 +31,9 @@ MonoBehaviour:
     advancePerTurn: 0
   - definition: {fileID: 11400000, guid: c7126b62e544121fe916bb99493e2264, type: 2}
     count: 3
-    anchorX: 8.6
+    anchorX: 7.8
     anchorZ: 0.12
-    standingOnStructureId: mast
+    standingOnStructureId: platform
     advancePerTurn: 0
   structures:
   - id: player_tank
@@ -63,6 +63,16 @@ MonoBehaviour:
     z: 0
     collapseWith: 
     restsOn: 
+    standWidth: -1
+    hasStandWidth: 0
+    hpScale: 1
+  - id: platform
+    definition: {fileID: 11400000, guid: a289ee6ee076f6213a44bbffcb15cc90, type: 2}
+    x: 7.8
+    y: 0
+    z: 0
+    collapseWith:
+    restsOn:
     standWidth: -1
     hasStandWidth: 0
     hpScale: 1

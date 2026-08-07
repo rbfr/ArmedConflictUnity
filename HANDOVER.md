@@ -14,11 +14,15 @@
 
 ### Pick up here
 
-1. **The Phase E BALANCE AUDIT — the one thing Tier 0 owes.** Every shipped level must be
-   clearable at stock tier by a competent shooter; `PRODUCT_DIRECTION.md` calls a level that
-   breaks under a LEGAL loadout a product bug. It needs REAL DRAGS: `Auto` never misses and is
-   structure-blind, so it cannot measure difficulty. A derived drag for L1 is recorded under
-   "Ruins" below — the same method gives a solvable shot on any level from its separation.
+1. **The Phase E BALANCE AUDIT — the ARITHMETIC half is DONE (see the section at the end of this
+   file); the DEVICE half is what remains.** `BalanceAudit.Report` now settles reach and pace
+   headless and found a shipped level that could not be won. What it cannot do is measure
+   DIFFICULTY, which still needs REAL DRAGS — `Auto` never misses and is structure-blind. Start
+   with the levels the audit flags: **L4, L6, L9, L12** (player 2.4-4.1x behind the volley race)
+   and **L3, L5** (accepted rule-7 warnings). A derived drag for L1 is recorded under "Ruins"
+   below — the same method gives a solvable shot on any level from its separation.
+   **No device was attached during the 2026-08-06 audit session**, which is the only reason the
+   device half is still open.
 2. Then Tier 1 in `PRODUCT_DIRECTION.md` — ammo types first.
 
 ### The lesson this session kept re-teaching
@@ -1203,7 +1207,11 @@ RESTART / NEXT problem in Phase C. The in-battle furniture (coin pill, banners) 
 while the picker is up: it belongs to a battle that has not started, and it ghosted through the
 panel's 97% fill.
 
-### NOT DONE: the balance audit
+### NOT DONE: the balance audit — SUPERSEDED 2026-08-06
+
+**The arithmetic half has since been built and run** — see "The balance audit, arithmetic half" at
+the end of this file. It found L7 unwinnable and made reach a checked rule. Only the DEVICE half
+(real drags for difficulty) is still owed. The original text follows.
 
 `PRODUCT_DIRECTION.md` asks that every shipped level be clearable at stock tier by a competent
 shooter, and calls a level that breaks under a LEGAL loadout a product bug. **That audit has not
@@ -1259,3 +1267,73 @@ derived, not guessed — `ppu = 1080 * 0.0208 = 22.46 px` per drag-unit and `Dra
 so L1's 16.5-unit tank→outpost separation needs `v = sqrt(16.5 * 4) = 8.12`, a 475 px drag, 336 px
 on each axis at 45°, downward to launch upward. It lands on target: structure HP fell 90 → 50 → 28
 over successive volleys. Budget ~10 volleys, since garrison units absorb hits first.
+
+## The balance audit, arithmetic half — DONE 2026-08-06
+
+`BalanceAudit.Report` (`Assets/Editor/BalanceAudit.cs`), the headless half of the last item Tier 0
+owed. It cannot measure difficulty — that needs a human drag — but it settles the half that is
+arithmetic and therefore needs no device at all, across BOTH ends of the legal loadout space
+(stock, and the dearest legal squad), because the product rule is written over LEGAL loadouts.
+
+**It found a shipped level that could not be won.** L7 Barracks Line garrisoned 3 grenadiers on
+the CommsTower at x 8.6, 4.5 units above the muzzle: **100% power from the front rank, 108% from
+the back**, and **101% — literally unwinnable — under a legal all-RocketTrooper squad**, which
+tiles the line slightly further back. Verified by hand against the asset before anything was
+changed: v = 8.96 against a 9.0 cap.
+
+**All six composition rules passed it.** That is the finding under the finding. Rules 1-6 measure
+FRAMING and HORIZONTAL separation; the power budget is spent on HEIGHT, and nothing measured it.
+
+**And `LEVEL_AUTHORING.md` rule 4 was actively lying.** It described 14-18 separation as "well
+inside the ~49-unit max range". The real figure is `AimSystem.MaxRange45` = v²/g = 81/4 =
+**20.25 flat**, so the authored separation spends 70-89% of the whole envelope before a single
+unit is lifted off the ground. That sentence is what licensed the level. It is corrected.
+
+### What was changed
+
+- **L7 fixed.** The grenadiers came off the mast onto a `TowerPlatform` at x 7.8 — reach 100% ->
+  86%. The mast STAYS at 8.6 as the level's silhouette and identity, which keeps the enemy cluster
+  depth; three enemy structures is still legal (one dominant + two supports). Moving them to the
+  GROUND was tried first and rejected: it dropped the level to 45% garrisoned and broke rule 5.
+  The beat is untouched — beat 7 is TOUGHNESS, carried by the 5 heavy riflemen on the barracks.
+- **Reach is now RULE 7**, checked. Implemented once in `BalanceAudit.ReachRule` and CALLED by
+  `LevelComposition`, so the audit and the level inspector cannot disagree about whether a level
+  is playable. Front rank over 100% is an ERROR; back rank over 100%, or front over 92%, is a
+  WARNING.
+- **L3 and L5 carry accepted rule-7 warnings**, with the reason written into their `designNotes`,
+  which is where a bent rule belongs. Both beats are explicitly about height ("fight upward", "the
+  furthest target"), so their back rank — the tank crew — genuinely cannot reach and pulling the
+  garrison in would pull the level's teeth.
+
+### The three things it measures, and why each is honest
+
+- **REACH.** Victory is every enemy UNIT dead, so an unreachable enemy is unwinnable at any skill
+  level, forever. Uses the real envelope `v² = g(dy + √(dx²+dy²))`, NOT `MaxRange45` — height
+  costs range twice, once for the climb and once for the longer slant, and using the flat figure
+  would call a fortress-roof garrison reachable when it is not.
+- **THE VOLLEY RACE at equal accuracy.** Both sides do fixed damage into a fixed HP pool, so the
+  clean-volley count is exact and only accuracy is unknown; holding it EQUAL removes it. Warns
+  past **2x**, not at break-even — the player also has the tank shell and per-turn attrition. At
+  1.0 it warned on 21 of 24 squads, which is an instrument that discriminates nothing.
+- **THE MELEE CLOCK.** `advancePerTurn` is authored, so turns-to-contact is known.
+
+**Two ways to win, and the cheaper one is what the level costs.** A garrisoned unit dies with its
+structure, so on a level that garrisons most of its roster — which rule 5 REQUIRES — razing can
+clear the field for a fraction of the bodies' HP. Counting only the shoot route rated an
+all-RocketTrooper squad at 20+ volleys and therefore hopeless, while that unit's entire design is
+a 6x structure multiplier. With both routes, L12 The Citadel clears in 4.6 volleys by razing
+against 21.6 by shooting: **the anti-structure unit is measurably the right pick on the fortress
+level**, which is the roster working as designed.
+
+### Still owed: the device half
+
+The audit ranks the campaign; it does not play it. Flagged for real drags, worst first: **L9 Dusk
+Redoubt (4.1x), L12 The Citadel (3.8x), L6 Ridge Bastion (2.9x), L4 Ash Boulevard (2.4x)**, plus
+L4 and L9 where melee contact arrives before the field can be cleared. L3 and L5 want a look for
+feel rather than for legality.
+
+**A systemic observation for whoever tunes difficulty next:** every campaign level needs 81-100%
+power at its deepest enemy. The whole game lives in the top fifth of the aim range, so there is
+almost no headroom anywhere and every level's aim demands roughly the same drag. Widening that
+band means raising `AimSystem.MaxAimMagnitude`, which is a physics change touching all 29 levels
+and needs an explicit ask — it was offered on 2026-08-06 and NOT taken.

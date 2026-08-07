@@ -6,7 +6,7 @@ using ArmedConflict.Data;
 using ArmedConflict.Game;
 
 /// <summary>
-/// Checks levels against the six composition rules in LEVEL_AUTHORING.md.
+/// Checks levels against the seven composition rules in LEVEL_AUTHORING.md.
 ///
 /// Run over the whole campaign, headless — which is how it will actually be used, because the
 /// editor GUI here runs over VNC on llvmpipe and nobody opens it:
@@ -74,7 +74,7 @@ public static class LevelComposition
 
             if (bad.Count == 0)
             {
-                Debug.Log($"[Composition] L{level.levelNumber} {level.displayName}: all six rules ok");
+                Debug.Log($"[Composition] L{level.levelNumber} {level.displayName}: all seven rules ok");
                 continue;
             }
             foreach (var f in bad)
@@ -92,7 +92,7 @@ public static class LevelComposition
     }
 
     /// <summary>
-    /// The six rules. A half-authored level legitimately fails to build (no background, a null
+    /// The seven rules. A half-authored level legitimately fails to build (no background, a null
     /// unit reference) — that comes back as buildError, and must not read as a rule violation.
     /// </summary>
     public static List<Finding> Check(LevelDefinitionSO level, out string buildError)
@@ -183,6 +183,13 @@ public static class LevelComposition
                     + "way to kill units. Below half, the roster dies first and the structure HP "
                     + "never mattered.")));
         }
+
+        // --- rule 7: every enemy must be physically reachable ---
+        // Implemented in BalanceAudit so the audit and the inspector cannot disagree about
+        // whether a level can be played at all. The first six rules are all about FRAMING and
+        // horizontal separation, and they passed a level whose garrison sat outside the game's
+        // ballistic envelope — height is what spends the power budget, and nothing measured it.
+        findings.Add(BalanceAudit.ReachRule(state));
 
         // --- the locked roster scale: not a composition rule, but it bounds every level ---
         int playerTotal = level.playerGroups.Sum(g => g.count);

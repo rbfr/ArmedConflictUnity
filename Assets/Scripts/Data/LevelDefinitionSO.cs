@@ -65,7 +65,7 @@ namespace ArmedConflict.Data
     /// <summary>
     /// Port of LevelDefinition.kt.
     ///
-    /// THE SIX COMPOSITION RULES are derived, not taste — read them before authoring a level:
+    /// THE SEVEN COMPOSITION RULES are derived, not taste — read them before authoring a level:
     ///  1. the Aiming camera frames the PLAYER LINE ONLY — keep it ~6 wide
     ///  2. scout/resolve framing is set by the enemy cluster INCLUDING structure edges — under ~11
     ///  3. one dominant structure per level, plus at most two small supports
@@ -74,6 +74,9 @@ namespace ArmedConflict.Data
     ///     condition resolves before the structures matter and their HP is irrelevant
     ///     (measured: L3 won in three volleys with its structures at 238/340)
     ///  6. test levels are isTestLevel, in no stage, excluded from star totals
+    ///  7. every enemy UNIT must be REACHABLE — max range is 20.25 flat (v^2/g) and HEIGHT spends
+    ///     it twice, so a garrison lifted onto a tall structure at full separation can be
+    ///     unwinnable while passing rules 1-6. Checked by BalanceAudit.ReachRule
     ///
     /// Test levels must be RENUMBERED whenever the campaign grows: the debug switcher does
     /// jumpToLevel(levelNumber), which is only correct while levelNumber == index + 1.

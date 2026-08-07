@@ -42,7 +42,7 @@ anywhere:
 
 | | |
 |---|---|
-| `LEVEL_AUTHORING.md` | the SIX COMPOSITION RULES. Read before authoring or editing any level; checked by `LevelComposition.Report` |
+| `LEVEL_AUTHORING.md` | the SEVEN COMPOSITION RULES. Read before authoring or editing any level; checked by `LevelComposition.Report` |
 | `PRODUCT_DIRECTION.md` | **what to build next** — retention, dopamine model, campaign packaging, priority stack. Plan product work against this |
 | `GAME_DESIGN_LOCKS.md` | decisions that are CLOSED — turn structure, win/loss, physics, scope |
 | `PROGRESSION_DESIGN.md` | coins, loadout, unlocks, consumables — phased spec + build status |
@@ -93,7 +93,7 @@ references. A code-only change does not need one; a new `[SerializeField]` does.
 **The ScriptableObjects in `Assets/GameData/` ARE the source of truth.** Edit them directly. The
 Kotlin export pipeline is retired; the old repo is reference only.
 
-**Read `LEVEL_AUTHORING.md` before authoring or editing a level** — the six composition rules,
+**Read `LEVEL_AUTHORING.md` before authoring or editing a level** — the seven composition rules,
 moved here from the Kotlin. They are checked, not merely documented:
 
 ```bash
@@ -194,11 +194,14 @@ BEAT from `PRODUCT_DIRECTION.md`'s chart, and its `designNotes` says which and w
 
 Two stages of six (`ValleyFront` 1-6, `EnemyStronghold` 7-12), bosses on 6 and 12.
 
-The six composition rules live in **`LEVEL_AUTHORING.md`** (moved out of the Kotlin 2026-08-06)
+The seven composition rules live in **`LEVEL_AUTHORING.md`** (moved out of the Kotlin 2026-08-06)
 and are checked by `LevelComposition.Report`. Shortest form: the Aiming camera frames the
 PLAYER LINE ONLY (~6 wide), scout/resolve framing is set by the enemy cluster INCLUDING structure
 edges (under ~11), one dominant structure plus at most two small supports, 14-18 units of
-separation TANK→DOMINANT STRUCTURE, and garrison the MAJORITY of the enemy roster on structures.
+separation TANK→DOMINANT STRUCTURE, garrison the MAJORITY of the enemy roster on structures, and
+(rule 7, added 2026-08-06) every enemy UNIT must be physically REACHABLE — max range is 20.25 flat
+and HEIGHT spends it twice, so a garrison on a tall structure at full separation can be unwinnable
+while passing all of rules 1-6.
 
 **Test rigs no longer need renumbering when the campaign changes size** (2026-08-06). The scene
 builder orders CAMPAIGN-then-RIGS, so the campaign block leads and is indexed by position while a
