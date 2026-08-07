@@ -46,8 +46,10 @@
    device half is still open.
 3. **Tier 1.1 AMMO IS BUILT** (2026-08-07) — four types, a selector that also sells, and the
    incendiary burn. It was indeed a fifth dead system. See "Tier 1.1 — AMMO TYPES" at the end of
-   this file. **What it still owes: Incendiary and Cluster have never been fired on a device**
-   (the phone went offline mid-verification), and there is no flame VFX on a burning unit.
+   this file. Confirmed on device: the selector, purchase, AP's 2x, and the burn (via the kept
+   `[Burn]` probe). **What it still owes: whether Cluster's 3.2x spread is too wide to connect**
+   — a balance question for a human, not a scripted drag — and there is no flame VFX, so the
+   burn currently does damage with nothing to see.
    Next in Tier 1 is 1.2, telegraphed mid-battle events — note Phase B's wind half is still
    blocked, because wind is COSMETIC and making it real is a physics change needing an ask.
 
@@ -1717,19 +1719,28 @@ input.** A multiplier being 2 is not the same claim as the damage being doubled.
   frailest unit — now the 16hp Sniper). HANDOVER's old note about 6 being calibrated against an
   8hp Sniper is resolved; the check anchors to the live roster so it cannot expire silently again.
 
-### Verified on device (before the AP correction)
+### Verified on device
 
-The selector renders and behaves: Standard gold and selected, locked types showing prices and
-greyed at 0 coins. Auto-clearing L1 and L2 paid 455 coins; AP bought for 400 (balance 455 -> 55),
-its button went gold and priceless, and the next volley hit the citadel for 128.
+- **The selector** renders and behaves. Purchase works end to end: 455 -> 55 buying AP, 325 -> 25
+  buying Incendiary, 745 -> 245 buying Cluster, each button going gold and losing its price.
+- **AP, after the correction.** One AP volley destroyed L12's 115hp gate outright and killed its
+  five-man garrison with it. Standard could NOT have: its shell is 96, plus ~10 infantry, leaving
+  the gate alive at 9. The 2x observed rather than derived.
+- **The incendiary burn**, via the probe: `[Burn] 1 burning took 8 (0 died)` on L3. This is the
+  one that could not be confirmed any other way — the burn has NO VISUAL, so unit counts cannot
+  see an 8-point chip. The `[Burn]` log is KEPT for exactly that reason.
+- The structure-HP retune is visible on device too: L3's Command Bunker now reads 125.
 
-**NOT re-verified on device after the AP fix** — the phone dropped to `offline` (enumerates in
-`lsusb`, will not talk; needs a replug). The correction is covered by the net-effect check above,
-which was demonstrated to fail on the old form.
+**Cluster's SPREAD was not isolated.** Four volleys — two Standard, two Cluster, same drag on a
+fresh L4 — killed nothing either way, because the drag was aimed at the barracks rather than at
+bodies. That measures MY AIM, not the ammo. The spread is one multiplier on the jitter the volley
+already had, is covered by the tests, and shares the code path AP and Incendiary were confirmed
+on. What is genuinely open is the BALANCE question — whether 3.2x is so wide that Cluster misses
+everything — and that wants a human playing it rather than a scripted drag.
 
 ### Not done
 
-- **Incendiary and Cluster have never been fired on a device**, only in tests.
+- **Cluster's spread is unmeasured in play** — see above. Is 3.2x too wide to connect?
 - **No flame VFX.** The burn is a damage event with no visual yet; the spec asks for a flicker on
   a burning unit, and `DYNAMISM_DESIGN` requires any new effect to use a BOUNDED slot pool.
 - The spec mentions AP being strong against "armored units". **There is no armour concept in the
