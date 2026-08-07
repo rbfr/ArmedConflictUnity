@@ -1,33 +1,56 @@
-# Handover — Unity port, as of 2026-08-05
+# Handover — Unity, as of 2026-08-06
 
-## START HERE — state in ten lines
+## START HERE
 
-- **Both repos are COMMITTED AND PUSHED.** Unity `main` at `d56ba9f`; Android
-  `projectile-refinement` at `f9af006` (a branch, not merged to its `main`).
-- The Unity port **plays all 24 levels** end to end at a steady 60 fps, with animated units.
-- **Campaign is 7 levels, ONE PER BIOME** (Mountains, Forest, MountainsDusk, Winter, Desert,
-  CityRuins, Ocean) plus 17 test rigs. Total 24.
-- **Roster is 8 unit definitions / 7 models / 6 pickable**, cut from 15 on 2026-08-05.
-- **Self-test checks pass.** Run them after every change (command below).
-- **THE ANDROID BUILD IS RETIRED** (2026-08-06, Rob: "we're not paying attention to the Android
-  one anymore, we're going forward with Unity"). It is no longer the shipping build, no longer
-  maintained, and its unmerged `projectile-refinement` branch is not a loose end anybody needs to
-  tidy. Keep the repo for reference — its comments are the record of every trap this port inherited.
-- **The Kotlin is still the DATA pipeline, and that is now the one thing keeping the old repo in
-  play.** Levels and unit stats are authored in Kotlin, exported and imported; the ScriptableObjects
-  are still generated and must never be hand-edited. That is a live decision to revisit, not a
-  law — see "Data authoring, once Android is retired" below.
-- **Every class now renders as itself** (2026-08-06) — seven rigged silhouettes, per-class render
-  slots, and the fourth colour tone. See "Per-class unit art" below. That was the biggest open
-  thread and it is closed; what is left on it is Rob's judgement in moving play.
+- **Unity `main` at `00067ed`, pushed, clean.** Android `projectile-refinement` at `66a778a`, a
+  branch that is never being merged. **The Android build is RETIRED** — reference only.
+- **ALL OF TIER 0 IS DONE** (`PRODUCT_DIRECTION.md`, planned in `_plans/TIER0_PLAN.md`, phases
+  A-F), every phase confirmed on a real device. Game data is authored in UNITY now; the campaign
+  is **12 levels** with one beat each plus 17 rigs (29 total); there is a **victory card, a live
+  economy, a loadout picker and event banners**; and a destroyed structure leaves a **ruin**.
+- **411 self-test checks, all passing — run `PortSelfTest.Run` after every change.** They assert
+  behaviour the comments describe, and several exist because the thing they check silently broke
+  once already. It was 281 at the start of 2026-08-06.
 
-Then read the traps sections — most of them cost a build to find, and several are invisible
-outside a real device build.
+### Pick up here
 
+1. **The Phase E BALANCE AUDIT — the one thing Tier 0 owes.** Every shipped level must be
+   clearable at stock tier by a competent shooter; `PRODUCT_DIRECTION.md` calls a level that
+   breaks under a LEGAL loadout a product bug. It needs REAL DRAGS: `Auto` never misses and is
+   structure-blind, so it cannot measure difficulty. A derived drag for L1 is recorded under
+   "Ruins" below — the same method gives a solvable shot on any level from its separation.
+2. Then Tier 1 in `PRODUCT_DIRECTION.md` — ammo types first.
 
-Read this first, then `CLAUDE.md` for the standing rules, then `SPIKE_RESULTS.md` /
-`MIGRATION_SCOPE.md` if you need the port history. Everything below was verified on the device,
-not assumed.
+### The lesson this session kept re-teaching
+
+**Assume NOTHING in this port is wired just because it exists and has tests.** Four systems were
+found fully ported, unit-tested and reached by nothing: the whole economy, boss phases,
+reinforcement waves, and stages. Wind is worse than unwired — it is COSMETIC (`windAccelZ` drifts
+the round in Z; the collision test is X/Y only), so **do not author a wind level until wind does
+something**, and making it real is a physics change that needs an ask. **Grep for callers before
+believing a feature is live.**
+
+Then read the traps sections — most cost a build to find, and several are invisible outside a real
+device build.
+
+Read this first, then `CLAUDE.md` for the standing rules, `LEVEL_AUTHORING.md` before touching a
+level, and `SPIKE_RESULTS.md` / `MIGRATION_SCOPE.md` for port history. Everything below was
+verified on the device, not assumed.
+
+### Where the Tier 0 write-ups are
+
+This file is chronological and long. The 2026-08-06 product work is at the end, in build order —
+each section says what shipped, what it cost, and what it found:
+
+| Section | What it covers |
+|---|---|
+| Data authoring moved into Unity | The importer disarmed, the sweep removed, the composition rules made checkable |
+| Campaign split from the test rigs | RIGS gate; the renumbering chore retired |
+| The victory screen and a live economy | The dead economy, and the ASCII-only TMP font trap |
+| Campaign to twelve levels | The beat chart; wind found cosmetic; boss phases and waves wired |
+| Enemy turn juice | Flash banner vs standing telegraph |
+| Loadout | Slots vs points, and why that keeps the camera framing safe |
+| Ruins, instead of blocks everywhere | Shed chunks were the real culprit, not the collapse |
 
 **The design docs now live in this repo** (moved 2026-08-06): `GAME_DESIGN_LOCKS.md`,
 `PROGRESSION_DESIGN.md`, `DYNAMISM_DESIGN.md`, `CAMERA_ARCHITECTURE.md`, `UNIT_VARIETY_DESIGN.md`,
@@ -56,12 +79,17 @@ key cannot push here. This repo uses `~/.ssh/armedconflictunity_deploy` via the
 
 ## What works
 
-All 24 levels are reachable and play end to end at a steady 60 fps: drag to aim, volley, swept
+All 29 levels are reachable and play end to end at a steady 60 fps: drag to aim, volley, swept
 collision, damage, structure collapse, turn handover, victory. With sound both sides, a per-level
 biome backdrop, per-type projectiles, unit weapons, fading explosions, scorch marks, structures
-that shed their own geometry as they take damage, a battle HUD, level navigation and an Auto
-button. Units are ANIMATED — idle, a two-handed hold, recoil, death — and both lines raise their
-rifles to the angle they are actually firing at.
+that shed their own geometry and leave a ruin when they fall, a battle HUD, level navigation and
+an Auto button. Units are ANIMATED — idle, a two-handed hold, recoil, death — and both lines raise
+their rifles to the angle they are actually firing at.
+
+**The product spine is in** (Tier 0, 2026-08-06): a 12-level campaign with the test rigs gated
+behind a RIGS toggle, a pre-battle LOADOUT picker, a VICTORY CARD paying coins and stars with the
+reason shown, mid-battle EVENTS that fire and announce themselves a turn ahead, and a live
+economy — coins, stars, unlocks, first-clear and daily bonuses, milestone chests.
 
 All eight `GameViewModel` slices are ported (`LevelBuilder`, `CollisionSystem`,
 `ProjectileSystem`, `TurnFlow`, `CameraDirector`, `CosmeticSystems`, `HelicopterSystem`,
@@ -458,36 +486,23 @@ HP falls 225 → 121, and shed rubble settles against its base.
 
 ## Open items — in the order I would take them
 
-1. **Unit art: every class still renders as the same rifleman.** The largest thread by far, and
-   the port has NO class differentiation at all on screen today. The go/no-go passed — one
-   rifleman rebuilt on Kenney's joint hierarchy, animated, on device — so what remains is
-   rewriting `build_units_v6.py`'s `finish()` for the limb hierarchy, regenerating, and wiring
-   `modelAsset` → prefab.
-   **It is now a much smaller job than the docs elsewhere imply**: the roster cut took it from
-   ten silhouettes to SIX, and the rig already carries aim elevation. Read
-   `UNIT_VARIETY_DESIGN.md`'s "what's been tried" first — seven attempts are recorded, several of
-   which looked right in a Blender render and failed in real un-zoomed gameplay. Note step 1
-   touches the builder the shipping Android build also uses.
+**This list was written before Tier 0 and most of it has SHIPPED.** Kept for the reasoning, which
+is still the record of why each thing was worth doing. Current state:
 
-2. **A decision, not a task: re-tune incendiary, or leave it.** `burnDamage = 6` was calibrated to
-   finish the 8hp Sniper in one tick and that unit no longer exists (the roster cut gave the
-   Sniper the Marksman's 16hp). It was deliberately NOT raised — doubling a 300-coin consumable is
-   a balance call, not a side effect of deleting a class — so a tick is now a ~37% chip rather
+1. ~~Unit art: every class renders as the same rifleman.~~ **DONE 2026-08-06.**
+2. **A decision, not a task: re-tune incendiary, or leave it.** STILL OPEN. `burnDamage = 6` was
+   calibrated to finish the 8hp Sniper in one tick and that unit no longer exists (the roster cut
+   gave the Sniper the Marksman's 16hp). Deliberately NOT raised — doubling a 300-coin consumable
+   is a balance call, not a side effect of deleting a class — so a tick is now a ~37% chip rather
    than a kill. `AmmoTest` anchors to the roster's frailest unit, so it will not silently expire.
+3. ~~Loadout screen.~~ **DONE 2026-08-06** — see "Loadout" below.
+4. **`snowfall` is imported and ignored** — Winter's falling flakes are not ported. STILL OPEN,
+   and still low value: Winter is one campaign level.
+5. **Release build gaps** — debug-signed, APK not AAB, `versionCode` never increments. STILL
+   deliberately deferred; see the README.
+6. ~~The unit parade rebuilt to a single row of six, unverified.~~ Swept on device since.
 
-3. **Loadout screen** (~415 lines) — the last large UI item. Battle HUD, aim overlay, background,
-   audio and level navigation are all done, so `MIGRATION_SCOPE.md`'s UI estimate is stale high.
-
-4. **`snowfall` is imported and ignored** — Winter's falling flakes are not ported. Winter is one
-   campaign level now rather than eleven, so this is much less urgent than it was.
-
-5. **Release build gaps** — debug-signed, APK not AAB, `versionCode` never increments.
-   Deliberately deferred; see the README.
-
-6. **Unverified, small:** the unit parade (L9) was rebuilt from two rows to a single row of six
-   and has NOT been looked at on device. Reasoned rather than measured: six at 1.1 spacing is a
-   half-width of ~2.75 against the two-row version's ~2.2, so it should frame slightly wider but
-   far tighter than the nine-in-a-row case that caused the two rows in the first place.
+**The one thing Tier 0 itself owes is the BALANCE AUDIT** — see START HERE.
 
 ### Things that will bite, gathered in one place
 
@@ -528,10 +543,9 @@ system UI: ◀ (880, 235), ▶ (1000, 235), AUTO (180, 2259).
   `projectile-refinement`, pushed, working tree clean, 50 tests 0 failures. The branch is 11
   commits ahead of its own `main` and has never been merged or PR'd — GitHub offered
   `https://github.com/rbfr/ArmedConflict/pull/new/projectile-refinement`.
-- **Game DATA still lives there**, and that will not change while the Kotlin is the source of
-  truth. Any level, unit, roster or stage edit is a Kotlin edit followed by
-  `python3 tools/export_kotlin_data.py ~/AndroidStudioProjects/ArmedConflict` and
-  `DataImporter.Import` — even when the session is otherwise entirely Unity work.
+- ~~**Game DATA still lives there.**~~ **NO LONGER TRUE as of 2026-08-06** — authoring moved into
+  Unity and the ScriptableObjects are the source of truth. Nothing is owed to that repo now, and
+  nothing in it needs to be edited to change a level, a unit, the roster or a stage.
 
 ## Per-class unit art — DONE, 2026-08-06
 
@@ -834,7 +848,10 @@ garrison unkillable. Two hand-rolled copies of that arithmetic is exactly how th
 NOT yet judged in play: whether 0.32/38 is the right amount of lean. It is deliberately subtle.
 
 
-## Data authoring, once Android is retired — OPEN, 2026-08-06
+## Data authoring, once Android is retired — CLOSED 2026-08-06 (kept for the reasoning)
+
+**Decided and executed: authoring moved INTO UNITY.** The section below is the question as it
+stood; what actually happened is two sections down, under "Data authoring moved into Unity".
 
 The Android build stopped being the shipping build on 2026-08-06. One thing did not move with it:
 **game DATA is still authored in Kotlin** and reaches Unity one way, through
@@ -855,6 +872,9 @@ obviously right, and it is worth an explicit decision rather than drifting:
 Nothing here is urgent — the pipeline works. But the reason it exists is gone, so the next person
 to be annoyed by an export step should treat that annoyance as a real signal, not as friction to
 be absorbed.
+
+**Resolved the same day.** The annoyance was real and the move was smaller than feared: nothing
+had to be migrated at all.
 
 ## Data authoring — DECIDED 2026-08-06: it moves into Unity
 
