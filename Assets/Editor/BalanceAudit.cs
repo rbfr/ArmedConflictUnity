@@ -98,6 +98,73 @@ public static class BalanceAudit
         if (errors > 0) EditorApplication.Exit(1);
     }
 
+    /// <summary>
+    /// Prints a DERIVED aimed drag per campaign level, as an adb swipe.
+    ///
+    ///     -batchmode -quit -executeMethod BalanceAudit.Drags
+    ///
+    /// The balance audit's device half needs REAL DRAGS — `Auto` never misses and is
+    /// structure-blind, so it cannot measure difficulty. But a guessed drag measures the guess.
+    /// This derives the shot the same way HANDOVER's L1 drag was derived, for every level:
+    ///
+    ///   at 45 degrees, dy = dx - g*dx^2/v^2  =>  v = dx * sqrt(g / (dx - dy))
+    ///   drag units = v / AimSystem.DragSpeedScale
+    ///   pixels     = drag units * (screenWidth * 0.0208)      [AimSystem.DragToWorld]
+    ///   per axis   = pixels / sqrt(2)                         [45 degrees]
+    ///
+    /// Dragging DOWN and BACK launches up and forward, so the swipe ends at
+    /// (startX - perAxis, startY + perAxis).
+    ///
+    /// Aim is taken from the player line's MEAN x, not the front rank: one velocity is applied to
+    /// every unit, so the mean is what puts the bulk of the volley on target. The deepest enemy
+    /// is printed too, because that is the shot the level is really asking for.
+    /// </summary>
+    public static void Drags()
+    {
+        const float ScreenWidth = 1080f;      // the Pixel 10 Pro XL this is tested on
+        const int StartX = 540, StartY = 1150;
+        float ppu = ScreenWidth * 0.0208f;
+
+        var roster = AssetDatabase.LoadAssetAtPath<RosterDefinitionSO>("Assets/GameData/Roster.asset");
+        ProgressStore.ResetAll();
+        System.Func<string, bool> unlocked = ProgressStore.IsUnitUnlocked;
+
+        var levels = AssetDatabase.FindAssets("t:LevelDefinitionSO")
+            .Select(AssetDatabase.GUIDToAssetPath)
+            .Select(AssetDatabase.LoadAssetAtPath<LevelDefinitionSO>)
+            .Where(l => l != null && !l.isTestLevel)
+            .OrderBy(l => l.levelNumber);
+
+        foreach (var level in levels)
+        {
+            var picks = Loadout.Default(level, roster, unlocked);
+            var s = LevelBuilder.BuildInitialState(level, 1, 12, new System.Random(9),
+                                                   playerGroupsOverride: Loadout.ToPlayerGroups(level, picks));
+            if (s.PlayerUnits.Count == 0 || s.EnemyUnits.Count == 0) continue;
+
+            float originX = s.PlayerUnits.Average(u => u.X);
+            float originY = s.PlayerUnits.Average(u => u.Y) + MuzzleY;
+
+            foreach (var (label, tx, ty) in new[]
+            {
+                ("cluster", s.EnemyUnits.Average(u => u.X), s.EnemyUnits.Average(u => u.Y)),
+                ("deepest", s.EnemyUnits.OrderByDescending(u => u.X).First().X,
+                            s.EnemyUnits.OrderByDescending(u => u.X).First().Y),
+            })
+            {
+                float dx = Mathf.Abs(tx - originX), dy = ty - originY;
+                if (dx <= dy) { Debug.Log($"[Drags] L{level.levelNumber} {label}: unreachable at 45deg"); continue; }
+
+                float v = dx * Mathf.Sqrt(TrajectoryPhysics.Gravity / (dx - dy));
+                int perAxis = Mathf.RoundToInt(v / AimSystem.DragSpeedScale * ppu / Mathf.Sqrt(2f));
+                Debug.Log($"[Drags] L{level.levelNumber} {level.displayName} ({label}): " +
+                          $"dx {dx:F1} dy {dy:F1}, v {v:F2} " +
+                          $"({100f * v / AimSystem.MaxAimMagnitude:F0}% power) -> " +
+                          $"adb shell input swipe {StartX} {StartY} {StartX - perAxis} {StartY + perAxis} 400");
+            }
+        }
+    }
+
     struct Squad { public string Label; public List<Pick> Picks; }
 
     /// <summary>
@@ -206,6 +273,45 @@ public static class BalanceAudit
                 "the tank shell and per-turn attrition stop covering the gap; drag this one."));
         else
             outp.Add(new LevelComposition.Finding(LevelComposition.Severity.Ok, $"{tag}: race ok — {race}"));
+
+        // --- 2b. SIEGE CAPACITY: can this squad actually break what the garrison stands on? ---
+        //
+        // Measured on device 2026-08-07, and it is the sharpest number in this file. A rifleman's
+        // structureDamageMultiplier is 0.25, so his 8-damage round does TWO to a building; ten of
+        // them is 20 a volley if every round lands. The tank shell is 32 x 3 = 96, and there are
+        // exactly ammoPerBattle of them. So a stock squad's anti-structure capacity is a FIXED
+        // number, spent in the first three volleys, after which the wall is effectively immune.
+        //
+        // That matters because composition rule 5 REQUIRES the majority of the enemy roster to be
+        // garrisoned. Where garrisoned structure HP exceeds the shell capacity, the majority of
+        // the roster sits behind something the stock squad cannot break, and the level resolves on
+        // whether the player can pick the garrison off the deck by direct fire — which works (a
+        // roof garrison is shootable) but is slow enough that the enemy wins the attrition race.
+        float shellCapacity = state.Structures
+            .Where(st => st.Definition.isPlayerSide && st.Definition.hasCannon
+                         && st.Definition.cannon != null)
+            .Sum(st => st.Definition.cannon.ammoPerBattle * st.Definition.cannon.damage
+                       * st.Definition.cannon.structureDamageMultiplier);
+        float rifleVolleyVsStructure = state.PlayerUnits.Sum(
+            u => u.Definition != null ? u.Definition.damage * u.Definition.structureDamageMultiplier : 2f);
+        float garrisonedHp = state.Structures.Where(st => garrisonedOn.Contains(st.Id)).Sum(st => st.Hp);
+
+        string siege = $"garrisoned structure HP {garrisonedHp:F0} vs shell capacity " +
+                       $"{shellCapacity:F0} ({rifleVolleyVsStructure:F0}/volley from the squad)";
+        if (garrisonedHp > shellCapacity)
+        {
+            float after = (garrisonedHp - shellCapacity) / Mathf.Max(rifleVolleyVsStructure, 1f);
+            outp.Add(new LevelComposition.Finding(LevelComposition.Severity.Warn,
+                $"{tag}: SIEGE DEFICIT — {siege}. After the shells run out the squad needs " +
+                $"{after:F0} more volleys to finish the garrisoned structures, while losing about " +
+                "one unit a volley. Measured on device 2026-08-07: L9 and L12 both have a deficit " +
+                "and were NOT clearable at stock across five runs; L4 has none and every structure " +
+                "fell to the shells alone. L3 and L5 have a small deficit and were not run."));
+        }
+        else
+        {
+            outp.Add(new LevelComposition.Finding(LevelComposition.Severity.Ok, $"{tag}: siege ok — {siege}"));
+        }
 
         // --- 3. THE MELEE CLOCK ---------------------------------------------------------------
         var advancers = state.EnemyUnits.Where(u => u.AdvancePerTurn > 0f).ToList();

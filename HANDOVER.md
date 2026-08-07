@@ -14,8 +14,14 @@
 
 ### Pick up here
 
-1. **The Phase E BALANCE AUDIT — the ARITHMETIC half is DONE (see the section at the end of this
-   file); the DEVICE half is what remains.** `BalanceAudit.Report` now settles reach and pace
+1. **The Phase E BALANCE AUDIT IS RUN — both halves. It found a real product bug and needs a
+   DECISION, not more measuring.** Five levels (L3, L5, L6, L9, L12) garrison more structure HP
+   than a stock squad can ever break: the squad's whole anti-structure capacity is a fixed 288
+   (3 tank shells x 96; a rifleman does 2 to a building). L9 and L12 were confirmed unclearable on
+   device across five runs. See "The balance audit, DEVICE half" at the end of this file for the
+   three ways out and my recommendation. THAT CHOICE IS THE NEXT THING TO MAKE.
+
+   The superseded original note: `BalanceAudit.Report` now settles reach and pace
    headless and found a shipped level that could not be won. What it cannot do is measure
    DIFFICULTY, which still needs REAL DRAGS — `Auto` never misses and is structure-blind. Start
    with the levels the audit flags: **L4, L6, L9, L12** (player 2.4-4.1x behind the volley race)
@@ -1337,3 +1343,88 @@ power at its deepest enemy. The whole game lives in the top fifth of the aim ran
 almost no headroom anywhere and every level's aim demands roughly the same drag. Widening that
 band means raising `AimSystem.MaxAimMagnitude`, which is a physics change touching all 29 levels
 and needs an explicit ask — it was offered on 2026-08-06 and NOT taken.
+
+## The balance audit, DEVICE half — run 2026-08-07
+
+Real drags on the Pixel 10 Pro XL, stock squad (8 riflemen + 2 tank crew, 0 coins, nothing
+unlocked — the level list steps straight into battle with the default loadout, so this is exactly
+the baseline the arithmetic half modelled). Aim was DERIVED, not guessed: `BalanceAudit.Drags`
+prints a 45-degree adb swipe per level from the level's own geometry.
+
+**Result: L9 and L12 are NOT clearable at stock. L4 is, but only if the tank shells are spent
+correctly, and nothing in the game says so.**
+
+### The mechanism, and it is one number
+
+**A rifleman's `structureDamageMultiplier` is 0.25.** His 8-damage round does **2** to a building,
+so a ten-strong volley does **20 a volley if every round lands**. The tank shell is
+`32 x 3 = 96`, and `ammoPerBattle` is **3**. So a stock squad's entire anti-structure capacity is
+a FIXED **288**, spent in the first three volleys, after which a wall is effectively immune.
+
+That collides head-on with composition rule 5, which REQUIRES the majority of the enemy roster to
+be garrisoned. Where garrisoned structure HP exceeds 288, most of the enemy roster is standing
+behind something the stock squad cannot break:
+
+| Level | Garrisoned structure HP | vs 288 | Device result |
+|---|---|---|---|
+| L3 Watchpost Ridge | 340 | **deficit 52** | not run |
+| L5 Tower Assault | 340 | **deficit 52** | not run |
+| L6 Ridge Bastion | 392 | **deficit 104** | not run |
+| L9 Dusk Redoubt | 330 | **deficit 42** | **3 runs, 3 total defeats** |
+| L12 The Citadel | 425 | **deficit 137** | **defeat** |
+| L4 Ash Boulevard | 240 | ok | every structure razed by shells alone |
+| L1/L2/L7/L8/L10/L11 | 90-240 | ok | not run |
+
+`BalanceAudit` now checks this directly (the SIEGE DEFICIT finding), and it is **predictive**: the
+level with no deficit razed everything, the levels with one could not.
+
+### What the runs actually showed
+
+**L9, run 1** (fixed aim at the enemy mean): 22 -> 17 enemies, player 10 -> 0. Kills stopped DEAD
+at 17 the moment the shells ran out, and structure damage fell to ~8 a volley.
+
+**L9, run 2** (all fire on the bunker): bunker destroyed, but I kept firing at the empty site while
+the barracks sat untouched. Defeat. Worth recording as an ERROR OF MINE, not a game fault — the
+HUD's single "Structure HP" total cannot say WHICH structure still stands, and that is a genuine
+readability gap.
+
+**L9, run 3** (advancers first, then structures — the correct play): 22 -> 11 in three volleys with
+only one loss, and the bunker's five machine gunners died with it, confirming the garrison-collapse
+path works. Then the wall: ~6-10 structure damage a volley against 118 remaining, while losing ~1
+unit a volley. Ended 1 unit vs 9 enemies.
+
+**L12**: 18 -> 10 in three volleys (a roof garrison CAN be shot directly, as the self-tests claim),
+then the same wall — ~12 a volley against 231 remaining. Player 10 -> 4 by volley 8.
+
+**L4, run 1** (shells spent on the advancing shield bearers): 17 -> 7 with no losses, but the
+structures were untouched and it stalled at the wall.
+**L4, run 2** (all three shells into the structures): 17 -> 7 with **zero** losses, every enemy
+structure destroyed by volley 10. It then stalled 7v7 because the survivors had closed to melee
+range and my long derived drags flew over them — a limit of driving this from adb, since a real
+player has the aim preview and would simply shorten the drag.
+
+### Honest limits of this pass
+
+- Drags were computed, not felt. In the endgame, when survivors close on the line, a computed
+  45-degree drag overshoots and I had no preview to correct against. **A human is better than this
+  harness at short range**, so L4's stall is not evidence that L4 is unwinnable.
+- L3, L5, L6 were not run. Their deficits are known and L6's is large.
+- Every run used the stock squad. Unlocking the rocket trooper (`structureDamageMultiplier` 6)
+  changes the siege arithmetic completely, which is presumably the intent — but 0.4b says a level
+  must be clearable at STOCK, and these are not.
+
+### What this asks for — a decision, not a task
+
+Three ways out, and this is Rob's call:
+
+1. **Cut garrisoned structure HP under 288** on L3/L5/L6/L9/L12. Smallest change, keeps every beat,
+   and the audit check enforces it from then on.
+2. **Raise `ammoPerBattle`** from 3. One number, fixes all five at once, but it makes the tank the
+   answer to every level and weakens the reason to ever buy a rocket trooper.
+3. **Raise the rifleman's 0.25 structure multiplier.** Most invasive — it changes every level at
+   once, including the seven that are currently fine.
+
+My recommendation is **1**, plus a HUD change worth doing regardless: **"Structure HP" is a single
+total across all enemy structures**, so it cannot tell the player which building is still standing.
+That is what made run 2 waste four volleys on rubble, and a player has no better information than
+I did.
