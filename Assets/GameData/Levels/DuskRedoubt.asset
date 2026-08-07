@@ -61,7 +61,7 @@ MonoBehaviour:
     restsOn: 
     standWidth: -1
     hasStandWidth: 0
-    hpScale: 1
+    hpScale: 0.7
   - id: barracks
     definition: {fileID: 11400000, guid: 95d24e4e2581b55ea876178f5d94a3b4, type: 2}
     x: 5.5
@@ -71,7 +71,7 @@ MonoBehaviour:
     restsOn: 
     standWidth: -1
     hasStandWidth: 0
-    hpScale: 1
+    hpScale: 0.7
   playerGroups:
   - definition: {fileID: 11400000, guid: 42221a45b5be3eb57b1b2bd28b9aaac0, type: 2}
     count: 2
@@ -111,4 +111,9 @@ MonoBehaviour:
     so for the first time the player is losing on arithmetic and has to win on concentration.
     Win condition is unchanged (roster), which is the point \u2014 it FEELS like
     a defence without being a different game. Two wire props, both slowing, because
-    at this count an unslowed charge arrives before the third volley."
+    at this count an unslowed charge arrives before the third volley.
+    Structure hp RETUNED 2026-08-07: bunker and barracks both hpScale 0.7 (180 -> 126, 150
+    -> 105), garrisoned total 330 -> 229. Measured on device at 330: THREE runs, three
+    total defeats - once the three tank shells were spent the squad did about 8 structure
+    damage a volley while losing about one unit a volley, so the 13 garrisoned enemies
+    could never be reached."

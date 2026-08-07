@@ -55,7 +55,7 @@ MonoBehaviour:
     restsOn: 
     standWidth: -1
     hasStandWidth: 0
-    hpScale: 1
+    hpScale: 0.5
   - id: tower
     definition: {fileID: 11400000, guid: 687b6a02fa884c12ca4709fecc0fdee2, type: 2}
     x: 8
@@ -108,4 +108,8 @@ MonoBehaviour:
     7 warns and is ACCEPTED: the back rank (the tank crew) needs 103% power to reach
     the snipers, so its 2 rounds fall short while the front rank reaches at 92%. The
     snipers being the furthest AND highest target is the beat; pulling them in to
-    silence the warning is pulling the level's teeth."
+    silence the warning is pulling the level's teeth.
+    Structure hp RETUNED 2026-08-07: bunker hpScale 0.5 (250 -> 125), garrisoned total 340
+    -> 215. A stock squad can only ever do 288 structure damage in a battle (3 tank shells
+    x 96; a rifleman does 2), so a garrison behind more than that cannot be dug out at
+    stock. The bunker takes the cut because the TOWER snipers are the beat."

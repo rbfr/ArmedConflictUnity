@@ -61,7 +61,7 @@ MonoBehaviour:
     restsOn: 
     standWidth: -1
     hasStandWidth: 0
-    hpScale: 1
+    hpScale: 0.66
   - id: keep
     definition: {fileID: 11400000, guid: 4ccb45e18b5d39dc981ca7dbff582e93, type: 2}
     x: 6
@@ -71,7 +71,7 @@ MonoBehaviour:
     restsOn: 
     standWidth: -1
     hasStandWidth: 0
-    hpScale: 1
+    hpScale: 0.66
   playerGroups:
   - definition: {fileID: 11400000, guid: 42221a45b5be3eb57b1b2bd28b9aaac0, type: 2}
     count: 2
@@ -115,4 +115,8 @@ MonoBehaviour:
     fired \u2014 the keep falling spawns the Citadel Sovereign (260 hp) and a heavy
     escort, so the level does not end when the structure does. Biome reuses Mountains
     from beat 1 on purpose: same ground, a fortress instead of a hut, which is the
-    clearest possible read on how far the player has come."
+    clearest possible read on how far the player has come.
+    Structure hp RETUNED 2026-08-07: bunker and keep both hpScale 0.66 (180 -> 118, 212 ->
+    139), garrisoned total 392 -> 257. Scaled TOGETHER so the keep stays the dominant
+    structure; 257 leaves a stage boss less slack than the levels before it, which is the
+    point."

@@ -61,7 +61,7 @@ MonoBehaviour:
     restsOn: 
     standWidth: -1
     hasStandWidth: 0
-    hpScale: 1
+    hpScale: 0.66
   - id: citadel
     definition: {fileID: 11400000, guid: 6be4025f7b305743f9d8b1a40fed76d9, type: 2}
     x: 6
@@ -71,7 +71,7 @@ MonoBehaviour:
     restsOn: 
     standWidth: -1
     hasStandWidth: 0
-    hpScale: 1
+    hpScale: 0.66
   playerGroups:
   - definition: {fileID: 11400000, guid: 42221a45b5be3eb57b1b2bd28b9aaac0, type: 2}
     count: 2
@@ -116,4 +116,10 @@ MonoBehaviour:
     The wide fortress tier is the largest structure in the game (6.0 wide, 250 hp)
     and its fall is the loudest moment the campaign has; the Sovereign and a shield
     escort walk out of the rubble, so the last volley of the arc is fired at something
-    that was not on the field when it started."
+    that was not on the field when it started.
+    Structure hp RETUNED 2026-08-07: gate and citadel both hpScale 0.66 (175 -> 115, 250
+    -> 165; the 250 quoted above is the DEFINITION, not this placement), garrisoned total
+    425 -> 280. The tightest margin in the campaign against the 288 a stock squad can do,
+    which is correct for the finale: it demands all three shells on target. Measured on
+    device at 425: defeat, with 9 enemies still up and 231 structure hp left when the
+    squad was gone."

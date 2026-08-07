@@ -55,7 +55,7 @@ MonoBehaviour:
     restsOn: 
     standWidth: -1
     hasStandWidth: 0
-    hpScale: 1
+    hpScale: 0.55
   - id: tow_base
     definition: {fileID: 11400000, guid: 317e2cd76dce7a9cfa56a62635184cbc, type: 2}
     x: 8
@@ -117,4 +117,7 @@ MonoBehaviour:
     was the worst in the campaign and the whole fight sat on top of the player. Rule
     7 warns and is ACCEPTED for the same reason as L3: the back rank needs 101% power
     for the platform garrison and cannot reach it, front rank 88%. Fighting upward IS
-    the beat, and the shortfall is 1% — worth watching if the tower ever moves out."
+    the beat, and the shortfall is 1% — worth watching if the tower ever moves out.
+    Structure hp RETUNED 2026-08-07: bunker hpScale 0.55 (250 -> 137), garrisoned total
+    340 -> 227, under the 288 a stock squad can do in a whole battle. The tower stack is
+    untouched - fighting upward is the beat, and tow_base carries no garrison."

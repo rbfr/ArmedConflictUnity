@@ -14,12 +14,14 @@
 
 ### Pick up here
 
-1. **The Phase E BALANCE AUDIT IS RUN — both halves. It found a real product bug and needs a
-   DECISION, not more measuring.** Five levels (L3, L5, L6, L9, L12) garrison more structure HP
-   than a stock squad can ever break: the squad's whole anti-structure capacity is a fixed 288
-   (3 tank shells x 96; a rifleman does 2 to a building). L9 and L12 were confirmed unclearable on
-   device across five runs. See "The balance audit, DEVICE half" at the end of this file for the
-   three ways out and my recommendation. THAT CHOICE IS THE NEXT THING TO MAKE.
+1. **The siege retune is APPLIED and only PARTLY verified — finish the verification first.**
+   The audit found five levels garrisoning more structure HP than a stock squad can ever break
+   (capacity is a fixed 288: 3 tank shells x 96, and a rifleman does 2 to a building). All five
+   were cut via placement `hpScale` and all twelve now pass. **Only L9 was re-run on device**, and
+   under `Auto` — perfect aim — it finished 2 v 2, which is a warning rather than a pass. See
+   "Siege retune" at the end of this file. Next: re-run **L12** (finale, tightest margin), then
+   L3/L5/L6, and consider cutting L9's ENEMY COUNT — at 22 v 10 it has the widest body ratio in
+   the campaign and walls were never its only problem.
 
    The superseded original note: `BalanceAudit.Report` now settles reach and pace
    headless and found a shipped level that could not be won. What it cannot do is measure
@@ -1428,3 +1430,53 @@ My recommendation is **1**, plus a HUD change worth doing regardless: **"Structu
 total across all enemy structures**, so it cannot tell the player which building is still standing.
 That is what made run 2 waste four volleys on rubble, and a player has no better information than
 I did.
+
+## Siege retune — applied 2026-08-07, PARTLY verified
+
+Option 1 from the section above: cut garrisoned structure HP under the 288 a stock squad can do.
+Applied per PLACEMENT via `hpScale`, so no shared structure definition changed and no other level
+moved. Each level's `designNotes` carries the numbers and the reason.
+
+| Level | Garrisoned HP before | after | how |
+|---|---|---|---|
+| L3 Watchpost Ridge | 340 | **215** | bunker 0.5 (the TOWER snipers are the beat, so the bunker takes the cut) |
+| L5 Tower Assault | 340 | **227** | bunker 0.55 (tower stack untouched — fighting upward is the beat) |
+| L6 Ridge Bastion | 392 | **257** | bunker + keep both 0.66, scaled together so the keep stays dominant |
+| L9 Dusk Redoubt | 330 | **229** | bunker + barracks both 0.7 |
+| L12 The Citadel | 425 | **280** | gate + citadel both 0.66 — tightest margin in the game, correct for the finale |
+
+All twelve now pass the SIEGE DEFICIT check, and the campaign ramps 90/135/215/240/227/257/240/
+225/229/225/135/280. `PortSelfTest` ALL PASS, composition 12 levels 0 errors.
+
+### What the device actually showed, and what it did NOT
+
+**L9 only was re-run.** It is much better and probably still too hard.
+
+- Played by hand with shells into the structures: 22 -> 9 enemies by volley 4 with 7 of 10 units
+  alive, against the pre-tune run which sat at 17 enemies with the squad collapsing. The retune
+  works.
+- Then the same endgame problem as L4: the surviving shield bearers close to melee and a computed
+  45-degree drag flies over them. **This is a limit of driving the game from adb, not a finding
+  about the level** — a player has the aim preview.
+- So it was re-run under **`Auto` as an upper bound on aim**: Auto never misses, so if perfect aim
+  cannot clear it, nothing can. Auto took it from 22 enemies to **2 v 2** — and the run was cut
+  short there when the phone was needed, so the final outcome is UNKNOWN.
+
+**Read that 2v2 as a warning, not a pass.** Perfect aim finishing a level with 2 of 10 units left
+is a level a real player loses, and `StarsFor` would score it 1 star at best. My reading is that
+**L9 needs a second pass**, and that structure HP is not the whole story there:
+
+**L9 fields 22 enemies against the player's 10 — the widest body ratio in the campaign**, and the
+volley race flagged it worst at 4.1x before any of this. Cutting HP does not change that a 22-body
+line out-shoots a 10-body line every single turn. The next lever for L9 is the ROSTER, not the
+walls.
+
+### Still owed
+
+- **L3, L5, L6, L12 have not been re-run on device** since the retune. L12 matters most; it is the
+  finale and has the tightest margin at 280/288.
+- **L9 likely wants an enemy-count cut** as well, per above.
+- The **"Structure HP" HUD line is still a single total** across all enemy structures, so it cannot
+  say which building still stands. It cost one run four volleys fired into rubble. `BattleRunner.cs`
+  around line 1278 — the fix is to list surviving structures by `displayName`, and it needs no
+  scene rebuild because that HUD is IMGUI.
