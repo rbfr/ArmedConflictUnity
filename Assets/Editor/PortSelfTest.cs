@@ -1505,6 +1505,178 @@ public static class PortSelfTest
                 }
             }
 
+            // --- AMMO TYPES. The whole feature was PRESENT AND DEAD before 2026-08-07: the
+            // enum, ProjectileEntity.Ammo, GameState.SelectedAmmo, GameState.BurningEnemyIds,
+            // the unlock/selection persistence and CollisionSystem.IncendiaryHitUnitIds all
+            // existed, and FireVolley never set Ammo, so every round was Standard forever.
+            // These checks assert the WIRING, which is the part that was missing.
+            {
+                var catalog = AssetDatabase.LoadAssetAtPath<AmmoCatalogSO>(
+                    "Assets/GameData/AmmoCatalog.asset");
+                Check(catalog != null && catalog.slots.Count == 4,
+                      $"the ammo catalogue exists with four types ({catalog?.slots.Count ?? 0})");
+
+                if (catalog != null)
+                {
+                    // STANDARD MUST BE THE IDENTITY. This is what makes PRODUCT_DIRECTION's "no
+                    // ammo is ever REQUIRED to clear a level" checkable rather than a promise:
+                    // a level cleared on Standard is a level cleared with every modifier at 1.
+                    var std = AmmoModifiers.From(catalog, AmmoType.Standard);
+                    Check(std.UnitDamageScale == 1f && std.StructureDamageScale == 1f
+                          && std.SpreadScale == 1f && std.BurnDamage == 0,
+                          "Standard ammo is the IDENTITY — it cannot change a volley");
+                    Check(AmmoModifiers.From(null, AmmoType.Cluster).UnitDamageScale == 1f,
+                          "a MISSING catalogue falls back to Standard rather than throwing");
+
+                    // Only Standard is free, or a fresh player has a choice they never earned.
+                    Check(catalog.slots.Count(a => a.coinPrice == 0) == 1
+                          && catalog.Find(AmmoType.Standard).coinPrice == 0,
+                          "Standard is the only free ammo");
+
+                    // The burn must not one-shot the FRAILEST unit in the CURRENT roster. The
+                    // old value of 6 was calibrated against an 8hp Sniper that no longer exists
+                    // (HANDOVER records it); anchoring to the live roster is what stops this
+                    // expiring silently the next time the roster is cut.
+                    int frailest = AssetDatabase.FindAssets("t:UnitDefinitionSO")
+                        .Select(AssetDatabase.GUIDToAssetPath)
+                        .Select(AssetDatabase.LoadAssetAtPath<UnitDefinitionSO>)
+                        .Where(u => u != null && u.maxHp > 0).Min(u => u.maxHp);
+                    int burn = catalog.Find(AmmoType.Incendiary).burnDamage;
+                    Check(burn > 0 && burn < frailest,
+                          $"the incendiary burn ({burn}) chips rather than one-shots the " +
+                          $"frailest unit in the roster ({frailest} hp)");
+
+                    // AP is the masonry answer and pays for it against soft targets.
+                    var ap = AmmoModifiers.From(catalog, AmmoType.AP);
+                    Check(ap.StructureDamageScale > 1f && ap.UnitDamageScale < 1f,
+                          $"AP trades unit damage ({ap.UnitDamageScale:F2}x) for structure " +
+                          $"damage ({ap.StructureDamageScale:F1}x)");
+                    // THE NET EFFECT PER ROUND, which is the contract and is what the first
+                    // version of this got wrong. The engine does `Damage * StructureMultiplier`,
+                    // so scaling Damage down for soft targets silently scaled MASONRY down too:
+                    // AP's real effect was 0.6 * 2 = 1.2x, and the check that only looked at the
+                    // multiplier passed anyway. Caught on device — 128 off a 165hp citadel where
+                    // ~192 was intended. Assert the PRODUCT, never the factor.
+                    var stdM = AmmoModifiers.From(catalog, AmmoType.Standard);
+                    foreach (var (baseDmg, baseMult) in new[] { (32, 3f), (8, 0.25f), (8, 6f) })
+                    {
+                        float stdOut = stdM.UnitDamage(baseDmg) * stdM.StructureMultiplier(baseMult);
+                        float apOut = ap.UnitDamage(baseDmg) * ap.StructureMultiplier(baseMult);
+                        // Tolerance DERIVED from integer rounding, not guessed: Damage is an
+                        // int, so an 8-damage round scaled by 0.6 lands on 5 rather than 4.8 and
+                        // the ratio comes out 2.08x. A fixed epsilon would either fail this
+                        // honestly-correct case or be too loose to catch a real 1.2x regression.
+                        float tol = ap.StructureDamageScale * (0.5f / baseDmg) + 0.02f;
+                        Check(Mathf.Abs(apOut / stdOut - ap.StructureDamageScale) < tol,
+                              $"AP does {ap.StructureDamageScale:F1}x STRUCTURE damage per round " +
+                              $"(dmg {baseDmg} x{baseMult}: {stdOut:F0} -> {apOut:F0}, " +
+                              $"{apOut / stdOut:F2}x)");
+                        Check(ap.UnitDamage(baseDmg) < stdM.UnitDamage(baseDmg),
+                              $"...while doing LESS to men ({stdM.UnitDamage(baseDmg)} -> " +
+                              $"{ap.UnitDamage(baseDmg)})");
+                    }
+                    // Damage is floored at 1, so a scale can never make an owned ammo do nothing.
+                    Check(AmmoModifiers.From(catalog, AmmoType.AP).UnitDamage(1) >= 1,
+                          "an ammo scale never rounds a round's damage down to zero");
+
+                    var cluster = AmmoModifiers.From(catalog, AmmoType.Cluster);
+                    Check(cluster.SpreadScale > 1f && cluster.UnitDamageScale < 1f,
+                          $"Cluster spreads wider ({cluster.SpreadScale:F1}x) for lighter hits " +
+                          $"({cluster.UnitDamageScale:F2}x)");
+
+                    // --- THE WIRING ITSELF: a fired round must CARRY the selection.
+                    // Its own lookup rather than the shell block's `withCannon`, which is
+                    // declared below: a level with a cannon lets the same checks cover the
+                    // SHELL, which must take the ammo like everything else.
+                    var withCannonLevel = levels.FirstOrDefault(l => l.playerGroups.Count > 0 &&
+                        l.structures.Any(p => p.definition != null && p.definition.isPlayerSide
+                                              && p.definition.hasCannon));
+                    if (withCannonLevel != null)
+                    {
+                        var baseState = LevelBuilder.BuildInitialState(
+                            withCannonLevel, 1, levels.Count, new System.Random(7))
+                            with { Phase = GamePhase.Playing, TurnPhase = TurnPhase.Aiming };
+
+                        foreach (var type in new[] { AmmoType.Incendiary, AmmoType.AP, AmmoType.Cluster })
+                        {
+                            var picked = baseState with { SelectedAmmo = type };
+                            var v = BattleTick.FireVolley(picked, new Vector3(6f, 6f, 0f),
+                                                          new System.Random(3), catalog);
+                            Check(v.Projectiles.Where(p => p.OwnerIsPlayer).All(p => p.Ammo == type),
+                                  $"every round in the volley carries {type}");
+                            // Including the SHELL — DYNAMISM_DESIGN is explicit that there are
+                            // no special cases, and an AP shell is the bunker-buster fantasy.
+                            var sh = v.Projectiles.FirstOrDefault(p => p.Type == ProjectileType.Shell);
+                            Check(sh != null && sh.Ammo == type,
+                                  $"the TANK SHELL also carries {type}");
+                        }
+
+                        // Standard leaves the volley exactly as it was before ammo existed.
+                        var asStd = BattleTick.FireVolley(baseState, new Vector3(6f, 6f, 0f),
+                                                          new System.Random(3), catalog);
+                        var noCat = BattleTick.FireVolley(baseState, new Vector3(6f, 6f, 0f),
+                                                          new System.Random(3), null);
+                        Check(asStd.Projectiles.Where(p => p.OwnerIsPlayer).Select(p => p.Damage)
+                                  .SequenceEqual(noCat.Projectiles.Where(p => p.OwnerIsPlayer)
+                                  .Select(p => p.Damage)),
+                              "Standard fires the identical volley to having no catalogue at all");
+
+                        // --- THE BURN ACTUALLY LANDS. This is the half that was most likely to
+                        // stay dead: CollisionSystem has populated IncendiaryHitUnitIds since
+                        // the port and NOTHING consumed it, and GameState.BurningEnemyIds was
+                        // declared and never written. Driven through the real Step so the
+                        // handover edge is the thing under test, not a helper.
+                        {
+                            // ReadyToHandOver: player side, nothing in the air, no pause left.
+                            var marked = baseState with
+                            {
+                                SelectedAmmo = AmmoType.Incendiary,
+                                TurnSide = TurnSide.Player,
+                                TurnPhase = TurnPhase.Resolving,
+                                TurnHandoverDelay = 0f,
+                                Projectiles = new List<ProjectileEntity>(),
+                                BurningEnemyIds = new HashSet<int> { baseState.EnemyUnits[0].Id },
+                            };
+                            int hpBefore = marked.EnemyUnits[0].Hp;
+                            var burned = BattleTick.Step(marked, 1f / 60f, withCannonLevel,
+                                                         new System.Random(5), catalog);
+                            var after = burned.EnemyUnits.FirstOrDefault(
+                                u => u.Id == marked.EnemyUnits[0].Id);
+                            Check(after != null && after.Hp == hpBefore - burn,
+                                  $"a burning unit takes its burn on the handover " +
+                                  $"({hpBefore} -> {after?.Hp})");
+                            Check(burned.TurnPhase == TurnPhase.EnemyWindup,
+                                  "the burn lands on the edge into the enemy windup");
+
+                            // ONCE, not forever. The set is spent as it is applied, so one
+                            // incendiary hit is one tick — a unit that kept burning every turn
+                            // off a single round would make the type a win button.
+                            Check(burned.BurningEnemyIds.Count == 0,
+                                  "the burning set is CLEARED as it is spent, so a unit burns once");
+
+                            // And Standard never burns, however the set got populated.
+                            var noBurn = BattleTick.Step(marked with { SelectedAmmo = AmmoType.Standard },
+                                                         1f / 60f, withCannonLevel,
+                                                         new System.Random(5), catalog);
+                            Check(noBurn.EnemyUnits.First(u => u.Id == marked.EnemyUnits[0].Id).Hp
+                                  == hpBefore,
+                                  "Standard ammo applies no burn");
+                        }
+
+                        // AP really does reach the round's structure multiplier.
+                        var apVolley = BattleTick.FireVolley(
+                            baseState with { SelectedAmmo = AmmoType.AP },
+                            new Vector3(6f, 6f, 0f), new System.Random(3), catalog);
+                        var apShell = apVolley.Projectiles.First(p => p.Type == ProjectileType.Shell);
+                        var stdShell = asStd.Projectiles.First(p => p.Type == ProjectileType.Shell);
+                        Check(apShell.StructureDamageMultiplier > stdShell.StructureDamageMultiplier,
+                              $"an AP shell hits masonry harder than a standard one " +
+                              $"({apShell.StructureDamageMultiplier:F1}x vs " +
+                              $"{stdShell.StructureDamageMultiplier:F1}x)");
+                    }
+                }
+            }
+
             // --- THE TANK SHELL. It is off-roster — built from a STRUCTURE, not a unit — so
             // nothing in the unit-facing checks above would notice it had stopped firing, which
             // is exactly how it went missing from the port in the first place.

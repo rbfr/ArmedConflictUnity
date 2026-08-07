@@ -51,10 +51,16 @@ namespace ArmedConflict.Game
         static readonly Dictionary<int, float> EmptyAim = new();
 
 
+        /// <param name="ammoCatalog">
+        /// Optional, and only the BURN needs it: an incendiary tick is applied on the handover
+        /// into the enemy windup, and its damage is data. Null means no burn, which is exactly
+        /// Standard's behaviour, so every caller and test written before ammo is unchanged.
+        /// </param>
         public static GameState Step(GameState s, float rawDt, LevelDefinitionSO level,
-                                     System.Random random)
+                                     System.Random random, AmmoCatalogSO ammoCatalog = null)
         {
             float dt = ProjectileSystem.ClampDt(rawDt);
+            int burnDamage = AmmoModifiers.From(ammoCatalog, s.SelectedAmmo).BurnDamage;
 
             // --- 1. physics, always ------------------------------------------------------
             var stepped = ProjectileSystem.StepAll(s.Projectiles, dt, s.WindAccelZ);
@@ -143,6 +149,15 @@ namespace ArmedConflict.Game
             // --- 3. damage and deaths ----------------------------------------------------
             var enemyUnits = ApplyDamage(s.EnemyUnits, hits, dt, out var enemyKilled);
             var playerUnits = ApplyDamage(s.PlayerUnits, hits, dt, out var playerKilled);
+
+            // INCENDIARY: mark the SURVIVORS of an incendiary hit. CollisionSystem has populated
+            // IncendiaryHitUnitIds since the port and nothing has ever read it. The dead are
+            // filtered out deliberately — a burn tick landing on a body already falling is a
+            // damage event with nothing to damage, and it would inflate the kill tally twice.
+            var burning = new HashSet<int>(s.BurningEnemyIds);
+            if (hits.IncendiaryHitUnitIds.Count > 0)
+                foreach (var u in enemyUnits)
+                    if (hits.IncendiaryHitUnitIds.Contains(u.Id)) burning.Add(u.Id);
 
             // --- 4. structures and collapse ----------------------------------------------
             var structures = s.Structures.ToList();
@@ -444,6 +459,28 @@ namespace ArmedConflict.Game
                         {
                             turnSide = TurnSide.Enemy;
                             turnPhase = TurnPhase.EnemyWindup;
+
+                            // INCENDIARY BURNS HERE, exactly once, on the edge into the windup.
+                            // DYNAMISM_DESIGN asks for ONE legible damage event the player can
+                            // read as "the fire did that", not a per-second DoT — a DoT would
+                            // also need a new per-tick damage pipeline that nothing else wants.
+                            // The set is CLEARED as it is spent, so a unit burns once per hit
+                            // rather than forever after one incendiary round.
+                            if (burning.Count > 0 && burnDamage > 0)
+                            {
+                                var afterBurn = new List<UnitEntity>(enemyUnits.Count);
+                                foreach (var u in enemyUnits)
+                                {
+                                    if (!burning.Contains(u.Id)) { afterBurn.Add(u); continue; }
+                                    int hp = u.Hp - burnDamage;
+                                    if (hp > 0) { afterBurn.Add(u with { Hp = hp, LastHitAge = 0f }); continue; }
+                                    dyingUnits = dyingUnits.Concat(new[] { RagdollFrom(u) }).ToList();
+                                    enemyKilled++;
+                                }
+                                enemyUnits = afterBurn;
+                                phase = TurnFlow.ResolvePhase(playerUnits.Count, enemyUnits.Count);
+                            }
+                            burning.Clear();
                         }
                         else
                         {
@@ -618,6 +655,7 @@ namespace ArmedConflict.Game
                 TotalStructureImpacts = s.TotalStructureImpacts + structureImpactsThisTick,
                 TotalWoundedHits = s.TotalWoundedHits + woundedThisTick,
                 TotalBlasts = s.TotalBlasts + blastsThisTick,
+                BurningEnemyIds = burning,
                 Scorches = scorches,
                 NextScorchSlot = nextScorch,
                 Debris = debris,
@@ -804,24 +842,38 @@ namespace ArmedConflict.Game
             return outp;
         }
 
-        /// <summary>Fires the player's volley — one round per living player unit.</summary>
-        public static GameState FireVolley(GameState s, Vector3 aimVelocity, System.Random random)
+        /// <summary>
+        /// Fires the player's volley — one round per living player unit.
+        /// </summary>
+        /// <param name="ammoCatalog">
+        /// Optional. Null means Standard, which is the IDENTITY modifier, so every existing
+        /// caller and every test written before ammo existed keeps its exact behaviour. The
+        /// whole volley takes the selected ammo INCLUDING the tank shell — `DYNAMISM_DESIGN.md`
+        /// is explicit that there are no special cases, and an AP shell is the bunker-buster
+        /// fantasy the type exists for.
+        /// </param>
+        public static GameState FireVolley(GameState s, Vector3 aimVelocity, System.Random random,
+                                           AmmoCatalogSO ammoCatalog = null)
         {
             if (s.Phase != GamePhase.Playing || s.TurnPhase != TurnPhase.Aiming) return s;
             if (s.PlayerUnits.Count == 0) return s;
+
+            var ammo = AmmoModifiers.From(ammoCatalog, s.SelectedAmmo);
 
             var rounds = new List<ProjectileEntity>(s.Projectiles);
             int slot = s.NextBulletSlot;
             foreach (var u in s.PlayerUnits)
             {
                 // A little spread per shooter, so a volley reads as many soldiers firing rather
-                // than one round drawn N times.
-                float jitter = ((float)random.NextDouble() - 0.5f) * 0.25f;
+                // than one round drawn N times. CLUSTER widens exactly this: still convergent
+                // fire at real targets (a blind fan is forbidden by the lock), just a wider zone,
+                // so more distinct enemies fall inside it and each round lands lighter.
+                float jitter = ((float)random.NextDouble() - 0.5f) * 0.25f * ammo.SpreadScale;
                 rounds.Add(new ProjectileEntity(
                     Id: 10000 + slot++,
                     X: u.X, Y: u.Y + InfantryMuzzleY, Z: u.Z,
                     Vx: aimVelocity.x + jitter, Vy: aimVelocity.y + jitter, Vz: 0f,
-                    Damage: u.Definition != null ? u.Definition.damage : 8,
+                    Damage: ammo.UnitDamage(u.Definition != null ? u.Definition.damage : 8),
                     OwnerIsPlayer: true)
                 {
                     // The PLAYER's volley used to leave all three of these at their defaults, so
@@ -831,8 +883,11 @@ namespace ArmedConflict.Game
                     // existed only under the debug driver, and a rocket rendered as a tracer.
                     Type = u.Definition != null ? u.Definition.projectileType : ProjectileType.Bullet,
                     SplashRadius = u.Definition != null ? u.Definition.splashRadius : 0f,
-                    StructureDamageMultiplier =
-                        u.Definition != null ? u.Definition.structureDamageMultiplier : 1f,
+                    StructureDamageMultiplier = ammo.StructureMultiplier(
+                        u.Definition != null ? u.Definition.structureDamageMultiplier : 1f),
+                    // What CollisionSystem reads to mark a survivor burning. It has read this
+                    // since the port and nothing ever set it.
+                    Ammo = ammo.Type,
                 });
             }
 
@@ -867,7 +922,8 @@ namespace ArmedConflict.Game
 
             var shells = CannonShells(s, ref shellSlot,
                 (muzzle, c) => TrajectoryPhysics.SolveVelocity(
-                    muzzle, volleyTarget, aimAngle, aimSpeed * c.velocityBoost));
+                    muzzle, volleyTarget, aimAngle, aimSpeed * c.velocityBoost),
+                ammo);
             rounds.AddRange(shells);
 
             return s with
@@ -927,8 +983,11 @@ namespace ArmedConflict.Game
         /// is the MUZZLE that Auto has to solve from and only this method knows where that is.
         /// </param>
         static List<ProjectileEntity> CannonShells(GameState s, ref int slot,
-                                                  System.Func<Vector3, CannonSpec, Vector3> solve)
+                                                  System.Func<Vector3, CannonSpec, Vector3> solve,
+                                                  AmmoModifiers? ammo = null)
         {
+            // Defaults to the identity, so AutoFire — which has no ammo selection — is unchanged.
+            var mods = ammo ?? AmmoModifiers.Standard;
             var shells = new List<ProjectileEntity>();
             int allowed = s.CannonArmed ? s.TankShellsRemaining : 0;
             if (allowed <= 0) return shells;
@@ -952,12 +1011,16 @@ namespace ArmedConflict.Game
                     Id: ShellIdBase + slot++,
                     X: muzzle.x, Y: muzzle.y, Z: muzzle.z,
                     Vx: v.x, Vy: v.y, Vz: v.z,
-                    Damage: c.damage,
+                    Damage: mods.UnitDamage(c.damage),
                     OwnerIsPlayer: true)
                 {
                     Type = ProjectileType.Shell,
                     SplashRadius = c.splashRadius,
-                    StructureDamageMultiplier = c.structureDamageMultiplier,
+                    // The shell takes the selected ammo like everything else in the volley —
+                    // DYNAMISM_DESIGN is explicit that there are NO special cases, and an AP
+                    // shell is the bunker-buster the type exists for.
+                    StructureDamageMultiplier = mods.StructureMultiplier(c.structureDamageMultiplier),
+                    Ammo = mods.Type,
                 });
             }
             return shells;

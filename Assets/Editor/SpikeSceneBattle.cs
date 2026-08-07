@@ -132,6 +132,9 @@ public static class SpikeSceneBattle
         // every level fields the squad it was authored with.
         so.FindProperty("roster").objectReferenceValue =
             AssetDatabase.LoadAssetAtPath<RosterDefinitionSO>("Assets/GameData/Roster.asset");
+        // Ammo stats. Optional in the same way: no catalogue means every type is Standard.
+        so.FindProperty("ammoCatalog").objectReferenceValue =
+            AssetDatabase.LoadAssetAtPath<AmmoCatalogSO>("Assets/GameData/AmmoCatalog.asset");
         so.FindProperty("scenery").objectReferenceValue = scenery;
         so.FindProperty("playerUnitPrefab").objectReferenceValue = playerPrefab;
         so.FindProperty("enemyUnitPrefab").objectReferenceValue = enemyPrefab;

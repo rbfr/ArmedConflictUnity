@@ -1,0 +1,47 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b65df53e9278d38edb006c3196d4a20b, type: 3}
+  m_Name: AmmoCatalog
+  m_EditorClassIdentifier: 
+  slots:
+  - type: 0
+    displayName: Standard
+    oneLiner: Your volley, unchanged.
+    coinPrice: 0
+    unitDamageScale: 1
+    structureDamageScale: 1
+    spreadScale: 1
+    burnDamage: 0
+  - type: 1
+    displayName: Incendiary
+    oneLiner: Hits set men alight. They burn when the enemy turn starts.
+    coinPrice: 300
+    unitDamageScale: 0.85
+    structureDamageScale: 1
+    spreadScale: 1
+    burnDamage: 8
+  - type: 2
+    displayName: AP
+    oneLiner: Punches masonry. Wasted on men in the open.
+    coinPrice: 400
+    unitDamageScale: 0.6
+    structureDamageScale: 2
+    spreadScale: 1
+    burnDamage: 0
+  - type: 3
+    displayName: Cluster
+    oneLiner: Spreads wide. More men hit, each one lighter.
+    coinPrice: 500
+    unitDamageScale: 0.65
+    structureDamageScale: 1
+    spreadScale: 3.2
+    burnDamage: 0

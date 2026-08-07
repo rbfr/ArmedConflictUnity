@@ -55,6 +55,9 @@ public class BattleRunner : MonoBehaviour
     /// <summary>The loadout picker's menu. Optional — with no roster the levels field their
     /// authored squads and the picker never opens, which is exactly the pre-loadout behaviour.</summary>
     [SerializeField] RosterDefinitionSO roster;
+    /// <summary>What each ammo type does. Optional — with no catalogue every type resolves to
+    /// Standard's identity modifier, which is exactly the pre-ammo behaviour.</summary>
+    [SerializeField] AmmoCatalogSO ammoCatalog;
 
     const int UnitPoolSize = 48;
     const int ProjectilePoolSize = 64;
@@ -276,7 +279,16 @@ public class BattleRunner : MonoBehaviour
         // battleId advances per load so nothing keyed on it can collide with the level before it.
         state = LevelBuilder.BuildInitialState(level, ++battleId, campaignCount, random,
                                               playerGroupsOverride: loadoutGroups);
-        state = state with { Phase = GamePhase.Playing, TurnPhase = TurnPhase.Aiming };
+        // The ammo choice is a STANDING preference, so it survives a level change and a restart.
+        // Read through ProgressStore, which downgrades a selection the player no longer owns to
+        // Standard — a reset wipes unlocks, and a state pointing at a locked type would fire an
+        // ammo that is not owned.
+        state = state with
+        {
+            Phase = GamePhase.Playing,
+            TurnPhase = TurnPhase.Aiming,
+            SelectedAmmo = ProgressStore.SelectedAmmo(),
+        };
 
         scenery.Build(level, state.Structures);
         structureObjects.Clear();
@@ -728,7 +740,7 @@ public class BattleRunner : MonoBehaviour
         }
 
         var before = state;
-        state = BattleTick.Step(state, dt, level, random);
+        state = BattleTick.Step(state, dt, level, random, ammoCatalog);
 
         // Stand the line down as soon as it is the player's move again — the held pose belongs to
         // a volley that has now resolved.
@@ -776,8 +788,11 @@ public class BattleRunner : MonoBehaviour
         {
             if (state.TurnPhase != TurnPhase.Aiming) return;
             // Input.touch counts y from the BOTTOM, IMGUI rects from the top.
-            if (freeCamOn && FreeCamPadRect.Contains(
-                    new Vector2(t.position.x, Screen.height - t.position.y))) return;
+            var fromTop = new Vector2(t.position.x, Screen.height - t.position.y);
+            if (freeCamOn && FreeCamPadRect.Contains(fromTop)) return;
+            // Same trap the free-cam pad paid for: a tap that lands on a button must not ALSO
+            // start an aim drag, or picking ammo throws a volley and ends the turn.
+            if (AmmoSelectorRect.Contains(fromTop)) return;
             dragging = true; dragStart = t.position; dragFrames = 0; worstDragDt = 0f;
         }
         else if (dragging && (t.phase == TouchPhase.Moved || t.phase == TouchPhase.Stationary))
@@ -800,7 +815,7 @@ public class BattleRunner : MonoBehaviour
         arc.Clear();
         if (aimVel.sqrMagnitude < 0.01f) return;
         if (state.TurnPhase != TurnPhase.Aiming) return;
-        state = BattleTick.FireVolley(state, aimVel, random);
+        state = BattleTick.FireVolley(state, aimVel, random, ammoCatalog);
         if (audioFx != null) audioFx.PlayVolleyFire();
         VolleyAnim(playerSide: true);
         Debug.Log($"[Battle] volley: {state.Projectiles.Count} rounds at " +
@@ -1219,6 +1234,15 @@ public class BattleRunner : MonoBehaviour
     /// a finger resting on OUT for two seconds drifts on the glass, and on release that would
     /// fire a volley and end the turn. The camera tool must not be able to play the game.
     /// </summary>
+    /// <summary>
+    /// The ammo selector's footprint. ONE definition, read by both the drawing and the drag
+    /// exclusion — two copies drift, and the failure mode is a tap that both picks ammo and
+    /// fires the volley.
+    /// </summary>
+    Rect AmmoSelectorRect => ammoCatalog == null || ammoCatalog.slots.Count == 0
+        ? new Rect(0f, 0f, 0f, 0f)
+        : new Rect(30f, Screen.height - 348f, Screen.width - 60f, 104f);
+
     Rect FreeCamPadRect => new(PadX, PadTop,
                                3f * PadButton + 2f * PadGap, 2f * PadButtonH + PadGap);
 
@@ -1386,9 +1410,82 @@ public class BattleRunner : MonoBehaviour
         }
         GUI.enabled = true;
 
+        DrawAmmoSelector();
         DrawLevelNav();
         DrawFreeCamPad();
         DrawHud();
+    }
+
+    /// <summary>
+    /// The ammo selector — `DYNAMISM_DESIGN.md` Phase A's "one free permanent choice per turn".
+    ///
+    /// Sits by the aim area, and the DRAG IS COMPLETELY UNCHANGED: this changes what the volley
+    /// DOES when it arrives, never how it is thrown. Guessing angle and power stays the mechanic.
+    ///
+    /// Three rules, all from the spec:
+    /// - **No mid-drag switching.** Disabled while `dragging`, so a finger already on the glass
+    ///   cannot change the round it is about to throw.
+    /// - **Aiming phase only.** Switching while the volley is in the air would change ammo the
+    ///   rounds were already fired with.
+    /// - **The choice PERSISTS**, across turns and battles, via ProgressStore. It is a standing
+    ///   preference, not a per-turn prompt — a prompt every turn is a tax on the common case.
+    ///
+    /// It also SELLS. Purchase lives here rather than in the loadout panel because the coin
+    /// balance is already on this HUD and the panel is a fixed eight-row layout; tapping a locked
+    /// type buys it if the player can afford it. Buying mid-battle is deliberately allowed —
+    /// coins are earned from victories, no ammo is ever REQUIRED to clear a level, and "I want
+    /// that one now" is the impulse the coin sink exists to catch.
+    /// </summary>
+    void DrawAmmoSelector()
+    {
+        if (ammoCatalog == null || ammoCatalog.slots.Count == 0) return;
+        if (state.Phase != GamePhase.Playing) return;
+
+        bool canSwitch = state.TurnPhase == TurnPhase.Aiming && !dragging;
+
+        var row = AmmoSelectorRect;
+        const float Gap = 8f;
+        float w = (row.width - Gap * (ammoCatalog.slots.Count - 1)) / ammoCatalog.slots.Count;
+
+        var label = new GUIStyle(GUI.skin.button) { fontSize = 24, alignment = TextAnchor.MiddleCenter };
+        for (int i = 0; i < ammoCatalog.slots.Count; i++)
+        {
+            var slot = ammoCatalog.slots[i];
+            bool unlocked = ProgressStore.IsAmmoUnlocked(slot.type);
+            bool selected = state.SelectedAmmo == slot.type;
+            var r = new Rect(row.x + i * (w + Gap), row.y, w, row.height);
+
+            // The SELECTED type is tinted rather than merely labelled: at gameplay distance a
+            // ring of text all one colour reads as four disabled buttons.
+            var prev = GUI.color;
+            GUI.color = selected ? new Color(1f, 0.85f, 0.3f)
+                      : unlocked ? Color.white
+                      : new Color(0.75f, 0.75f, 0.8f);
+            GUI.enabled = canSwitch && (unlocked || EconomyStore.Balance() >= slot.coinPrice);
+
+            string caption = unlocked ? slot.displayName : $"{slot.displayName}\n{slot.coinPrice}c";
+            if (GUI.Button(r, caption, label))
+            {
+                if (unlocked)
+                {
+                    ProgressStore.SetSelectedAmmo(slot.type);
+                    state = state with { SelectedAmmo = slot.type };
+                    Debug.Log($"[Ammo] selected {slot.type}");
+                }
+                else if (EconomyStore.PurchaseAmmo(new AmmoDefinition
+                         { Type = slot.type, CoinPrice = slot.coinPrice }))
+                {
+                    // Bought AND selected in one tap. Buying a thing and then having to pick it
+                    // is a second step with no decision in it.
+                    ProgressStore.SetSelectedAmmo(slot.type);
+                    state = state with { SelectedAmmo = slot.type };
+                    if (ui != null) ui.SetCoins(EconomyStore.Balance());
+                    Debug.Log($"[Ammo] purchased {slot.type} for {slot.coinPrice}");
+                }
+            }
+            GUI.color = prev;
+            GUI.enabled = true;
+        }
     }
 
     /// <summary>

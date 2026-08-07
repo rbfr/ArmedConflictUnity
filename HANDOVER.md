@@ -20,10 +20,11 @@
    the same level ate three shells for ~58 structure damage. The siege retune still stands (see
    below — capacity is 288 either way).
 
-   **What this now owes: a CONFIRMED clear.** No flagged level has actually been won yet. The
-   structure phase is solved; the mop-up defeats my adb harness, which has no aim preview, so this
-   wants a human with the real controls. Also unchecked: the seven levels already under 288 got
-   easier and none have been re-tested for being too SOFT.
+   **CLOSED 2026-08-07: Rob played the campaign after the fix and reported the levels feel fine.**
+   That settles both things the audit still owed — a level clearing by hand, and whether the seven
+   levels already under 288 had gone too soft once the tank reliably landed its shells. A
+   playtest is better evidence than the adb harness, which has no aim preview and could never
+   finish a mop-up phase. **The Phase E balance audit is DONE, and with it all of Tier 0.**
 
 2. **The siege retune is APPLIED and only PARTLY verified.**
    The audit found five levels garrisoning more structure HP than a stock squad can ever break
@@ -43,10 +44,12 @@
    below — the same method gives a solvable shot on any level from its separation.
    **No device was attached during the 2026-08-06 audit session**, which is the only reason the
    device half is still open.
-3. Then Tier 1 in `PRODUCT_DIRECTION.md` — ammo types first. Note ammo is a FIFTH dead
-   system: the enum, `GameState.SelectedAmmo`, the unlock/selection persistence and
-   `CollisionSystem.IncendiaryHitUnitIds` all exist, `FireVolley` never sets `Ammo`, nothing
-   consumes the incendiary list, and there is no selector UI.
+3. **Tier 1.1 AMMO IS BUILT** (2026-08-07) — four types, a selector that also sells, and the
+   incendiary burn. It was indeed a fifth dead system. See "Tier 1.1 — AMMO TYPES" at the end of
+   this file. **What it still owes: Incendiary and Cluster have never been fired on a device**
+   (the phone went offline mid-verification), and there is no flame VFX on a burning unit.
+   Next in Tier 1 is 1.2, telegraphed mid-battle events — note Phase B's wind half is still
+   blocked, because wind is COSMETIC and making it real is a physics change needing an ask.
 
 4. Ideas Rob has parked are in `_plans/BACKLOG.md` — a nuclear reactor structure, and dead units
    sinking into the ground rather than vanishing.
@@ -1645,3 +1648,89 @@ harness cannot reliably reproduce a win. **L12 is now plausibly winnable and has
 - **A confirmed clear of any flagged level**, by hand, with the aim preview a real player has.
 - **Re-check the seven levels that were already under 288** for being too soft now.
 - L3, L5, L6 have never been run on device at all.
+
+## Tier 1.1 — AMMO TYPES, built 2026-08-07
+
+`PRODUCT_DIRECTION.md` Tier 1.1, spec `DYNAMISM_DESIGN.md` Phase A. **A fifth dead system**: the
+`AmmoType` enum, `ProjectileEntity.Ammo`, `GameState.SelectedAmmo`, `GameState.BurningEnemyIds`,
+the unlock/selection persistence in `ProgressStore`, `EconomyStore.PurchaseAmmo` and
+`CollisionSystem.IncendiaryHitUnitIds` ALL existed since the port, and `FireVolley` never set
+`Ammo`. Every round the game had ever fired was Standard, forever. This was wiring, not a build.
+
+### What is there now
+
+| | |
+|---|---|
+| `AmmoCatalogSO` + `Assets/GameData/AmmoCatalog.asset` | the four types, their prices and their numbers. Authored by `AmmoSetup.Build`, which is idempotent and safe to re-run |
+| `AmmoModifiers` | the pure, testable projection the spec asks for — no ScriptableObject reaches the damage math |
+| `BattleTick.FireVolley(.., ammoCatalog)` | stamps `Ammo` on every round INCLUDING the tank shell, and applies the scales |
+| `BattleTick.Step(.., ammoCatalog)` | applies the incendiary burn on the handover edge |
+| `BattleRunner.DrawAmmoSelector` | the in-battle selector, which also SELLS |
+
+| Type | Effect | Price |
+|---|---|---|
+| Standard | the identity — cannot change a volley | free |
+| Incendiary | 0.85x damage, and hit survivors take **8** at the enemy windup | 300c |
+| AP | **2x to structures**, 0.6x to men | 400c |
+| Cluster | **3.2x spread**, 0.65x damage — the wide-formation counter-pick | 500c |
+
+**Standard is the IDENTITY and that is asserted**, which is what makes PRODUCT_DIRECTION's "no
+ammo may be REQUIRED to clear a level" a checkable property rather than a promise: a level cleared
+on Standard is a level cleared with every modifier at 1.
+
+### The bug the DEVICE caught that the tests had passed over
+
+Firing AP at L12's 165hp citadel took **128** off it where ~192 was intended.
+
+The engine computes structure damage as `Damage * StructureDamageMultiplier`. The first version
+scaled `Damage` down by AP's soft-target penalty, which then flowed through to masonry too — so
+AP's real structure effect was `0.6 * 2 = 1.2x`, not 2x, and the type had almost no reason to
+exist. **The test that passed was asserting the FACTOR (`StructureDamageScale == 2`) instead of
+the PRODUCT.** `StructureMultiplier` now divides by `UnitDamageScale` so the two knobs are
+independent and both read against the base round.
+
+The replacement check asserts the NET per-round damage across three unit profiles, and was proven
+to fail on the old form first: it reports 1.19x / 1.25x / 1.25x. Its tolerance is DERIVED from
+integer rounding (`Damage` is an int, so an 8-damage round at 0.6 lands on 5, giving 2.08x) rather
+than guessed, because a fixed epsilon would either fail that honestly-correct case or be too loose
+to catch a 1.2x regression.
+
+**The lesson is the one this file already records in four costumes: assert the OUTPUT, not the
+input.** A multiplier being 2 is not the same claim as the damage being doubled.
+
+### Decisions worth knowing
+
+- **The selector SELLS.** Purchase lives in the in-battle selector rather than the loadout panel:
+  the coin balance is already on that HUD and the panel is a fixed eight-row uGUI layout. Buying
+  mid-battle is deliberately allowed — coins are earned, no ammo is required to clear anything,
+  and "I want that one now" is the impulse a coin sink exists to catch. Buying also SELECTS, since
+  buying then picking is a second step with no decision in it.
+- **A tap on the selector can never start an aim drag.** `AmmoSelectorRect` is one definition read
+  by both the drawing and the touch exclusion — the same trap the free-camera pad paid for, where
+  a finger on a button also threw a volley and ended the turn.
+- **No mid-drag switching, aiming phase only**, per the spec.
+- The choice PERSISTS via `ProgressStore`, and is re-read on every level load, which also
+  downgrades a selection the player no longer owns after a reset.
+- **The burn is ONE tick, cleared as it is spent.** A unit that kept burning every turn off a
+  single round would make the type a win button.
+- `burnDamage` is **8**, re-derived against the CURRENT roster (it must chip, not one-shot, the
+  frailest unit — now the 16hp Sniper). HANDOVER's old note about 6 being calibrated against an
+  8hp Sniper is resolved; the check anchors to the live roster so it cannot expire silently again.
+
+### Verified on device (before the AP correction)
+
+The selector renders and behaves: Standard gold and selected, locked types showing prices and
+greyed at 0 coins. Auto-clearing L1 and L2 paid 455 coins; AP bought for 400 (balance 455 -> 55),
+its button went gold and priceless, and the next volley hit the citadel for 128.
+
+**NOT re-verified on device after the AP fix** — the phone dropped to `offline` (enumerates in
+`lsusb`, will not talk; needs a replug). The correction is covered by the net-effect check above,
+which was demonstrated to fail on the old form.
+
+### Not done
+
+- **Incendiary and Cluster have never been fired on a device**, only in tests.
+- **No flame VFX.** The burn is a damage event with no visual yet; the spec asks for a flicker on
+  a burning unit, and `DYNAMISM_DESIGN` requires any new effect to use a BOUNDED slot pool.
+- The spec mentions AP being strong against "armored units". **There is no armour concept in the
+  roster** — no unit has such a field — so AP is implemented as structures-versus-men only.
