@@ -1,60 +1,91 @@
-# Handover — Unity, as of 2026-08-06
+# Handover — Unity, as of 2026-08-07
 
 ## START HERE
 
-- **Unity `main` at `00067ed`, pushed, clean.** Android `projectile-refinement` at `66a778a`, a
-  branch that is never being merged. **The Android build is RETIRED** — reference only.
-- **ALL OF TIER 0 IS DONE** (`PRODUCT_DIRECTION.md`, planned in `_plans/TIER0_PLAN.md`, phases
-  A-F), every phase confirmed on a real device. Game data is authored in UNITY now; the campaign
-  is **12 levels** with one beat each plus 17 rigs (29 total); there is a **victory card, a live
-  economy, a loadout picker and event banners**; and a destroyed structure leaves a **ruin**.
-- **411 self-test checks, all passing — run `PortSelfTest.Run` after every change.** They assert
-  behaviour the comments describe, and several exist because the thing they check silently broke
-  once already. It was 281 at the start of 2026-08-06.
+- **Unity `main` at `0b00183`, working tree clean, TEN COMMITS AHEAD OF `origin/main` — not
+  pushed.** Push is the first thing to decide next session. Android `projectile-refinement` at
+  `66a778a` is never being merged; **the Android build is RETIRED**, reference only.
+- **ALL OF TIER 0 IS DONE AND SIGNED OFF.** The Phase E balance audit — the last thing it owed —
+  was run on 2026-08-07 in both halves, and Rob played the campaign afterwards and reported the
+  levels feel fine. That closed it.
+- **Tier 1.1 (ammo types) IS BUILT** and confirmed on device.
+- **444 self-test checks, all passing — run `PortSelfTest.Run` after every change.** It was 281 at
+  the start of 2026-08-06 and 411 at the end of it.
 
 ### Pick up here
 
-1. **The tank shell's aim is FIXED (2026-08-07) — the shell now lands with the volley.** It used
-   to overshoot by 2.5-3.9 units, which made the only structure-breaking weapon unplaceable. On
-   device, L12 now loses BOTH structures by volley 3 with nine of ten units alive; before the fix
-   the same level ate three shells for ~58 structure damage. The siege retune still stands (see
-   below — capacity is 288 either way).
+1. **PUSH.** Ten commits are sitting unpushed. Nothing is in flight and the tree is clean.
 
-   **CLOSED 2026-08-07: Rob played the campaign after the fix and reported the levels feel fine.**
-   That settles both things the audit still owed — a level clearing by hand, and whether the seven
-   levels already under 288 had gone too soft once the tank reliably landed its shells. A
-   playtest is better evidence than the adb harness, which has no aim preview and could never
-   finish a mop-up phase. **The Phase E balance audit is DONE, and with it all of Tier 0.**
+2. **Tier 1.2 — telegraphed mid-battle events** (`PRODUCT_DIRECTION.md` Tier 1, spec
+   `DYNAMISM_DESIGN.md` Phase B). This is the next product work. **Half of it is blocked and that
+   is not a surprise to be rediscovered:** Phase B is wind shifts + reinforcement waves, and
+   **wind is COSMETIC** — `windAccelZ` drifts the round in Z while the collision test is X/Y only,
+   so wind cannot change what a shot hits. Making it real is a PHYSICS change and needs an ask.
+   The reinforcement-wave half is already wired and firing (Phase D did it), so 1.2's real content
+   is the SCHEDULE and the telegraph, not the mechanism.
 
-2. **The siege retune is APPLIED and only PARTLY verified.**
-   The audit found five levels garrisoning more structure HP than a stock squad can ever break
-   (capacity is a fixed 288: 3 tank shells x 96, and a rifleman does 2 to a building). All five
-   were cut via placement `hpScale` and all twelve now pass. **Only L9 was re-run on device**, and
-   under `Auto` — perfect aim — it finished 2 v 2, which is a warning rather than a pass. See
-   "Siege retune" at the end of this file. L9's roster has SINCE been cut 22 -> 15 (its race
-   ratio went 4.1x -> 1.9x); L3, L5, L6 and L12 have not been re-run on device at all. L12 matters
-   most — finale, tightest margin at 280 of 288 — and the untried optimal line for it is recorded
-   at the end of this file.
+3. **Two small things Tier 1.1 owes**, both cheap:
+   - **No flame VFX on a burning unit.** The incendiary burn does damage with nothing to see; the
+     only way to confirm it fired is the `[Burn]` log, which is why that log is kept. Any new
+     effect must use a BOUNDED slot pool (hard rule).
+   - **Is Cluster's 3.2x spread too wide to connect?** A balance question for a human playing it;
+     a scripted drag could not settle it.
 
-   The superseded original note: `BalanceAudit.Report` now settles reach and pace
-   headless and found a shipped level that could not be won. What it cannot do is measure
-   DIFFICULTY, which still needs REAL DRAGS — `Auto` never misses and is structure-blind. Start
-   with the levels the audit flags: **L4, L6, L9, L12** (player 2.4-4.1x behind the volley race)
-   and **L3, L5** (accepted rule-7 warnings). A derived drag for L1 is recorded under "Ruins"
-   below — the same method gives a solvable shot on any level from its separation.
-   **No device was attached during the 2026-08-06 audit session**, which is the only reason the
-   device half is still open.
-3. **Tier 1.1 AMMO IS BUILT** (2026-08-07) — four types, a selector that also sells, and the
-   incendiary burn. It was indeed a fifth dead system. See "Tier 1.1 — AMMO TYPES" at the end of
-   this file. Confirmed on device: the selector, purchase, AP's 2x, and the burn (via the kept
-   `[Burn]` probe). **What it still owes: whether Cluster's 3.2x spread is too wide to connect**
-   — a balance question for a human, not a scripted drag — and there is no flame VFX, so the
-   burn currently does damage with nothing to see.
-   Next in Tier 1 is 1.2, telegraphed mid-battle events — note Phase B's wind half is still
-   blocked, because wind is COSMETIC and making it real is a physics change needing an ask.
+4. **`_plans/BACKLOG.md`** holds what Rob has parked: a **nuclear reactor structure** (open
+   question is what MECHANIC it owns — a blast on destruction would make it the first structure
+   with one), **dead units sinking** into the ground instead of vanishing, and the **ragdoll /
+   structure report**, which is PARTLY fixed and deliberately left open.
 
-4. Ideas Rob has parked are in `_plans/BACKLOG.md` — a nuclear reactor structure, and dead units
-   sinking into the ground rather than vanishing.
+### The state of the checks, as of the handover
+
+```
+PortSelfTest.Run          444 checks, ALL PASS
+LevelComposition.Report   12 campaign levels, 0 errors, 2 accepted warnings (L3, L5 rule 7 —
+                          reasons in their designNotes; both beats are about height)
+BalanceAudit.Report       0 errors, 19 warnings (race-ratio flags on the dearest-squad
+                          extreme, which is informational)
+```
+
+A scene rebuild is NOT pending — it was run after the ammo catalogue's serialized field went in.
+The APK on the device is current with `0b00183`.
+
+### What changed on 2026-08-07, in one place
+
+Sections at the end of this file carry the detail; this is the index.
+
+| | |
+|---|---|
+| `BalanceAudit` + composition **rule 7** | reach, the volley race, the melee clock, and siege capacity — checked, not prose. Found **L7 unwinnable** and fixed it |
+| `LEVEL_AUTHORING.md` rule 4 corrected | it claimed a "~49-unit max range"; the real figure is **20.25**, and that lie is what licensed L7 |
+| The **siege capacity** finding | a stock squad can do a FIXED **288** structure damage per battle (3 shells x 96; a rifleman does 2). Five levels garrisoned more than that and were retuned |
+| **The tank shell's aim** | it overshot the volley by **2.5-3.9 units**, so the only structure-breaking weapon could not be placed. Now solved onto the volley's landing point |
+| **HUD lists structures separately** | a single total cannot say WHICH building still stands; it cost one audit run four volleys fired into rubble |
+| **L9 roster cut 22 -> 15** | widest body ratio in the campaign, and its garrisons were over the decks they stood on |
+| **Tier 1.1 ammo** | four types, a selector that also sells, the incendiary burn. A FIFTH dead system |
+| **Ragdoll levitation fixed** | corpses flung at a wall were snapped up the face onto the roof |
+
+### The lesson THIS session kept re-teaching: assert the OUTPUT, not the input
+
+Three separate times, a check that passed was asserting the wrong thing, and the device or a
+deliberate negative test found what it missed:
+
+- **AP ammo** asserted `structureDamageScale == 2` and passed, while the real per-round effect was
+  **1.2x** — the engine multiplies `Damage` by the multiplier, and the ammo had already scaled
+  `Damage` down. Caught on a device: 128 off a 165hp citadel where ~192 was intended.
+- **The ragdoll fix** was "verified" by two tests that both passed against buggy code, because
+  neither ever reached the branch — a body at rest dips below the box's base, and one tick does
+  not carry a thrown body into the box at all.
+- **The tank shell** had a test asserting ammo was IMPORTED, never that a shell was fired where
+  aimed.
+
+**So: run a new check against the OLD code before trusting it.** Both the shell fix and the AP fix
+were confirmed that way this session, and both negative runs are recorded with their numbers. A
+check never seen to fail is not evidence.
+
+The older lesson still stands and is what found the ammo system at all: **assume NOTHING in this
+port is wired just because it exists and has tests.** Five systems have now been found fully
+ported, unit-tested and reached by nothing — the economy, boss phases, reinforcement waves, stages,
+and ammo. **Grep for callers before believing a feature is live.**
 
 ### The lesson this session kept re-teaching
 
@@ -132,8 +163,9 @@ All eight `GameViewModel` slices are ported (`LevelBuilder`, `CollisionSystem`,
 `TrajectoryPhysics`, `SweptCollision`, `ProgressStore`, `EconomyStore`. `data/` is complete at
 24 levels — 7 campaign (one per biome) plus 17 test rigs.
 
-**281 checks, all passing.** They assert the behaviour the Kotlin comments describe, not just
-that the code compiles. Run them after every change:
+**281 checks, all passing** (as of that date — it is 444 now; see START HERE). They assert the
+behaviour the Kotlin comments describe, not just that the code compiles. Run them after every
+change:
 
 ```bash
 U=~/Unity/Hub/Editor/6000.0.80f1/Editor/Unity
@@ -1238,11 +1270,13 @@ RESTART / NEXT problem in Phase C. The in-battle furniture (coin pill, banners) 
 while the picker is up: it belongs to a battle that has not started, and it ghosted through the
 panel's 97% fill.
 
-### NOT DONE: the balance audit — SUPERSEDED 2026-08-06
+### NOT DONE: the balance audit — SUPERSEDED, and the audit is now COMPLETE
 
-**The arithmetic half has since been built and run** — see "The balance audit, arithmetic half" at
-the end of this file. It found L7 unwinnable and made reach a checked rule. Only the DEVICE half
-(real drags for difficulty) is still owed. The original text follows.
+**Both halves have since been built and run** (2026-08-06 arithmetic, 2026-08-07 device), and the
+whole audit was CLOSED on 2026-08-07 by Rob playing the campaign and reporting the levels feel
+fine. It found L7 unwinnable, made reach a checked rule, found the 288 siege ceiling and the tank
+shell's overshoot. See the sections at the end of this file. The original text follows, and its
+"has not been run" is no longer true.
 
 `PRODUCT_DIRECTION.md` asks that every shipped level be clearable at stock tier by a competent
 shooter, and calls a level that breaks under a LEGAL loadout a product bug. **That audit has not
@@ -1356,12 +1390,13 @@ a 6x structure multiplier. With both routes, L12 The Citadel clears in 4.6 volle
 against 21.6 by shooting: **the anti-structure unit is measurably the right pick on the fortress
 level**, which is the roster working as designed.
 
-### Still owed: the device half
+### The device half — SINCE RUN, and CLOSED
 
-The audit ranks the campaign; it does not play it. Flagged for real drags, worst first: **L9 Dusk
-Redoubt (4.1x), L12 The Citadel (3.8x), L6 Ridge Bastion (2.9x), L4 Ash Boulevard (2.4x)**, plus
-L4 and L9 where melee contact arrives before the field can be cleared. L3 and L5 want a look for
-feel rather than for legality.
+Run the same day; the results are in the sections below. The ranking here is what chose which
+levels to drag, and it was sound: L9 and L12, the two worst, were both unclearable at stock, and
+L4, the least-flagged, was not. **Closed 2026-08-07 by Rob playing the campaign after the tank
+shell was fixed and reporting the levels feel fine** — better evidence than the adb harness, which
+has no aim preview and could never finish a mop-up phase.
 
 **A systemic observation for whoever tunes difficulty next:** every campaign level needs 81-100%
 power at its deepest enemy. The whole game lives in the top fifth of the aim range, so there is
@@ -1494,11 +1529,11 @@ volley race flagged it worst at 4.1x before any of this. Cutting HP does not cha
 line out-shoots a 10-body line every single turn. The next lever for L9 is the ROSTER, not the
 walls.
 
-### Still owed
+### Still owed — ALL SINCE RESOLVED
 
-- **L3, L5, L6, L12 have not been re-run on device** since the retune. L12 matters most; it is the
-  finale and has the tightest margin at 280/288.
-- **L9 likely wants an enemy-count cut** as well, per above.
+- ~~L3, L5, L6, L12 not re-run on device~~ — **closed by Rob's playtest 2026-08-07**, after the
+  tank shell fix, which changed the answer for every level at once.
+- ~~L9 likely wants an enemy-count cut~~ — **done**: 22 -> 15, race ratio 4.1x -> 1.9x.
 - The **"Structure HP" HUD line is still a single total** across all enemy structures, so it cannot
   say which building still stands. It cost one run four volleys fired into rubble. `BattleRunner.cs`
   around line 1278 — the fix is to list surviving structures by `displayName`, and it needs no
@@ -1645,11 +1680,11 @@ tier standing at 53 and sat at 6 v 13, and lost. Outcome is very sensitive to sh
 which is arguably RIGHT for a finale (three shells, 96 each, place them well) but means my adb
 harness cannot reliably reproduce a win. **L12 is now plausibly winnable and has not been won.**
 
-### Still owed
+### Still owed — ALL SINCE RESOLVED
 
-- **A confirmed clear of any flagged level**, by hand, with the aim preview a real player has.
-- **Re-check the seven levels that were already under 288** for being too soft now.
-- L3, L5, L6 have never been run on device at all.
+**Rob played the campaign after this fix and reported the levels feel fine (2026-08-07).** That
+answered all three at once: a level clearing by hand, whether the seven levels already under 288
+had gone too soft once the tank reliably landed, and L3/L5/L6 never having been played.
 
 ## Tier 1.1 — AMMO TYPES, built 2026-08-07
 
