@@ -18,25 +18,25 @@ MonoBehaviour:
   levelGoal: "Outnumbered two to one \u2014 break them before they reach the line"
   enemyGroups:
   - definition: {fileID: 11400000, guid: aecf03c40cb9b8f4d85d97ef12b4289f, type: 2}
-    count: 6
+    count: 4
     anchorX: 1
     anchorZ: 0
     standingOnStructureId: 
     advancePerTurn: 1
   - definition: {fileID: 11400000, guid: b51688fb293b69e5cab2885bcaa975b8, type: 2}
-    count: 3
+    count: 2
     anchorX: 2
     anchorZ: 0
     standingOnStructureId: 
     advancePerTurn: 0
   - definition: {fileID: 11400000, guid: 0cc2a054cb1b0b38086ae4f985d09207, type: 2}
-    count: 5
+    count: 3
     anchorX: 2.5
     anchorZ: 0.12
     standingOnStructureId: bunker
     advancePerTurn: 0
   - definition: {fileID: 11400000, guid: b51688fb293b69e5cab2885bcaa975b8, type: 2}
-    count: 8
+    count: 6
     anchorX: 5.5
     anchorZ: 0.12
     standingOnStructureId: barracks
@@ -116,4 +116,11 @@ MonoBehaviour:
     -> 105), garrisoned total 330 -> 229. Measured on device at 330: THREE runs, three
     total defeats - once the three tank shells were spent the squad did about 8 structure
     damage a volley while losing about one unit a volley, so the 13 garrisoned enemies
-    could never be reached."
+    could never be reached.
+    Enemy roster CUT 22 -> 15 on 2026-08-07 (shields 6->4, forward rifles 3->2, bunker
+    gunners 5->3, barracks rifles 8->6). Two reasons. It fielded 22 against the player's
+    10, the widest body ratio in the campaign, and a 22-body line out-shoots a 10-body
+    line every turn however the walls are tuned - the volley race flagged this level worst
+    at 4.1x. And the garrisons were over the decks they stand on: LEVEL_AUTHORING's
+    capacity table rates a MountainBunker at ~2 and a BarracksBlock at ~4, and this level
+    had 5 and 8 on them. Garrison stays the majority at 9 of 15."

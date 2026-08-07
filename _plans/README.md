@@ -22,4 +22,5 @@ Sits outside `Assets/`, so Unity never imports it.
 
 | Plan | Covers | State |
 |---|---|---|
-| `TIER0_PLAN.md` | `PRODUCT_DIRECTION.md` Tier 0 — the product spine (0.1–0.6) | Not started; phases A–F sequenced |
+| `TIER0_PLAN.md` | `PRODUCT_DIRECTION.md` Tier 0 — the product spine (0.1–0.6) | Phases A–F DONE; balance audit run, retune partly verified |
+| `BACKLOG.md` | Asked for, not yet scheduled — one section per idea, with why | Not sequenced; pick one and give it its own plan file |

@@ -1259,13 +1259,17 @@ public class BattleRunner : MonoBehaviour
     /// </summary>
     void DrawHud()
     {
-        int structureHp = 0, structureMax = 0;
+        // PER STRUCTURE, not a total. A single "Structure HP" sum cannot say WHICH building is
+        // still standing, and on a two-structure level that is the whole decision: keep firing
+        // here, or shift. Measured cost of the old readout during the 2026-08-07 balance audit —
+        // four volleys were fired into the site of an already-destroyed bunker while the barracks
+        // sat untouched, because the falling total looked like progress.
+        //
+        // Destroyed structures are removed from state.Structures by the tick, so listing what
+        // survives is automatically the list of what is left to do.
+        var enemyStructures = new List<StructureEntity>();
         foreach (var st in state.Structures)
-        {
-            if (st.Definition.isPlayerSide) continue;
-            structureHp += st.Hp;
-            structureMax += st.MaxHp;
-        }
+            if (!st.Definition.isPlayerSide) enemyStructures.Add(st);
 
         var big = new GUIStyle(style) { fontSize = 40 };
         var small = new GUIStyle(style) { fontSize = 28, normal = { textColor = new Color(0.8f, 0.8f, 0.85f) } };
@@ -1273,9 +1277,32 @@ public class BattleRunner : MonoBehaviour
         float y = 24f;
         GUI.Label(new Rect(28, y, 900, 60), $"Your units: {state.PlayerUnits.Count}", big); y += 46;
         GUI.Label(new Rect(28, y, 900, 60), $"Enemy units: {state.EnemyUnits.Count}", big); y += 46;
-        if (structureMax > 0)
+        // Nearest first, which is also left-to-right on screen, so the list reads in the order
+        // the structures appear on the field.
+        enemyStructures.Sort((a, b) => a.X.CompareTo(b.X));
+        foreach (var st in enemyStructures)
         {
-            GUI.Label(new Rect(28, y, 900, 60), $"Structure HP: {structureHp}", big);
+            // displayName, not the asset name: "Command Bunker" is what the player sees on the
+            // field, and the id (command_bunker) is authoring vocabulary.
+            string name = string.IsNullOrEmpty(st.Definition.displayName)
+                          ? st.Definition.id : st.Definition.displayName;
+
+            // DUPLICATE NAMES ARE REAL and would rebuild the exact ambiguity this list exists to
+            // remove: L12 places FortressTierSmall and FortressTierWide, and BOTH are called
+            // "Fortress Tier". Qualify by position only when a name actually collides, so the
+            // common case stays clean.
+            int same = 0, rank = 0;
+            foreach (var other in enemyStructures)
+            {
+                string otherName = string.IsNullOrEmpty(other.Definition.displayName)
+                                   ? other.Definition.id : other.Definition.displayName;
+                if (otherName != name) continue;
+                same++;
+                if (other.X < st.X) rank++;
+            }
+            if (same > 1) name += same == 2 ? (rank == 0 ? " (near)" : " (far)") : $" #{rank + 1}";
+
+            GUI.Label(new Rect(28, y, 900, 60), $"{name}: {st.Hp}", big);
             y += 46;
         }
 

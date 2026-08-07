@@ -14,14 +14,23 @@
 
 ### Pick up here
 
-1. **The siege retune is APPLIED and only PARTLY verified — finish the verification first.**
+1. **FIX THE TANK SHELL'S AIM FIRST — it likely outranks every HP number here.** Measured
+   2026-08-07: the shell lands about 1.3 units BEYOND the infantry impact point, because
+   `velocityBoost` 1.12 buys 1.2544x the range from a tank only ~2 units further back. It is the
+   only weapon a stock squad has that can break a structure (96 vs a rifleman's 2), and the player
+   cannot place it. See "THE TANK SHELL DOES NOT LAND WHERE YOU AIM" at the end of this file;
+   recommendation is to solve the shell's velocity to the volley's landing x. **This changes the
+   answer for every level at once, so do it before more level tuning.**
+
+2. **The siege retune is APPLIED and only PARTLY verified.**
    The audit found five levels garrisoning more structure HP than a stock squad can ever break
    (capacity is a fixed 288: 3 tank shells x 96, and a rifleman does 2 to a building). All five
    were cut via placement `hpScale` and all twelve now pass. **Only L9 was re-run on device**, and
    under `Auto` — perfect aim — it finished 2 v 2, which is a warning rather than a pass. See
-   "Siege retune" at the end of this file. Next: re-run **L12** (finale, tightest margin), then
-   L3/L5/L6, and consider cutting L9's ENEMY COUNT — at 22 v 10 it has the widest body ratio in
-   the campaign and walls were never its only problem.
+   "Siege retune" at the end of this file. L9's roster has SINCE been cut 22 -> 15 (its race
+   ratio went 4.1x -> 1.9x); L3, L5, L6 and L12 have not been re-run on device at all. L12 matters
+   most — finale, tightest margin at 280 of 288 — and the untried optimal line for it is recorded
+   at the end of this file.
 
    The superseded original note: `BalanceAudit.Report` now settles reach and pace
    headless and found a shipped level that could not be won. What it cannot do is measure
@@ -31,7 +40,13 @@
    below — the same method gives a solvable shot on any level from its separation.
    **No device was attached during the 2026-08-06 audit session**, which is the only reason the
    device half is still open.
-2. Then Tier 1 in `PRODUCT_DIRECTION.md` — ammo types first.
+3. Then Tier 1 in `PRODUCT_DIRECTION.md` — ammo types first. Note ammo is a FIFTH dead
+   system: the enum, `GameState.SelectedAmmo`, the unlock/selection persistence and
+   `CollisionSystem.IncendiaryHitUnitIds` all exist, `FireVolley` never sets `Ammo`, nothing
+   consumes the incendiary list, and there is no selector UI.
+
+4. Ideas Rob has parked are in `_plans/BACKLOG.md` — a nuclear reactor structure, and dead units
+   sinking into the ground rather than vanishing.
 
 ### The lesson this session kept re-teaching
 
@@ -1480,3 +1495,79 @@ walls.
   say which building still stands. It cost one run four volleys fired into rubble. `BattleRunner.cs`
   around line 1278 — the fix is to list surviving structures by `displayName`, and it needs no
   scene rebuild because that HUD is IMGUI.
+
+## THE TANK SHELL DOES NOT LAND WHERE YOU AIM — found 2026-08-07
+
+The most useful thing the whole balance audit turned up, and it was invisible until the HUD listed
+structures separately.
+
+**Measured on L12, one volley per drag, reading per-structure damage:**
+
+| Drag (px per axis) | near tier | far tier | enemies |
+|---|---|---|---|
+| 272 | **-16** | 0 | 0 |
+| **300** | -10 | **-96** | **-6** |
+| 316 | -6 | -10 | -5 |
+
+96 is exactly the shell (`cannon.damage 32 x structureDamageMultiplier 3`). So the shell lands on
+the FAR tier when the infantry is aimed roughly at the NEAR one — about **1.3 world units beyond
+the infantry impact point**, and the derivation agrees with the measurement:
+
+`velocityBoost` is 1.12 and range goes as v², so the shell flies 1.2544x the infantry range from a
+tank sitting only ~2 units further back. Net `0.2544 x R - 2`, which at a typical R of 13.5 is
+**+1.4 units**. The boost exists to stop the shell falling SHORT of the line's own volley
+(`BattleTick.CannonShells` says so), and it overshoots instead.
+
+**Why this matters more than any HP number.** The shell is the only weapon a stock squad has that
+can break a structure — 96 against a rifleman's 2. The player aims ONE reticle and fires TWO
+weapons that land in different places, and the one that matters is the one they cannot place. Every
+failed run in this audit is at least partly this: shells thrown at a building and landing behind
+it. My own first L12 run spent all three shells for ~58 total structure damage; the sweep above
+put a single shell on target for 96.
+
+**This is a candidate root cause for "levels are not clearable" that is INDEPENDENT of the HP
+retune**, and it should be settled before any more level tuning. Three options, none taken:
+
+1. **Aim the shell at the infantry's impact point** — solve the shell's velocity to match the
+   volley's landing x rather than scaling the aim velocity by a constant. Most correct; it makes
+   the single reticle honest. `TrajectoryPhysics.SolveVelocity` already solves speed to a target.
+2. **Re-derive `velocityBoost` from the actual muzzle offset** rather than leaving it a hand-tuned
+   1.12. Smallest change, still approximate, and it drifts the moment a tank moves on a level.
+3. **Show the shell's own landing hint.** Rejected on sight — `CAMERA_ARCHITECTURE.md` and the
+   HUD comment are explicit that a predicted landing marker was tried and reverted, because
+   guessing angle and power IS the mechanic.
+
+My recommendation is **1**.
+
+### Structure HP is now listed PER STRUCTURE — done, confirmed on device
+
+`BattleRunner.DrawHud` listed one summed "Structure HP" across all enemy structures, which cannot
+say WHICH building still stands; it cost an earlier run four volleys fired into the site of an
+already-destroyed bunker. It now lists each surviving enemy structure by `displayName`, nearest
+first (which is also left-to-right on screen). Destroyed structures leave `state.Structures`, so
+the list is automatically what is left to do.
+
+**Duplicate names are real and would have rebuilt the exact ambiguity:** L12 places
+`FortressTierSmall` and `FortressTierWide` and BOTH are called "Fortress Tier". A positional
+qualifier is appended only when a name actually collides, so the common case stays clean.
+Confirmed on device: `Fortress Tier (near): 115` / `Fortress Tier (far): 165`, and the qualifier
+correctly disappears when one of them falls. Code-only, IMGUI — no scene rebuild.
+
+### L9 roster cut 22 -> 15
+
+L9 fielded 22 against the player's 10, the widest body ratio in the campaign, and the volley race
+flagged it worst at 4.1x. Its garrisons were also over the decks they stand on:
+`LEVEL_AUTHORING.md`'s capacity table rates a MountainBunker at ~2 and a BarracksBlock at ~4, and
+this level had **5 and 8** on them. Now shields 6->4, forward rifles 3->2, bunker gunners 5->3,
+barracks rifles 8->6. Garrison stays the majority at 9 of 15.
+
+Effect on the audit: **race ratio 4.1x -> 1.9x**, under the warn threshold, with siege, melee clock
+and all seven composition rules clean. Not re-run on device after the cut.
+
+### Where L12 stands
+
+Still not cleared, across two runs — but neither was an optimal line: the first mis-aimed all three
+shells, the second spent them on the sweep above. Knowing that drag 300 puts a shell on the far
+tier for 96, the untried optimal line is two volleys at 300 (far tier 165 dead, ten garrison with
+it), then the near tier. **Try that before concluding anything about L12's tuning**, and ideally
+after fixing the shell aim, which would change the answer for every level at once.
