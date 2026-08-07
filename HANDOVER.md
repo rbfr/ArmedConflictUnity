@@ -14,13 +14,16 @@
 
 ### Pick up here
 
-1. **FIX THE TANK SHELL'S AIM FIRST — it likely outranks every HP number here.** Measured
-   2026-08-07: the shell lands about 1.3 units BEYOND the infantry impact point, because
-   `velocityBoost` 1.12 buys 1.2544x the range from a tank only ~2 units further back. It is the
-   only weapon a stock squad has that can break a structure (96 vs a rifleman's 2), and the player
-   cannot place it. See "THE TANK SHELL DOES NOT LAND WHERE YOU AIM" at the end of this file;
-   recommendation is to solve the shell's velocity to the volley's landing x. **This changes the
-   answer for every level at once, so do it before more level tuning.**
+1. **The tank shell's aim is FIXED (2026-08-07) — the shell now lands with the volley.** It used
+   to overshoot by 2.5-3.9 units, which made the only structure-breaking weapon unplaceable. On
+   device, L12 now loses BOTH structures by volley 3 with nine of ten units alive; before the fix
+   the same level ate three shells for ~58 structure damage. The siege retune still stands (see
+   below — capacity is 288 either way).
+
+   **What this now owes: a CONFIRMED clear.** No flagged level has actually been won yet. The
+   structure phase is solved; the mop-up defeats my adb harness, which has no aim preview, so this
+   wants a human with the real controls. Also unchecked: the seven levels already under 288 got
+   easier and none have been re-tested for being too SOFT.
 
 2. **The siege retune is APPLIED and only PARTLY verified.**
    The audit found five levels garrisoning more structure HP than a stock squad can ever break
@@ -1510,13 +1513,14 @@ structures separately.
 | 316 | -6 | -10 | -5 |
 
 96 is exactly the shell (`cannon.damage 32 x structureDamageMultiplier 3`). So the shell lands on
-the FAR tier when the infantry is aimed roughly at the NEAR one — about **1.3 world units beyond
-the infantry impact point**, and the derivation agrees with the measurement:
+the FAR tier when the infantry is aimed roughly at the NEAR one.
 
-`velocityBoost` is 1.12 and range goes as v², so the shell flies 1.2544x the infantry range from a
-tank sitting only ~2 units further back. Net `0.2544 x R - 2`, which at a typical R of 13.5 is
-**+1.4 units**. The boost exists to stop the shell falling SHORT of the line's own volley
-(`BattleTick.CannonShells` says so), and it overshoots instead.
+**The exact overshoot was pinned afterwards, in the harness rather than by eye: 2.5 to 3.9 units
+depending on the aim** — at aim (6,6) the volley lands at 10.92 and the shell at 14.86. (The
+device drag-deltas suggested ~1.3; that estimate was low, and the analytic figure supersedes it.)
+`velocityBoost` is 1.12 and range goes as v², so the shell flies 1.2544x the infantry range. The
+boost exists to stop the shell falling SHORT of the line's own volley (`BattleTick.CannonShells`
+says so), and it overshoots instead.
 
 **Why this matters more than any HP number.** The shell is the only weapon a stock squad has that
 can break a structure — 96 against a rifleman's 2. The player aims ONE reticle and fires TWO
@@ -1571,3 +1575,73 @@ shells, the second spent them on the sweep above. Knowing that drag 300 puts a s
 tier for 96, the untried optimal line is two volleys at 300 (far tier 165 dead, ten garrison with
 it), then the near tier. **Try that before concluding anything about L12's tuning**, and ideally
 after fixing the shell aim, which would change the answer for every level at once.
+
+## The shell now lands where you aim — FIXED 2026-08-07
+
+`BattleTick.FireVolley` no longer scales the aim velocity by `velocityBoost`. It takes the
+**volley's own landing point** — `TrajectoryPhysics.LandingPoint` from the mean muzzle of the
+firing line — and solves the gun onto it at the **same launch angle**, so the shell stays visually
+part of the same volley.
+
+`velocityBoost` survives with a real meaning: it is now the gun's speed **HEADROOM** over the drag
+that ordered the shot — how much further back the tank may stand and still make it. A muzzle ~2
+units behind the line needs about 1.07x, so the authored 1.12 covers it with room. It is a CAP on
+the solved speed rather than a blind multiplier.
+
+`InfantryMuzzleY` (0.35) is now a named constant used by the volley, the auto-fire path and the
+shell's aim point. Two copies of that number would put the shell on a subtly different target.
+
+### The size of the bug, pinned in the harness rather than by eye
+
+The new self-tests were run against the OLD code before the fix was kept — because a check that
+has never been seen to fail is not evidence. It failed exactly as it should:
+
+| aim | volley lands | shell landed | overshoot |
+|---|---|---|---|
+| (5,5) | 5.41 | 7.95 | **+2.54** |
+| (6,6) | 10.92 | 14.86 | **+3.94** |
+| (7,5) | 10.60 | 14.50 | **+3.90** |
+
+**The device drag-deltas had suggested ~1.3 units; that estimate was low and this supersedes it.**
+After the fix all three agree to 0.01.
+
+`PortSelfTest` now asserts the shell and the volley land together from their real (different)
+origins across three aims, and that the shell never exceeds its boost headroom. Comparing LANDING
+POINTS rather than velocities is the point — equal velocity from different origins is precisely
+the bug.
+
+### This did NOT make the siege retune unnecessary
+
+Worth stating, because it was the open question when the fix was chosen. Shell capacity is
+`3 x 96 = 288` either way; the fix lets the player RELIABLY LAND it rather than raising it. Every
+pre-retune value (L3 340, L5 340, L6 392, L9 330, L12 425) still exceeds 288, so those levels were
+unclearable on the arithmetic alone and the cuts stand. **Do not walk them back.**
+
+What the fix does change is that the seven levels already under 288 got easier, because their tank
+now reliably delivers 96s it used to throw past the target. None have been re-checked for being
+too SOFT — that is the open risk from this change.
+
+### On device: the structure phase now works, the ending is unconfirmed
+
+L12, aiming directly at each structure (which is the whole point of the fix):
+
+| volley | player | enemy | near tier | far tier |
+|---|---|---|---|---|
+| 0 | 10 | 18 | 115 | 165 |
+| 1 | 10 | 18 | 109 | **59** |
+| 2 | 9 | 13 | 107 | destroyed |
+| 3 | 9 | 8 | destroyed | — |
+
+**Both structures down by volley 3, the roster halved, nine of ten units alive.** Before the fix
+the same level ate three shells for ~58 total structure damage. That is the fix working.
+
+The ending is still unconfirmed, and honestly so: a second run with slightly looser drags left one
+tier standing at 53 and sat at 6 v 13, and lost. Outcome is very sensitive to shell placement —
+which is arguably RIGHT for a finale (three shells, 96 each, place them well) but means my adb
+harness cannot reliably reproduce a win. **L12 is now plausibly winnable and has not been won.**
+
+### Still owed
+
+- **A confirmed clear of any flagged level**, by hand, with the aim preview a real player has.
+- **Re-check the seven levels that were already under 288** for being too soft now.
+- L3, L5, L6 have never been run on device at all.

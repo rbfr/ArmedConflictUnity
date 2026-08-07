@@ -819,7 +819,7 @@ namespace ArmedConflict.Game
                 float jitter = ((float)random.NextDouble() - 0.5f) * 0.25f;
                 rounds.Add(new ProjectileEntity(
                     Id: 10000 + slot++,
-                    X: u.X, Y: u.Y + 0.35f, Z: u.Z,
+                    X: u.X, Y: u.Y + InfantryMuzzleY, Z: u.Z,
                     Vx: aimVelocity.x + jitter, Vy: aimVelocity.y + jitter, Vz: 0f,
                     Damage: u.Definition != null ? u.Definition.damage : 8,
                     OwnerIsPlayer: true)
@@ -837,15 +837,37 @@ namespace ArmedConflict.Game
             }
 
             int shellSlot = s.NextShellSlot;
-            // velocityBoost, straight from the data. The tank sits BEHIND the infantry line, so a
-            // shell thrown at the line's own velocity lands short of where the volley does; the
-            // boost is what puts the heavy round with the rest of the shot. Z is NOT boosted —
-            // the boost exists to buy range, and scaling the cross-field component with it would
-            // also throw the shell sideways.
+
+            // THE SHELL IS SOLVED TO THE VOLLEY'S LANDING POINT, not scaled by a constant.
+            //
+            // It used to be `aimVelocity * velocityBoost`. The tank sits BEHIND the line, so a
+            // shell thrown at the line's own velocity falls short, and 1.12 was hand-tuned to
+            // push it back out. But range goes as v^2, so a 1.12 boost buys 1.2544x the range and
+            // overshoots badly: measured by PortSelfTest against the old code, the shell landed
+            // 2.5 to 3.9 units PAST the volley depending on the aim (at aim 6,6 the volley lands
+            // at 10.92 and the shell at 14.86). Found on device 2026-08-07 on L12, where aiming
+            // the infantry at the near fortress tier put the shell onto the FAR one for its
+            // full 96.
+            //
+            // That mattered more than any level's HP, because the shell is the only thing a stock
+            // squad has that can break a structure (96 against a rifleman's 2, and only three of
+            // them). The player aims ONE reticle and fired TWO weapons that landed in different
+            // places, and could not place the one that counted.
+            //
+            // So: take where the infantry volley is actually going, and solve the gun onto it at
+            // the SAME launch angle, which keeps the shell visually part of the same volley.
+            // velocityBoost survives with a real meaning — the gun's speed HEADROOM over the drag
+            // that ordered the shot, i.e. how much further back the tank may stand and still make
+            // the shot. A muzzle ~2 units behind needs about 1.07x, so 1.12 covers it.
+            var lineOrigin = MeanMuzzle(s.PlayerUnits);
+            var volleyTarget = TrajectoryPhysics.LandingPoint(lineOrigin, aimVelocity);
+            float aimAngle = Mathf.Atan2(aimVelocity.y, aimVelocity.x) * Mathf.Rad2Deg;
+            float aimSpeed = Mathf.Sqrt(aimVelocity.x * aimVelocity.x
+                                        + aimVelocity.y * aimVelocity.y);
+
             var shells = CannonShells(s, ref shellSlot,
-                (muzzle, c) => new Vector3(aimVelocity.x * c.velocityBoost,
-                                           aimVelocity.y * c.velocityBoost,
-                                           aimVelocity.z));
+                (muzzle, c) => TrajectoryPhysics.SolveVelocity(
+                    muzzle, volleyTarget, aimAngle, aimSpeed * c.velocityBoost));
             rounds.AddRange(shells);
 
             return s with
@@ -862,6 +884,26 @@ namespace ArmedConflict.Game
         /// <summary>Shell ids sit in their own band, like the bullets' 10000 and the enemy's
         /// 20000. Raw ids have to stay globally unique — hit tracking keys off them.</summary>
         const int ShellIdBase = 30000;
+
+        /// <summary>
+        /// The muzzle height FireVolley gives every infantry round, above the shooter's feet.
+        /// Shared so the shell's aim point is solved from the same origin the volley is launched
+        /// from — two copies of this number would put the shell on a subtly different target.
+        /// </summary>
+        public const float InfantryMuzzleY = 0.35f;
+
+        /// <summary>
+        /// The volley's representative launch point: the MEAN of the firing line, at muzzle
+        /// height. The line is spread along x, so its rounds land spread too; the mean is the
+        /// volley's centre and therefore what the heavy round should be put on.
+        /// </summary>
+        static Vector3 MeanMuzzle(System.Collections.Generic.IReadOnlyList<UnitEntity> units)
+        {
+            if (units == null || units.Count == 0) return new Vector3(0f, InfantryMuzzleY, 0f);
+            float x = 0f, y = 0f;
+            foreach (var u in units) { x += u.X; y += u.Y; }
+            return new Vector3(x / units.Count, y / units.Count + InfantryMuzzleY, 0f);
+        }
 
         /// <summary>
         /// The player tank's contribution: one heavy shell per player-side structure that mounts
@@ -974,7 +1016,7 @@ namespace ArmedConflict.Game
                 }
                 if (target == null) continue;
 
-                float muzzleY = u.Y + 0.35f;
+                float muzzleY = u.Y + InfantryMuzzleY;
                 var v = TrajectoryPhysics.SolveVelocity(
                     new Vector3(u.X, muzzleY, u.Z),
                     new Vector3(target.X, target.Y, target.Z),

@@ -1531,6 +1531,56 @@ public static class PortSelfTest
                       $"the shell carries its structure multiplier ({shell.StructureDamageMultiplier:F1}x)");
                 Check(shell.Id >= 30000, "shell ids sit in their own band, clear of bullets and enemy fire");
 
+                // THE SHELL MUST LAND WHERE THE VOLLEY LANDS. This is the check that was missing
+                // while the shell was `aimVelocity * velocityBoost`: range goes as v^2, so a 1.12
+                // boost is 1.2544x the range from a muzzle only ~2 units behind the line, and the
+                // shell overshot by ~1.3 units. Measured on device before it was found — aiming
+                // the infantry at one structure put the shell onto the one behind it, and since
+                // the shell is the only round that can meaningfully hurt a building, the player
+                // could not place the only weapon that mattered.
+                //
+                // Compared as LANDING POINTS from their real origins, not as velocities: the two
+                // launch from different places, so equal velocity is precisely the bug.
+                foreach (var aim in new[] { new Vector3(5f, 5f, 0f), new Vector3(6f, 6f, 0f),
+                                            new Vector3(7f, 5f, 0f) })
+                {
+                    var v = BattleTick.FireVolley(
+                        st0 with { TurnPhase = TurnPhase.Aiming }, aim, new System.Random(3));
+                    var sh = v.Projectiles.FirstOrDefault(p => p.Type == ProjectileType.Shell);
+                    if (sh == null) continue;
+
+                    float shellX = TrajectoryPhysics.LandingPoint(
+                        new Vector3(sh.X, sh.Y, sh.Z), new Vector3(sh.Vx, sh.Vy, sh.Vz)).x;
+
+                    // The volley's own centre, from the same mean muzzle FireVolley solves to.
+                    float meanX = st0.PlayerUnits.Average(u => u.X);
+                    float meanY = st0.PlayerUnits.Average(u => u.Y) + BattleTick.InfantryMuzzleY;
+                    float volleyX = TrajectoryPhysics.LandingPoint(
+                        new Vector3(meanX, meanY, 0f), aim).x;
+
+                    Check(Mathf.Abs(shellX - volleyX) < 0.5f,
+                          $"the shell lands with the volley at aim ({aim.x},{aim.y}) — " +
+                          $"shell {shellX:F2} vs volley {volleyX:F2}");
+                }
+
+                // velocityBoost is now HEADROOM, not a blind multiplier: it caps the solved speed
+                // so the gun may reach further back than the drag that ordered the shot, and a
+                // shell can still never be faster than that cap.
+                {
+                    var aim = new Vector3(6f, 6f, 0f);
+                    var v = BattleTick.FireVolley(
+                        st0 with { TurnPhase = TurnPhase.Aiming }, aim, new System.Random(3));
+                    var sh = v.Projectiles.First(p => p.Type == ProjectileType.Shell);
+                    float shellSpeed = Mathf.Sqrt(sh.Vx * sh.Vx + sh.Vy * sh.Vy);
+                    float aimSpeed = Mathf.Sqrt(aim.x * aim.x + aim.y * aim.y);
+                    var cannon = withCannon.structures
+                        .First(p => p.definition != null && p.definition.isPlayerSide
+                                    && p.definition.hasCannon).definition.cannon;
+                    Check(shellSpeed <= aimSpeed * cannon.velocityBoost + 0.01f,
+                          $"the shell never exceeds its velocityBoost headroom " +
+                          $"({shellSpeed:F2} <= {aimSpeed * cannon.velocityBoost:F2})");
+                }
+
                 // Run the ammo down and past zero. An unclamped decrement would go negative and
                 // the gun would fire forever on a level that had spent its shells.
                 var s2 = fired;
