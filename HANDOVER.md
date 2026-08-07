@@ -1745,3 +1745,53 @@ everything — and that wants a human playing it rather than a scripted drag.
   a burning unit, and `DYNAMISM_DESIGN` requires any new effect to use a BOUNDED slot pool.
 - The spec mentions AP being strong against "armored units". **There is no armour concept in the
   roster** — no unit has such a field — so AP is implemented as structures-versus-men only.
+
+## Corpses levitating onto roofs — FIXED 2026-08-07
+
+Rob: "dead units can have physically impossible interactions with structures." Found by reading,
+reproduced in the harness, fixed, and both halves covered by checks.
+
+**`BlockOnStructures` rested a body on a structure's ROOF whenever it was horizontally inside the
+footprint and at or above the box's BASE — and a ground structure's base IS the ground.** So a
+corpse flung into a wall at chest height was snapped up the face and left standing on top of the
+building. The condition's own comment already said *"a body that CLEARED THE WALL should land on
+the roof"*; `y >= baseY` was never that test.
+
+### Reproducing it took three attempts, and the first two passing is the interesting part
+
+- A body resting ON the ground dips a hair BELOW `baseY` between ticks, so it escapes the branch.
+- A single tick does not carry a thrown body far enough to enter the box at all.
+- Only stepping until it actually penetrates shows it: **peak y 4.00 against a roof of 4.0, from a
+  launch height of 1.50.**
+
+**A check that never reaches the code it is testing is a green light that means nothing**, which
+is the same lesson this file records for the hit flash, the backdrop and the AP multiplier.
+
+### The fix is not simply `y >= topY`
+
+That stops the levitation and then drops a body FALLING onto the roof straight through it, because
+once it dips below the roof it no longer qualifies. Whether a body belongs on a roof is a question
+about where it CAME FROM — exactly like the existing face test, which is why `fromX` was already
+a parameter. `BlockOnStructures` now takes **`fromY`** and asks whether the body was above the
+roof LAST tick. Both behaviours are asserted: thrown-at-a-wall never rises, fallen-from-above
+still lands.
+
+### Checked and NOT a bug, so nobody re-investigates it
+
+`StepRagdolls` is handed the tick's OPENING structure list (`s.Structures`, before this tick's
+destruction is applied), so a razed building keeps blocking ragdolls for at most one extra frame
+at 1/60s. That was my first hypothesis and it is wrong.
+
+### What the device pass did and did not show
+
+The free camera was parked at the L3 bunker (x 6.84) and volleys fired into it. It confirmed the
+garrison stands correctly ON the deck, and that the destroyed Watch Tower leaves flat ruin slabs —
+no impossible placement visible. **It did not catch a corpse-against-a-wall moment**: ragdolls are
+short-lived and the volleys that landed did not kill. The harness evidence is stronger and more
+precise than a screenshot would have been here, so that is what this fix rests on.
+
+**Caveat worth keeping:** this fixes ONE reproducible mechanism. Rob reported the symptom from his
+own play without a screenshot, so if bodies still do something impossible, it is a DIFFERENT
+mechanism and this section should not be taken as closing the report. The next things to suspect
+are the "spawned inside: just stop, do not teleport" branch (a body whose x begins inside a
+footprint stays inside it) and the fact that the collision box is an AABB while the models are not.

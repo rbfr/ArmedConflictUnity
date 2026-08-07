@@ -67,6 +67,12 @@ What it touches:
 ---
 
 ## Dead units interact with structures in physically impossible ways — reported 2026-08-07
+## PARTLY FIXED 2026-08-07 — see "Corpses levitating onto roofs" in HANDOVER.md
+
+One reproducible mechanism is fixed: bodies were rested on a roof whenever they were horizontally
+inside the footprint and above the box's BASE, so a corpse flung at a wall was snapped up the face
+onto the roof. **Kept open** because the report came from play without a screenshot, so there may
+be a second mechanism. The original notes follow.
 
 Rob: "dead units can have physically impossible interactions with structures." Not yet reproduced
 or characterised — no screenshot, so the exact failure is open.
