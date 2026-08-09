@@ -2,7 +2,8 @@
 
 ## START HERE
 
-- **`origin/main` is at `d00ee83` — the twelve-commit backlog was PUSHED on 2026-08-07.** Android
+- **`main` is at `7a94d70`, PUSHED, working tree clean.** The twelve-commit backlog went up on
+  2026-08-07 and the Tier 1.2 work on 2026-08-09; nothing is in flight. Android
   `projectile-refinement` at `66a778a` is never being merged; **the Android build is RETIRED**,
   reference only.
 - **ALL OF TIER 0 IS DONE AND SIGNED OFF.** The Phase E balance audit — the last thing it owed —
