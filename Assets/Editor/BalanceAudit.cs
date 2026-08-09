@@ -220,6 +220,35 @@ public static class BalanceAudit
         var reachRule = ReachRule(state);
         outp.Add(new LevelComposition.Finding(reachRule.Level, $"{tag}: {reachRule.Text}"));
 
+        // REACH, FOR THE UNITS THAT ARE NOT ON THE FIELD YET.
+        //
+        // ReachRule reads the INITIAL roster, so a reinforcement wave or a boss phase could be
+        // authored past maximum range and every rule-7 check in the project would still pass —
+        // victory is every enemy unit dead, including the ones that walk on during turn 4. That is
+        // the same shape as the bug rule 7 was written for (L7, unwinnable while passing rules
+        // 1-6), one turn later.
+        //
+        // The wave is STEPPED IN rather than re-derived from anchorX: the spawn path spreads a
+        // group around its anchor through Formation, so the deepest body is not the anchor and a
+        // hand-rolled prediction here would be a second, disagreeing implementation.
+        if (level.reinforcementWaves.Count > 0 || level.bossPhases.Count > 0)
+        {
+            int lastTurn = level.reinforcementWaves.Count > 0
+                ? level.reinforcementWaves.Max(w => w.arrivesOnTurn) : 1;
+            var spawned = state with { Phase = GamePhase.Playing, TurnPhase = TurnPhase.Aiming };
+            for (int t = 2; t <= lastTurn; t++)
+                spawned = BattleTick.Step(spawned with { TurnNumber = t }, 0.016f, level,
+                                          new System.Random(7));
+
+            if (spawned.EnemyUnits.Count > state.EnemyUnits.Count)
+            {
+                var after = ReachRule(spawned);
+                outp.Add(new LevelComposition.Finding(after.Level,
+                    $"{tag}: with reinforcements on the field ({state.EnemyUnits.Count} -> " +
+                    $"{spawned.EnemyUnits.Count} enemies) — {after.Text}"));
+            }
+        }
+
         // Structures do not gate victory, so an unreachable one is a warning: it strands a boss
         // trigger and any garrison that can only be cleared by razing what it stands on.
         var structs = targets.Where(t => !t.Unit).ToList();

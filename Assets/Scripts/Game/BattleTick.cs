@@ -593,13 +593,22 @@ namespace ArmedConflict.Game
                 // clears itself the moment the wave lands or the turn moves on. A latched warning
                 // is one that eventually gets left on screen.
                 telegraph = null;
+                int telegraphAway = int.MaxValue;
                 for (int i = 0; i < level.reinforcementWaves.Count; i++)
                 {
                     var w = level.reinforcementWaves[i];
                     if (triggeredWaves.Contains(i)) continue;
-                    if (EventSystems.ReinforcementWaveBeat(w.arrivesOnTurn, turnNumber)
-                        == EventSystems.WaveTriggerBeat.Telegraph)
-                        telegraph = w.telegraphText;
+                    if (EventSystems.ReinforcementWaveBeat(w.arrivesOnTurn, turnNumber,
+                                                          w.telegraphLeadTurns)
+                        != EventSystems.WaveTriggerBeat.Telegraph) continue;
+
+                    // With per-wave leads two warnings can overlap, and there is ONE strip. Show
+                    // the NEAREST — the player acts on the next thing to land, and a strip that
+                    // flickered between two counts would read as neither.
+                    int away = w.arrivesOnTurn - turnNumber;
+                    if (away >= telegraphAway) continue;
+                    telegraphAway = away;
+                    telegraph = EventSystems.TelegraphLine(w.telegraphLabel, away);
                 }
 
                 for (int i = 0; i < level.reinforcementWaves.Count; i++)
@@ -609,7 +618,8 @@ namespace ArmedConflict.Game
                     // ARRIVE only. The telegraph beat is a HUD concern (Phase F) and must not
                     // consume the wave — spending it on the warning is how a telegraphed wave
                     // ends up never arriving.
-                    if (EventSystems.ReinforcementWaveBeat(wave.arrivesOnTurn, turnNumber)
+                    if (EventSystems.ReinforcementWaveBeat(wave.arrivesOnTurn, turnNumber,
+                                                          wave.telegraphLeadTurns)
                         != EventSystems.WaveTriggerBeat.Arrive) continue;
 
                     enemyUnits = Spawn(enemyUnits, level, wave.spawnGroups,

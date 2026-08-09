@@ -63,16 +63,49 @@ namespace ArmedConflict.Game
 
         /// <summary>
         /// ARRIVE and TELEGRAPH are mutually exclusive for a single wave, since arrivesOnTurn is
-        /// one fixed turn number. The telegraph lands one turn EARLY so the player can react —
-        /// a wave that appeared with no warning would read as the game cheating.
+        /// one fixed turn number. The telegraph runs for the `leadTurns` turns BEFORE arrival so
+        /// the player can react — a wave that appeared with no warning would read as the game
+        /// cheating.
+        ///
+        /// The lead is per wave rather than fixed at one, because how long a warning is worth
+        /// depends on what is coming: a four-man squad is a turn's problem, and a column that
+        /// changes what you should be shooting at needs long enough to change your mind and still
+        /// have a volley left to act on it (`DYNAMISM_DESIGN.md` Phase B: "armor column inbound —
+        /// 2 turns"). A lead below 1 is meaningless and is clamped, not honoured: pillar 7 is
+        /// "telegraph, don't blindside", and a wave is not allowed to opt out of it.
         /// </summary>
         public enum WaveTriggerBeat { None, Telegraph, Arrive }
 
-        public static WaveTriggerBeat ReinforcementWaveBeat(int arrivesOnTurn, int turnNumber)
+        public const int DefaultTelegraphLeadTurns = 1;
+
+        public static WaveTriggerBeat ReinforcementWaveBeat(int arrivesOnTurn, int turnNumber,
+                                                            int leadTurns = DefaultTelegraphLeadTurns)
         {
             if (arrivesOnTurn == turnNumber) return WaveTriggerBeat.Arrive;
-            if (arrivesOnTurn == turnNumber + 1) return WaveTriggerBeat.Telegraph;
+            int away = arrivesOnTurn - turnNumber;
+            if (away >= 1 && away <= Mathf.Max(1, leadTurns)) return WaveTriggerBeat.Telegraph;
             return WaveTriggerBeat.None;
+        }
+
+        /// <summary>
+        /// The telegraph line for a wave `turnsAway` turns out — the authored LABEL plus a live
+        /// countdown.
+        ///
+        /// The count is composed here rather than authored into the label because a multi-turn
+        /// lead makes it change every turn: a label reading "inbound - 2 turns" for the whole
+        /// warning is worse than no number at all, since it tells the player the clock has
+        /// stopped. Authoring the number also puts it a copy-paste away from disagreeing with
+        /// `arrivesOnTurn`, which nothing would catch.
+        ///
+        /// ASCII ONLY, deliberately — the default TMP font asset has no glyph for an em dash and
+        /// renders one as a silent missing-glyph box. The one telegraph the game shipped with had
+        /// exactly that bug (`Heavy support inbound — 1 turn`).
+        /// </summary>
+        public static string TelegraphLine(string label, int turnsAway)
+        {
+            if (string.IsNullOrEmpty(label)) return null;
+            if (turnsAway < 1) return label;
+            return $"{label} - {turnsAway} {(turnsAway == 1 ? "turn" : "turns")}";
         }
 
         // ---- wind ------------------------------------------------------------------------
@@ -110,11 +143,15 @@ namespace ArmedConflict.Game
         /// The banner for a gust, or null when the wind did not actually move — already clamped
         /// at the edge of its band. Announcing a change that did not happen trains the player to
         /// ignore the banner.
+        ///
+        /// ASCII, like every other string that reaches TMP. The Kotlin wrote these with a wind
+        /// emoji and a directional arrow; the default font asset has a glyph for none of them and
+        /// would have drawn three missing-glyph boxes the day wind was wired up.
         /// </summary>
         public static string WindShiftAnnouncement(float before, float after, bool gustUp)
         {
             if (Mathf.Approximately(before, after)) return null;
-            return gustUp ? "🌬️ Wind rising →" : "🌬️ Wind falling ←";
+            return gustUp ? "Wind rising >>" : "Wind falling <<";
         }
 
         // ---- announcement timers ---------------------------------------------------------

@@ -96,11 +96,15 @@ MonoBehaviour:
       standingOnStructureId: 
       advancePerTurn: 0
     announcement: Their heavies are here!
-    telegraphText: "Heavy support inbound \u2014 1 turn"
+    telegraphLabel: Heavy support inbound
+    telegraphLeadTurns: 2
   staticCamera: 0
   isTestLevel: 0
-  designNotes: "Beat 10: a clock. The wave is telegraphed a full turn ahead per pillar
-    7 \u2014 'telegraph, don't blindside' \u2014 so the pressure is anticipation
-    rather than ambush. This is the first level in the project to fire a ReinforcementWave;
-    telegraphText and announcement have been imported and displayed nowhere since
-    the port, and Phase F is what makes them visible."
+  designNotes: 'Beat 10: a clock, and the beat chart names its length - "armor in 2
+    turns". The lead is 2 rather than 1 for that reason: one turn is a heads-up you
+    can only brace for, two is long enough to change what you are shooting at and
+    still have a volley left to do it with, which is the whole "kill priority vs clock"
+    beat. The strip counts down live (2 turns, then 1 turn) because a warning holding
+    the same number for two turns says the clock has stopped. This is the first level
+    in the project to fire a ReinforcementWave; its telegraph and announcement were
+    imported and displayed nowhere from the port until Phase F.'

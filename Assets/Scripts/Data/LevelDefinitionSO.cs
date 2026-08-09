@@ -59,7 +59,21 @@ namespace ArmedConflict.Data
         public int arrivesOnTurn;
         public List<EnemyGroup> spawnGroups = new();
         public string announcement;
-        public string telegraphText;
+
+        /// <summary>
+        /// WHAT is coming, with no count in it — "Heavy support inbound". The countdown is
+        /// composed per turn by <see cref="Game.EventSystems.TelegraphLine"/>, so it cannot go
+        /// stale against <see cref="arrivesOnTurn"/> and it keeps ticking down over a lead
+        /// longer than one turn.
+        /// </summary>
+        public string telegraphLabel;
+
+        /// <summary>
+        /// How many turns the warning runs for before the wave lands. 1 is a heads-up; 2 is a
+        /// clock the player can actually spend a volley against, and is what the "armor column
+        /// inbound" beat wants. Must leave room before turn 1 — checked by PortSelfTest.
+        /// </summary>
+        public int telegraphLeadTurns = 1;
     }
 
     /// <summary>

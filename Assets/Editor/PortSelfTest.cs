@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using TMPro;
 using UnityEditor;
 using UnityEngine;
 using ArmedConflict.Game;
@@ -1401,18 +1402,95 @@ public static class PortSelfTest
 
                 foreach (var w in l.reinforcementWaves)
                 {
-                    // Turn 1 is the player's first move and the telegraph lands a turn early, so
-                    // a wave arriving before turn 2 can never be warned about.
-                    Check(w.arrivesOnTurn >= 2,
-                          $"{l.displayName}: a reinforcement wave arrives on turn " +
-                          $"{w.arrivesOnTurn} — it must be >= 2 so the telegraph has a turn to run");
-                    Check(!string.IsNullOrEmpty(w.telegraphText),
-                          $"{l.displayName}: a reinforcement wave carries telegraph text " +
+                    // Turn 1 is the player's first move, so the WHOLE lead has to fit before
+                    // arrival: a 2-turn warning on a wave landing on turn 2 gets one turn, and the
+                    // level would be shipping half a telegraph while passing an `>= 2` check.
+                    Check(w.telegraphLeadTurns >= 1,
+                          $"{l.displayName}: a reinforcement wave warns for at least one turn " +
+                          $"(lead is {w.telegraphLeadTurns})");
+                    Check(w.arrivesOnTurn - w.telegraphLeadTurns >= 1,
+                          $"{l.displayName}: a wave arriving on turn {w.arrivesOnTurn} with a " +
+                          $"{w.telegraphLeadTurns}-turn lead starts warning before turn 1");
+                    Check(!string.IsNullOrEmpty(w.telegraphLabel),
+                          $"{l.displayName}: a reinforcement wave carries a telegraph label " +
                           "(pillar 7: telegraph, don't blindside)");
+                    // The count belongs to EventSystems.TelegraphLine, which recomputes it every
+                    // turn. One authored into the label is a number that stops counting down and
+                    // can silently disagree with arrivesOnTurn.
+                    Check(w.telegraphLabel == null ||
+                          !System.Text.RegularExpressions.Regex.IsMatch(w.telegraphLabel,
+                                                                       @"\d+\s*turns?"),
+                          $"{l.displayName}: the telegraph label '{w.telegraphLabel}' hardcodes a " +
+                          "turn count — the countdown is composed live, not authored");
                     foreach (var g in w.spawnGroups)
                         Check(g.definition != null && g.count > 0,
                               $"{l.displayName}: every wave spawn group has a unit and a count");
                 }
+            }
+
+            // EVERY AUTHORED STRING THAT REACHES TextMeshPro MUST HAVE A GLYPH FOR EVERY
+            // CHARACTER IN IT.
+            //
+            // The failure is silent: TMP substitutes a blank box and logs nothing, so it shows up
+            // on a device, mid-battle, inside a banner that fires on one level on one turn.
+            //
+            // ASKED OF THE FONT, NOT ASSUMED. This check was first written as "ASCII only",
+            // because that is what CLAUDE.md said, and it immediately flagged 23 strings —
+            // every campaign levelGoal and every test-rig name, all of which use an em dash. A
+            // DEVICE SCREENSHOT then showed the em dash rendering perfectly in the loadout panel:
+            // LiberationSans SDF covers Latin-1 and General Punctuation, and it is only the
+            // symbols the star and coin icons were replaced over (U+2605, U+25C6) that it lacks.
+            // An ASCII rule would have been 23 false positives dressed as bugs. Ask
+            // TMP_Settings.defaultFontAsset what it actually has.
+            {
+                var font = TMP_Settings.defaultFontAsset;
+                Check(font != null, "the default TMP font asset loads, so glyph coverage is " +
+                                    "checkable at all (a null one would pass every check below)");
+                // Proves the check can FAIL, in the same run that uses it: a character the font is
+                // known not to have must be reported missing. Without this the whole block is
+                // vacuous the day HasCharacter starts returning true for everything.
+                Check(font != null && !font.HasCharacter('\u2605'),
+                      "and reports the star glyph MISSING, which is why the HUD draws it as a sprite");
+
+                void Glyphs(string s, string what)
+                {
+                    if (string.IsNullOrEmpty(s) || font == null) return;
+                    int bad = -1;
+                    for (int i = 0; i < s.Length && bad < 0; i++)
+                        if (!char.IsWhiteSpace(s[i]) && !font.HasCharacter(s[i])) bad = i;
+                    // The offending codepoint is REPORTED, not just flagged. A blank box in a
+                    // banner tells you nothing about which character it was, and the whole reason
+                    // this class of bug survives is that the failure carries no information.
+                    Check(bad < 0,
+                          bad < 0 ? $"{what} renders in the default font"
+                                  : $"{what} has NO GLYPH for U+{(int)s[bad]:X4} at {bad}: \'{s}\'");
+                }
+
+                foreach (var l in levels)
+                {
+                    Glyphs(l.displayName, $"L{l.levelNumber} displayName");
+                    Glyphs(l.levelGoal, $"L{l.levelNumber} levelGoal");
+                    foreach (var b in l.bossPhases)
+                        Glyphs(b.announcement, $"L{l.levelNumber} boss announcement");
+                    foreach (var w in l.reinforcementWaves)
+                    {
+                        Glyphs(w.announcement, $"L{l.levelNumber} wave announcement");
+                        Glyphs(w.telegraphLabel, $"L{l.levelNumber} telegraph label");
+                    }
+                }
+
+                foreach (var u in AssetDatabase.FindAssets("t:UnitDefinitionSO")
+                             .Select(AssetDatabase.GUIDToAssetPath)
+                             .Select(AssetDatabase.LoadAssetAtPath<UnitDefinitionSO>)
+                             .Where(u => u != null))
+                    Glyphs(u.displayName, $"unit {u.name} displayName");
+
+                // And the strings the CODE composes. Wind's came over from the Kotlin carrying a
+                // wind emoji and a directional arrow; wind is not wired yet, so those three boxes
+                // were waiting for whoever wires it.
+                Glyphs(EventSystems.WindShiftAnnouncement(1f, 1.35f, true), "wind rising banner");
+                Glyphs(EventSystems.WindShiftAnnouncement(1.35f, 1f, false), "wind falling banner");
+                Glyphs(EventSystems.TelegraphLine("Armor column inbound", 2), "a composed telegraph");
             }
 
             // END TO END: a boss phase must actually put units on the field. The decision
@@ -1461,15 +1539,34 @@ public static class PortSelfTest
                 var ws = LevelBuilder.BuildInitialState(waveLevel, 1, 12, new System.Random(4))
                          with { Phase = GamePhase.Playing, TurnPhase = TurnPhase.Aiming };
 
-                var early = BattleTick.Step(ws with { TurnNumber = wave0.arrivesOnTurn - 2 },
+                int lead = wave0.telegraphLeadTurns;
+                var early = BattleTick.Step(ws with { TurnNumber = wave0.arrivesOnTurn - lead - 1 },
                                             0.016f, waveLevel, new System.Random(4));
                 Check(string.IsNullOrEmpty(early.TelegraphText),
-                      "no telegraph two turns out — a warning that early is just noise");
+                      "no telegraph before the wave's lead begins — a warning that early is noise");
+
+                // ASSERT THE STRING THE PLAYER READS, not that some telegraph is set. The count
+                // is the whole point of a multi-turn lead, and it is the part that goes stale.
+                var opened = BattleTick.Step(ws with { TurnNumber = wave0.arrivesOnTurn - lead },
+                                             0.016f, waveLevel, new System.Random(4));
+                Check(opened.TelegraphText ==
+                      EventSystems.TelegraphLine(wave0.telegraphLabel, lead),
+                      $"the telegraph opens at the full lead reading '{opened.TelegraphText}'");
+                Check(opened.TelegraphText != null &&
+                      opened.TelegraphText.Contains(lead == 1 ? "1 turn" : $"{lead} turns"),
+                      "and carries the live turn count");
 
                 var warned = BattleTick.Step(ws with { TurnNumber = wave0.arrivesOnTurn - 1 },
                                              0.016f, waveLevel, new System.Random(4));
-                Check(warned.TelegraphText == wave0.telegraphText,
+                Check(warned.TelegraphText ==
+                      EventSystems.TelegraphLine(wave0.telegraphLabel, 1),
                       "the telegraph stands on the turn before the wave arrives");
+                Check(warned.TelegraphText != null && warned.TelegraphText.EndsWith("1 turn"),
+                      "and has COUNTED DOWN to one turn — a number that never moves says the " +
+                      "clock has stopped");
+                if (lead > 1)
+                    Check(warned.TelegraphText != opened.TelegraphText,
+                          "so the line the player reads is not the same on both turns");
                 Check(warned.EnemyUnits.Count == ws.EnemyUnits.Count,
                       "and the telegraph does not spend the wave — it must still arrive");
 
