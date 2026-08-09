@@ -316,6 +316,55 @@ afterward (heli appeared, "Your turn" returned normally). Cluster: fired cleanly
 count ticked down, no crash. All four ammo types are now confirmed working end-to-end, not
 just code-path-identical by inspection.
 
+## Phase B in UNITY — the schedule and the telegraph (2026-08-07)
+
+The notes below are the ANDROID build's. The Unity port inherited the mechanism intact and
+nothing had ever driven it; Phase D wired arrival, and this is the other half.
+
+**The telegraph counts down, and the count is composed, not authored.**
+`ReinforcementWave.telegraphText` (a whole sentence with the number baked in) is now
+`telegraphLabel` — what is coming, no number — plus `telegraphLeadTurns`.
+`EventSystems.TelegraphLine` builds the line per turn, so a 2-turn lead reads
+"Elite squad inbound - 2 turns" and then "- 1 turn". Authoring the number instead put it one
+copy-paste from disagreeing with `arrivesOnTurn`, with nothing checking it, and held the same
+figure for the whole warning — which tells the player the clock has stopped.
+`ReinforcementWaveBeat` takes the lead as an argument; below 1 it is clamped, not honoured,
+because pillar 7 is not something an individual wave gets to opt out of.
+
+**The schedule is two levels, both in stage 2, both 2-turn leads.** L10 Rubble Yard is the
+beat-chart's "reinforcement race" and its lead went 1 → 2 to match the chart's own words
+("armor in 2 turns"). L11 Oceanfront was the only stage-2 level the audit called NO MECHANIC —
+its beat offers a heli it cannot have — so its "else elite push" fallback is delivered as a
+telegraphed wave rather than three more bodies in the opening formation. **L12 was deliberately
+NOT given one**: it already combines the boss phase with the charge, and its designNotes record
+a device-measured margin against the 288 siege capacity that adding enemies would quietly undo.
+
+**One real bug found, and one false alarm worth keeping:**
+
+- **A glyph-coverage check that is asked of the FONT.** `PortSelfTest` now runs every authored
+  string that reaches TMP — level names and goals, announcements, telegraph labels, unit names —
+  through `TMP_Settings.defaultFontAsset.HasCharacter`. **It was written as an "ASCII only" check
+  first, on the strength of CLAUDE.md's note, and flagged 23 strings: every campaign `levelGoal`
+  and all 17 test-rig names. A device screenshot then showed an em dash rendering perfectly in the
+  loadout panel** — LiberationSans SDF covers Latin-1 and General Punctuation, and only lacks the
+  symbols (`★`, `◆`, emoji, arrows) the HUD already draws as sprites. All 23 "fixes" were reverted.
+  The lesson is the one this project keeps relearning in new costumes: **a check written against a
+  note in a doc asserts the note, not the behaviour.** What it does catch for real is wind's
+  announcement strings, which came over from the Kotlin with a wind emoji and two arrows.
+- **Rule 7 stopped at the opening roster.** `BalanceAudit` measured reach against the units
+  present at level build, so a wave could be authored past maximum range and the level would pass
+  every rule-7 check while being unwinnable from turn 4 — the L7 bug, one turn later. The audit now
+  STEPS the tick to the wave's arrival and re-runs the reach rule on the real spawned positions,
+  rather than re-deriving them from `anchorX` and having two implementations to disagree. Proved
+  by pushing L11's wave to x 22: `121% power ... UNWINNABLE`, 2 errors. At the authored x 8 both
+  wave levels clear (L10 89%/97%, L11 89%/98%).
+
+**Wind is still not shipped and the reason is not the schedule.** `windAccelZ` drifts the round in
+Z while the collision test is X/Y only, so wind cannot change what a shot hits. A wind schedule
+would telegraph a change the player cannot feel, which is worse than no wind at all. Its
+announcement strings did get de-emoji'd (they carried a wind glyph and two arrows, none of which
+LiberationSans SDF has — three blank boxes waiting for whoever wires it up).
+
 ## Phase B — shipped notes (2026-07-20)
 
 **Wind shifts (B1)**: `GameState.windAccelZ` is now the live per-battle value (was a static

@@ -345,4 +345,5 @@ locks and unit measurement.
 | 0.5 star criteria + reasons | **DONE** — pure roster survival, reason shown on every victory |
 | 0.6 enemy turn juice | **DONE 2026-08-06** — flash banner + standing telegraph strip, handover names the advance |
 | Tier 1 ammo | per `DYNAMISM_DESIGN.md` status |
+| 1.2 telegraphed events | **HALF DONE 2026-08-07.** Reinforcement waves ship with a live multi-turn countdown, and the schedule now covers L10 and L11 (both 2-turn leads). **Wind is NOT shipped and is not a scheduling problem** — `windAccelZ` drifts the round in Z while collision is X/Y only, so a wind schedule would telegraph a change that cannot alter what a shot hits. Making it real is a physics change and needs an ask |
 | This doc | living — update priorities when Rob reorders work |

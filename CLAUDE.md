@@ -135,8 +135,15 @@ places at once; it is a deliberate command now.
 - `BattleUI` builds its whole hierarchy IN CODE at runtime. No prefab and no serialized refs, so
   **a UI change never needs a scene rebuild**. Build from `Create()`, not `Awake` — Awake does not
   run in edit mode.
-- **No character outside ASCII in a TMP string.** The default font asset is ASCII-only and renders
-  `★` / `◆` as missing-glyph boxes, silently. Stars and the coin icon are drawn sprites.
+- **A TMP string must not use a character the default font asset lacks** — it renders a
+  missing-glyph box, silently. What LiberationSans SDF lacks is SYMBOLS: `★` U+2605, `◆` U+25C6,
+  emoji, arrows. Stars and the coin icon are drawn sprites for exactly this reason. It DOES cover
+  Latin-1 and General Punctuation, so an em dash and a curly apostrophe are fine — every campaign
+  `levelGoal` uses one. **Checked by `PortSelfTest`**, which asks
+  `TMP_Settings.defaultFontAsset.HasCharacter` over every authored string that reaches TMP.
+  This bullet used to say "ASCII only". On 2026-08-09 a check written from that wording flagged 23
+  strings, all of which a device screenshot then showed rendering perfectly. **Assert against the
+  thing itself, not against the note someone wrote about it** — see the Debugging section.
 - IMGUI draws AFTER a ScreenSpaceOverlay canvas, so anything IMGUI still draws sits on top of the
   UI and keeps eating its taps.
 
@@ -240,6 +247,13 @@ each level owes one beat.
   clips and no listener, backgrounds with the right count and no colour — is the same mistake.
   Assert the thing the player would notice: the damage dealt, the round's landing point, the
   pixels.
+- **A CHECK WRITTEN FROM A DOC ASSERTS THE DOC.** The third costume of the rule above, and the
+  subtlest, because the check passes review and looks rigorous. On 2026-08-09 a glyph-coverage
+  check was written as "ASCII only" because THIS FILE said the TMP font was ASCII-only; it flagged
+  23 strings and a device screenshot showed every one of them rendering perfectly. The note was a
+  compressed heuristic, true about the two symbols it was written for. **Ask the artefact — the
+  font asset, the engine, the device — not the summary of it**, and be suspicious when a brand-new
+  check indicts a large amount of long-standing, apparently working content.
 - **RUN A NEW CHECK AGAINST THE OLD CODE BEFORE TRUSTING IT.** A check never seen to fail is not
   evidence. Revert the fix, watch the check go red, restore it — it costs one extra run and it is
   the only thing that proves the check reaches the code it claims to test. Two ragdoll checks

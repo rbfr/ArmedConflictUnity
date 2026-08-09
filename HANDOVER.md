@@ -1,53 +1,110 @@
-# Handover — Unity, as of 2026-08-07
+# Handover — Unity, as of 2026-08-09
 
 ## START HERE
 
-- **Unity `main` at `0b00183`, working tree clean, TEN COMMITS AHEAD OF `origin/main` — not
-  pushed.** Push is the first thing to decide next session. Android `projectile-refinement` at
-  `66a778a` is never being merged; **the Android build is RETIRED**, reference only.
+- **`origin/main` is at `d00ee83` — the twelve-commit backlog was PUSHED on 2026-08-07.** Android
+  `projectile-refinement` at `66a778a` is never being merged; **the Android build is RETIRED**,
+  reference only.
 - **ALL OF TIER 0 IS DONE AND SIGNED OFF.** The Phase E balance audit — the last thing it owed —
   was run on 2026-08-07 in both halves, and Rob played the campaign afterwards and reported the
   levels feel fine. That closed it.
 - **Tier 1.1 (ammo types) IS BUILT** and confirmed on device.
-- **444 self-test checks, all passing — run `PortSelfTest.Run` after every change.** It was 281 at
-  the start of 2026-08-06 and 411 at the end of it.
+- **Tier 1.2 is HALF DONE**: reinforcement waves are telegraphed with a live countdown and the
+  schedule covers two levels. **Wind is the other half and is still blocked** — see below.
+- **539 self-test checks, all passing — run `PortSelfTest.Run` after every change.** It was 281 at
+  the start of 2026-08-06, 411 at the end of it, 444 on 2026-08-07, and 539 after the Tier 1.2 and
+  glyph-coverage blocks.
 
 ### Pick up here
 
-1. **PUSH.** Ten commits are sitting unpushed. Nothing is in flight and the tree is clean.
+1. **Tier 1.2's remaining half is WIND, and it is a physics ask, not a scheduling job.**
+   `windAccelZ` drifts the round in Z while the collision test is X/Y only, so wind cannot change
+   what a shot hits. A wind schedule would telegraph a change the player cannot feel, which is
+   worse than no wind. **Do not author a wind level or a wind schedule until someone decides
+   whether the collision test becomes 3D.** That decision is the actual next step here.
 
-2. **Tier 1.2 — telegraphed mid-battle events** (`PRODUCT_DIRECTION.md` Tier 1, spec
-   `DYNAMISM_DESIGN.md` Phase B). This is the next product work. **Half of it is blocked and that
-   is not a surprise to be rediscovered:** Phase B is wind shifts + reinforcement waves, and
-   **wind is COSMETIC** — `windAccelZ` drifts the round in Z while the collision test is X/Y only,
-   so wind cannot change what a shot hits. Making it real is a PHYSICS change and needs an ask.
-   The reinforcement-wave half is already wired and firing (Phase D did it), so 1.2's real content
-   is the SCHEDULE and the telegraph, not the mechanism.
-
-3. **Two small things Tier 1.1 owes**, both cheap:
+2. **Two small things Tier 1.1 owes**, both cheap:
    - **No flame VFX on a burning unit.** The incendiary burn does damage with nothing to see; the
      only way to confirm it fired is the `[Burn]` log, which is why that log is kept. Any new
      effect must use a BOUNDED slot pool (hard rule).
    - **Is Cluster's 3.2x spread too wide to connect?** A balance question for a human playing it;
      a scripted drag could not settle it.
 
-4. **`_plans/BACKLOG.md`** holds what Rob has parked: a **nuclear reactor structure** (open
+3. **`_plans/BACKLOG.md`** holds what Rob has parked: a **nuclear reactor structure** (open
    question is what MECHANIC it owns — a blast on destruction would make it the first structure
    with one), **dead units sinking** into the ground instead of vanishing, and the **ragdoll /
    structure report**, which is PARTLY fixed and deliberately left open.
 
+## Tier 1.2 — the telegraph and the schedule, 2026-08-07
+
+The mechanism was already firing (Phase D wired arrival). This is the half that makes a wave
+something the player can PLAY AGAINST rather than something that happens to them.
+
+**The countdown is composed, not authored.** `ReinforcementWave.telegraphText` — one authored
+sentence with the number baked into it — is now `telegraphLabel` (what is coming) plus
+`telegraphLeadTurns`. `EventSystems.TelegraphLine` builds the line every tick from the live turn
+gap. A number in the label held still for the whole warning, which tells the player the clock has
+stopped, and sat one copy-paste from disagreeing with `arrivesOnTurn` with nothing checking it.
+`ReinforcementWaveBeat` takes the lead; a lead below 1 is CLAMPED, not honoured — an individual
+wave does not get to opt out of pillar 7. Where two leads overlap the strip shows the NEAREST
+wave, because there is one strip and a flickering one reads as neither.
+
+**Confirmed on device, whole cycle, L10 Rubble Yard:** turn 2 `Heavy support inbound - 2 turns`,
+turn 3 `Heavy support inbound - 1 turn`, turn 4 the strip clears and enemy units go 8 -> 12. The
+strip also sits correctly UNDER the "Enemy turn" banner when both are up — the two channels were
+built to stack and this is the first build in which both have been on screen together.
+
+**The schedule is two levels, both stage 2, both 2-turn leads.** L10 is the beat chart's
+"reinforcement race" and went 1 -> 2 to match the chart's own words ("armor in 2 turns"). L11
+Oceanfront was the only stage-2 level `CampaignAudit` called NO MECHANIC — its beat offers a heli
+it cannot have — so its own "else elite push" fallback is delivered as a telegraphed wave (3
+heavies, turn 4) instead of three more bodies in the opening formation. **L11's wave was NOT
+device-tested**; it is the same code path and data shape as L10's and is driven by `PortSelfTest`.
+
+**L12 was deliberately left alone.** It already combines the boss phase with the charge, and its
+`designNotes` record a device-measured margin against the 288 siege capacity. Adding enemies to
+the finale would have quietly undone a number someone paid a defeat to find.
+
+**`BalanceAudit` now checks reach for units that are not on the field yet.** Rule 7 measured the
+opening roster only, so a wave could be authored past maximum range and every rule-7 check would
+pass while the level was unwinnable from turn 4 — the L7 bug, one turn later. It STEPS the tick to
+the wave's arrival and re-runs the reach rule on the real spawned positions rather than
+re-deriving them from `anchorX`, which would be a second implementation to disagree. Proved by
+pushing L11's wave to x 22: `121% power ... UNWINNABLE`, 2 errors. At the authored x 8 both wave
+levels clear (L10 89%/97%, L11 89%/98%).
+
+### The check that was right about the mechanism and wrong about the rule
+
+A glyph-coverage check over every authored string that reaches TMP was written as **"ASCII only"**,
+because that is what `CLAUDE.md` said. It flagged **23 strings on its first run** — every campaign
+`levelGoal` and all 17 test-rig names, all of which use an em dash — and all 23 were "fixed".
+
+**A device screenshot then showed an em dash rendering perfectly in the loadout panel.**
+LiberationSans SDF covers Latin-1 and General Punctuation; what it lacks is SYMBOLS — `★` U+2605,
+`◆` U+25C6, emoji, arrows — which is why the star and coin are drawn as sprites. All 23 edits were
+reverted, and the check now asks `TMP_Settings.defaultFontAsset.HasCharacter` instead of asserting
+a range. It carries its own negative case in the same run (the star must be reported MISSING), and
+it does catch one real thing: wind's announcement strings came from the Kotlin with a wind emoji
+and two arrows.
+
+**The lesson, and it is a new costume on the standing rule:** a check written against a NOTE IN A
+DOC asserts the note. The doc was a compressed heuristic that had been true about the two symbols
+it was written for. Ask the thing itself — the font, the engine, the device.
+
 ### The state of the checks, as of the handover
 
 ```
-PortSelfTest.Run          444 checks, ALL PASS
+PortSelfTest.Run          539 checks, ALL PASS
 LevelComposition.Report   12 campaign levels, 0 errors, 2 accepted warnings (L3, L5 rule 7 —
                           reasons in their designNotes; both beats are about height)
 BalanceAudit.Report       0 errors, 19 warnings (race-ratio flags on the dearest-squad
                           extreme, which is informational)
 ```
 
-A scene rebuild is NOT pending — it was run after the ammo catalogue's serialized field went in.
-The APK on the device is current with `0b00183`.
+**A scene rebuild is NOT pending** — one was run on 2026-08-09 after `ReinforcementWave` gained
+its two new serialized fields, and `Assets/Scenes/Battle.unity` plus three materials are dirty
+because of it. **The APK on the device is current with the Tier 1.2 work** and is what the L10
+device run above was captured from.
 
 ### What changed on 2026-08-07, in one place
 
@@ -87,19 +144,20 @@ session without anyone having to remember this file. They sit beside the sibling
 generalise — "prefer a PROBE to a detector" and "a search that finds nothing is not evidence of
 absence".
 
-The older lesson still stands and is what found the ammo system at all: **assume NOTHING in this
-port is wired just because it exists and has tests.** Five systems have now been found fully
-ported, unit-tested and reached by nothing — the economy, boss phases, reinforcement waves, stages,
-and ammo. **Grep for callers before believing a feature is live.**
+**2026-08-09 added a third costume, and it is the subtlest:** a check written against a NOTE IN A
+DOC asserts the note, not the behaviour. The glyph check above was written as "ASCII only" on
+CLAUDE.md's word, flagged 23 strings, and every one was a false positive. Assert against the
+engine, the font, the device — not against the summary someone wrote of them.
 
-### The lesson this session kept re-teaching
+### The other standing lesson: assume NOTHING is wired
 
-**Assume NOTHING in this port is wired just because it exists and has tests.** Four systems were
-found fully ported, unit-tested and reached by nothing: the whole economy, boss phases,
-reinforcement waves, and stages. Wind is worse than unwired — it is COSMETIC (`windAccelZ` drifts
-the round in Z; the collision test is X/Y only), so **do not author a wind level until wind does
-something**, and making it real is a physics change that needs an ask. **Grep for callers before
-believing a feature is live.**
+**Nothing in this port is live just because it exists and has tests.** Five systems have been
+found fully ported, unit-tested and reached by nothing — the economy, boss phases, reinforcement
+waves, stages, and ammo. **Grep for callers before believing a feature is live.**
+
+Wind is worse than unwired: it is COSMETIC (`windAccelZ` drifts the round in Z; the collision test
+is X/Y only), so **do not author a wind level or a wind schedule until wind does something**, and
+making it real is a physics change that needs an ask.
 
 Then read the traps sections — most cost a build to find, and several are invisible outside a real
 device build.
@@ -117,7 +175,7 @@ each section says what shipped, what it cost, and what it found:
 |---|---|
 | Data authoring moved into Unity | The importer disarmed, the sweep removed, the composition rules made checkable |
 | Campaign split from the test rigs | RIGS gate; the renumbering chore retired |
-| The victory screen and a live economy | The dead economy, and the ASCII-only TMP font trap |
+| The victory screen and a live economy | The dead economy, and the TMP missing-glyph trap (which the 2026-08-09 section above CORRECTS — the font is not ASCII-only) |
 | Campaign to twelve levels | The beat chart; wind found cosmetic; boss phases and waves wired |
 | Enemy turn juice | Flash banner vs standing telegraph |
 | Loadout | Slots vs points, and why that keeps the camera framing safe |
@@ -168,7 +226,7 @@ All eight `GameViewModel` slices are ported (`LevelBuilder`, `CollisionSystem`,
 `TrajectoryPhysics`, `SweptCollision`, `ProgressStore`, `EconomyStore`. `data/` is complete at
 24 levels — 7 campaign (one per biome) plus 17 test rigs.
 
-**281 checks, all passing** (as of that date — it is 444 now; see START HERE). They assert the
+**281 checks, all passing** (as of that date — it is 539 now; see START HERE). They assert the
 behaviour the Kotlin comments describe, not just that the code compiles. Run them after every
 change:
 
