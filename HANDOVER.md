@@ -2,8 +2,10 @@
 
 ## START HERE
 
-- **`main` is at `7a94d70`, PUSHED, working tree clean.** The twelve-commit backlog went up on
-  2026-08-07 and the Tier 1.2 work on 2026-08-09; nothing is in flight. Android
+- **`main` is PUSHED and the working tree is CLEAN — check with `git status`, not with this line.**
+  The twelve-commit backlog went up on 2026-08-07 and the Tier 1.2 work on 2026-08-09; nothing is
+  in flight. (A hash here is stale the moment it is committed, which is why there isn't one.)
+  Android
   `projectile-refinement` at `66a778a` is never being merged; **the Android build is RETIRED**,
   reference only.
 - **ALL OF TIER 0 IS DONE AND SIGNED OFF.** The Phase E balance audit — the last thing it owed —
