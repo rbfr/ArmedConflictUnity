@@ -119,7 +119,7 @@ NavMeshSettings:
     debug:
       m_Flags: 0
   m_NavMeshData: {fileID: 0}
---- !u!1 &318602369
+--- !u!1 &1274191449
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -127,43 +127,12 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 318602370}
-  m_Layer: 0
-  m_Name: Pool
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &318602370
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 318602369}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!1 &898499761
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 898499767}
-  - component: {fileID: 898499766}
-  - component: {fileID: 898499765}
-  - component: {fileID: 898499764}
-  - component: {fileID: 898499763}
-  - component: {fileID: 898499762}
+  - component: {fileID: 1274191455}
+  - component: {fileID: 1274191454}
+  - component: {fileID: 1274191453}
+  - component: {fileID: 1274191452}
+  - component: {fileID: 1274191451}
+  - component: {fileID: 1274191450}
   m_Layer: 0
   m_Name: Main Camera
   m_TagString: MainCamera
@@ -171,13 +140,13 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!114 &898499762
+--- !u!114 &1274191450
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 898499761}
+  m_GameObject: {fileID: 1274191449}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 372ebe60123ac960babcdef7c15145e0, type: 3}
@@ -191,19 +160,19 @@ MonoBehaviour:
   victory: {fileID: 8300000, guid: a7e6bd53f66e35af8ac1bafe9fdd9d5b, type: 3}
   defeat: {fileID: 8300000, guid: 5879d820bf2ab70e0ae3d39b6098ca26, type: 3}
   helicopterLoop: {fileID: 8300000, guid: d588d170ef66720e0b0f5c3f79f6817d, type: 3}
---- !u!114 &898499763
+--- !u!114 &1274191451
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 898499761}
+  m_GameObject: {fileID: 1274191449}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 6194d6f90b1553813a01cdd2e497d04e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  cam: {fileID: 898499766}
+  cam: {fileID: 1274191454}
   levels:
   - {fileID: 11400000, guid: 2e279103f6cb9a49e9c9e671913d041e, type: 2}
   - {fileID: 11400000, guid: 10007778b5275b9fb85bbe6f1ccd0f16, type: 2}
@@ -234,7 +203,7 @@ MonoBehaviour:
   - {fileID: 11400000, guid: ebb88b549ca10608f81c413ec0b0d4ea, type: 2}
   - {fileID: 11400000, guid: 9ae5736fb385f832aa25b4c10c7a4cc8, type: 2}
   - {fileID: 11400000, guid: a575861e0dc4fc3f4ab4d7b8c359d72f, type: 2}
-  scenery: {fileID: 898499764}
+  scenery: {fileID: 1274191452}
   playerUnitPrefab: {fileID: 6657620453530379141, guid: 69d5f0974c1498993bccd89701741591, type: 3}
   enemyUnitPrefab: {fileID: 8045661490507818107, guid: f9695026d7bedd0b586743b3a15f3c25, type: 3}
   unitClassKeys:
@@ -270,18 +239,19 @@ MonoBehaviour:
   scorchPrefab: {fileID: 3466446947106732326, guid: d2dc56918c834276087326c2d86264ce, type: 3}
   debrisPrefab: {fileID: 9114317041617455683, guid: 53b6ed278ac0eb86ebff597ef5db6395, type: 3}
   shadowPrefab: {fileID: 1077735885229897724, guid: e4c410dbc57bce129b9383817118185f, type: 3}
-  audioFx: {fileID: 898499762}
-  poolRoot: {fileID: 318602370}
+  flamePrefab: {fileID: 9048562582559236099, guid: fae37d09ce83df29ca817e60d5bfc44e, type: 3}
+  audioFx: {fileID: 1274191450}
+  poolRoot: {fileID: 1758479213}
   healthBarSource: {fileID: 2100000, guid: bc8fbe19e9b5961be940108a208dbc2f, type: 2}
   roster: {fileID: 11400000, guid: b90df4eac5917484ea9c4a624f7d1994, type: 2}
   ammoCatalog: {fileID: 11400000, guid: 91ec9092d15cac565ab1ae0a7c8e976b, type: 2}
---- !u!114 &898499764
+--- !u!114 &1274191452
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 898499761}
+  m_GameObject: {fileID: 1274191449}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 74acf434c1efab61d8e5ac4d6ea70046, type: 3}
@@ -383,21 +353,21 @@ MonoBehaviour:
   structEnemy: {fileID: 2100000, guid: 404c95db0784e9a91a3385c9832d7b91, type: 2}
   structEnemyAccent: {fileID: 2100000, guid: 0178a517a011517188fcf2acc9dfc72a, type: 2}
   scorchSource: {fileID: 2100000, guid: cfc09ef8f3e437e44a2673cd3d8a71b6, type: 2}
---- !u!81 &898499765
+--- !u!81 &1274191453
 AudioListener:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 898499761}
+  m_GameObject: {fileID: 1274191449}
   m_Enabled: 1
---- !u!20 &898499766
+--- !u!20 &1274191454
 Camera:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 898499761}
+  m_GameObject: {fileID: 1274191449}
   m_Enabled: 1
   serializedVersion: 2
   m_ClearFlags: 2
@@ -442,13 +412,13 @@ Camera:
   m_OcclusionCulling: 1
   m_StereoConvergence: 10
   m_StereoSeparation: 0.022
---- !u!4 &898499767
+--- !u!4 &1274191455
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 898499761}
+  m_GameObject: {fileID: 1274191449}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
@@ -457,7 +427,7 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!1 &1405259966
+--- !u!1 &1291018043
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -465,8 +435,8 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 1405259968}
-  - component: {fileID: 1405259967}
+  - component: {fileID: 1291018045}
+  - component: {fileID: 1291018044}
   m_Layer: 0
   m_Name: Directional Light
   m_TagString: Untagged
@@ -474,13 +444,13 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!108 &1405259967
+--- !u!108 &1291018044
 Light:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1405259966}
+  m_GameObject: {fileID: 1291018043}
   m_Enabled: 1
   serializedVersion: 11
   m_Type: 1
@@ -539,15 +509,46 @@ Light:
   m_LightUnit: 1
   m_LuxAtDistance: 1
   m_EnableSpotReflector: 1
---- !u!4 &1405259968
+--- !u!4 &1291018045
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1405259966}
+  m_GameObject: {fileID: 1291018043}
   serializedVersion: 2
   m_LocalRotation: {x: 0.40821794, y: -0.23456973, z: 0.10938166, w: 0.8754261}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &1758479212
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1758479213}
+  m_Layer: 0
+  m_Name: Pool
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1758479213
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1758479212}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
@@ -558,6 +559,6 @@ Transform:
 SceneRoots:
   m_ObjectHideFlags: 0
   m_Roots:
-  - {fileID: 318602370}
-  - {fileID: 1405259968}
-  - {fileID: 898499767}
+  - {fileID: 1758479213}
+  - {fileID: 1291018045}
+  - {fileID: 1274191455}

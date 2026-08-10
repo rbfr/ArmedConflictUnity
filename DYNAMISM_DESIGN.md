@@ -85,6 +85,12 @@ Implementation notes:
   `AmmoDefinition` (stats in Definition classes — locked convention).
 - Burn/flame VFX and any new impact effects use BOUNDED round-robin slot pools in their
   own id bands (hard rule — see CLAUDE.md).
+  **The flame SHIPPED in the Unity build 2026-08-09 and was confirmed on device 2026-08-10** —
+  two flickering tongues per burning man, driven straight off `GameState.BurningEnemyIds` so it
+  needs no new tick state, bounded pool, guttering out over half a second and following the
+  ragdoll of anyone the burn kills. Full write-up in `HANDOVER.md`. Note the burn's window makes
+  it a TELEGRAPH as well as a cue: the fire is up for the whole post-volley pause, saying these
+  men are about to take damage.
 - Unlock state + selected type persist in `ProgressStore`/`EconomyStore` like unit
   unlocks (Phase 1c pattern).
 - Damage math (multiplier tables, cluster zone scaling, burn tick) lives in pure

@@ -11,32 +11,196 @@
 - **ALL OF TIER 0 IS DONE AND SIGNED OFF.** The Phase E balance audit — the last thing it owed —
   was run on 2026-08-07 in both halves, and Rob played the campaign afterwards and reported the
   levels feel fine. That closed it.
-- **Tier 1.1 (ammo types) IS BUILT** and confirmed on device.
+- **Tier 1.1 (ammo types) IS BUILT** and confirmed on device. Its last owed piece, the **FLAME on
+  a burning unit, shipped 2026-08-09 and was confirmed on device on 2026-08-10.**
 - **Tier 1.2 is HALF DONE**: reinforcement waves are telegraphed with a live countdown and the
   schedule covers two levels. **Wind is the other half and is still blocked** — see below.
-- **539 self-test checks, all passing — run `PortSelfTest.Run` after every change.** It was 281 at
-  the start of 2026-08-06, 411 at the end of it, 444 on 2026-08-07, and 539 after the Tier 1.2 and
-  glyph-coverage blocks.
+- **559 self-test checks, all passing — run `PortSelfTest.Run` after every change.** It was 281 at
+  the start of 2026-08-06, 411 at the end of it, 444 on 2026-08-07, 539 after the Tier 1.2 and
+  glyph-coverage blocks, and 559 with the flame and the Auto-ammo pair.
 
 ### Pick up here
 
-1. **Tier 1.2's remaining half is WIND, and it is a physics ask, not a scheduling job.**
-   `windAccelZ` drifts the round in Z while the collision test is X/Y only, so wind cannot change
-   what a shot hits. A wind schedule would telegraph a change the player cannot feel, which is
-   worse than no wind. **Do not author a wind level or a wind schedule until someone decides
-   whether the collision test becomes 3D.** That decision is the actual next step here.
+**WIND IS PARKED** — Rob's call, 2026-08-10. It is the only thing Tier 1.2 still owes and it is
+blocked on a physics decision (below), so tier work continues around it rather than waiting on it.
 
-2. **Two small things Tier 1.1 owes**, both cheap:
-   - **No flame VFX on a burning unit.** The incendiary burn does damage with nothing to see; the
-     only way to confirm it fired is the `[Burn]` log, which is why that log is kept. Any new
-     effect must use a BOUNDED slot pool (hard rule).
-   - **Is Cluster's 3.2x spread too wide to connect?** A balance question for a human playing it;
-     a scripted drag could not settle it.
+1. **TIER 1.3 IS THE NEXT TIER ITEM, AND ITS FIRST HALF IS NOT WHAT THE TABLE SAYS.**
+   `PRODUCT_DIRECTION.md` calls 1.3 "tactical consumable expansion — Smoke / Overwatch", gated on
+   *"when base consumables already feel good"*. **In this port there are no base consumables at
+   all.** `ConsumableType`, `ProgressStore.OwnedConsumables/AddConsumable/SpendConsumable`,
+   `EconomyStore.PurchaseConsumable` and `GameState.LoadedConsumables` are all ported — and a grep
+   for callers outside those files returns **NOTHING**. No UI, no arming, no spend, no effect.
 
-3. **`_plans/BACKLOG.md`** holds what Rob has parked: a **nuclear reactor structure** (open
+   **This is the SIXTH dead system** (see "assume NOTHING is wired"). The design docs say
+   "shipped" because their Status tables record the **RETIRED ANDROID BUILD** — `PROGRESSION_DESIGN`
+   Phase 2 and `DYNAMISM_DESIGN` Phase C both shipped there on 2026-07-20. **Check the Unity
+   callers, not the status table**, and treat those docs as the SPEC for what to build here rather
+   than as a record of what exists here.
+
+   So 1.3 is really: **wire the three base consumables (Airstrike / Early Reinforcements / Trauma
+   Kit) first**, then Smoke / Overwatch on top. The specs are `PROGRESSION_DESIGN.md` Phase 2 and
+   `DYNAMISM_DESIGN.md` Phase C, including the cap-2-per-battle rule and the arm-vs-spend
+   distinction (Airstrike's toggle pattern, not Trauma Kit's).
+
+2. **Tier 1.4 (Heli) stays shut.** `HELI_ENABLED=false` is a camera-load decision, not a stale
+   flag, and `PRODUCT_DIRECTION` gates it on "camera choreography is boring-stable". Do not flip it.
+
+3. **Tier 1.1 is CLOSED except for one question:** **is Cluster's 3.2x spread too wide to
+   connect?** A balance call for a human playing it; a scripted drag could not settle it. The
+   flame it owed shipped and was confirmed on device on 2026-08-10.
+
+4. **Wind, when it is picked back up**, is a physics ask, not a scheduling job. `windAccelZ` drifts
+   the round in Z while the collision test is X/Y only, so wind cannot change what a shot hits. A
+   wind schedule would telegraph a change the player cannot feel, which is worse than no wind.
+   **Do not author a wind level or a wind schedule until someone decides whether the collision test
+   becomes 3D.**
+
+5. **A per-frame NullReferenceException on the LOADOUT screen, pre-existing** — 195 in 3 seconds
+   there, ZERO in battle. Measured, not guessed, and the flame is ruled out. Written up in
+   `_plans/BACKLOG.md` with where to look. Worth fixing before building the consumable UI, which
+   will live on that same screen.
+
+6. **`_plans/BACKLOG.md`** holds what Rob has parked: a **nuclear reactor structure** (open
    question is what MECHANIC it owns — a blast on destruction would make it the first structure
    with one), **dead units sinking** into the ground instead of vanishing, and the **ragdoll /
    structure report**, which is PARTLY fixed and deliberately left open.
+
+## The incendiary flame — 2026-08-09
+
+The burn had dealt damage since Tier 1.1 with **nothing to see**. The only way to confirm from a
+device that it had fired was the `[Burn]` log, which is why that log was kept and why it stays.
+
+**It needs no new tick state.** The flame is drawn straight off `GameState.BurningEnemyIds` — a set
+that is filled when the round lands and cleared when the burn resolves at the turn handover. That
+window is the whole post-volley pause, which makes the fire a **telegraph** as well as a cue: it
+says these men are about to take damage, and the health bars drop as it goes out.
+
+**Two tongues per man, one quad each, flickering out of phase.** One tongue is a shape that changes
+size; two are a fire. The flicker is `CosmeticSystems.FlameScale`, a **sine of absolute time** — dt
+VARIES, so anything integrated per frame would run at a different rate on a stuttering one, and a
+phase accumulated per slot would need clearing on recycle. Height and width swing in ANTIPHASE (a
+flame narrows as it licks up); swung together the tongue just zooms and reads as a throbbing
+sticker.
+
+**`FlamePhase` is keyed on the UNIT ID, not the render slot.** Slots are handed out in roster order
+and shift down as men die, so a slot-keyed phase would make every surviving flame jump the instant
+a neighbour fell — the same reasoning as `UnitAnim.Desync`.
+
+**The colour is in the TEXTURE, not in a tint.** Hot yellow core, deep orange tips: that gradient is
+the whole difference between "fire" and "an orange triangle" at this size, and a per-instance tint
+can only scale the lot. The property block is left for the guttering alpha, which is per-slot.
+
+**A pooled flame, bounded and pre-warmed**, sized from the enemy roster including waves and boss
+phases. Minting one the frame a volley lands — alongside the blast, scorch and debris pools — is
+exactly the mid-session mint the Filament build kept paying for.
+
+**It gutters out over half a second rather than stopping.** The burn resolves on ONE frame, and a
+bright orange object vanishing in one frame is the artefact this repo has already paid for twice
+(the health bar and a backdrop layer both held full strength and then blinked out). There is no
+matching fade IN — fire catches instantly and dies slowly.
+
+**And the flame follows a body the burn KILLS.** A man the fire finishes leaves `EnemyUnits` on the
+frame he dies, so drawing only the living would snuff his flame at the exact moment it did the most
+work. `DyingUnitEntity` carries the same `Id`, so the corpse keeps its own guttering half-second and
+the fire falls with him.
+
+### Two things the preview caught that no test could
+
+`FlamePreview.Shots` renders the flame on a rank of soldiers at gameplay framing, in seconds,
+**through `Render/FlameRig` and the shipped `Flame.prefab`** — the same placement and the same art
+the game uses. It is deliberately NOT a second implementation: `BackdropPreview` once was, and spent
+a whole session producing plausible, wrong pictures.
+
+Its first render found both of these in one frame:
+
+- **The flame was UPSIDE DOWN** — fat hot base licking down at the boots, tapering to a point above
+  the head. The prefab copied the health bar's 180-degree turn about **X**, which mirrors the
+  VERTICAL, and the texture is already generated the right way up. It is a turn about **Y** now,
+  which mirrors the horizontal and costs only the direction of the tip's lean. *The health bar takes
+  the opposite choice for the mirror-image reason: its fill anchors to one END, so it cannot afford
+  a horizontal mirror and can afford a vertical one.* Both are 180-degree turns that "face the quad
+  at the camera", and they are not interchangeable.
+- **It read as a CANDLE, not a man alight** — a taper of `(1-t)^0.62` kept the tongue
+  narrow-but-present all the way up and drew a needle, so six burning soldiers looked like six
+  rocket exhausts. Steeper taper (0.85), a wider body (0.50), and a tip fade tripled to 0.34 so the
+  fade ends the flame rather than the profile. Shorter and broader overall: 1.05x body height at
+  0.76x width, from 1.15 and 0.60.
+
+### Confirmed on device, L1, 2026-08-10
+
+A real drag (`input swipe 300 900 631 1231 600`) into L1's bunker, incendiary selected:
+
+```
+[Probe] ammo=Incendiary unitsHit=5 incendiaryHits=5 survivorsMarked=5
+[Burn] 4 burning took 8 (4 died)
+```
+
+And on the frames: **two garrison soldiers alight on the bunker DECK** — standing on the deck, not
+the world floor, so the entity-relative y is right — each flame the correct way up, wide hot base at
+the boots licking just past the helmet, and the two **visibly different in size and lean on the same
+frame**, which is the per-unit phase doing its job. Fire-coloured and unmistakable against the red
+enemy uniforms.
+
+Then the whole death sequence, which is better than designed: the burn kills them, **the ragdoll is
+thrown and the fire goes with it**, guttering out as the body tumbles. **60 fps throughout**, read
+off the HUD on four consecutive samples during the burn.
+
+**One artefact worth knowing about, not chased:** for a frame or two at the moment of death the two
+flames stand on the deck with NO BODIES under them, before the corpses appear in flight. That is the
+already-documented "a unit's slot is not stable across frames" corpse-handover timing, which the
+flame has simply made visible for the first time. It is 1–2 frames and reads as a puff.
+
+**What the preview could not show and the device did:** the guttering, the flame on a garrison
+rather than on flat ground, the frame rate, and the death sequence.
+
+### The trap that cost most of the session: AUTO IGNORES THE AMMO SELECTION
+
+Six incendiary volleys were fired with the AUTO button and **not one man ever caught fire.** Nothing
+was wrong with the flame, the burn, or the marking. `AutoFire` builds its own `ProjectileEntity` and
+**never sets `Ammo`**, so every round it throws is Standard however loudly the HUD says Incendiary.
+
+It is deliberate — `CannonShells` documents the identity default in as many words — and it is the
+exact sibling of the long-standing "**Auto cannot test STRUCTURES**". Auto is a test harness, not
+the player, and the list of what it cannot test is now two items long.
+
+**What settled it was a PROBE, after two rounds of guessing had not.** One build, one line, both
+ends of the path:
+
+```
+[Probe] ammo=Incendiary unitsHit=1 incendiaryHits=0 survivorsMarked=0    <- AUTO
+[Probe] ammo=Incendiary unitsHit=5 incendiaryHits=5 survivorsMarked=5    <- a real DRAG
+```
+
+The state said Incendiary in BOTH. Only the rounds differed — which is precisely the "assert the
+OUTPUT, not the input" rule wearing yet another costume, and the reason the probe printed the state
+and the rounds side by side instead of either alone.
+
+**Both facts are now `PortSelfTest` checks**, so nobody has to rediscover this against a phone:
+Auto's rounds must be Standard while the state says Incendiary, and a real volley must carry the
+selection. The second is not decoration — without it the first would still pass if ammo were broken
+everywhere. The Auto limitation is also in `CLAUDE.md` beside its structures sibling, with the drag
+that clears L1's 16 units.
+
+### The checks, and the one that was deleted for failing its own negative test
+
+`PortSelfTest` asserts the flicker arithmetic directly, and asks the TEXTURE about its shape —
+because the failure being guarded is "the texture is wrong, so the game draws an orange RECTANGLE
+over every burning soldier", which no test of the generator's inputs can see. The shape checks carry
+their **own negative case in the same run**: a plain white square must fail every one of them.
+
+Every check was then run against deliberately broken code, per the standing rule. That is how three
+of them were confirmed (taper, neck, antiphase all went red) — and how one was found worthless:
+
+- A check asserted the **spread between the largest and smallest neighbour phase gap**, claiming to
+  catch "a wave marching along the rank". A ramp (`unitId * 0.1f`) sailed through it at 6.08 rad,
+  because the wrap-around manufactures one enormous gap. **Deleted.** A check that names a failure it
+  cannot detect is worse than no check: it reads as coverage.
+- Its neighbour, "neighbouring units rarely flicker together", scored **394 of 400 pairs** on that
+  same ramp. That is the one that works.
+- An earlier version asserted a FLOOR on the closest pair, and failed on the honest implementation:
+  among 40 random phases some pair is almost certainly within a few hundredths of a radian. That is
+  what randomness looks like, and it is invisible in a crowd of thirty. **Assert the distribution,
+  not the extreme.**
 
 ## Tier 1.2 — the telegraph and the schedule, 2026-08-07
 
@@ -104,10 +268,14 @@ BalanceAudit.Report       0 errors, 19 warnings (race-ratio flags on the dearest
                           extreme, which is informational)
 ```
 
-**A scene rebuild is NOT pending** — one was run on 2026-08-09 after `ReinforcementWave` gained
-its two new serialized fields, and `Assets/Scenes/Battle.unity` plus three materials are dirty
-because of it. **The APK on the device is current with the Tier 1.2 work** and is what the L10
-device run above was captured from.
+**A scene rebuild is NOT pending** — one was run on 2026-08-10 after `BattleRunner` gained its
+`flamePrefab` field, so `Assets/Scenes/Battle.unity` and several materials are dirty because of it.
+**The APK on the device is current and probe-free**, rebuilt and reinstalled after the temporary
+`[Probe]` line was removed, and the flame was re-confirmed on that final build.
+
+Note the flame's own assets are NEW and untracked until committed: `Assets/Prefabs/Flame.prefab`,
+`Assets/Materials/Flame.mat`, `Assets/Materials/FlameTex.asset`, `Assets/Scripts/Render/FlameRig.cs`
+and `Assets/Editor/FlamePreview.cs`.
 
 ### What changed on 2026-08-07, in one place
 
@@ -154,9 +322,16 @@ engine, the font, the device — not against the summary someone wrote of them.
 
 ### The other standing lesson: assume NOTHING is wired
 
-**Nothing in this port is live just because it exists and has tests.** Five systems have been
+**Nothing in this port is live just because it exists and has tests.** SIX systems have been
 found fully ported, unit-tested and reached by nothing — the economy, boss phases, reinforcement
-waves, stages, and ammo. **Grep for callers before believing a feature is live.**
+waves, stages, ammo, and (found 2026-08-10) **consumables**. **Grep for callers before believing a
+feature is live.**
+
+**And the design docs will not tell you.** Their Status tables say "shipped" about the **RETIRED
+ANDROID BUILD** — consumables are marked shipped in `PROGRESSION_DESIGN.md` Phase 2 and
+`DYNAMISM_DESIGN.md` Phase C, dated 2026-07-20, and nothing in this repo calls them. Read those
+tables as the SPEC for what to build here, never as a record of what exists here. This is the same
+failure as "a check written from a doc asserts the doc", one level up: **ask the code who calls it.**
 
 Wind is worse than unwired: it is COSMETIC (`windAccelZ` drifts the round in Z; the collision test
 is X/Y only), so **do not author a wind level or a wind schedule until wind does something**, and

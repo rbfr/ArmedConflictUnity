@@ -46,6 +46,10 @@ public class BattleRunner : MonoBehaviour
     [SerializeField] GameObject debrisPrefab;
     /// <summary>The soft ellipse under a living soldier — see SyncShadows.</summary>
     [SerializeField] GameObject shadowPrefab;
+    /// <summary>The two-tongue flame carried by a unit the incendiary round set alight — see
+    /// SyncFlames. Optional: with no prefab the burn still fires and is still logged, which is
+    /// exactly the pre-2026-08-09 behaviour.</summary>
+    [SerializeField] GameObject flamePrefab;
     [SerializeField] BattleAudio audioFx;
     [SerializeField] Transform poolRoot;
     /// <summary>Unlit white, tinted per bar with a property block. Unlit on purpose — a health
@@ -206,6 +210,40 @@ public class BattleRunner : MonoBehaviour
     readonly List<GameObject> shadowSlots = new();
     Material shadowMat;
 
+    // ---- the incendiary flame ----------------------------------------------------------------
+    //
+    // What a unit set alight by an incendiary round looks like. Before this the burn dealt its
+    // damage with NOTHING to see, and the only way to confirm from a device that it had fired at
+    // all was the [Burn] log — which is why that log was kept.
+    //
+    // Driven straight off GameState.BurningEnemyIds, so it needs no new tick state. That set is
+    // filled when the round lands and cleared when the burn resolves at the turn handover, which
+    // makes the fire a TELEGRAPH as well as a cue: it is up for the whole post-volley pause,
+    // saying these men are about to take damage, and the health bars drop as it goes out.
+    //
+    // The sizes, the offsets and the guttering clock live in Render/FlameRig, which the headless
+    // FlamePreview renders through as well — a preview that re-implements the placement is a
+    // second implementation, and BackdropPreview already cost this project a session that way.
+    readonly List<(GameObject Root, Transform Outer, Transform Inner,
+                   MeshRenderer OuterRenderer, MeshRenderer InnerRenderer)> flameSlots = new();
+    /// <summary>
+    /// Unit id -> seconds of guttering left. RENDER-ONLY: nothing in the tick reads it, and it is
+    /// dropped wholesale on a level switch. Bounded by the enemy roster — an entry is only ever
+    /// made for a unit that was burning, and it is removed when it expires.
+    /// </summary>
+    readonly Dictionary<int, float> flameOut = new();
+    /// <summary>
+    /// This frame's burning set, as something with an O(1) Contains.
+    ///
+    /// GameState.BurningEnemyIds is an IReadOnlyCollection, so `Contains` on it resolves to LINQ's
+    /// — a linear scan AND an enumerator allocation, per unit, per frame. Refilled here rather
+    /// than rebuilt: Clear keeps the buckets, so the whole thing is allocation-free.
+    /// </summary>
+    readonly HashSet<int> burningNow = new();
+    /// <summary>Scratch for iterating flameOut while writing to it. Reused, never re-allocated.</summary>
+    readonly List<int> expiredFlames = new();
+    MaterialPropertyBlock flameProps;
+
     void Start()
     {
         Application.targetFrameRate = 60;
@@ -335,6 +373,12 @@ public class BattleRunner : MonoBehaviour
         foreach (var go in debrisSlots) go.SetActive(false);
         foreach (var b in healthBars) b.Root.SetActive(false);
         foreach (var sh in shadowSlots) sh.SetActive(false);
+        foreach (var f in flameSlots) f.Root.SetActive(false);
+        // The guttering clocks are keyed by UNIT ID, and the next level re-uses those ids from 0.
+        // Left standing, a corpse's leftover half-second would be inherited by whichever soldier
+        // happens to be given that id on the new level — the same class of bug as a recycled slot
+        // coming back holding the last occupant's pose.
+        flameOut.Clear();
     }
 
     /// <summary>
@@ -472,6 +516,7 @@ public class BattleRunner : MonoBehaviour
         }
         BuildHealthBars();
         BuildShadows();
+        BuildFlames();
         for (int i = 0; i < 32; i++) blastSlots.Add(Spawn(explosionPrefab, $"x{i}"));
         for (int i = 0; i < BattleTick.ScorchSlots; i++) scorchSlots.Add(Spawn(scorchPrefab, $"sc{i}"));
         for (int i = 0; i < BattleTick.DebrisSlots; i++) debrisSlots.Add(Spawn(debrisPrefab, $"db{i}"));
@@ -579,6 +624,132 @@ public class BattleRunner : MonoBehaviour
             if (shadowMat == null) shadowMat = new Material(r.sharedMaterial);
             r.sharedMaterial = shadowMat;
             shadowSlots.Add(go);
+        }
+    }
+
+    /// <summary>
+    /// One flame per ENEMY unit that could ever be on the field at once — only enemies burn, since
+    /// the incendiary is a round the player fires.
+    ///
+    /// A BOUNDED POOL, pre-warmed with everything else and never added to. That is the hard rule
+    /// here: minting a render slot mid-session is the failure the Filament build paid for
+    /// repeatedly, and a flame is minted at exactly the worst moment for it — the frame a volley
+    /// lands, with the blast, scorch and debris pools all being drawn from at once.
+    /// </summary>
+    void BuildFlames()
+    {
+        if (flamePrefab == null) return;
+
+        int need = 0;
+        foreach (var lv in levels)
+        {
+            if (lv == null) continue;
+            int n = 0;
+            foreach (var g in lv.enemyGroups) n += Mathf.Max(0, g?.count ?? 0);
+            // Reinforcements and boss phases can put a man on the field who is not in the opening
+            // formation, and he can be set alight like anyone else — the same reasoning that sizes
+            // the health-bar pool.
+            foreach (var w in lv.reinforcementWaves)
+                foreach (var g in w.spawnGroups) n += Mathf.Max(0, g?.count ?? 0);
+            foreach (var b in lv.bossPhases)
+                foreach (var g in b.spawnGroups) n += Mathf.Max(0, g?.count ?? 0);
+            need = Mathf.Max(need, n);
+        }
+
+        for (int i = 0; i < need; i++)
+        {
+            var go = Spawn(flamePrefab, $"fl{i}");
+            var outer = go.transform.Find("outer");
+            var inner = go.transform.Find("inner");
+            if (outer == null || inner == null)
+            {
+                // The prefab is built by SpikeSceneBattle.MakeFlamePrefab and these two names are
+                // the contract between it and this method. Say so at BUILD time rather than
+                // silently drawing nothing — the whole point of this feature is that a burn is no
+                // longer invisible.
+                Debug.LogError("[Battle] flamePrefab has no outer/inner tongue — flames disabled");
+                return;
+            }
+            flameSlots.Add((go, outer, inner,
+                            outer.GetComponent<MeshRenderer>(), inner.GetComponent<MeshRenderer>()));
+        }
+    }
+
+    /// <summary>
+    /// Puts a flame on every burning enemy, and keeps one guttering for half a second on anyone
+    /// whose burn has just resolved.
+    ///
+    /// The set is the tick's, so this cannot disagree with who actually takes the damage.
+    /// </summary>
+    void SyncFlames(float dt)
+    {
+        if (flameSlots.Count == 0) return;
+        flameProps ??= new MaterialPropertyBlock();
+
+        burningNow.Clear();
+        foreach (var id in state.BurningEnemyIds) burningNow.Add(id);
+
+        // Age the guttering flames first, and re-arm anyone still alight. A unit hit by a second
+        // incendiary round while already burning must not be handed a half-dead flame.
+        if (flameOut.Count > 0)
+        {
+            expiredFlames.Clear();
+            foreach (var id in flameOut.Keys) expiredFlames.Add(id);
+            foreach (var id in expiredFlames)
+            {
+                float left = flameOut[id] - dt;
+                if (left <= 0f) flameOut.Remove(id); else flameOut[id] = left;
+            }
+        }
+
+        // Time.time, not an accumulated phase. dt VARIES, and a flicker integrated per frame
+        // would run at a different rate on a stuttering one; sampling the clock cannot.
+        float now = Time.time;
+        int used = 0;
+        foreach (var u in state.EnemyUnits)
+        {
+            bool alight = burningNow.Contains(u.Id);
+            if (alight) flameOut[u.Id] = FlameRig.OutSeconds;
+            else if (!flameOut.ContainsKey(u.Id)) continue;
+            used = Burn(u.Id, u.X, u.Y, u.Z, u.Definition, alight, used);
+        }
+
+        // AND ON THE BODIES THE BURN KILLED. A man the fire finishes leaves EnemyUnits on the
+        // frame he dies, so drawing only the living would snuff his flame out at the exact moment
+        // it did the most — the one frame in the whole feature where the player is looking at it.
+        // The ragdoll carries the same Id, so it keeps its own guttering half-second and the fire
+        // falls with him.
+        foreach (var d in state.DyingUnits)
+            if (!d.IsPlayerSide && flameOut.ContainsKey(d.Id))
+                used = Burn(d.Id, d.X, d.Y, d.Z, d.Definition, false, used);
+
+        for (int i = used; i < flameSlots.Count; i++)
+            if (flameSlots[i].Root.activeSelf) flameSlots[i].Root.SetActive(false);
+
+        int Burn(int id, float x, float y, float z, UnitDefinitionSO def, bool alight, int slot)
+        {
+            if (slot >= flameSlots.Count) return slot;
+
+            // Full strength while alight, then guttering. Squared, so the fire spends most of the
+            // half-second visibly dying rather than snapping to half and drifting away.
+            float k = alight ? 1f : flameOut[id] / FlameRig.OutSeconds;
+            float alpha = k * k;
+
+            var (root, outer, inner, outerRenderer, innerRenderer) = flameSlots[slot++];
+            root.SetActive(true);
+
+            // The flame DOES scale with renderScale, unlike the health bar: a bar is UI and must
+            // not grow with the man, but fire is a physical thing engulfing a body and a hero is
+            // 1.9x the size of that body.
+            FlameRig.Place(root.transform, outer, inner, x, y, z,
+                           def != null ? def.renderScale : 1f, now, id);
+
+            // Per-instance, because every slot shares the one Flame material — tinting the
+            // material itself would fade every flame on the field together.
+            flameProps.SetColor(BaseColorId, new Color(1f, 1f, 1f, alpha));
+            outerRenderer.SetPropertyBlock(flameProps);
+            innerRenderer.SetPropertyBlock(flameProps);
+            return slot;
         }
     }
 
@@ -957,6 +1128,7 @@ public class BattleRunner : MonoBehaviour
         enemyUnits.HideRest();
         SyncHealthBars();
         SyncShadows();
+        SyncFlames(Time.deltaTime);
         // Guns follow the LIVE roster only — a ragdoll drops its weapon rather than carrying
         // one through a tumble, which is also what the shipping build does.
         for (int i = state.PlayerUnits.Count; i < playerGuns.Count; i++) playerGuns[i].SetActive(false);

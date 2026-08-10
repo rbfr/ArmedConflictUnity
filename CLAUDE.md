@@ -232,8 +232,14 @@ each level owes one beat.
   thing. Drive it from adb with `input swipe X Y X Y 600` — a tap is too brief now that it is
   hold-to-fly.
 - **`Auto` is a test harness, not the player.** Every unit targets its nearest enemy with no
-  jitter, so it kills rather than wounds and cannot test structures at all. Measure difficulty,
-  and anything that depends on spread, with real drags.
+  jitter, so it kills rather than wounds and cannot test structures at all. **It also fires
+  STANDARD rounds whatever ammo is selected** — `AutoFire` builds its own projectiles and never
+  sets `Ammo`, so it cannot test an ammo type either. That one cost most of a session on
+  2026-08-10: six "incendiary" Auto volleys, not one man alight, and nothing wrong with the code.
+  Both facts are asserted in `PortSelfTest`. Measure difficulty, ammo, and anything that depends
+  on spread with REAL DRAGS.
+  A drag that clears ~16 units — L1's geometry — is `adb shell input swipe 300 900 631 1231 600`:
+  the pull is DOWN-and-across, 331 px on each axis gives v=8 at 45°, and range is v²/g with g=4.
 - **Prefer a PROBE to a detector.** A one-build `Debug.Log` at both ends of a suspect path settles
   in one run what a pixel-search will get wrong three times — this session alone, detectors locked
   onto HUD text, tracers, a boot and a bunker window, and twice declared a working feature broken.

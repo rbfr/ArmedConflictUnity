@@ -154,6 +154,7 @@ public static class SpikeSceneBattle
         so.FindProperty("explosionPrefab").objectReferenceValue = blastPrefab;
         so.FindProperty("scorchPrefab").objectReferenceValue = scorchPrefab;
         so.FindProperty("shadowPrefab").objectReferenceValue = MakeShadowPrefab();
+        so.FindProperty("flamePrefab").objectReferenceValue = MakeFlamePrefab();
         so.FindProperty("debrisPrefab").objectReferenceValue = MakeDebrisPrefab(mats);
         // UNLIT and TRANSPARENT. Unlit because a health bar is UI that happens to live in the
         // world, and a lit one takes the biome's light and reads as a different colour per level
@@ -464,6 +465,145 @@ public static class SpikeSceneBattle
         var prefab = PrefabUtility.SaveAsPrefabAsset(go, "Assets/Prefabs/UnitShadow.prefab");
         Object.DestroyImmediate(go);
         return prefab;
+    }
+
+    /// <summary>
+    /// The INCENDIARY FLAME: what a burning soldier looks like.
+    ///
+    /// The burn has dealt damage since Tier 1.1 with nothing to see — the only way to confirm it
+    /// had fired at all was the `[Burn]` log. This is that cue. It is up from the moment the round
+    /// lands until the burn resolves at the turn handover, so it is also a TELEGRAPH: the fire
+    /// says these men are about to take damage, and the health bars drop as it goes out.
+    ///
+    /// TWO TONGUES, one quad each, flickering out of phase (CosmeticSystems.FlameScale). One
+    /// tongue is a shape that changes size; two are a fire.
+    ///
+    /// The colour is in the TEXTURE, not in a tint. A flame is hot-yellow at its core and deep
+    /// orange at its tips, and that gradient is the single thing that separates "fire" from "an
+    /// orange triangle" at this scale — a per-instance tint can only scale the whole thing at
+    /// once. The property block is left for the fade-out ALPHA, which is per-slot.
+    /// </summary>
+    static GameObject MakeFlamePrefab()
+    {
+        var tex = FlameTexture();
+        AssetDatabase.CreateAsset(tex, "Assets/Materials/FlameTex.asset");
+
+        var mat = new Material(Shader.Find("Universal Render Pipeline/Unlit"))
+        { color = Color.white };
+        mat.mainTexture = tex;
+        // TRANSPARENT and UNLIT, and both matter. Transparent because the flame is shaped
+        // entirely by its alpha and because it fades out — an opaque URP/Unlit ignores alpha
+        // completely, which this repo has already paid for twice (the ocean sun, the health bar).
+        // Unlit because fire emits: a lit flame takes Winter's pale light and CityRuins' dim one
+        // and reads as a different substance per biome.
+        mat.SetFloat("_Surface", 1f);
+        mat.SetFloat("_Blend", 0f);
+        mat.SetFloat("_SrcBlend", (float)UnityEngine.Rendering.BlendMode.SrcAlpha);
+        mat.SetFloat("_DstBlend", (float)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+        mat.SetFloat("_ZWrite", 0f);
+        mat.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Transparent;
+        mat.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
+        mat.DisableKeyword("_ALPHATEST_ON");
+        AssetDatabase.CreateAsset(mat, "Assets/Materials/Flame.mat");
+
+        var root = new GameObject("Flame");
+        // The shared quad's normal faces -Z, so it needs a 180-degree turn to face the camera at
+        // +Z. About Y, NOT about X — and that is not interchangeable here, which the first render
+        // showed in one frame: an X flip mirrors the VERTICAL, so the flame came out standing on
+        // its point with the fat hot base licking down at the soldier's boots. A Y flip mirrors
+        // the horizontal instead, which costs only the direction of the tip's lean.
+        //
+        // The health bar takes the opposite choice for the mirror-image reason — its fill anchors
+        // to one END, so it cannot afford a horizontal mirror and can afford a vertical one.
+        root.transform.rotation = Quaternion.Euler(0f, 180f, 0f);
+        Tongue("outer", 1f);
+        Tongue("inner", 0.54f);
+
+        void Tongue(string name, float scale)
+        {
+            var q = GameObject.CreatePrimitive(PrimitiveType.Quad);
+            q.name = name;
+            Object.DestroyImmediate(q.GetComponent<Collider>());
+            q.transform.SetParent(root.transform, false);
+            q.GetComponent<MeshRenderer>().sharedMaterial = mat;
+            // Both tongues are anchored at the FOOT, not at their centres, so the inner one grows
+            // and shrinks out of the base rather than hovering in the middle of the outer.
+            // BattleRunner sets the world size; this is the relative one.
+            q.transform.localScale = new Vector3(scale, scale, 1f);
+            q.transform.localPosition = new Vector3(0f, 0f, name == "inner" ? -0.004f : 0f);
+        }
+
+        System.IO.Directory.CreateDirectory("Assets/Prefabs");
+        var prefab = PrefabUtility.SaveAsPrefabAsset(root, "Assets/Prefabs/Flame.prefab");
+        Object.DestroyImmediate(root);
+        return prefab;
+    }
+
+    /// <summary>
+    /// The flame's alpha SHAPE and colour ramp, generated rather than authored so the profile is
+    /// a formula anything can check — see PortSelfTest, which asserts the tongue is wide at the
+    /// base and empty at the tip corners.
+    ///
+    /// Public because that check must ask THE TEXTURE what shape it is. A check written against
+    /// the description above would only assert the description.
+    ///
+    /// Note the row index runs BOTTOM-UP (t = 0 is the flame's foot at v = 0), which the prefab's
+    /// 180-degree X flip then turns the right way up.
+    /// </summary>
+    public static Texture2D FlameTexture()
+    {
+        const int Size = 64;
+        var tex = new Texture2D(Size, Size, TextureFormat.RGBA32, false)
+        { wrapMode = TextureWrapMode.Clamp };
+
+        // Deep orange at the tip, hot near-yellow at the core. Both are well clear of the team
+        // reds and greens: fire that reads as a faction colour tells the player the wrong thing.
+        var tip = new Color(0.96f, 0.28f, 0.06f);
+        var core = new Color(1f, 0.90f, 0.42f);
+
+        for (int y = 0; y < Size; y++)
+        {
+            float t = (y + 0.5f) / Size;                       // 0 at the foot, 1 at the tip
+            // The centreline LEANS as it rises. A flame drawn about a straight axis is a
+            // symmetric lozenge, which reads as a leaf or a gem however it is coloured.
+            float lean = 0.11f * t * t;
+            // Half-width: necked in at the very bottom, widest around a quarter of the way up,
+            // tapering to a point. The two factors are separate on purpose — the first is the
+            // neck, the second the taper — because tuning one profile to do both ends up
+            // flattening whichever end was last adjusted.
+            float neck = 0.34f + 0.66f * Mathf.Min(1f, t / 0.20f);
+            // 0.62 first, which held the tongue narrow-but-present all the way to the top and drew
+            // a NEEDLE — six soldiers with rocket exhaust. What reads as fire is a broad body that
+            // gives out, so the taper is steeper and the tip fade below does most of the ending.
+            float taper = Mathf.Pow(Mathf.Max(0f, 1f - t), 0.85f);
+            float w = 0.50f * neck * taper;
+
+            for (int x = 0; x < Size; x++)
+            {
+                float dx = (x + 0.5f) / Size - 0.5f - lean;
+                float a;
+                if (w <= 1e-4f) a = 0f;
+                else
+                {
+                    float e = Mathf.Abs(dx) / w;               // 0 centreline -> 1 edge
+                    // Solid core with a soft shoulder over the outer third. Deliberately NOT
+                    // Mathf.SmoothStep, which is a smoothed LERP between its first two arguments
+                    // and would return a near-constant here — the trap that once drew the ocean's
+                    // sun as a cream rectangle.
+                    a = e >= 1f ? 0f : e < 0.62f ? 1f : 1f - (e - 0.62f) / 0.38f;
+                }
+                // The tip thins out rather than ending on a hard edge, and the foot is slightly
+                // translucent so the soldier's boots read through the base of the fire.
+                a *= Mathf.Clamp01((1f - t) / 0.34f);
+                a *= Mathf.Clamp01(0.55f + t / 0.12f);
+
+                float hot = Mathf.Clamp01((1f - t) * (1f - t));
+                var c = Color.Lerp(tip, core, hot);
+                tex.SetPixel(x, y, new Color(c.r, c.g, c.b, a));
+            }
+        }
+        tex.Apply();
+        return tex;
     }
 
     /// <summary>A rubble chunk — a lit cube in the structures' own stone tone.</summary>

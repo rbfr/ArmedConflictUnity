@@ -8,6 +8,37 @@ Nothing here overrides `GAME_DESIGN_LOCKS.md` or `CAMERA_ARCHITECTURE.md`.
 
 ---
 
+## A NullReferenceException every frame on the LOADOUT screen — found 2026-08-10
+
+Not asked for; found while device-testing the flame, and **pre-existing** — the flame is not
+implicated (see below). Nothing visibly breaks: the loadout screen renders correctly, BEGIN works,
+and the battle runs clean at 60 fps.
+
+**The measurement**, taken with the app focused and logcat cleared immediately before each window:
+
+```
+195 NullReferenceExceptions in 3 seconds on the LOADOUT screen  (~65/s = one per frame)
+  0 NullReferenceExceptions in 3 seconds IN BATTLE
+```
+
+`BattleRunner.Update` is the only frame in the IL2CPP trace — a release build carries no line
+numbers, so that is as far as the stack goes.
+
+**Why the flame is ruled out:** `SyncFlames` runs from `Render()`, which `Update` calls on EVERY
+frame in BOTH contexts. Code that runs in both cannot explain an exception that occurs in only one.
+
+**Where to look.** `Update` runs the whole tick and `Render` while the picker is open — only
+`HandleInput` early-returns on `ui.LoadoutOpen`. So something the tick or the renderer touches is
+null *before a battle has been entered* and not after. Prime suspects, cheapest first: `level`, and
+anything `Render` reads off the not-yet-loaded level. **Put a probe in rather than reading for it**
+— one build, a log at the top of each Sync\* — and note that the release build's stack will not
+narrow it for you.
+
+Worth fixing rather than ignoring: it is a thrown exception plus a stack capture per frame, on the
+one screen where the player is sitting still and reading.
+
+---
+
 ## Nuclear reactor structure — asked 2026-08-07
 
 A new enemy structure: a nuclear reactor.

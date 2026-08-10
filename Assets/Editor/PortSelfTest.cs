@@ -27,6 +27,160 @@ public static class PortSelfTest
     static void Near(float a, float b, float eps, string what)
         => Check(Mathf.Abs(a - b) <= eps, $"{what} ({a:F5} vs {b:F5})");
 
+    /// <summary>
+    /// The incendiary FLAME — the cue that a burning unit is burning.
+    ///
+    /// Two separate things are checked, and the split matters. The flicker is arithmetic and can
+    /// be asserted directly. The SHAPE cannot: a flame drawn on a quad is only a flame because of
+    /// its alpha, and the failure mode this guards is precisely "the texture is wrong, so the
+    /// game draws an orange RECTANGLE over every burning soldier" — which no test of the
+    /// generator's inputs can see.
+    ///
+    /// So the shape checks ASK THE TEXTURE, per the standing rule, and they carry their own
+    /// negative case: the same tests are run against a plain white square, which must FAIL every
+    /// one of them. A check never seen to fail is not evidence, and a shape test that a bare quad
+    /// also passes is testing nothing.
+    /// </summary>
+    static void CheckFlame()
+    {
+        // --- the flicker ------------------------------------------------------------------
+
+        // A stable, well-spread phase per unit. Keyed on the unit's ID, so it must not move
+        // between frames — a phase that re-rolled would make the whole field strobe.
+        Check(CosmeticSystems.FlamePhase(17) == CosmeticSystems.FlamePhase(17),
+              "a unit's flame phase is stable across calls");
+
+        // The failure this guards is a LINE of soldiers flickering as one, or as a travelling wave
+        // along the rank. Consecutive ids are the common case — a group spawns in a run — so it is
+        // consecutive ids that have to come out scattered.
+        //
+        // Asserted as a DISTRIBUTION, not as a floor on the closest pair. A floor is the wrong
+        // test and its first version failed for the right reason: among 40 random phases some pair
+        // is almost certainly within a few hundredths of a radian, which is simply what randomness
+        // looks like and is invisible in a crowd of thirty. What would actually be seen is
+        // CLUSTERING — phases piling into one part of the cycle — or a linear ramp.
+        const int Ids = 400, Octants = 8;
+        var occupancy = new int[Octants];
+        int nearSync = 0;
+        for (int id = 0; id < Ids; id++)
+        {
+            float p = CosmeticSystems.FlamePhase(id);
+            occupancy[Mathf.Min(Octants - 1, (int)(p / (Mathf.PI * 2f) * Octants))]++;
+            if (Mathf.Abs(CosmeticSystems.FlamePhase(id + 1) - p) < 0.30f) nearSync++;
+        }
+        int thinnest = occupancy.Min();
+        Check(thinnest > Ids / Octants / 2,
+              $"flame phases cover the whole cycle rather than clustering " +
+              $"(thinnest octant {thinnest} of a fair {Ids / Octants})");
+        // A random pair falls within 0.30 rad about 9.5% of the time; a ramp or a shared phase
+        // puts this near 100%. THIS is the check that catches a travelling wave, and the pair
+        // above is not — proved by running both against `unitId * 0.1f`, which scored 394 of 400
+        // here and a perfectly even 47-of-50 on occupancy. A ramp does not cluster; it marches.
+        //
+        // A third check lived here and was DELETED for failing exactly that test: it asserted the
+        // spread between the largest and smallest neighbour gap, and a ramp sailed through it at
+        // 6.08 rad because the wrap-around manufactures one enormous gap. A check that names a
+        // failure it cannot detect is worse than none — it reads as coverage.
+        Check(nearSync < Ids / 5,
+              $"and neighbouring units rarely flicker together ({nearSync} of {Ids} pairs)");
+
+        // Height and width swing in ANTIPHASE: the tongue narrows as it stretches. Swung
+        // together, the whole flame zooms in and out and reads as a throbbing sticker.
+        bool antiphase = true, outerMoves = false, tonguesDiffer = false;
+        float minH = float.MaxValue, maxH = 0f;
+        for (float t = 0f; t < 1f; t += 1f / 2000f)
+        {
+            var o = CosmeticSystems.FlameScale(t, 0f, false);
+            var i = CosmeticSystems.FlameScale(t, 0f, true);
+            if ((o.y - 1f) * (o.x - 1f) > 1e-6f) antiphase = false;
+            if (Mathf.Abs(o.y - i.y) > 0.05f) tonguesDiffer = true;
+            minH = Mathf.Min(minH, o.y);
+            maxH = Mathf.Max(maxH, o.y);
+        }
+        outerMoves = maxH - minH > 0.1f;
+        Check(antiphase, "a flame tongue NARROWS as it stretches, never both at once");
+        Check(outerMoves, $"the flame actually flickers (height {minH:F2}..{maxH:F2})");
+        Check(tonguesDiffer,
+              "the two tongues are out of step, so the pair reads as fire and not as one shape");
+        Near(maxH - 1f, CosmeticSystems.FlameHeightSwing, 1e-3f,
+             "and it swings by the authored amount");
+
+        // --- the shape, asked of the texture itself ----------------------------------------
+
+        var flame = SpikeSceneBattle.FlameTexture();
+        var square = new Texture2D(flame.width, flame.height, TextureFormat.RGBA32, false);
+        var white = new Color[flame.width * flame.height];
+        for (int i = 0; i < white.Length; i++) white[i] = Color.white;
+        square.SetPixels(white);
+        square.Apply();
+
+        ShapeChecks(flame, true);
+        ShapeChecks(square, false);
+        Object.DestroyImmediate(flame);
+        Object.DestroyImmediate(square);
+
+        // BuildFlames finds the two tongues BY NAME, so those names are a contract between the
+        // scene builder and the runtime. Break it and the pool logs an error on device and draws
+        // nothing — which is the state this whole feature exists to leave behind.
+        var prefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/Flame.prefab");
+        if (prefab == null)
+            Log.AppendLine("  [ok  ] flame prefab not built yet — run SpikeSceneBattle.Build");
+        else
+            Check(prefab.transform.Find("outer") != null && prefab.transform.Find("inner") != null,
+                  "the flame prefab carries the outer and inner tongues BattleRunner looks up");
+
+        // `wanted` false means this is the NEGATIVE run: every assertion below must come out the
+        // other way for a plain quad, and the check passes only if it does.
+        void ShapeChecks(Texture2D tex, bool wanted)
+        {
+            string who = wanted ? "the flame texture" : "a plain white quad (negative case)";
+            int w = tex.width, h = tex.height;
+
+            // Row 0 is the flame's foot and row h-1 its tip — the generator runs bottom-up, which
+            // the prefab's 180-degree X flip turns the right way up.
+            float Width(int row)
+            {
+                int lit = 0;
+                for (int x = 0; x < w; x++) if (tex.GetPixel(x, row).a > 0.5f) lit++;
+                return lit / (float)w;
+            }
+
+            // A TAPER. This is the whole difference between a flame and a rectangle: the top must
+            // be narrower than the bottom, and the very tip must be empty.
+            bool tapers = Width(h / 4) > Width(h * 3 / 4) + 0.1f;
+            Check(tapers == wanted,
+                  $"{who}: {(wanted ? "tapers" : "does NOT taper")} toward the tip " +
+                  $"({Width(h / 4):F2} -> {Width(h * 3 / 4):F2} of the quad)");
+
+            bool emptyTip = Width(h - 1) < 0.02f;
+            Check(emptyTip == wanted, $"{who}: the tip row is {(wanted ? "empty" : "solid")}");
+
+            // A NECK. The widest point sits low but not at the very bottom — a flame pinches in
+            // where it meets what it is burning.
+            int widest = 0;
+            for (int y = 1; y < h; y++) if (Width(y) > Width(widest)) widest = y;
+            bool necked = widest > 0 && widest < h / 2 && Width(0) < Width(widest) - 0.05f;
+            Check(necked == wanted,
+                  $"{who}: {(wanted ? "necks in at the foot and is widest low" : "has no neck")} " +
+                  $"(widest row {widest} of {h})");
+
+            // HOT AT THE CORE. The colour ramp is what separates fire from an orange triangle, and
+            // it is baked into the texture rather than tinted, so it is checkable here.
+            var foot = tex.GetPixel(w / 2, 2);
+            var tip = tex.GetPixel(w / 2, h * 4 / 5);
+            bool hotCore = foot.g > tip.g + 0.15f;
+            Check(hotCore == wanted,
+                  $"{who}: the core is {(wanted ? "hotter than the tips" : "one flat colour")} " +
+                  $"(green {foot.g:F2} vs {tip.g:F2})");
+
+            // And it must not read as a TEAM COLOUR. Fire that looks like a faction tells the
+            // player the wrong thing about who is burning.
+            bool fireColoured = foot.r > 0.8f && foot.g > 0.5f && foot.b < 0.6f;
+            Check(fireColoured == wanted,
+                  $"{who}: {(wanted ? "reads as fire, not as a side's red or green" : "is neutral white")}");
+        }
+    }
+
     public static void Run()
     {
         failed = 0;
@@ -820,6 +974,7 @@ public static class PortSelfTest
                   < CosmeticSystems.HealthBarAlpha(CosmeticSystems.HealthBarSeconds - 0.2f),
                   "and it is visibly GONE first, so a bar dissolves to colour, not to black");
 
+            CheckFlame();
 
             // Ragdoll rest height: a body must never sink through the floor at any rotation.
             for (int deg = 0; deg < 360; deg += 7)
@@ -1933,6 +2088,36 @@ public static class PortSelfTest
                 // splash and a 1x structure multiplier whenever a human fired it.
                 var types = fired.Projectiles.Where(p => p.OwnerIsPlayer).Select(p => p.Type).Distinct().ToList();
                 Check(types.Count >= 1, $"player rounds carry a projectile type ({types.Count} distinct)");
+
+                // AUTO IGNORES THE AMMO SELECTION, and this asserts that rather than fixing it.
+                //
+                // Found on a device 2026-08-10, and it cost most of a session: six incendiary
+                // volleys were fired with Auto and not one man ever caught fire. The state said
+                // Incendiary the whole time — a probe printed `ammo=Incendiary unitsHit=1
+                // incendiaryHits=0` — because AutoFire builds its own ProjectileEntity and never
+                // sets `Ammo`, so every round it throws is Standard whatever is selected.
+                //
+                // It is DELIBERATE (CannonShells documents the identity default), and it is the
+                // exact sibling of "Auto cannot test STRUCTURES": Auto is a test harness, not the
+                // player. The check exists so the next person reads it here in a second instead of
+                // rediscovering it against a phone.
+                var autoState = st0 with { SelectedAmmo = AmmoType.Incendiary,
+                                           TurnPhase = TurnPhase.Aiming };
+                var autoFired = BattleTick.AutoFire(autoState);
+                var autoRounds = autoFired.Projectiles.Where(p => p.OwnerIsPlayer).ToList();
+                Check(autoRounds.Count > 0 && autoRounds.All(p => p.Ammo == AmmoType.Standard),
+                      $"AUTO fires STANDARD rounds whatever is selected — it cannot test ammo " +
+                      $"({autoRounds.Count} rounds, state says {autoFired.SelectedAmmo})");
+
+                // The contrast, in the same breath: a real volley DOES carry it. Without this the
+                // check above would still pass if ammo were broken everywhere.
+                var ammoCat = AssetDatabase.LoadAssetAtPath<AmmoCatalogSO>(
+                    "Assets/GameData/AmmoCatalog.asset");
+                var dragFired = BattleTick.FireVolley(
+                    st0 with { SelectedAmmo = AmmoType.Incendiary, TurnPhase = TurnPhase.Aiming },
+                    new Vector3(6f, 6f, 0f), new System.Random(3), ammoCat);
+                Check(dragFired.Projectiles.Any(p => p.OwnerIsPlayer && p.Ammo == AmmoType.Incendiary),
+                      "...while a real DRAG volley carries the selected ammo");
             }
         }
 

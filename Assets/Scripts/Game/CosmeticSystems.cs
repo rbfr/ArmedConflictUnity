@@ -79,6 +79,63 @@ namespace ArmedConflict.Game
             return a * a;
         }
 
+        // ---- the incendiary flame -------------------------------------------------------
+
+        /// <summary>
+        /// How the flame on a burning unit flickers. Two tongues per unit, each a scaled quad,
+        /// and this is the only thing that moves them.
+        ///
+        /// A SINE OF ABSOLUTE TIME rather than anything integrated per tick. dt VARIES here, so a
+        /// flicker advanced by dt would run at a different rate on a stuttering frame and a
+        /// phase accumulated per slot would have to be reset on recycle; sampling a function of
+        /// the clock has neither problem and is exactly reproducible in a test.
+        ///
+        /// The two tongues run at DIFFERENT rates, deliberately not harmonically related. At the
+        /// same rate they scale in lockstep and the pair reads as one shape breathing, which is a
+        /// UI pulse rather than fire.
+        /// </summary>
+        public const float FlameOuterHz = 6.3f;
+        public const float FlameInnerHz = 9.1f;
+        /// <summary>How far the tongue's height swings either side of its nominal size.</summary>
+        public const float FlameHeightSwing = 0.22f;
+        /// <summary>Width swings LESS than height — fire licks upward, it does not pump sideways.</summary>
+        public const float FlameWidthSwing = 0.09f;
+
+        /// <summary>
+        /// A stable per-unit phase offset, so a line of burning soldiers does not flicker as one
+        /// chorus. Keyed on the unit's ID rather than on its render slot: slots are handed out in
+        /// roster order and shift down as men die, so a slot-keyed phase would make every
+        /// surviving flame jump the instant one of their neighbours fell.
+        ///
+        /// The same reasoning, and the same fix, as UnitAnim.Desync.
+        /// </summary>
+        public static float FlamePhase(int unitId)
+        {
+            // A cheap integer hash rather than id * k: consecutive IDs are the common case (a
+            // group is spawned in a run), and a linear phase across a rank is a travelling wave —
+            // which reads as deliberate choreography, the thing the offset exists to avoid.
+            unchecked
+            {
+                uint h = (uint)unitId * 2654435761u;
+                h ^= h >> 15;
+                return (h % 10000u) / 10000f * (Mathf.PI * 2f);
+            }
+        }
+
+        /// <summary>
+        /// The scale multiplier for one tongue: x is width, y is height.
+        ///
+        /// Height and width swing in ANTIPHASE (note the minus). A flame conserves roughly its
+        /// volume as it licks — it narrows as it stretches — and swinging both together just
+        /// makes the whole tongue zoom in and out, which reads as a throbbing sticker.
+        /// </summary>
+        public static Vector2 FlameScale(float time, float phase, bool inner)
+        {
+            float s = Mathf.Sin(time * (inner ? FlameInnerHz : FlameOuterHz) * Mathf.PI * 2f
+                                + phase + (inner ? Mathf.PI * 0.5f : 0f));
+            return new Vector2(1f - s * FlameWidthSwing, 1f + s * FlameHeightSwing);
+        }
+
         // ---- camera shake ---------------------------------------------------------------
 
         public const float ShakeDecayPerSecond = 2.5f;
