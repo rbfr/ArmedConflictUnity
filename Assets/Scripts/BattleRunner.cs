@@ -887,6 +887,21 @@ public class BattleRunner : MonoBehaviour
 
     void Update()
     {
+        // THERE IS NO BATTLE YET while the BOOT loadout picker is open: Start opens the picker and
+        // returns, and `state` is not built until the player presses BEGIN and LoadLevel runs. Every
+        // frame of that screen used to enter the tick with a null state and throw out of
+        // BattleTick.Step on its first line (`s.SelectedAmmo`) — 195 NullReferenceExceptions in 3
+        // seconds on device, and ZERO in battle, which is what finally placed it.
+        //
+        // Nothing looked broken, because the picker is uGUI on its own canvas and both HandleInput
+        // and OnGUI already stand down while it is open. It cost a thrown exception and a stack
+        // capture per frame on the one screen where the player is sitting still and reading.
+        //
+        // The guard is on `state`, not on `ui.LoadoutOpen`: a LATER picker (RETRY, NEXT LEVEL) opens
+        // over a state that exists and ticks through it perfectly well. What must not run is a tick
+        // with nothing to tick.
+        if (state == null) return;
+
         float dt = Time.deltaTime;
         smoothedDt += (Time.unscaledDeltaTime - smoothedDt) * 0.05f;
 
