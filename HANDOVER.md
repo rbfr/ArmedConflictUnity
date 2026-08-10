@@ -45,9 +45,10 @@ blocked on a physics decision (below), so tier work continues around it rather t
 2. **Tier 1.4 (Heli) stays shut.** `HELI_ENABLED=false` is a camera-load decision, not a stale
    flag, and `PRODUCT_DIRECTION` gates it on "camera choreography is boring-stable". Do not flip it.
 
-3. **Tier 1.1 is CLOSED except for one question:** **is Cluster's 3.2x spread too wide to
-   connect?** A balance call for a human playing it; a scripted drag could not settle it. The
-   flame it owed shipped and was confirmed on device on 2026-08-10.
+3. **Tier 1.1 is CLOSED except for two UNRESOLVED items**, both tracked in `_plans/BACKLOG.md`:
+   **is Cluster's 3.2x spread too wide to connect?** (needs Rob at the controls — a scripted drag
+   cannot settle it), and **flames outlive their bodies by a frame or two** at the moment the burn
+   kills. The flame Tier 1.1 owed shipped and was confirmed on device on 2026-08-10.
 
 4. **Wind, when it is picked back up**, is a physics ask, not a scheduling job. `windAccelZ` drifts
    the round in Z while the collision test is X/Y only, so wind cannot change what a shot hits. A
@@ -145,10 +146,12 @@ Then the whole death sequence, which is better than designed: the burn kills the
 thrown and the fire goes with it**, guttering out as the body tumbles. **60 fps throughout**, read
 off the HUD on four consecutive samples during the burn.
 
-**One artefact worth knowing about, not chased:** for a frame or two at the moment of death the two
-flames stand on the deck with NO BODIES under them, before the corpses appear in flight. That is the
-already-documented "a unit's slot is not stable across frames" corpse-handover timing, which the
-flame has simply made visible for the first time. It is 1–2 frames and reads as a puff.
+**One artefact, UNRESOLVED and deliberately not chased** — tracked in `_plans/BACKLOG.md` as
+"Flames outlive their bodies by a frame or two". For a frame or two at the moment of death the two
+flames stand on the deck with NO BODIES under them, before the corpses appear in flight. Best
+current reading is the already-documented "a unit's slot is not stable across frames"
+corpse-handover timing, which the flame has made visible for the first time — but that is a
+hypothesis from one contact sheet at 12 fps, not a diagnosis.
 
 **What the preview could not show and the device did:** the guttering, the flame on a garrison
 rather than on flat ground, the frame rate, and the death sequence.

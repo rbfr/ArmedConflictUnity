@@ -1,10 +1,74 @@
 # `_plans/BACKLOG.md` — asked for, not yet scheduled
 
-Ideas Rob has asked to keep, with enough context that whoever picks one up does not have to
-re-derive why. **Not sequenced and not started.** When one is scheduled it gets its own plan file
-per `_plans/README.md`; when it ships, its conclusions move to the relevant design doc.
+Two kinds of thing, both parked and neither started:
+
+- **Ideas Rob has asked to keep**, with enough context that whoever picks one up does not have to
+  re-derive why.
+- **`UNRESOLVED:` items** — questions and defects found during other work and deliberately left
+  open rather than quietly dropped. Each says what is actually known, what is only a hypothesis,
+  and what would settle it. An open question with its reasoning recorded is worth more than a
+  confident guess.
+
+**Not sequenced.** When one is scheduled it gets its own plan file per `_plans/README.md`; when it
+ships, its conclusions move to the relevant design doc.
 
 Nothing here overrides `GAME_DESIGN_LOCKS.md` or `CAMERA_ARCHITECTURE.md`.
+
+---
+
+## UNRESOLVED: is Cluster's 3.2x spread too wide to connect? — open since 2026-08-07
+
+**A balance question, and only a human playing it can answer.** It has been open since Tier 1.1
+shipped and is the last thing that tier owes.
+
+Cluster trades concentration for coverage: `spreadScale` 3.2x on the per-shooter jitter,
+`unitDamageScale` 0.65x. The intent (`DYNAMISM_DESIGN.md` Phase A) is "more men hit, each one
+lighter". The risk is that at 3.2x the volley stops overlapping any single target enough to kill
+anything, and a 500-coin purchase reads as strictly worse than Standard.
+
+**Why no test settles it.** `AmmoTest`-style checks can only assert the multipliers are applied —
+and this repo has already been burned by exactly that (AP asserted `structureDamageScale == 2`
+and passed while the real per-round effect was 1.2x). The question is not "is 3.2 applied", it is
+"does a 3.2x volley connect". That is a felt property of a real drag against a real formation.
+
+**And `Auto` cannot answer it either**, for two independent reasons now documented in `CLAUDE.md`:
+it fires STANDARD rounds whatever is selected, so it never fires Cluster at all; and it targets
+each unit's nearest enemy with no jitter, which is the opposite of the spread being tested.
+
+**How to actually judge it:** buy Cluster, play three or four levels with a mixed enemy line and a
+garrison, and compare against the same levels with Standard. The number to watch is not damage
+dealt — it is whether ANY single enemy dies to one volley. If Cluster only ever wounds, the spread
+is too wide and the honest fix is to lower `spreadScale`, not to raise the damage.
+
+---
+
+## UNRESOLVED: flames outlive their bodies by a frame or two — found 2026-08-10
+
+At the moment the incendiary burn KILLS a garrison, a contact sheet shows one sampled frame in
+which two flames stand on the bunker deck **with no bodies under them**, before the corpses appear
+in flight with their flames still attached.
+
+**The current explanation is a hypothesis, not a diagnosis.** Best reading is the already-recorded
+"a unit's slot is not stable across frames" corpse handover: the unit leaves `EnemyUnits` and
+becomes a `DyingUnitEntity` in the same tick, and the renderer may take a frame to place the
+ragdoll while the flame — which is driven from the ENTITY and follows `DyingUnits` by design — is
+already drawn at the death position. That would make the flame correct and the BODY late.
+
+**It was seen on one recording sampled at 12 fps**, so even "a frame or two" is an estimate. It
+could be a single frame.
+
+Worth knowing before anyone spends time on it:
+
+- **The flame following the corpse is deliberate and should stay.** A man the fire finishes leaves
+  `EnemyUnits` on the frame he dies, and drawing only the living would snuff his flame at the exact
+  moment it does the most work. The fix here is about the BODY arriving late, not the fire.
+- **Prefer a PROBE to another recording.** One build logging the dying unit's render position and
+  the flame's on the same frames settles in one run what frame-hunting will get wrong. This repo has
+  twice declared a working feature broken by inferring from a detector.
+- It is cosmetic, brief, and reads as a puff of fire. Low priority — but it is the kind of
+  one-frame artefact this project has decided twice before is worth retiring (the health bar, the
+  backdrop layer), so it should not be closed as "fine" without a look.
+- Related and still open: the **ragdoll / structure report** further down this file.
 
 ---
 
