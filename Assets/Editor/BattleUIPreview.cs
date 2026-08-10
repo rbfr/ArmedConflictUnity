@@ -78,6 +78,38 @@ public static class BattleUIPreview
             foreach (var t in staged) ProgressStore.AddConsumable(t, 2);
             LoadoutShot("loadout-owned", level, roster, null);
             LoadoutShot("loadout-carrying", level, roster, ConsumableType.Airstrike);
+
+            // TEST SUPPLY, and this shot does two jobs.
+            //
+            // It lengthens the strip's header, and this preview exists precisely because a longer
+            // consumables section is what pushed the Kotlin's Confirm off the bottom of the screen
+            // — absent from the tree and unreachable, found on a locked device.
+            //
+            // AND IT ASSERTS THE PROPERTY THE WHOLE DESIGN RESTS ON: equipping under test supply
+            // must write NOTHING. PortSelfTest cannot reach this — it does not drive MonoBehaviours
+            // — so this is the only harness that can, and the failure it guards is severe and silent:
+            // a test mode that quietly bought the item would spend a real player's coins.
+            // THE PURSE HAS TO BE FULL FOR THIS TO MEAN ANYTHING. The first version of this check
+            // ran on the editor's real balance, which is zero — so a fall-through to the genuine
+            // purchase path simply failed to afford the item, wrote nothing, and the check passed
+            // against deliberately broken code. It was a check that could not fail. Staging coins
+            // is what gives the fall-through something to spend.
+            var spySupply = ConsumableType.SmokeScreen;
+            int stakeCoins = Consumables.For(spySupply).CoinPrice * 4;
+            ProgressStore.AddCoins(stakeCoins);
+            int ownedBefore = ProgressStore.OwnedConsumables(spySupply);
+            int coinsBefore = ProgressStore.Coins();
+            LoadoutShot("loadout-testsupply", level, roster, spySupply, testSupply: true);
+            int ownedAfter = ProgressStore.OwnedConsumables(spySupply);
+            int coinsAfter = ProgressStore.Coins();
+            if (ownedAfter != ownedBefore || coinsAfter != coinsBefore)
+                Debug.LogError($"[BattleUIPreview] TEST SUPPLY WROTE TO THE REAL ECONOMY — " +
+                               $"{spySupply} owned {ownedBefore}->{ownedAfter}, " +
+                               $"coins {coinsBefore}->{coinsAfter}. It must equip without buying.");
+            else
+                Debug.Log($"[BattleUIPreview] test supply equipped {spySupply} and wrote nothing " +
+                          $"(owned {ownedBefore}, coins {coinsBefore} — enough to have bought it)");
+            ProgressStore.AddCoins(-stakeCoins);
         }
         finally
         {
@@ -87,7 +119,8 @@ public static class BattleUIPreview
     }
 
     static void LoadoutShot(string name, ArmedConflict.Data.LevelDefinitionSO level,
-                            ArmedConflict.Data.RosterDefinitionSO roster, ConsumableType? carrying)
+                            ArmedConflict.Data.RosterDefinitionSO roster, ConsumableType? carrying,
+                            bool testSupply = false)
     {
         const int W = 1080, H = 2400;
         var camGo = new GameObject("PreviewCam", typeof(Camera));
@@ -97,7 +130,7 @@ public static class BattleUIPreview
 
         var ui = BattleUI.Create();
         ui.SetCoins(1240);
-        ui.PreviewLoadout(level, roster, carrying);
+        ui.PreviewLoadout(level, roster, carrying, testSupply);
 
         var canvas = ui.GetComponent<Canvas>();
         canvas.renderMode = RenderMode.ScreenSpaceCamera;

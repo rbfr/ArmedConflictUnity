@@ -76,12 +76,19 @@ namespace ArmedConflict.UI
         RosterDefinitionSO loadoutRoster;
         List<Pick> loadoutPicks = new();
         ConsumableTile[] consumableTiles;
+        TMPro.TMP_Text consumableHeader;
         /// <summary>
         /// What the player is carrying INTO this battle. Owned inventory lives in ProgressStore
         /// and is not touched here — equipping is a choice about this battle, and nothing is spent
         /// until an item is actually used.
         /// </summary>
         readonly Dictionary<ConsumableType, int> loadoutConsumables = new();
+
+        /// <summary>
+        /// RIGS is on, so consumables are free to equip and nothing is ever bought or spent. See
+        /// BattleRunner.TestSupply for why this exists and why it writes nothing.
+        /// </summary>
+        bool testSupply;
         Action<List<Pick>, IReadOnlyDictionary<ConsumableType, int>> onLoadoutBegin;
 
         /// <summary>
@@ -206,10 +213,10 @@ namespace ArmedConflict.UI
         /// state is in the picture too.
         /// </summary>
         public void PreviewLoadout(LevelDefinitionSO level, RosterDefinitionSO roster,
-                                   ConsumableType? carrying = null)
+                                   ConsumableType? carrying = null, bool testSupply = false)
         {
             var picks = Loadout.Default(level, roster, ProgressStore.IsUnitUnlocked);
-            ShowLoadout(level, roster, picks, (_, __) => { });
+            ShowLoadout(level, roster, picks, testSupply, (_, __) => { });
             if (carrying is ConsumableType type) TapConsumable(type);
         }
 
@@ -548,6 +555,7 @@ namespace ArmedConflict.UI
             header.rectTransform.pivot = new Vector2(0.5f, 1f);
             header.rectTransform.anchoredPosition = new Vector2(0f, -ConsumableHeaderY);
             header.rectTransform.sizeDelta = new Vector2(1000f, 44f);
+            consumableHeader = header;
             header.text = $"Consumables — carry up to {Consumables.MaxEquippedPerBattle}";
 
             var items = Consumables.All;
@@ -596,7 +604,9 @@ namespace ArmedConflict.UI
             var def = Consumables.For(type);
             if (def == null) return;
 
-            int owned = ProgressStore.OwnedConsumables(type);
+            // TEST SUPPLY: skip the shop entirely. Not "grant one and then buy it" — that would
+            // write to the inventory, which is the one thing this must never do.
+            int owned = testSupply ? 1 : ProgressStore.OwnedConsumables(type);
             if (owned <= 0)
             {
                 if (EconomyStore.PurchaseConsumable(new ConsumableDefinition
@@ -623,17 +633,28 @@ namespace ArmedConflict.UI
         void RefreshConsumables()
         {
             if (consumableTiles == null) return;
+
+            // SAY SO ON SCREEN. A free-consumables mode that looks identical to the real one is how
+            // a "confirmed on device" result gets recorded against a state the player can never be
+            // in — the whole point of testing on the release build is that it is the real thing.
+            if (consumableHeader != null)
+                consumableHeader.text =
+                    $"Consumables — carry up to {Consumables.MaxEquippedPerBattle}"
+                    + (testSupply ? "   [TEST SUPPLY — RIGS]" : "");
+
             foreach (var tile in consumableTiles)
             {
                 var def = Consumables.For(tile.Type);
-                int owned = ProgressStore.OwnedConsumables(tile.Type);
+                int owned = testSupply ? 1 : ProgressStore.OwnedConsumables(tile.Type);
                 loadoutConsumables.TryGetValue(tile.Type, out int equipped);
 
                 // Three states, and each one has to be readable at arm's length: not owned (price),
                 // owned and left behind (how many you have), owned and coming with you (gold).
                 tile.Label.text = owned <= 0
                     ? $"{def.DisplayName}\n{def.CoinPrice}c"
-                    : equipped > 0 ? $"{def.DisplayName}\nCARRYING" : $"{def.DisplayName}\nx{owned}";
+                    : equipped > 0 ? $"{def.DisplayName}\nCARRYING"
+                    : testSupply ? $"{def.DisplayName}\nFREE"
+                    : $"{def.DisplayName}\nx{owned}";
 
                 tile.Label.color = equipped > 0 ? Gold
                                  : owned > 0 ? Body
@@ -747,9 +768,10 @@ namespace ArmedConflict.UI
         /// point is.
         /// </summary>
         public void ShowLoadout(LevelDefinitionSO level, RosterDefinitionSO roster,
-                                List<Pick> picks,
+                                List<Pick> picks, bool testSupply,
                                 System.Action<List<Pick>, IReadOnlyDictionary<ConsumableType, int>> onBegin)
         {
+            this.testSupply = testSupply;
             loadoutLevel = level;
             loadoutRoster = roster;
             loadoutPicks = picks;

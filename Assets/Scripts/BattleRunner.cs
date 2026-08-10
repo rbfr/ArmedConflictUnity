@@ -102,6 +102,25 @@ public class BattleRunner : MonoBehaviour
     /// </summary>
     bool showRigs;
 
+    /// <summary>
+    /// RIGS doubles as TEST SUPPLY: while it is on, every consumable is free to equip and none is
+    /// ever spent.
+    ///
+    /// It exists because testing a consumable on the only build worth measuring cost a full replay
+    /// of the campaign. The release build is not debuggable, so `run-as` cannot seed PlayerPrefs,
+    /// and the testing protocol is uninstall/reinstall — which wipes the balance on every build.
+    /// Verifying one airstrike change was two Auto-driven levels and ~250 coins, every time.
+    ///
+    /// **It is deliberately session-only and writes NOTHING.** No purchase, no coin change, no
+    /// SpendConsumable — so a player who finds this cannot corrupt their own save, and turning
+    /// RIGS off leaves the real economy exactly as it was. That is what makes reusing RIGS
+    /// acceptable rather than a second hidden switch: the blast radius is one session.
+    ///
+    /// Same reasoning as RIGS itself, which is a runtime toggle rather than a debug-build check
+    /// because a development build cannot be trusted for anything that matters.
+    /// </summary>
+    bool TestSupply => showRigs;
+
     BattleUI ui;
     /// <summary>The turn-handover line, held for the enemy turn. Outranked by a real event.</summary>
     string turnBanner;
@@ -309,7 +328,7 @@ public class BattleRunner : MonoBehaviour
 
         ui.Hide();
         var picks = Loadout.Default(target, roster, ProgressStore.IsUnitUnlocked);
-        ui.ShowLoadout(target, roster, picks, (chosen, consumables) =>
+        ui.ShowLoadout(target, roster, picks, TestSupply, (chosen, consumables) =>
         {
             loadoutGroups = Loadout.ToPlayerGroups(target, chosen);
             loadoutConsumables = consumables;
@@ -384,6 +403,10 @@ public class BattleRunner : MonoBehaviour
     IReadOnlyDictionary<ConsumableType, int> EquippedFromInventory()
     {
         var equipped = ConsumableActions.Equip(loadoutConsumables);
+        // Test supply is not backed by an inventory, so clamping it against one would silently
+        // empty the carry the picker just showed as equipped.
+        if (TestSupply) return equipped;
+
         var clamped = new Dictionary<ConsumableType, int>();
         foreach (var kv in equipped)
         {
@@ -1856,7 +1879,7 @@ public class BattleRunner : MonoBehaviour
         // GameState uses it on purpose, and here that is exactly what is wanted.
         if (!ReferenceEquals(before, state))
         {
-            ProgressStore.SpendConsumable(def.Type);
+            if (!TestSupply) ProgressStore.SpendConsumable(def.Type);
             // The log reports what CHANGED, not that a method was called — a "TraumaKit used" line
             // is exactly the input-assertion this project keeps paying for. From a device, HP
             // restored is the only thing that settles whether the item did anything.
@@ -1880,13 +1903,14 @@ public class BattleRunner : MonoBehaviour
     {
         if (before.AirstrikeArmed && !after.AirstrikeArmed)
         {
-            ProgressStore.SpendConsumable(ConsumableType.Airstrike);
-            Debug.Log("[Consumable] Airstrike fired");
+            if (!TestSupply) ProgressStore.SpendConsumable(ConsumableType.Airstrike);
+            Debug.Log("[Consumable] Airstrike fired" + (TestSupply ? " (TEST supply)" : ""));
         }
         if (before.SmokeScreenArmed && !after.SmokeScreenArmed)
         {
-            ProgressStore.SpendConsumable(ConsumableType.SmokeScreen);
-            Debug.Log("[Consumable] Smoke Screen spent on the enemy volley");
+            if (!TestSupply) ProgressStore.SpendConsumable(ConsumableType.SmokeScreen);
+            Debug.Log("[Consumable] Smoke Screen spent on the enemy volley"
+                      + (TestSupply ? " (TEST supply)" : ""));
         }
     }
 

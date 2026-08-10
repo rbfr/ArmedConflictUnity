@@ -493,6 +493,37 @@ BalanceAudit.Report       0 errors, 19 warnings (race-ratio flags on the dearest
 1.3's consumables and the loadout NRE guard, and everything above was confirmed on that build. Both are CODE-ONLY changes, so
 neither needs a scene rebuild.
 
+## RIGS doubles as TEST SUPPLY — 2026-08-10
+
+**While RIGS is ON, all four consumables are FREE to equip and none is ever spent.** The loadout
+header says so in as many words (`Consumables — carry up to 2   [TEST SUPPLY — RIGS]`) and every
+tile reads FREE, because a test mode that looks identical to the real one is how a "confirmed on
+device" result gets recorded against a state no player can be in.
+
+**Why it exists:** verifying one airstrike change cost a full re-earn of 250 coins. The release
+build is not debuggable, so `run-as` cannot seed PlayerPrefs, and the protocol is
+uninstall/reinstall — so every build wipes the balance. That was two Auto-driven levels per
+iteration, four times in one session.
+
+**It writes NOTHING** — no purchase, no coin change, no `SpendConsumable`. So a player who finds
+RIGS cannot corrupt their own save, and switching it off leaves the economy exactly as it was. That
+one property is what made reusing RIGS acceptable instead of adding a second hidden switch, and it
+is asserted by `BattleUIPreview` (see below).
+
+**The workflow, and its one cost:** RIGS lives on the battle HUD, so from a cold start it is
+BEGIN -> tap RIGS -> finish the level -> NEXT, and the picker then offers everything free. One
+Auto-driven level, about a minute. `showRigs` is deliberately NOT persisted, so a relaunch starts
+clean — if that minute per session becomes annoying, persisting it is a one-line change, but it
+would also mean a player who ever taps RIGS keeps free consumables forever.
+
+**`PortSelfTest` cannot cover this** — it does not drive MonoBehaviours. `BattleUIPreview` does, and
+it asserts the property that matters: it STAKES four items' worth of coins, equips under test supply,
+and fails the run if either the balance or the owned count moved. The first version of that check
+ran on the editor's real balance of ZERO, so a fall-through to the genuine purchase path simply
+could not afford anything, wrote nothing, and the check passed against deliberately broken code —
+**a check that could not fail.** Staking the coins is what gives it teeth, and the negative run then
+reported `SmokeScreen owned 0->1, coins 800->600`.
+
 **The device's progress was WIPED and re-earned on 2026-08-10**, four times over, testing the
 aircraft. Nothing can be seeded — the release build is not debuggable, so `run-as` cannot reach
 PlayerPrefs — and the testing protocol is uninstall/reinstall, so **every build costs the balance**.
