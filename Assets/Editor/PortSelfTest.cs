@@ -340,13 +340,20 @@ public static class PortSelfTest
             // this exercises the path the game takes — including the phase gate that decides
             // whether the run advances at all.
             var run = struck;
+            var strafeSeen = new List<ProjectileEntity>();
             ProjectileEntity bomb = null;
             float bombReleaseX = 0f;
             int guard = 0;
             while (run.TurnPhase == TurnPhase.AirstrikeRun && guard++ < 2000)
             {
                 run = BattleTick.Step(run, 1f / 60f, null, new System.Random(3));
-                var live = run.Projectiles.FirstOrDefault(p => p.IsAirstrike);
+                // The burst is SHORT-LIVED — 0.30s — so by the time the run ends most of it has
+                // already been culled. Collect as it goes, or the check below sees an empty list
+                // and passes for the wrong reason.
+                foreach (var p in run.Projectiles.Where(p => p.Id >= 45000))
+                    if (!strafeSeen.Any(q => q.Id == p.Id)) strafeSeen.Add(p);
+
+                var live = run.Projectiles.FirstOrDefault(p => p.IsAirstrike && p.Id < 45000);
                 if (live != null && bomb == null)
                 {
                     bomb = live;
@@ -402,6 +409,43 @@ public static class PortSelfTest
                       && Mathf.Abs(volleyTarget.x - cameraX) < 4.94f,
                       "both the RELEASE and the IMPACT sit inside the frame at resolve framing — "
                       + "the off-screen detonation measured on device is what this beat fixes");
+            }
+
+            // THE STRAFING BURST. Asserted as a WALK OF LANDING POINTS ending on the bomb's own
+            // impact point, because that is the thing the player sees — a line of hits marching
+            // into the target. Counting rounds, or checking a constant, would pass just as happily
+            // on a burst that landed all seven in the same spot or trailed off behind the plane.
+            {
+                var strafe = run.Projectiles.Concat(strafeSeen)
+                                .Where(p => p.Id >= 45000)
+                                .GroupBy(p => p.Id).Select(g => g.First())
+                                .OrderBy(p => p.Id).ToList();
+
+                var landings = strafe
+                    .Select(p => TrajectoryPhysics.LandingPoint(
+                        new Vector3(p.X, p.Y, p.Z), new Vector3(p.Vx, p.Vy, p.Vz)).x)
+                    .ToList();
+
+                bool walksForward = true;
+                for (int i = 1; i < landings.Count; i++)
+                    if (landings[i] <= landings[i - 1]) walksForward = false;
+
+                Check(strafe.Count == BattleTick.StrafeRounds
+                      && walksForward
+                      && landings.Count > 0
+                      && Mathf.Abs(landings[^1] - volleyTarget.x) < 0.35f
+                      && Mathf.Abs(landings[0] - (volleyTarget.x - BattleTick.StrafeLength)) < 0.35f
+                      && strafe.All(p => p.Damage == BattleTick.StrafeDamage && p.SplashRadius == 0f),
+                      $"the strafe walks {strafe.Count} rounds along the ground INTO the bomb's "
+                      + $"point ({(landings.Count > 0 ? landings[0] : 0):F2} -> "
+                      + $"{(landings.Count > 0 ? landings[^1] : 0):F2}, target {volleyTarget.x:F2})");
+
+                // ...and they must not hold the beat open. The run hands over on the BOMB, so a
+                // burst still in the air has to be irrelevant to that — which is the whole reason
+                // the strafe carries its own id band.
+                Check(strafe.All(p => p.Id < 40000 || p.Id >= 41000),
+                      "strafe rounds sit clear of the bomb's id band, so a tracer still in the air "
+                      + "cannot hold the volley back");
             }
 
             // THE AIRCRAFT MUST KEEP FLYING AFTER IT HANDS THE TURN OVER, and must eventually go.

@@ -24,10 +24,10 @@
   1.10s; no damage number moved.
 - **RIGS NOW DOUBLES AS A FREE CONSUMABLE SUPPLY** for testing, writing nothing to the economy.
   Use it — otherwise verifying any consumable change costs a 250-coin re-earn on every build.
-- **582 self-test checks, all passing — run `PortSelfTest.Run` after every change.** It was 281 at
+- **584 self-test checks, all passing — run `PortSelfTest.Run` after every change.** It was 281 at
   the start of 2026-08-06, 411 at the end of it, 444 on 2026-08-07, 539 after the Tier 1.2 and
   glyph-coverage blocks, 559 with the flame and the Auto-ammo pair, 576 with Tier 1.3's
-  consumables, and 582 with the airstrike's aircraft. **Assert related facts TOGETHER** — Tier
+  consumables, 582 with the airstrike's aircraft, and 584 with its strafing burst. **Assert related facts TOGETHER** — Tier
   1.3's block was first written as 50 assertions over 307 lines and is 18 over 232, with the same
   nine breakages still caught. A failure message naming three properties is as diagnostic as three
   checks, and this file is read by people.
@@ -187,6 +187,15 @@ costs **1.10s** and no damage number moved.
   `BattleRunner.PlaneBank` / `PlaneScale` directly, so it cannot drift again. **Delete
   `Builds/plane` before reading a sheet from it** — stale frames from an earlier run are glob-matched
   alongside the new ones and produced one thoroughly misleading comparison.
+- **IT STRAFES, with REAL rounds** (added on Rob's ask, 2026-08-10). Seven cannon rounds at 4
+  damage, walked along the ground into the bomb's own impact point. The earlier decision NOT to add
+  gunfire is reversed and its reasoning survives: refusing a cue that does NOTHING was right, so
+  these do something. **The Airstrike is stronger for it — 24 damage becomes 52** — a deliberate
+  correction for the dearest item in the shop, but a balance change; `StrafeDamage` is the knob.
+  **The first version was mechanically perfect and INVISIBLE**: rounds inheriting the aircraft's
+  speed and dropping from 9.5 units arrive near-vertically at ~31 u/s and vanish in a few frames.
+  Gunfire rakes FORWARD — each round is now solved onto its own point of the walk, giving it 10 u/s
+  horizontally so it outruns the aircraft and draws a streak.
 - **It was too big at 1.0 and is rendered at 0.85** (`BattleRunner.PlaneScale`), Rob's call after
   seeing it pass. Judged in the preview beside a rank of soldiers: 0.70 starts reading as distant
   scenery rather than as the thing you just paid 250 coins for.
@@ -519,7 +528,7 @@ it was written for. Ask the thing itself — the font, the engine, the device.
 ### The state of the checks, as of the handover
 
 ```
-PortSelfTest.Run          582 checks, ALL PASS
+PortSelfTest.Run          584 checks, ALL PASS
 LevelComposition.Report   12 campaign levels, 0 errors, 2 accepted warnings (L3, L5 rule 7 —
                           reasons in their designNotes; both beats are about height)
 BalanceAudit.Report       0 errors, 19 warnings (race-ratio flags on the dearest-squad

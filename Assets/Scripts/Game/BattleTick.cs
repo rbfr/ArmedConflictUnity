@@ -1169,6 +1169,47 @@ namespace ArmedConflict.Game
         /// appears from nothing at any height, because something visibly drops it.
         /// </summary>
         public const float AirstrikeOriginY = PlaneY;
+        /// <summary>
+        /// The strafing burst: how many cannon rounds, what each does, and how far along the
+        /// ground the line of hits walks before the bomb lands on the end of it.
+        ///
+        /// Rob asked for "bursts of rounds, like a strafing" after seeing the pass, and the earlier
+        /// decision NOT to add gunfire is reversed with it. That decision was about refusing a cue
+        /// that does NOTHING, which is still right — rounds visibly striking men who then shrug
+        /// them off is worse feedback than no rounds at all, because it reads as the expensive
+        /// thing having missed. These do something.
+        ///
+        /// **This makes the Airstrike stronger: 24 becomes 24 + 7x4 = 52.** It is the dearest item
+        /// in the shop at 250 coins and was doing less than a Sniper's single shot, so that is a
+        /// deliberate correction rather than an accident — but it IS a balance change, and
+        /// `StrafeDamage` is the one constant to turn down if the levels disagree.
+        /// </summary>
+        public const int StrafeRounds = 7;
+        public const int StrafeDamage = 4;
+        /// <summary>How far the line of hits walks, ending ON the bomb's impact point.</summary>
+        public const float StrafeLength = 4f;
+
+        /// <summary>
+        /// How long a cannon round is in the air, and how far AHEAD of the aircraft it is thrown.
+        ///
+        /// These two make the round rake FORWARD instead of dropping. A round that merely inherited
+        /// the aircraft's 7 u/s and fell from 9.5 units arrived almost vertically and was gone in a
+        /// handful of frames — mechanically correct and, on a device capture, invisible: one fading
+        /// blob and no tracer anywhere. Solving it onto its landing point instead gives it
+        /// `StrafeLead / StrafeFallTime` = 10 u/s of forward speed, so it outruns the aircraft and
+        /// draws a streak, which is what gunfire looks like.
+        ///
+        /// The lead is bounded by the run itself: the burst starts `StrafeLength + StrafeLead`
+        /// behind the target and the aircraft only spawns `PlaneRunHalfLength` back, so these
+        /// cannot grow without the first round being fired before the plane exists.
+        /// </summary>
+        public const float StrafeFallTime = 0.40f;
+        public const float StrafeLead = 4f;
+
+        /// <summary>Where round `k` of the burst lands. The last lands on the bomb's own point.</summary>
+        public static float StrafeLandingX(float targetX, int k)
+            => targetX - StrafeLength + k * (StrafeLength / (StrafeRounds - 1));
+
         public const int AirstrikeDamage = 24;
         public const float AirstrikeSplashRadius = 1.1f;
         public const float AirstrikeStructureMultiplier = 2f;
@@ -1208,6 +1249,42 @@ namespace ArmedConflict.Game
         }
 
         /// <summary>
+        /// One cannon round of the strafing burst — a fast, small, non-splash shot solved onto its
+        /// own point of the walk.
+        ///
+        /// Its own ID BAND, deliberately: the run hands over when the BOMB has resolved, and that
+        /// test asks the projectile list. Sharing a band would hold the volley back until the last
+        /// tracer had landed, and a burst still in the air is not the beat ending.
+        /// </summary>
+        static ProjectileEntity StrafeRound(Vector3 target, float fromX, float fromY,
+                                            float landX, int useSlot, int k)
+        {
+            // SOLVED onto its own point of the walk, not dropped. Both components come from the
+            // geometry: horizontal to cover the lead in the flight time, vertical to cover the
+            // height in the same.
+            float forwardVx = (landX - fromX) / StrafeFallTime;
+            float vy = (0f - fromY) / StrafeFallTime
+                     + 0.5f * TrajectoryPhysics.Gravity * StrafeFallTime;
+            return new ProjectileEntity(
+                // Unique WITHOUT consuming the bomb's slot counter: the bomb is found again by an
+                // id-range test, and letting seven tracers per use march that counter along would
+                // eventually walk a bomb id out of the range being tested. Ids must stay globally
+                // unique — hit tracking keys off them — so the burst is indexed by (use, round).
+                Id: StrafeIdBase + useSlot * StrafeRounds + k,
+                X: fromX, Y: fromY, Z: target.z,
+                Vx: forwardVx, Vy: vy, Vz: 0f,
+                Damage: StrafeDamage,
+                OwnerIsPlayer: true)
+            {
+                Type = ProjectileType.Bullet,
+                IsAirstrike = true,
+            };
+        }
+
+        /// <summary>Strafe ids sit clear of the bomb's 40000 band — see StrafeRound.</summary>
+        const int StrafeIdBase = 45000;
+
+        /// <summary>
         /// Advances the aircraft, releases its bomb at the drop point, and hands the turn on to the
         /// volley once that bomb has landed.
         ///
@@ -1240,14 +1317,25 @@ namespace ArmedConflict.Game
                                                         s.PendingVolleyAim ?? Vector3.zero);
             float dropX = target.x - moved.Vx * BombFallTime;
 
-            var rounds = projectiles;
+            var rounds = new List<ProjectileEntity>(projectiles);
             int grenadeSlot = s.NextGrenadeSlot;
+
+            // THE STRAFING BURST, walked along the ground INTO the bomb's impact point. Each round
+            // uses the same lead arithmetic the bomb does — released `speed * fall` short of where
+            // it should land — so the burst arrives as a line of hits marching at the target rather
+            // than as tracers landing wherever ballistics happened to put them.
+            while (moved.StrafeFired < StrafeRounds)
+            {
+                float landX = StrafeLandingX(target.x, moved.StrafeFired);
+                if (moved.X < landX - StrafeLead) break;   // not close enough to shoot at it yet
+                rounds.Add(StrafeRound(target, moved.X, moved.Y, landX,
+                                       s.NextGrenadeSlot, moved.StrafeFired));
+                moved = moved with { StrafeFired = moved.StrafeFired + 1 };
+            }
+
             if (!moved.HasDropped && moved.X >= dropX)
             {
-                rounds = new List<ProjectileEntity>(projectiles)
-                {
-                    Airstrike(target, moved.X, moved.Y, moved.Vx, ref grenadeSlot),
-                };
+                rounds.Add(Airstrike(target, moved.X, moved.Y, moved.Vx, ref grenadeSlot));
                 moved = moved with { HasDropped = true };
             }
 

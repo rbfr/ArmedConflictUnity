@@ -244,6 +244,13 @@ namespace ArmedConflict.Game
     public record AirstrikePlaneEntity(float X, float Y, float Vx, float ExitX)
     {
         public bool HasDropped { get; init; }
+
+        /// <summary>
+        /// How many cannon rounds of the strafing burst have been fired. A COUNT, not a timer:
+        /// each round is released at the position that lands it on its own point of the walk, and
+        /// dt varies, so a timer would space the burst differently on a stuttering frame.
+        /// </summary>
+        public int StrafeFired { get; init; }
     }
 
     public static class StructureDamage

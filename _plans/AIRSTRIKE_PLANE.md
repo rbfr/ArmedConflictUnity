@@ -30,10 +30,16 @@ release (airstrike armed)
      the infantry volley launches, plane still exiting frame
 ```
 
-**No fake strafing.** The plane drops its bomb and that is all it does. Gun flashes that deal no
-damage would be the same mistake as a wind that telegraphs a change the player cannot feel — this
-repo has already made that call twice. If the airstrike should strafe, that is a MECHANIC change
-(damage spread along a line) and a separate ask.
+~~**No fake strafing.**~~ **REVERSED 2026-08-10, on Rob's ask — and the reasoning survives the
+reversal.** The original position was that gun flashes dealing NO damage would be the same mistake
+as a wind that telegraphs a change the player cannot feel. That is still right: rounds visibly
+striking men who then shrug them off is worse feedback than no rounds at all, because it reads as
+the expensive thing having missed.
+
+So the burst is REAL. Seven cannon rounds at 4 damage, walked along the ground into the bomb's own
+impact point. **This makes the Airstrike stronger — 24 becomes 24 + 28 = 52** — which is a
+deliberate correction (it is the dearest item in the shop at 250 coins and was doing less than a
+Sniper's single shot) but it IS a balance change. `StrafeDamage` is the one constant to turn down.
 
 ## The numbers, and where each comes from
 
@@ -70,6 +76,7 @@ what the airstrike DOES to the enemy moves, so no level's balance is touched.
 - [x] `BattleRunner`: render the plane, banked, facing its travel
 - [x] `PortSelfTest`: 582 checks, six new, each seen to FAIL first
 - [x] Device: verified end to end on L1, 2026-08-10
+- [x] Strafing burst — real rounds, raked forward, device-verified 2026-08-10
 
 ## DONE — and the two bugs only the device found
 
@@ -104,6 +111,33 @@ handover fires the moment the bomb lands rather than waiting for the aircraft to
 frames: the plane crosses fully in shot, releases, the bomb hits the bunker deck, the plane exits,
 the sky clears, and only then do the volley's rounds arc in. Outpost 90 -> 80 and the bunker comes
 down on the volley, so nothing about the damage moved.
+
+## The strafing burst, and why the first version was invisible
+
+The first implementation gave each round the AIRCRAFT's forward speed and dropped it from 9.5
+units. Mechanically perfect — the self-tests passed, the walk was correct — and on a 25 fps device
+capture it was **one fading blob and no tracer anywhere.** A round inheriting 7 u/s and falling
+from that height arrives almost vertically at ~31 u/s and is gone in a handful of frames.
+
+**Gunfire rakes FORWARD.** Each round is now SOLVED onto its own point of the walk, which gives it
+`StrafeLead / StrafeFallTime` = 10 u/s horizontally — it outruns the aircraft and draws a streak.
+That is the whole difference between "a thing fell" and "the plane is shooting".
+
+The lead is bounded by the run: the burst starts `StrafeLength + StrafeLead` = 8 units behind the
+target and the aircraft only spawns 9 back, so neither constant can grow much without the first
+round being fired before the plane exists.
+
+**Measured on device, and ATTRIBUTED** — the strafe finishes ~0.2s before the bomb lands, which is
+what makes the two separable:
+
+```
+t=4.40s  Garrison Post 135      (aircraft inbound, nothing landed yet)
+t=5.25s  Garrison Post 123      (strafe complete: -12)
+t=5.90s  Garrison Post 123      (bomb has landed; on THIS aim it fell beside the building)
+```
+
+Three of the seven rounds connected with the structure and the rest walked across open ground,
+which is what a 4-unit walk into a target this size should do.
 
 **The release log was corrected too.** It reported `volley: 0 rounds`, which was a lie told to the
 one instrument a release build has — the volley had not been built yet. It now says
