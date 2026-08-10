@@ -576,7 +576,12 @@ public class BattleRunner : MonoBehaviour
         BuildHealthBars();
         BuildShadows();
         BuildFlames();
-        if (planePrefab != null) plane = Spawn(planePrefab, "plane");
+        if (planePrefab != null)
+        {
+            plane = Spawn(planePrefab, "plane");
+            // Scaled ONCE here rather than per frame: it never changes through a pass.
+            plane.transform.localScale = Vector3.one * PlaneScale;
+        }
         for (int i = 0; i < 32; i++) blastSlots.Add(Spawn(explosionPrefab, $"x{i}"));
         for (int i = 0; i < BattleTick.ScorchSlots; i++) scorchSlots.Add(Spawn(scorchPrefab, $"sc{i}"));
         for (int i = 0; i < BattleTick.DebrisSlots; i++) debrisSlots.Add(Spawn(debrisPrefab, $"db{i}"));
@@ -958,21 +963,42 @@ public class BattleRunner : MonoBehaviour
         if (!plane.activeSelf) plane.SetActive(true);
         plane.transform.position = GameSpace.ToUnity(p.X, p.Y, 0f);
 
-        // FACING, then BANK, in that order and about the travel axis.
+        // FACING, then BANK, about the travel axis.
         //
-        // The GLB is authored nose toward +X (toward the enemy, build_tank.py's convention) and
-        // GameSpace negates X, so the yaw is what makes it fly the way it is actually travelling
-        // rather than backwards — which reads as a retreat.
+        // NO YAW. The import chain lands the authored nose pointing SCREEN-RIGHT — the way the
+        // aircraft travels — already. **Do not re-derive this from the axis conventions.** Reasoning
+        // it out from "the GLB is authored nose toward +X" and "GameSpace negates X" gave a 180
+        // degree yaw that shipped the aeroplane flying BACKWARDS, cannon trailing, and it took Rob
+        // looking at it to catch. `PlanePreview.Orientation` renders all four yaw/bank combinations
+        // against a rank of soldiers; ask it, not the conventions.
         //
         // The BANK is not decoration and it is not a small effect. The wingspan runs along DEPTH,
         // and BattleCamera looks UP at ~14 degrees, so an unbanked aircraft at this height has its
         // span projected almost vertically and reads as a cross-shaped blob. Rolling it puts the
-        // planform back toward the viewer. PlanePreview.Shots rendered 0/25/45 and only 45 reads.
-        plane.transform.rotation = Quaternion.Euler(0f, 180f, 0f) * Quaternion.Euler(PlaneBank, 0f, 0f);
+        // planform back toward the viewer.
+        //
+        // The SIGN matters as much as the angle, and the two are coupled: the roll is about the
+        // aircraft's own travel axis, so flipping the facing mirrors it. Rolled the wrong way this
+        // shows the camera the TOP of the wing — the one surface build_attack_plane.py deliberately
+        // leaves bare, because at this angle the player only ever sees the underside.
+        plane.transform.rotation = Quaternion.Euler(PlaneBank, 0f, 0f);
     }
 
-    /// <summary>Degrees of roll through the pass. See SyncPlane — 45 is measured, not chosen.</summary>
-    const float PlaneBank = 45f;
+    /// <summary>
+    /// Degrees of roll through the pass. NEGATIVE, which turns the loaded underside toward the
+    /// camera; positive shows the bare top of the wing. Measured in PlanePreview.Orientation, not
+    /// chosen — see SyncPlane.
+    /// </summary>
+    const float PlaneBank = -45f;
+
+    /// <summary>
+    /// Rendered size of the aircraft, against a model authored at 4.47 world units.
+    ///
+    /// At 1.0 it read as too dominant on device — Rob's call, and the preview agrees: judged beside
+    /// a rank of soldiers, 0.85 stays unmistakably an aircraft without owning the frame, and 0.70
+    /// starts to read as distant scenery rather than as the thing you just paid 250 coins for.
+    /// </summary>
+    const float PlaneScale = 0.85f;
 
     GameObject Spawn(GameObject prefab, string name)
     {

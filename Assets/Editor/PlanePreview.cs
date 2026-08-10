@@ -83,8 +83,35 @@ public static class PlanePreview
             Shot(model, 7f, 0f, $"bank{bank:F0}_span{span:F1}", bank, span);
     }
 
+    /// <summary>
+    /// ORIENTATION and SIZE, together, because flipping the yaw MIRRORS the bank: the roll is
+    /// applied about the aircraft's own travel axis, so the same angle rolls the opposite way once
+    /// the nose points the other way. Judging the two independently is how you end up with a plane
+    /// that faces the right way and shows the camera the top of its wing — the one surface
+    /// `build_attack_plane.py` deliberately leaves bare.
+    ///
+    /// The aircraft flies toward the ENEMY, which is screen RIGHT, so the nose must point RIGHT.
+    /// </summary>
+    public static void Orientation()
+    {
+        Directory.CreateDirectory("Builds/plane");
+        AssetDatabase.Refresh();
+        var model = AssetDatabase.LoadAssetAtPath<GameObject>(ModelPath);
+        if (model == null) { Debug.LogError($"[PlanePreview] {ModelPath} missing"); return; }
+
+        foreach (float yaw in new[] { 0f, 180f })
+        foreach (float bank in new[] { 45f, -45f })
+            Shot(model, 7f, 0f, $"yaw{yaw:F0}_bank{bank:F0}", bank, 1f, yaw);
+
+        foreach (float scale in new[] { 1.0f, 0.85f, 0.7f })
+            Shot(model, 7f, 0f, $"size{scale:F2}", -45f, 1f, 0f, scale);
+
+        Debug.Log("[PlanePreview] wrote orientation and size variants to Builds/plane/*.png");
+    }
+
     static void Shot(GameObject model, float planeY, float planeX, string name,
-                     float bankDegrees = 0f, float spanScale = 1f)
+                     float bankDegrees = 0f, float spanScale = 1f, float yawDegrees = 180f,
+                     float sizeScale = 1f)
     {
         EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
 
@@ -131,9 +158,9 @@ public static class PlanePreview
         //
         // The BANK is applied about the travel axis AFTER that turn, so a positive angle always
         // rolls the same way relative to the camera whichever way the aircraft is pointed.
-        plane.transform.rotation = Quaternion.Euler(0f, 180f, 0f) * Quaternion.Euler(bankDegrees, 0f, 0f);
-        if (!Mathf.Approximately(spanScale, 1f))
-            plane.transform.localScale = new Vector3(1f, 1f, spanScale);   // span runs along Z
+        plane.transform.rotation = Quaternion.Euler(0f, yawDegrees, 0f)
+                                 * Quaternion.Euler(bankDegrees, 0f, 0f);
+        plane.transform.localScale = new Vector3(sizeScale, sizeScale, sizeScale * spanScale);
 
         var camGo = new GameObject("Cam");
         var cam = camGo.AddComponent<Camera>();

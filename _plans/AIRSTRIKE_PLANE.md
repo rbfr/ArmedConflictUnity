@@ -62,6 +62,8 @@ what the airstrike DOES to the enemy moves, so no level's balance is touched.
 - [x] `build_attack_plane.py` — straight-wing attack aircraft, 500 tris, 4.47 x 4.31 x 1.13
 - [x] `PlanePreview.Shots` — judged at gameplay framing; found the model must be BANKED ~45 deg or
       the span (which runs along DEPTH) projects vertically and reads as a cross-shaped blob
+- [x] `PlanePreview.Orientation` — added after the aircraft shipped flying BACKWARDS. Renders all
+      four yaw/bank combinations plus three sizes; settled on no yaw, bank -45, scale 0.85
 - [x] `AirstrikePlaneEntity` + state fields + `TurnPhase.AirstrikeRun`
 - [x] `BattleTick`: split `FireVolley` so the volley can be launched a beat late; `BeginAirstrikeRun`;
       `StepAirstrikeRun`; the camera anchor for the new phase

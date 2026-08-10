@@ -162,10 +162,22 @@ costs **1.10s** and no damage number moved.
 
 **THREE THINGS THIS COST, all of which a green test suite could not see:**
 
-- **The model had to be BANKED ~45 degrees.** The wingspan runs along DEPTH and `BattleCamera` looks
-  UP ~14 degrees, so an unbanked aircraft projects its span vertically and reads as a cross-shaped
-  blob. `PlanePreview.Shots` rendered 0/25/45 at gameplay framing and only 45 reads. The bank is a
-  runtime rotation, so it cost nothing.
+- **The model had to be BANKED ~45 degrees, and the SIGN matters as much as the angle.** The
+  wingspan runs along DEPTH and `BattleCamera` looks UP ~14 degrees, so an unbanked aircraft
+  projects its span vertically and reads as a cross-shaped blob. Rolled the WRONG way it shows the
+  camera the bare top of the wing — the surface the builder deliberately leaves undetailed, because
+  the player only ever sees the underside. It is `-45` with no yaw. Free: a runtime rotation.
+- **IT SHIPPED FLYING BACKWARDS, and only Rob looking at it caught that.** The facing was reasoned
+  out from the axis conventions — "the GLB is authored nose toward +X" plus "GameSpace negates X" —
+  which produced a 180 degree yaw, a cannon trailing behind the tail, and a green test suite. The
+  import chain in fact lands the authored nose pointing screen-right already. **Do not re-derive
+  the facing from the conventions; ask `PlanePreview.Orientation`**, which renders all four
+  yaw/bank combinations against a rank of soldiers. Same family as every other "assert the artefact,
+  not the note about it" entry in this file, and the second time TODAY that reasoning about this
+  aircraft's axes was wrong.
+- **It was too big at 1.0 and is rendered at 0.85** (`BattleRunner.PlaneScale`), Rob's call after
+  seeing it pass. Judged in the preview beside a rank of soldiers: 0.70 starts reading as distant
+  scenery rather than as the thing you just paid 250 coins for.
 - **The run inherited the AIMING framing and clipped the aircraft off the top of the frame.**
   `TurnPhase.AirstrikeRun` fell through `PhaseHalfWidth`'s `default:` to the tightest camera in the
   game (camZ 9.3). Fixed with an explicit case and a floor, `AirstrikeRunHalfWidth` -> camZ 14.
