@@ -50,6 +50,7 @@ public class BattleRunner : MonoBehaviour
     /// SyncFlames. Optional: with no prefab the burn still fires and is still logged, which is
     /// exactly the pre-2026-08-09 behaviour.</summary>
     [SerializeField] GameObject flamePrefab;
+    [SerializeField] GameObject planePrefab;
     [SerializeField] BattleAudio audioFx;
     [SerializeField] Transform poolRoot;
     /// <summary>Unlit white, tinted per bar with a property block. Unlit on purpose — a health
@@ -406,6 +407,9 @@ public class BattleRunner : MonoBehaviour
         foreach (var b in healthBars) b.Root.SetActive(false);
         foreach (var sh in shadowSlots) sh.SetActive(false);
         foreach (var f in flameSlots) f.Root.SetActive(false);
+        // A level switch mid-pass would otherwise leave the aircraft parked in the sky over the
+        // next battle — the recycled-slot family of bug, with one very large slot.
+        if (plane != null) plane.SetActive(false);
         // The guttering clocks are keyed by UNIT ID, and the next level re-uses those ids from 0.
         // Left standing, a corpse's leftover half-second would be inherited by whichever soldier
         // happens to be given that id on the new level — the same class of bug as a recycled slot
@@ -549,6 +553,7 @@ public class BattleRunner : MonoBehaviour
         BuildHealthBars();
         BuildShadows();
         BuildFlames();
+        if (planePrefab != null) plane = Spawn(planePrefab, "plane");
         for (int i = 0; i < 32; i++) blastSlots.Add(Spawn(explosionPrefab, $"x{i}"));
         for (int i = 0; i < BattleTick.ScorchSlots; i++) scorchSlots.Add(Spawn(scorchPrefab, $"sc{i}"));
         for (int i = 0; i < BattleTick.DebrisSlots; i++) debrisSlots.Add(Spawn(debrisPrefab, $"db{i}"));
@@ -909,6 +914,43 @@ public class BattleRunner : MonoBehaviour
         return used;
     }
 
+    /// <summary>
+    /// The airstrike's aircraft, mid-pass. ONE instance, built once with the pools and hidden the
+    /// rest of the time — a plane minted the frame an airstrike fires would be the same mid-session
+    /// mint the Filament build kept paying for, and it would land in the worst possible frame.
+    /// </summary>
+    GameObject plane;
+
+    /// <summary>
+    /// Places the aircraft from the tick's own entity. No motion is integrated here: the tick owns
+    /// where it is, so a dropped frame cannot desynchronise the aeroplane from the bomb it releases.
+    /// </summary>
+    void SyncPlane()
+    {
+        if (plane == null) return;
+
+        var p = state.AirstrikePlane;
+        if (p == null) { if (plane.activeSelf) plane.SetActive(false); return; }
+
+        if (!plane.activeSelf) plane.SetActive(true);
+        plane.transform.position = GameSpace.ToUnity(p.X, p.Y, 0f);
+
+        // FACING, then BANK, in that order and about the travel axis.
+        //
+        // The GLB is authored nose toward +X (toward the enemy, build_tank.py's convention) and
+        // GameSpace negates X, so the yaw is what makes it fly the way it is actually travelling
+        // rather than backwards — which reads as a retreat.
+        //
+        // The BANK is not decoration and it is not a small effect. The wingspan runs along DEPTH,
+        // and BattleCamera looks UP at ~14 degrees, so an unbanked aircraft at this height has its
+        // span projected almost vertically and reads as a cross-shaped blob. Rolling it puts the
+        // planform back toward the viewer. PlanePreview.Shots rendered 0/25/45 and only 45 reads.
+        plane.transform.rotation = Quaternion.Euler(0f, 180f, 0f) * Quaternion.Euler(PlaneBank, 0f, 0f);
+    }
+
+    /// <summary>Degrees of roll through the pass. See SyncPlane — 45 is measured, not chosen.</summary>
+    const float PlaneBank = 45f;
+
     GameObject Spawn(GameObject prefab, string name)
     {
         var go = Instantiate(prefab, poolRoot);
@@ -1041,7 +1083,13 @@ public class BattleRunner : MonoBehaviour
         SettleArmedSpend(beforeVolley, state);
         if (audioFx != null) audioFx.PlayVolleyFire();
         VolleyAnim(playerSide: true);
-        Debug.Log($"[Battle] volley: {state.Projectiles.Count} rounds at " +
+        // An armed airstrike defers the volley, so the round count here is ZERO and saying "volley:
+        // 0 rounds" would be a lie told to the one instrument a release build has. Report what
+        // actually happened; the volley logs itself when it launches.
+        string what = state.TurnPhase == TurnPhase.AirstrikeRun
+            ? "airstrike run, volley held"
+            : $"volley: {state.Projectiles.Count} rounds";
+        Debug.Log($"[Battle] {what} at " +
                   $"{AimSystem.StrengthPercent(aimVel):F0}% / {AimSystem.AngleDegrees(aimVel):F1}deg");
     }
 
@@ -1181,6 +1229,7 @@ public class BattleRunner : MonoBehaviour
         SyncHealthBars();
         SyncShadows();
         SyncFlames(Time.deltaTime);
+        SyncPlane();
         // Guns follow the LIVE roster only — a ragdoll drops its weapon rather than carrying
         // one through a tumble, which is also what the shipping build does.
         for (int i = state.PlayerUnits.Count; i < playerGuns.Count; i++) playerGuns[i].SetActive(false);

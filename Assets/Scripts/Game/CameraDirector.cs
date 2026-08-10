@@ -22,6 +22,16 @@ namespace ArmedConflict.Game
     /// </summary>
     public static class CameraDirector
     {
+        /// <summary>
+        /// Minimum half-width while the airstrike's aircraft is making its pass.
+        ///
+        /// Chosen through TargetZ rather than by eye: the caller adds 1.2, and camZ is
+        /// halfWidth / ZHalfFovTan, so 5.1 puts the run at camZ 14 — comfortably wider than the
+        /// camZ 11 at which `PlanePreview` judged the model to fit with margin, and wide enough
+        /// that the aircraft and the ground it is bombing are in the same picture.
+        /// </summary>
+        public const float AirstrikeRunHalfWidth = 5.1f;
+
         public const float GameplayZ = 22f;
         public const float ZMin = 5.5f;
         public const float ZHalfFovTan = 0.45f;
@@ -110,6 +120,16 @@ namespace ArmedConflict.Game
                     return marchersActive ? marchHalfWidth : shooterHalfWidth;
                 case TurnPhase.Resolving:
                     return turnSide == TurnSide.Enemy ? playerHalfWidth : enemyHalfWidth;
+                case TurnPhase.AirstrikeRun:
+                    // THE AIRCRAFT NEEDS ROOM THE GROUND FIGHT NEVER DOES. Falling through to the
+                    // default here put the run on the AIMING framing — the tightest in the game,
+                    // about camZ 9 — and a 4.5-unit aeroplane banked 45 degrees was then so large
+                    // it was clipped by the top of the frame for the first half of its pass.
+                    // Measured on device 2026-08-10, first build of the beat.
+                    //
+                    // The floor is a floor, not a fixed value: a level whose enemy cluster is wider
+                    // still gets its own framing, so this can only ever pull the camera BACK.
+                    return Mathf.Max(enemyHalfWidth, AirstrikeRunHalfWidth);
                 default:
                     return playerHalfWidth;
             }

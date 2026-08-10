@@ -13,6 +13,16 @@ namespace ArmedConflict.Game
         Aiming,
         EnemyWindup,
         Resolving,
+        /// <summary>
+        /// The airstrike's aircraft is making its pass, BEFORE the volley it was fired with.
+        ///
+        /// The only phase that is not a turn handover, and it exists for a measured reason: the
+        /// bomb used to detonate off-screen, ~0.85s before the volley-follow camera finished
+        /// panning (device capture, 2026-08-10). Nothing the player paid 250 coins for was ever
+        /// visible. With no rounds in the air yet there is nothing to chase, so the pass can own
+        /// the frame — see `_plans/AIRSTRIKE_PLANE.md`.
+        /// </summary>
+        AirstrikeRun,
     }
 
     /// <summary>
@@ -106,6 +116,19 @@ namespace ArmedConflict.Game
             = new Dictionary<ConsumableType, int>();
         public bool AirstrikeArmed { get; init; }
         public bool SmokeScreenArmed { get; init; }
+
+        /// <summary>The aircraft in the middle of its pass, or null. See TurnPhase.AirstrikeRun.</summary>
+        public AirstrikePlaneEntity AirstrikePlane { get; init; }
+
+        /// <summary>
+        /// The aim the player released, HELD across the airstrike run so the volley can be built
+        /// from it a beat later.
+        ///
+        /// It lives in the state rather than on the runner because the volley it builds is
+        /// gameplay: a runner-held aim would put turn sequencing in a MonoBehaviour, and would be
+        /// lost by anything that rebuilds the state mid-run.
+        /// </summary>
+        public Vector3? PendingVolleyAim { get; init; }
         public bool OverwatchFlareArmed { get; init; }
         public AmmoType SelectedAmmo { get; init; } = AmmoType.Standard;
         public IReadOnlyCollection<int> BurningEnemyIds { get; init; } = new HashSet<int>();

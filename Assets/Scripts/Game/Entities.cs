@@ -224,6 +224,28 @@ namespace ArmedConflict.Game
         public bool Asleep { get; init; }
     }
 
+    /// <summary>
+    /// The airstrike's aircraft, mid-pass. Cosmetic in every respect EXCEPT the moment it releases
+    /// its bomb — it cannot be shot at, does not collide, and carries no health, which is why it is
+    /// not a UnitEntity.
+    ///
+    /// X is GAME space, so it INCREASES toward the enemy; the renderer routes it through
+    /// GameSpace.ToUnity like everything else. `HasDropped` is the latch that stops one pass
+    /// releasing a second bomb — the drop is an edge, and edges in this tick have to be recorded
+    /// rather than re-derived, because dt varies and a position test can straddle the point.
+    /// </summary>
+    /// <param name="ExitX">
+    /// Where the aircraft stops existing. Carried ON THE ENTITY so its motion needs nothing else:
+    /// the plane outlives the phase that launched it — it is still exiting frame while the volley
+    /// resolves — and a despawn test that had to re-derive the target from the aim would stop
+    /// being computable the moment that aim was spent. The first build did exactly that, and the
+    /// aircraft hung motionless in the sky for the rest of the battle.
+    /// </param>
+    public record AirstrikePlaneEntity(float X, float Y, float Vx, float ExitX)
+    {
+        public bool HasDropped { get; init; }
+    }
+
     public static class StructureDamage
     {
         /// <summary>

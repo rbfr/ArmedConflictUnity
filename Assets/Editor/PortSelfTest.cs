@@ -306,47 +306,158 @@ public static class PortSelfTest
             var aim = new Vector3(6f, 6f, 0f);
             var plain = BattleTick.FireVolley(fresh, aim, new System.Random(3));
             var struck = BattleTick.FireVolley(armed, aim, new System.Random(3));
-            var extra = struck.Projectiles.Where(p => p.IsAirstrike).ToList();
 
-            Check(plain.Projectiles.All(p => !p.IsAirstrike) && extra.Count == 1
-                  && struck.Projectiles.Count == plain.Projectiles.Count + 1
+            var muzzle = new Vector3(fresh.PlayerUnits.Average(u => u.X),
+                                     fresh.PlayerUnits.Average(u => u.Y) + BattleTick.InfantryMuzzleY,
+                                     0f);
+            var volleyTarget = TrajectoryPhysics.LandingPoint(muzzle, aim);
+
+            // AN ARMED RELEASE FLIES THE PLANE FIRST AND THROWS NOTHING YET. This is the whole
+            // behaviour Rob asked for on 2026-08-10, and the reason is measured, not aesthetic: the
+            // bomb used to land ~0.85s before the volley-follow camera finished panning, off-screen
+            // every time. The item is spent the moment the aircraft is committed.
+            Check(struck.TurnPhase == TurnPhase.AirstrikeRun
+                  && struck.Projectiles.Count == fresh.Projectiles.Count
+                  && struck.AirstrikePlane != null
+                  && !struck.AirstrikePlane.HasDropped
+                  && Mathf.Abs(struck.AirstrikePlane.X
+                               - (volleyTarget.x - BattleTick.PlaneRunHalfLength)) < 0.01f
+                  && struck.PendingVolleyAim.HasValue
                   && !struck.AirstrikeArmed
                   && Consumables.Equipped(struck, ConsumableType.Airstrike) == 0,
-                  "an armed volley throws exactly one extra round, changes nothing else, and "
-                  + "THEN spends the item");
+                  "an armed release starts the PLANE'S RUN and fires no volley yet — aircraft "
+                  + "spawned off-frame, aim held, item spent");
 
-            if (extra.Count == 1)
+            // ...and an UNARMED release is untouched by any of it. Without this the check above
+            // would still pass if the airstrike path had eaten the ordinary volley.
+            Check(plain.TurnPhase == TurnPhase.Resolving
+                  && plain.Projectiles.Count > fresh.Projectiles.Count
+                  && plain.AirstrikePlane == null
+                  && plain.Projectiles.All(p => !p.IsAirstrike),
+                  "an unarmed release still fires immediately, with no aircraft and no bomb");
+
+            // Now fly it. Stepping the real tick rather than calling the private step directly, so
+            // this exercises the path the game takes — including the phase gate that decides
+            // whether the run advances at all.
+            var run = struck;
+            ProjectileEntity bomb = null;
+            float bombReleaseX = 0f;
+            int guard = 0;
+            while (run.TurnPhase == TurnPhase.AirstrikeRun && guard++ < 2000)
             {
-                var round = extra[0];
-                var origin = new Vector3(round.X, round.Y, round.Z);
-                var velocity = new Vector3(round.Vx, round.Vy, round.Vz);
-                var volleyTarget = TrajectoryPhysics.LandingPoint(
-                    new Vector3(fresh.PlayerUnits.Average(u => u.X),
-                                fresh.PlayerUnits.Average(u => u.Y) + BattleTick.InfantryMuzzleY, 0f),
-                    aim);
-                Near(TrajectoryPhysics.LandingPoint(origin, velocity).x, volleyTarget.x, 0.05f,
-                     "the airstrike lands on the volley's own landing point");
-                Check(round.Y >= BattleTick.AirstrikeOriginY - 0.01f && round.SplashRadius > 0f
-                      && round.Damage >= BattleTick.AirstrikeDamage,
-                      "...dropped from overhead as a SPLASH round, not thrown from the line");
-
-                // The plunge must be SLOW ENOUGH TO SEE, however the player aimed. A flat drag can
-                // put the real volley in the air for under 0.2s, and reusing that time compressed
-                // the whole fall into a few frames — "nothing happened". The absolute floor is not
-                // decoration: without it this only agrees with whatever the constant says, which a
-                // 0.18s constant passed cleanly.
-                var flat = BattleTick.FireVolley(armed, new Vector3(9f, 0.5f, 0f),
-                                                 new System.Random(3))
-                                     .Projectiles.First(p => p.IsAirstrike);
-                float flatFall = TrajectoryPhysics.FlightTime(
-                    new Vector3(flat.X, flat.Y, flat.Z), new Vector3(flat.Vx, flat.Vy, flat.Vz));
-                Check(Mathf.Abs(TrajectoryPhysics.FlightTime(origin, velocity)
-                                - BattleTick.AirstrikeFlightTime) < 0.05f
-                      && Mathf.Abs(flatFall - BattleTick.AirstrikeFlightTime) < 0.05f
-                      && BattleTick.AirstrikeFlightTime >= 0.8f,
-                      $"the fall takes its own fixed time ({BattleTick.AirstrikeFlightTime:F2}s, "
-                      + $"{flatFall:F2}s on a FLAT drag) and legible means SECONDS, not frames");
+                run = BattleTick.Step(run, 1f / 60f, null, new System.Random(3));
+                var live = run.Projectiles.FirstOrDefault(p => p.IsAirstrike);
+                if (live != null && bomb == null)
+                {
+                    bomb = live;
+                    bombReleaseX = run.AirstrikePlane?.X ?? 0f;
+                }
             }
+
+            // THE PLANE MUST STILL BE FLYING when the volley launches. Not a decorative detail:
+            // there is a deliberate fallback that hands the turn over if the aircraft is ever
+            // missing, and without this clause a run that NEVER detected its bomb landing would
+            // still pass here — it would simply hand over later, when the plane left the frame.
+            // That is exactly what happened on the negative run, so this clause exists because the
+            // check it strengthens was caught passing against broken code.
+            Check(bomb != null && run.TurnPhase == TurnPhase.Resolving && guard < 2000
+                  && run.AirstrikePlane != null,
+                  "the run hands over THE MOMENT ITS BOMB LANDS, with the aircraft still in the "
+                  + "air and exiting over the volley");
+
+            if (bomb != null)
+            {
+                var origin = new Vector3(bomb.X, bomb.Y, bomb.Z);
+                var velocity = new Vector3(bomb.Vx, bomb.Vy, bomb.Vz);
+
+                // THE DROP LEAD IS THE THING THAT CAN SILENTLY MISS. The bomb inherits the
+                // aircraft's forward speed, so it has to be released short of the target by
+                // exactly speed * fall — and it must still LAND on the volley's own landing point,
+                // which is the property the player actually experiences.
+                Near(TrajectoryPhysics.LandingPoint(origin, velocity).x, volleyTarget.x, 0.15f,
+                     "the bomb still lands on the volley's own landing point");
+                Check(bomb.Vx > 0f
+                      && bomb.SplashRadius > 0f
+                      && bomb.Damage >= BattleTick.AirstrikeDamage
+                      && Mathf.Abs(bombReleaseX
+                                   - (volleyTarget.x - BattleTick.PlaneSpeed * BattleTick.BombFallTime))
+                         < 0.25f,
+                      "...released SHORT of the target by speed x fall, carrying the aircraft's "
+                      + "forward speed, as a splash round of undiminished damage");
+
+                // The fall is its own fixed time and legible means SECONDS. The absolute floor is
+                // not decoration: asserted only against the constant that defines it, a 0.18s
+                // value passed cleanly — that is this file's own self-referential-check trap.
+                float fall = TrajectoryPhysics.FlightTime(origin, velocity);
+                Check(Mathf.Abs(fall - BattleTick.BombFallTime) < 0.05f
+                      && BattleTick.BombFallTime >= 0.8f,
+                      $"the fall takes its own fixed time ({BattleTick.BombFallTime:F2}s, measured "
+                      + $"{fall:F2}s) and legible means SECONDS, not frames");
+
+                // And the RELEASE has to be on screen, which is the entire point of the beat. The
+                // frame is ~4.94 units of half-width at camZ 11; the camera bias is what buys the
+                // margin. Asserted against the framing, not against the constants that set it.
+                float cameraX = volleyTarget.x - BattleTick.PlaneCameraBias;
+                Check(Mathf.Abs(bombReleaseX - cameraX) < 4.94f
+                      && Mathf.Abs(volleyTarget.x - cameraX) < 4.94f,
+                      "both the RELEASE and the IMPACT sit inside the frame at resolve framing — "
+                      + "the off-screen detonation measured on device is what this beat fixes");
+            }
+
+            // THE AIRCRAFT MUST KEEP FLYING AFTER IT HANDS THE TURN OVER, and must eventually go.
+            // Its motion used to live inside the run's own step, which stops being called the
+            // instant the phase changes — so it froze in mid-air and hung there for the rest of the
+            // battle, ballooning as the camera zoomed past it. Found on device, by a contact sheet,
+            // with every check green. Asserted as MOVEMENT and then ABSENCE, which is what the
+            // player sees, not as "the step is called from the right place".
+            {
+                var afterHandover = run;
+                float xAtHandover = afterHandover.AirstrikePlane?.X ?? float.NaN;
+                var later = BattleTick.Step(afterHandover, 1f / 60f, null, new System.Random(3));
+                float xLater = later.AirstrikePlane?.X ?? float.NaN;
+
+                var far = later;
+                int flyGuard = 0;
+                while (far.AirstrikePlane != null && flyGuard++ < 2000)
+                    far = BattleTick.Step(far, 1f / 60f, null, new System.Random(3));
+
+                Check(!float.IsNaN(xAtHandover) && xLater > xAtHandover
+                      && far.AirstrikePlane == null && flyGuard < 2000,
+                      $"the aircraft keeps flying after the handover ({xAtHandover:F2} -> "
+                      + $"{xLater:F2}) and eventually leaves, rather than hanging in the sky");
+            }
+
+            // THE RUN MUST BE FRAMED WIDER THAN THE AIM. This is a regression guard on a bug the
+            // device found in the first build of the beat: TurnPhase.AirstrikeRun fell through to
+            // PhaseHalfWidth's default, took the AIMING framing — the tightest in the game — and a
+            // 4.5-unit aircraft banked 45 degrees was clipped by the top of the frame for half its
+            // pass. Asserted as camera DISTANCE, which is what the clipping is a function of,
+            // rather than as "the switch has a case for it".
+            {
+                float aimingZ = CameraDirector.TargetZ(
+                    CameraDirector.PhaseHalfWidth(TurnPhase.Aiming, TurnSide.Player,
+                                                  3f, 3f, 3f, 0f, false, 3f, false) + 1.2f,
+                    false, 0f);
+                float runZ = CameraDirector.TargetZ(
+                    CameraDirector.PhaseHalfWidth(TurnPhase.AirstrikeRun, TurnSide.Player,
+                                                  3f, 3f, 3f, 0f, false, 3f, false) + 1.2f,
+                    false, 0f);
+                float wideRunZ = CameraDirector.TargetZ(
+                    CameraDirector.PhaseHalfWidth(TurnPhase.AirstrikeRun, TurnSide.Player,
+                                                  3f, 9f, 3f, 0f, false, 3f, false) + 1.2f,
+                    false, 0f);
+                Check(runZ > aimingZ + 2f && runZ >= 13f && wideRunZ >= runZ,
+                      $"the airstrike run is framed WIDER than the aim (camZ {runZ:F1} vs "
+                      + $"{aimingZ:F1}), and a wide enemy cluster only pulls it further back — "
+                      + "the tight framing clipped the aircraft off the top of the frame on device");
+            }
+
+            // The volley that finally launches is the one the player aimed, unchanged by having
+            // waited. Compared against the unarmed volley fired from the same aim and seed.
+            Check(run.Projectiles.Count(p => !p.IsAirstrike) == plain.Projectiles.Count
+                  && run.PendingVolleyAim == null,
+                  "the volley that follows the run is the volley the player aimed, and the held "
+                  + "aim is spent");
         }
 
         // --- SMOKE SCREEN: their volley really does go wider -----------------------------------

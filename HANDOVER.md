@@ -21,10 +21,10 @@
   schedule covers two levels. **Wind is the other half and is still blocked** — see below.
 - **TIER 1.3 IS BUILT** — four consumables, bought, carried and fired, confirmed on device
   2026-08-10. **Overwatch Flare is deliberately not among them**; see its section.
-- **576 self-test checks, all passing — run `PortSelfTest.Run` after every change.** It was 281 at
+- **582 self-test checks, all passing — run `PortSelfTest.Run` after every change.** It was 281 at
   the start of 2026-08-06, 411 at the end of it, 444 on 2026-08-07, 539 after the Tier 1.2 and
-  glyph-coverage blocks, 559 with the flame and the Auto-ammo pair, and 576 with Tier 1.3's
-  consumables. **Assert related facts TOGETHER** — Tier 1.3's block was first written as 50
+  glyph-coverage blocks, 559 with the flame and the Auto-ammo pair, 576 with Tier 1.3's
+  consumables, and 582 with the airstrike's aircraft. **Assert related facts TOGETHER** — Tier 1.3's block was first written as 50
   assertions over 307 lines and is 18 over 232, with the same nine breakages still caught. A
   failure message naming three properties is as diagnostic as three checks, and this file is read
   by people.
@@ -34,12 +34,11 @@
 **WIND IS PARKED** — Rob's call, 2026-08-10. It is the only thing Tier 1.2 still owes and it is
 blocked on a physics decision (below), so tier work continues around it rather than waiting on it.
 
-0. **TIER 1.3 IS DONE — 2026-08-10, four consumables live and device-confirmed** — with ONE
-   UNRESOLVED item worth picking up early: **the Airstrike has no author.** Nothing flies, nothing
-   strafes; a grenade appears in mid-air and drops. Mechanically right, presentationally empty, and
-   it is the dearest thing in the shop. Options costed in `_plans/BACKLOG.md`. See its own
-   section below. **Tier 1.4 (Heli) stays shut**, so the next tier item is whatever
-   `PRODUCT_DIRECTION.md` puts after it — and the two biggest OPEN things in the port are now
+0. **TIER 1.3 IS DONE — 2026-08-10, four consumables live and device-confirmed.** Its one
+   UNRESOLVED item, **"the Airstrike has no author"**, was **RESOLVED the same day**: the airstrike
+   is now flown in by an aircraft that crosses BEFORE the volley. See "The airstrike's aircraft"
+   below and `_plans/AIRSTRIKE_PLANE.md`. **Tier 1.4 (Heli) stays shut**, so the next tier item is
+   whatever `PRODUCT_DIRECTION.md` puts after it — and the two biggest OPEN things in the port are
    named and costed: **advancing squads + melee are unported** (which is what holds Overwatch
    Flare), and **wind is still cosmetic**. Both are physics/AI asks, not scheduling jobs.
 
@@ -128,30 +127,47 @@ Bought with coins earned in play, because the release build is not debuggable an
 seed PlayerPrefs — which turned out to be a better test than seeding would have been: the purchase,
 the balance, the affordability tint and the carry cap were all exercised for real.
 
-### UNRESOLVED: the Airstrike is mechanically right and presentationally empty
+### RESOLVED: the Airstrike now has an aircraft, and it flies BEFORE the volley
 
-Rob asked, the day it shipped, whether anything actually flies across the screen and strafes, or
-whether it is "just explosions out of nowhere". **It is much closer to the latter**, and this is
-read off the code rather than remembered:
+Rob asked, the day Tier 1.3 shipped, whether anything actually flies across the screen. It did not:
+a single grenade popped into existence in mid-air and fell. **A 30 fps device capture then found
+something worse than ugly — the bomb was detonating OFF-SCREEN**, ~0.85s before the volley-follow
+camera finished panning to the target. Nobody had ever seen it.
 
-a single **grenade** — the grenadier's own `projectile_grenade`, olive-lime at 0.16 scale — **pops
-into existence in mid-air** with no fade-in, falls straight down for 1.4s among eleven infantry
-arcs, and lands with the standard blast, scorch and explosion sound. **No aircraft, no approach, no
-strafing run, no dedicated audio, no ground telegraph.** `IsAirstrike` is set on the projectile and
-**read nowhere** — it has no rendering meaning at all.
+**A control run corrected two earlier write-ups in this file.** The same drag with nothing armed
+shows the identical "round falling nose-down among the arcs" that two sessions had taken for the
+airstrike. **That is the TANK SHELL**, which fires on every volley for free. Take the control shot.
 
-Nor does it enter from off-frame: `AirstrikeOriginY` is 5.0 against a ~1.30-unit soldier, so it
-appears under four soldier-heights up, about a fifth of the frame height, in clear sky.
-**The comment on that constant used to claim otherwise and has been corrected** — it is the same
-"assert the artefact, not the note about it" failure this file keeps recording, committed by the
-person writing the note.
+**The fix is a sequencing change, not an art change**, and Rob directed it: *"plane should fly first
+before the player volley."* A straight-wing attack aircraft (`Assets/Models/attack_plane.glb`, built
+by `build_attack_plane.py`) crosses from the player's side in a new `TurnPhase.AirstrikeRun`,
+releases the bomb, and exits; the infantry volley launches the moment that bomb lands. With no
+rounds in the air yet there is nothing for the camera to chase, so the pass owns the frame. The beat
+costs **1.10s** and no damage number moved.
 
-So the most expensive consumable has the least legible presentation, which is worse for a
-consumable than for an unlock because it is gone after one use. Options are costed in
-`_plans/BACKLOG.md` under "the Airstrike has no author" — the ground shadow looks like the best
-value (it telegraphs WHERE, turning 1.4s of hang time into suspense), and the strafing plane is
-explicitly NOT obviously right, because it puts a second moving subject in front of a LOCKED camera
-that already has the heli switched off for exactly that reason.
+**THREE THINGS THIS COST, all of which a green test suite could not see:**
+
+- **The model had to be BANKED ~45 degrees.** The wingspan runs along DEPTH and `BattleCamera` looks
+  UP ~14 degrees, so an unbanked aircraft projects its span vertically and reads as a cross-shaped
+  blob. `PlanePreview.Shots` rendered 0/25/45 at gameplay framing and only 45 reads. The bank is a
+  runtime rotation, so it cost nothing.
+- **The run inherited the AIMING framing and clipped the aircraft off the top of the frame.**
+  `TurnPhase.AirstrikeRun` fell through `PhaseHalfWidth`'s `default:` to the tightest camera in the
+  game (camZ 9.3). Fixed with an explicit case and a floor, `AirstrikeRunHalfWidth` -> camZ 14.
+- **The aircraft FROZE at handover and hung in the sky for the rest of the battle.** Its motion sat
+  inside the run's own step, which stops being called the instant the phase changes — and this
+  aircraft deliberately OUTLIVES its phase, exiting over the top of the volley. It is the same rule
+  as "anything that decays must decay on EVERY tick path". Motion moved to the physics section and
+  the despawn point is carried on the entity, so it depends on nothing the phase owns.
+
+**And the release log was lying.** It reported `volley: 0 rounds`, because the volley had not been
+built yet — a false line in the one instrument a release build has. It now reports the run, and the
+volley logs itself when it launches:
+
+```
+[Battle] airstrike run, volley held at 86% / 45.0deg
+[Battle] volley: 11 rounds, after the airstrike        <- 1.10s later
+```
 
 ### The arm/spend split, which is the one piece of this that cost something
 
@@ -464,7 +480,7 @@ it was written for. Ask the thing itself — the font, the engine, the device.
 ### The state of the checks, as of the handover
 
 ```
-PortSelfTest.Run          576 checks, ALL PASS
+PortSelfTest.Run          582 checks, ALL PASS
 LevelComposition.Report   12 campaign levels, 0 errors, 2 accepted warnings (L3, L5 rule 7 —
                           reasons in their designNotes; both beats are about height)
 BalanceAudit.Report       0 errors, 19 warnings (race-ratio flags on the dearest-squad
@@ -472,15 +488,16 @@ BalanceAudit.Report       0 errors, 19 warnings (race-ratio flags on the dearest
 ```
 
 **A scene rebuild is NOT pending** — one was run on 2026-08-10 after `BattleRunner` gained its
-`flamePrefab` field, so `Assets/Scenes/Battle.unity` and several materials are dirty because of it.
-**The APK on the device is current** — rebuilt on 2026-08-10 with Tier 1.3's consumables and the
-loadout NRE guard, and everything above was confirmed on that build. Both are CODE-ONLY changes, so
+`planePrefab` field (and earlier the same day for `flamePrefab`), so `Assets/Scenes/Battle.unity` and several materials are dirty because of it.
+**The APK on the device is current** — rebuilt on 2026-08-10 with the airstrike's aircraft, Tier
+1.3's consumables and the loadout NRE guard, and everything above was confirmed on that build. Both are CODE-ONLY changes, so
 neither needs a scene rebuild.
 
-**The device now carries real progress**: L1–L3 cleared with stars, coins earned and spent, and one
-Trauma Kit / Airstrike / Early Reinforcements / Smoke Screen bought and used. Nothing was seeded —
-the release build is not debuggable, so `run-as` cannot reach PlayerPrefs. Worth knowing before a
-future session uninstalls and wonders where the balance went.
+**The device's progress was WIPED and re-earned on 2026-08-10**, four times over, testing the
+aircraft. Nothing can be seeded — the release build is not debuggable, so `run-as` cannot reach
+PlayerPrefs — and the testing protocol is uninstall/reinstall, so **every build costs the balance**.
+Re-earning 250 coins is two Auto-driven levels and about two minutes; budget for it rather than
+being surprised. It currently sits on L1 with ~205 coins and the first two levels cleared.
 
 Note the flame's own assets are NEW and untracked until committed: `Assets/Prefabs/Flame.prefab`,
 `Assets/Materials/Flame.mat`, `Assets/Materials/FlameTex.asset`, `Assets/Scripts/Render/FlameRig.cs`

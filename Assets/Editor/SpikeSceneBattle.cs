@@ -155,6 +155,7 @@ public static class SpikeSceneBattle
         so.FindProperty("scorchPrefab").objectReferenceValue = scorchPrefab;
         so.FindProperty("shadowPrefab").objectReferenceValue = MakeShadowPrefab();
         so.FindProperty("flamePrefab").objectReferenceValue = MakeFlamePrefab();
+        so.FindProperty("planePrefab").objectReferenceValue = MakePlanePrefab(mats);
         so.FindProperty("debrisPrefab").objectReferenceValue = MakeDebrisPrefab(mats);
         // UNLIT and TRANSPARENT. Unlit because a health bar is UI that happens to live in the
         // world, and a lit one takes the biome's light and reads as a different colour per level
@@ -310,6 +311,34 @@ public static class SpikeSceneBattle
 
     static GameObject MakeShellPrefab(Mats mats)
         => MakeProjectilePrefab("Shell", "projectile_shell", 0.34f, mats.shellBody, mats.shellNose);
+
+    /// <summary>
+    /// The airstrike's aircraft. Authored at world scale by `build_attack_plane.py` in the OLD
+    /// repo's tools/blender, so it takes NO scaling here — 4.47 units long, judged against a
+    /// ~1.30-unit soldier by `PlanePreview.Shots`.
+    ///
+    /// It wears the PLAYER's uniform, deliberately. The whole point of the beat is that the
+    /// player's own side sent it; in an enemy palette it would read as being bombed.
+    /// </summary>
+    static GameObject MakePlanePrefab(Mats mats)
+    {
+        var src = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Models/attack_plane.glb");
+        if (src == null) { Debug.LogWarning("[Battle] missing attack_plane"); return null; }
+        var go = (GameObject)PrefabUtility.InstantiatePrefab(src);
+        go.name = "AttackPlane";
+        foreach (var r in go.GetComponentsInChildren<MeshRenderer>())
+        {
+            // Four-tone by MESH NAME prefix, the same contract every unit and structure uses.
+            var n = r.gameObject.name;
+            r.sharedMaterial = n.StartsWith("accent") ? mats.playerGear
+                             : n.StartsWith("trim") ? mats.shellNose
+                             : mats.playerUniform;
+        }
+        System.IO.Directory.CreateDirectory("Assets/Prefabs");
+        var prefab = PrefabUtility.SaveAsPrefabAsset(go, "Assets/Prefabs/AttackPlane.prefab");
+        Object.DestroyImmediate(go);
+        return prefab;
+    }
 
     /// <summary>
     /// The unit's weapon. Every UnitDefinition carries a gunModelAsset and the importer brought

@@ -72,6 +72,20 @@ Worth knowing before anyone spends time on it:
 
 ---
 
+## RESOLVED 2026-08-10: the AIRSTRIKE has an author — it is flown in by an aircraft
+
+**Fixed the same day it was raised.** Rob's second decision settled it: *"plane should fly first
+before the player volley."* A straight-wing attack aircraft now crosses from the player's side,
+releases the bomb, and exits — and only then does the infantry volley launch. Full write-up and the
+two device-only bugs in `_plans/AIRSTRIKE_PLANE.md`.
+
+The measurement below is kept because it is WHY the fix took the shape it did: the problem was
+never only that the bomb was ugly, it was that it detonated off-screen, and no amount of art fixes
+a moment the camera is not pointed at.
+
+<details>
+<summary>The original entry, as raised</summary>
+
 ## UNRESOLVED: the AIRSTRIKE has no author — raised by Rob 2026-08-10
 
 **Asked, on the day it shipped: "do we actually show something fly across the screen from the
@@ -93,8 +107,10 @@ code, not remembered.
 **Two specifics that make it worse than that sounds:**
 
 1. **It is the same object the grenadier throws**, in the same material at the same size. Nothing
-   distinguishes a 250-coin airstrike from one more round in the volley. On the device capture it
-   was only findable because one round falls nose-down while the rest fly arcs.
+   distinguishes a 250-coin airstrike from one more round in the volley. ~~On the device capture it
+   was only findable because one round falls nose-down while the rest fly arcs.~~ **That sentence
+   was WRONG and a control run disproved it — see the measurement below. The nose-down round is the
+   TANK SHELL**, which fires on every volley for free.
 2. **It does not come from off-screen.** `AirstrikeOriginY` is 5.0 and a soldier is ~1.30 world
    units tall, so it spawns under four soldier-heights up — about a fifth of the frame height,
    comfortably inside the picture. *The code comment on that constant used to claim it read as
@@ -126,11 +142,51 @@ that governs.
   exchange, which is exactly the load problem that keeps `HELI_ENABLED` switched off. Read
   `CAMERA_ARCHITECTURE.md` before costing this one — the camera is LOCKED.
 
-Worth doing before any of it: watch one on a device at full speed rather than in a contact sheet.
-The judgement above is from a 12 fps capture plus the code, and "1.4s of hang time reads as
-nothing" is a hypothesis about feel, not a measurement.
+### MEASURED ON DEVICE 2026-08-10, and it is worse than the above: THE BLAST IS OFF-SCREEN
+
+An airstrike was bought with coins earned in play, armed, and fired into L1's bunker on the
+documented drag (`input swipe 300 900 631 1231 600`), captured at 12 Mbit and read back at **30
+fps** — not the 12 fps contact sheet the judgement above came from.
+
+```
+[Consumable] Airstrike armed=True
+[Consumable] Airstrike fired
+[Battle] volley: 12 rounds at 86% / 45.0deg      <- the volley alone is 11
+release  t = 4.15s   (muzzle flashes, pinned off the frames)
+airstrike impact  t = 4.15 + 1.4 = ~5.55s
+volley impact     t = ~6.4s
+```
+
+**At t = 5.35–6.05s the camera is panning across BARE GROUND.** No bomb, no blast, no scorch — the
+bunker is not even in frame yet; it enters at ~5.9s. The only explosions anywhere between release
+and 7.2s are the volley's own cluster at ~6.4s. **The one thing the player paid 250 coins for
+detonates roughly 0.85s before the camera arrives, and in this capture they never see it at all.**
+
+The cause is a TIMING mismatch, not only an art gap. `AirstrikeFlightTime` is a **fixed 1.4s**,
+chosen so the fall is legible however the player aimed — but the volley-follow camera is chasing
+the ROUNDS, and on any arc longer than 1.4s it is still mid-pan when the airstrike lands. The
+airstrike is not excluded from that mean either (`BattleTick` filters only `IsHeliShot`), so it
+sits at the landing point from spawn and pulls the follow target forward while contributing nothing
+the player can see.
+
+**A control run settles the attribution.** The identical drag with NOTHING armed
+(`[Battle] volley: 11 rounds`) shows the same dark nose-down round arcing over the field. That
+round is the **tank shell**, which fires every volley. So the airstrike has never been seen on a
+device by anyone: what two write-ups took for it was the shell. *Assert the output, not the input —
+and take the control shot.*
+
+**This reorders the candidate fixes.** Timing is now a PREREQUISITE, not a polish item: a plane, a
+shadow, a whistle or a bigger blast are all wasted on a moment the camera is not pointed at.
+Cheapest honest fix first — **make the airstrike arrive WITH the volley** (or a beat after it, as
+punctuation), or give it its own camera beat. Neither is free of `CAMERA_ARCHITECTURE.md`, which is
+LOCKED, so it needs an ask.
+
+What is still NOT measured: how any of this feels at full speed to a person watching. The frames
+prove the blast is off-frame; they cannot prove what a fixed version would feel like.
 
 ---
+
+</details>
 
 ## A crowd-runner BONUS LEVEL — asked 2026-08-10
 
