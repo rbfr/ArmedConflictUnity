@@ -29,6 +29,7 @@ public class BattleAudio : MonoBehaviour
     [SerializeField] AudioClip victory;
     [SerializeField] AudioClip defeat;
     [SerializeField] AudioClip helicopterLoop;
+    [SerializeField] AudioClip planePassby;
 
     const int Voices = 12;
     AudioSource[] voices;
@@ -56,7 +57,7 @@ public class BattleAudio : MonoBehaviour
         // the second occurrence onward. Preloading at import covers this, and this call is the
         // belt-and-braces for any clip whose importer settings drift.
         foreach (var c in new[] { volleyFire, groundImpact, unitDeath, unitHit, explosion,
-                                  victory, defeat, helicopterLoop })
+                                  victory, defeat, helicopterLoop, planePassby })
             if (c != null && c.loadState != AudioDataLoadState.Loaded) c.LoadAudioData();
     }
 
@@ -112,6 +113,29 @@ public class BattleAudio : MonoBehaviour
         if (Time.time - lastExplosion < ExplosionMinInterval) return;
         lastExplosion = Time.time;
         Play(explosion, 0.75f, Random.Range(0.95f, 1.05f));
+    }
+
+    /// <summary>
+    /// The airstrike aircraft's pass. Fired ONCE as the run begins, not per frame.
+    ///
+    /// The clip is cut so its PEAK lands as the aircraft crosses the drop point — the source is an
+    /// 8.3s recording whose whoosh peaks at 3.30s, and the plane reaches centre 1.29s into its run,
+    /// so it is trimmed from 2.01s. Play it at any other moment and the loudest part of the sound
+    /// arrives over empty sky. It is louder than the other cues on purpose: this is the most
+    /// expensive thing in the shop announcing itself.
+    /// </summary>
+    public void PlayPlanePassby()
+    {
+        // LOGGED UNCONDITIONALLY, like [Burn], and for the same reason: on a release build with no
+        // way to listen, this line is the only evidence the cue fired at all. It prints loadState
+        // because the documented failure here is silent — a clip that reports Unloaded on its first
+        // Play produces NO SOUND and no error, which is what once made the first volley, the first
+        // explosion and the first ground impact of every battle inaudible.
+        Debug.Log(planePassby == null
+            ? "[Audio] plane pass-by: CLIP IS NULL — check the scene wiring"
+            : $"[Audio] plane pass-by: {planePassby.name} len={planePassby.length:F2}s " +
+              $"state={planePassby.loadState} ch={planePassby.channels}");
+        Play(planePassby, 0.95f);
     }
 
     public void PlayVictory() => Play(victory, 0.8f);

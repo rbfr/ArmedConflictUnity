@@ -175,6 +175,18 @@ costs **1.10s** and no damage number moved.
   yaw/bank combinations against a rank of soldiers. Same family as every other "assert the artefact,
   not the note about it" entry in this file, and the second time TODAY that reasoning about this
   aircraft's axes was wrong.
+- **It flies at y=9.5 with a PASS-BY SOUND** (`Assets/Audio/plane_passby.wav`). The source is an
+  8.3s recording; it is cut to 3.0s starting at 2.01s so its PEAK — which sits at 3.30s in the
+  original — lands as the aircraft crosses the drop point, 1.29s into the run. Play the whole file
+  and the loudest part arrives over empty sky, seconds after the plane has gone. Height does NOT
+  move the release or the impact: the drop lead is `PlaneSpeed * BombFallTime`, and neither is a
+  function of height.
+- **`PlanePreview` was rendering a different aircraft than the game** and both halves are fixed: it
+  had a hardcoded camZ **11** against the run's real **14**, and defaulted to a yaw the game had
+  stopped using. It now derives camZ from `CameraDirector.AirstrikeRunHalfWidth` and reads
+  `BattleRunner.PlaneBank` / `PlaneScale` directly, so it cannot drift again. **Delete
+  `Builds/plane` before reading a sheet from it** — stale frames from an earlier run are glob-matched
+  alongside the new ones and produced one thoroughly misleading comparison.
 - **It was too big at 1.0 and is rendered at 0.85** (`BattleRunner.PlaneScale`), Rob's call after
   seeing it pass. Judged in the preview beside a rank of soldiers: 0.70 starts reading as distant
   scenery rather than as the thing you just paid 250 coins for.

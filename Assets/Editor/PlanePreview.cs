@@ -40,7 +40,7 @@ public static class PlanePreview
     /// one number that trades legibility (lower is bigger) against reading as an AIRCRAFT rather
     /// than as a low-flying prop (higher is more plainly in the sky).
     /// </summary>
-    static readonly float[] Heights = { 5.5f, 7f, 9f };
+    static readonly float[] Heights = { 6.5f, 8f, 9.5f, 11f };
 
     public static void Shots()
     {
@@ -101,7 +101,7 @@ public static class PlanePreview
 
         foreach (float yaw in new[] { 0f, 180f })
         foreach (float bank in new[] { 45f, -45f })
-            Shot(model, 7f, 0f, $"yaw{yaw:F0}_bank{bank:F0}", bank, 1f, yaw);
+            Shot(model, 7f, 0f, $"yaw{yaw:F0}_bank{bank:F0}", bank, 1f, yaw, 1f);
 
         foreach (float scale in new[] { 1.0f, 0.85f, 0.7f })
             Shot(model, 7f, 0f, $"size{scale:F2}", -45f, 1f, 0f, scale);
@@ -109,10 +109,19 @@ public static class PlanePreview
         Debug.Log("[PlanePreview] wrote orientation and size variants to Builds/plane/*.png");
     }
 
+    /// <summary>
+    /// Renders one frame. The bank, scale and yaw DEFAULT TO WHAT THE GAME SHIPS — read off
+    /// BattleRunner rather than restated here, because a preview that quietly renders a different
+    /// aircraft than the game does is worse than no preview. This file has already made that
+    /// mistake twice in a day: once with a hardcoded camZ 11 against the run's real 14, and once
+    /// with a 180-degree yaw the game had stopped using.
+    /// </summary>
     static void Shot(GameObject model, float planeY, float planeX, string name,
-                     float bankDegrees = 0f, float spanScale = 1f, float yawDegrees = 180f,
-                     float sizeScale = 1f)
+                     float? bankDegrees = null, float spanScale = 1f, float yawDegrees = 0f,
+                     float? sizeScale = null)
     {
+        float bank = bankDegrees ?? BattleRunner.PlaneBank;
+        float size = sizeScale ?? BattleRunner.PlaneScale;
         EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
 
         var ground = GameObject.CreatePrimitive(PrimitiveType.Plane);
@@ -159,8 +168,8 @@ public static class PlanePreview
         // The BANK is applied about the travel axis AFTER that turn, so a positive angle always
         // rolls the same way relative to the camera whichever way the aircraft is pointed.
         plane.transform.rotation = Quaternion.Euler(0f, yawDegrees, 0f)
-                                 * Quaternion.Euler(bankDegrees, 0f, 0f);
-        plane.transform.localScale = new Vector3(sizeScale, sizeScale, sizeScale * spanScale);
+                                 * Quaternion.Euler(bank, 0f, 0f);
+        plane.transform.localScale = new Vector3(size, size, size * spanScale);
 
         var camGo = new GameObject("Cam");
         var cam = camGo.AddComponent<Camera>();
@@ -169,8 +178,13 @@ public static class PlanePreview
         cam.backgroundColor = new Color(0.45f, 0.62f, 0.82f);   // sky, which is what it flies against
         cam.nearClipPlane = 0.1f;
         cam.farClipPlane = 300f;
-        // Resolve framing — the distance the volley is judged at, and where the plane would fly.
-        BattleCamera.Apply(cam, 0f, BattleCamera.CameraY, 11f);
+        // THE RUN'S OWN FRAMING, derived from the same constants the game uses rather than typed
+        // here. This preview spent its first session at a hardcoded camZ 11 while the actual run
+        // camera sits at 14 — so every height judged in it was judged at the wrong distance, and a
+        // preview that disagrees with the game is the BackdropPreview mistake all over again.
+        float runCamZ = CameraDirector.TargetZ(CameraDirector.AirstrikeRunHalfWidth + 1.2f,
+                                               false, 0f);
+        BattleCamera.Apply(cam, 0f, BattleCamera.CameraY, runCamZ);
 
         var rt = new RenderTexture(Width, Height, 24) { antiAliasing = 1 };
         cam.targetTexture = rt;

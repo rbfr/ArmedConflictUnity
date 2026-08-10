@@ -1050,8 +1050,19 @@ namespace ArmedConflict.Game
         /// </remarks>
         public const float PlaneSpeed = 7f;
 
-        /// <summary>Height the aircraft flies at, in game units.</summary>
-        public const float PlaneY = 6.5f;
+        /// <summary>
+        /// Height the aircraft flies at, in game units.
+        ///
+        /// Raised from 6.5 on 2026-08-10 — Rob wanted it nearer the top of the frame, and height is
+        /// also the lever that shrinks it without touching the model. Judged in
+        /// `PlanePreview.Shots` at 6.5 / 8 / 9.5 / 11 against a rank of soldiers, AT THE RUN'S OWN
+        /// camera distance.
+        ///
+        /// It does NOT move the release or the impact: the drop lead is `PlaneSpeed * BombFallTime`
+        /// and neither is a function of height. What it does change is how fast the bomb falls,
+        /// since it still covers the drop in the same fixed time.
+        /// </summary>
+        public const float PlaneY = 9.5f;
 
         /// <summary>
         /// How long the bomb falls once released.

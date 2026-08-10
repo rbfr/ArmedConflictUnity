@@ -666,6 +666,7 @@ public static class SpikeSceneBattle
         Clip("victory", "victory_jingle");
         Clip("defeat", "defeat_jingle");
         Clip("helicopterLoop", "helicopter_loop");
+        Clip("planePassby", "plane_passby");
         so.ApplyModifiedProperties();
         return fx;
     }

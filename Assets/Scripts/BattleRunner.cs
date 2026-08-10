@@ -989,7 +989,7 @@ public class BattleRunner : MonoBehaviour
     /// camera; positive shows the bare top of the wing. Measured in PlanePreview.Orientation, not
     /// chosen — see SyncPlane.
     /// </summary>
-    const float PlaneBank = -45f;
+    public const float PlaneBank = -45f;
 
     /// <summary>
     /// Rendered size of the aircraft, against a model authored at 4.47 world units.
@@ -998,7 +998,7 @@ public class BattleRunner : MonoBehaviour
     /// a rank of soldiers, 0.85 stays unmistakably an aircraft without owning the frame, and 0.70
     /// starts to read as distant scenery rather than as the thing you just paid 250 coins for.
     /// </summary>
-    const float PlaneScale = 0.85f;
+    public const float PlaneScale = 0.85f;
 
     GameObject Spawn(GameObject prefab, string name)
     {
@@ -1135,7 +1135,12 @@ public class BattleRunner : MonoBehaviour
         // An armed airstrike defers the volley, so the round count here is ZERO and saying "volley:
         // 0 rounds" would be a lie told to the one instrument a release build has. Report what
         // actually happened; the volley logs itself when it launches.
-        string what = state.TurnPhase == TurnPhase.AirstrikeRun
+        bool airstrikeRun = state.TurnPhase == TurnPhase.AirstrikeRun;
+        // The pass-by, once, as the aircraft starts its run — the clip is cut so its peak lands as
+        // the plane crosses the drop point. See BattleAudio.PlayPlanePassby.
+        if (airstrikeRun && audioFx != null) audioFx.PlayPlanePassby();
+
+        string what = airstrikeRun
             ? "airstrike run, volley held"
             : $"volley: {state.Projectiles.Count} rounds";
         Debug.Log($"[Battle] {what} at " +
