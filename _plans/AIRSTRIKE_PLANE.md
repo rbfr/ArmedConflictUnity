@@ -139,6 +139,27 @@ t=5.90s  Garrison Post 123      (bomb has landed; on THIS aim it fell beside the
 Three of the seven rounds connected with the structure and the rest walked across open ground,
 which is what a 4-unit walk into a target this size should do.
 
+## The bomb is a BULLET now, not a grenade
+
+Rob: *"it's hard to see when it's the grenade or whatever it is now."* It was the grenadier's
+`projectile_grenade` — olive-lime, 0.16 scale — which is dark, small, and against sky reads as
+nothing. It is now `ProjectileType.Bullet`, which draws as the bright unlit TRACER, the most
+visible thing this game puts on screen. On device it is an unmistakable orange streak angling onto
+the target.
+
+**`IsAirstrike` finally does something.** It has been set since Tier 1.3 and read NOWHERE — the
+backlog called it a free hook, and this is it: the renderer scales a flagged round to 2.4x, which
+is the entire distinction between the payload and the aircraft's own cannon fire, since they now
+share a pool, a type and a material. The strafe rounds are deliberately NOT flagged.
+
+Two traps in that:
+
+- **The scale is assigned on EVERY round, not just the flagged one.** These slots are pooled; a
+  slot left big would hand the next rifleman a giant tracer.
+- **Exactly one round may carry the flag**, and `PortSelfTest` asserts it. Flag the burst too and
+  the player gets seven giant tracers and no payload; flag nothing and the payload is a rifle
+  round. Neither failure is visible to any test of the renderer, so it is asserted on the flag.
+
 **The release log was corrected too.** It reported `volley: 0 rounds`, which was a lie told to the
 one instrument a release build has — the volley had not been built yet. It now says
 `airstrike run, volley held`, and the volley logs itself when it launches.

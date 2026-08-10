@@ -1241,7 +1241,15 @@ namespace ArmedConflict.Game
                 Damage: AirstrikeDamage,
                 OwnerIsPlayer: true)
             {
-                Type = ProjectileType.Grenade,
+                // A BULLET, not the grenadier's grenade. The grenade prefab is olive-lime at 0.16
+                // scale and was genuinely hard to follow against sky — Rob's words, and the same
+                // complaint that started this whole beat. The bullet renders as a bright unlit
+                // TRACER, which is the most visible thing this game draws.
+                //
+                // It is not mistaken for cannon fire because IsAirstrike scales it up in the
+                // renderer — the flag has existed since Tier 1.3 and been read NOWHERE, which the
+                // backlog noted as a free hook. This is it being used.
+                Type = ProjectileType.Bullet,
                 SplashRadius = AirstrikeSplashRadius,
                 StructureDamageMultiplier = AirstrikeStructureMultiplier,
                 IsAirstrike = true,
@@ -1276,8 +1284,9 @@ namespace ArmedConflict.Game
                 Damage: StrafeDamage,
                 OwnerIsPlayer: true)
             {
+                // Deliberately NOT flagged IsAirstrike: that flag now means "the bomb" and is what
+                // the renderer scales up. A cannon round is meant to look like a cannon round.
                 Type = ProjectileType.Bullet,
-                IsAirstrike = true,
             };
         }
 

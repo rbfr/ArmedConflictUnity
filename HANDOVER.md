@@ -24,10 +24,10 @@
   1.10s; no damage number moved.
 - **RIGS NOW DOUBLES AS A FREE CONSUMABLE SUPPLY** for testing, writing nothing to the economy.
   Use it — otherwise verifying any consumable change costs a 250-coin re-earn on every build.
-- **584 self-test checks, all passing — run `PortSelfTest.Run` after every change.** It was 281 at
+- **585 self-test checks, all passing — run `PortSelfTest.Run` after every change.** It was 281 at
   the start of 2026-08-06, 411 at the end of it, 444 on 2026-08-07, 539 after the Tier 1.2 and
   glyph-coverage blocks, 559 with the flame and the Auto-ammo pair, 576 with Tier 1.3's
-  consumables, 582 with the airstrike's aircraft, and 584 with its strafing burst. **Assert related facts TOGETHER** — Tier
+  consumables, 582 with the airstrike's aircraft, and 585 with its strafing burst. **Assert related facts TOGETHER** — Tier
   1.3's block was first written as 50 assertions over 307 lines and is 18 over 232, with the same
   nine breakages still caught. A failure message naming three properties is as diagnostic as three
   checks, and this file is read by people.
@@ -187,6 +187,11 @@ costs **1.10s** and no damage number moved.
   `BattleRunner.PlaneBank` / `PlaneScale` directly, so it cannot drift again. **Delete
   `Builds/plane` before reading a sheet from it** — stale frames from an earlier run are glob-matched
   alongside the new ones and produced one thoroughly misleading comparison.
+- **THE BOMB IS A BULLET, not a grenade** (2026-08-10). The grenade prefab is olive-lime at 0.16
+  scale and was, in Rob's words, hard to see; the bullet draws as the bright unlit TRACER. It is
+  told apart from the aircraft's own cannon fire by `IsAirstrike`, which the renderer scales 2.4x —
+  the flag had been set since Tier 1.3 and read NOWHERE. The scale is assigned on EVERY round
+  because the slots are POOLED, and exactly one round may carry the flag; both are asserted.
 - **IT STRAFES, with REAL rounds** (added on Rob's ask, 2026-08-10). Seven cannon rounds at 4
   damage, walked along the ground into the bomb's own impact point. The earlier decision NOT to add
   gunfire is reversed and its reasoning survives: refusing a cue that does NOTHING was right, so
@@ -528,7 +533,7 @@ it was written for. Ask the thing itself — the font, the engine, the device.
 ### The state of the checks, as of the handover
 
 ```
-PortSelfTest.Run          584 checks, ALL PASS
+PortSelfTest.Run          585 checks, ALL PASS
 LevelComposition.Report   12 campaign levels, 0 errors, 2 accepted warnings (L3, L5 rule 7 —
                           reasons in their designNotes; both beats are about height)
 BalanceAudit.Report       0 errors, 19 warnings (race-ratio flags on the dearest-squad

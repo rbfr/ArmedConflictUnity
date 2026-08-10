@@ -1000,6 +1000,16 @@ public class BattleRunner : MonoBehaviour
     /// </summary>
     public const float PlaneScale = 0.85f;
 
+    /// <summary>
+    /// How much larger the airstrike's bomb draws than an ordinary round.
+    ///
+    /// It is a BULLET now — the grenade prefab was olive-lime at 0.16 scale and genuinely hard to
+    /// follow against sky — so it shares the tracer material and pool with rifle fire and with the
+    /// aircraft's own cannon rounds. Size is the entire distinction between the payload and the
+    /// burst around it.
+    /// </summary>
+    const float AirstrikeRoundScale = 2.4f;
+
     GameObject Spawn(GameObject prefab, string name)
     {
         var go = Instantiate(prefab, poolRoot);
@@ -1304,6 +1314,11 @@ public class BattleRunner : MonoBehaviour
             go.transform.position = GameSpace.ToUnity(pr.X, pr.Y, pr.Z);
             float deg = Mathf.Atan2(pr.Vy, -pr.Vx) * Mathf.Rad2Deg;
             go.transform.rotation = Quaternion.Euler(0f, 0f, deg);
+            // The airstrike's bomb is a BULLET so it is bright enough to follow, and scaled up so
+            // it is not mistaken for one of the aircraft's own cannon rounds. Assigned on EVERY
+            // round, not only the airstrike: these slots are pooled, and a slot left big would
+            // hand the next rifleman a giant tracer.
+            go.transform.localScale = Vector3.one * (pr.IsAirstrike ? AirstrikeRoundScale : 1f);
         }
 
         // Explosions: swell fast, then FADE. Without the fade an opaque sphere just sits there

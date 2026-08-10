@@ -353,7 +353,7 @@ public static class PortSelfTest
                 foreach (var p in run.Projectiles.Where(p => p.Id >= 45000))
                     if (!strafeSeen.Any(q => q.Id == p.Id)) strafeSeen.Add(p);
 
-                var live = run.Projectiles.FirstOrDefault(p => p.IsAirstrike && p.Id < 45000);
+                var live = run.Projectiles.FirstOrDefault(p => p.IsAirstrike);
                 if (live != null && bomb == null)
                 {
                     bomb = live;
@@ -446,6 +446,18 @@ public static class PortSelfTest
                 Check(strafe.All(p => p.Id < 40000 || p.Id >= 41000),
                       "strafe rounds sit clear of the bomb's id band, so a tracer still in the air "
                       + "cannot hold the volley back");
+
+                // EXACTLY ONE ROUND IS THE BOMB. The bomb and the cannon rounds are both bullets
+                // now — the grenade was too dark to follow — so the ONLY thing telling them apart
+                // on screen is IsAirstrike, which the renderer scales by. Flag the burst too and
+                // the player gets seven giant tracers and no payload; flag nothing and the payload
+                // is a rifle round. Neither is visible to any test of the renderer, so it is
+                // asserted here, on the flag itself.
+                Check(bomb != null && bomb.IsAirstrike
+                      && bomb.Type == ProjectileType.Bullet
+                      && strafe.All(p => !p.IsAirstrike && p.Type == ProjectileType.Bullet),
+                      "the BOMB is the only round flagged IsAirstrike — that flag is all the "
+                      + "renderer has to tell the payload from the cannon fire around it");
             }
 
             // THE AIRCRAFT MUST KEEP FLYING AFTER IT HANDS THE TURN OVER, and must eventually go.
