@@ -2,16 +2,13 @@
 
 ## START HERE
 
-- **THE WORKING TREE IS DIRTY AND NOTHING FROM 2026-08-10 IS COMMITTED — check with `git status`,
-  not with this line.** The loadout NRE fix and the whole of Tier 1.3 (12 files modified, 3 new:
-  `Consumables.cs`, `ConsumableActions.cs`, `_plans/TIER1_3_CONSUMABLES.md`) are in the working
-  tree only. Rob commits on an explicit ask and had not given one when the session ended; the work
-  is finished and device-confirmed, not half-done. Everything before it — the twelve-commit backlog
-  of 2026-08-07 and the Tier 1.2 work of 2026-08-09 — is pushed. (A hash here is stale the moment
-  it is committed, which is why there isn't one.)
-  Android
-  `projectile-refinement` at `66a778a` is never being merged; **the Android build is RETIRED**,
-  reference only.
+- **EVERYTHING IS COMMITTED AND NOTHING IS PUSHED — check with `git status`, not with this line.**
+  2026-08-10 closed with FOUR commits on `main` here (the loadout NRE guard, Tier 1.3's
+  consumables, the airstrike's aircraft, the RIGS test supply) plus ONE in the ART repo
+  (`build_attack_plane.py`). Rob commits and pushes on an explicit ask; the commits were asked for
+  and the push was not. (No hashes here — a hash is stale the moment anything lands on top.)
+  The Android repo's `projectile-refinement` is never being merged; **the Android build is
+  RETIRED**, reference only.
 - **ALL OF TIER 0 IS DONE AND SIGNED OFF.** The Phase E balance audit — the last thing it owed —
   was run on 2026-08-07 in both halves, and Rob played the campaign afterwards and reported the
   levels feel fine. That closed it.
@@ -21,26 +18,44 @@
   schedule covers two levels. **Wind is the other half and is still blocked** — see below.
 - **TIER 1.3 IS BUILT** — four consumables, bought, carried and fired, confirmed on device
   2026-08-10. **Overwatch Flare is deliberately not among them**; see its section.
+- **THE AIRSTRIKE HAS AN AIRCRAFT** (2026-08-10). It crosses from the player's side and drops its
+  bomb BEFORE the volley, in its own `TurnPhase.AirstrikeRun`. This began as "is it just explosions
+  out of nowhere?" and a device capture found the bomb was detonating OFF-SCREEN entirely. Costs
+  1.10s; no damage number moved.
+- **RIGS NOW DOUBLES AS A FREE CONSUMABLE SUPPLY** for testing, writing nothing to the economy.
+  Use it — otherwise verifying any consumable change costs a 250-coin re-earn on every build.
 - **582 self-test checks, all passing — run `PortSelfTest.Run` after every change.** It was 281 at
   the start of 2026-08-06, 411 at the end of it, 444 on 2026-08-07, 539 after the Tier 1.2 and
   glyph-coverage blocks, 559 with the flame and the Auto-ammo pair, 576 with Tier 1.3's
-  consumables, and 582 with the airstrike's aircraft. **Assert related facts TOGETHER** — Tier 1.3's block was first written as 50
-  assertions over 307 lines and is 18 over 232, with the same nine breakages still caught. A
-  failure message naming three properties is as diagnostic as three checks, and this file is read
-  by people.
+  consumables, and 582 with the airstrike's aircraft. **Assert related facts TOGETHER** — Tier
+  1.3's block was first written as 50 assertions over 307 lines and is 18 over 232, with the same
+  nine breakages still caught. A failure message naming three properties is as diagnostic as three
+  checks, and this file is read by people.
 
 ### Pick up here
 
 **WIND IS PARKED** — Rob's call, 2026-08-10. It is the only thing Tier 1.2 still owes and it is
 blocked on a physics decision (below), so tier work continues around it rather than waiting on it.
 
-0. **TIER 1.3 IS DONE — 2026-08-10, four consumables live and device-confirmed.** Its one
-   UNRESOLVED item, **"the Airstrike has no author"**, was **RESOLVED the same day**: the airstrike
-   is now flown in by an aircraft that crosses BEFORE the volley. See "The airstrike's aircraft"
-   below and `_plans/AIRSTRIKE_PLANE.md`. **Tier 1.4 (Heli) stays shut**, so the next tier item is
-   whatever `PRODUCT_DIRECTION.md` puts after it — and the two biggest OPEN things in the port are
-   named and costed: **advancing squads + melee are unported** (which is what holds Overwatch
-   Flare), and **wind is still cosmetic**. Both are physics/AI asks, not scheduling jobs.
+0. **TIER 1.3 IS DONE, and so is the airstrike's presentation.** Both closed 2026-08-10 and both
+   are device-confirmed. `_plans/AIRSTRIKE_PLANE.md` is finished and can be archived per
+   `_plans/README.md` whenever someone is tidying.
+
+   **The next tier item is whatever `PRODUCT_DIRECTION.md` puts after 1.4**, because **Tier 1.4
+   (Heli) stays shut** — `HELI_ENABLED=false` is a camera-load decision, not a stale flag.
+
+   **The two biggest OPEN things in the port are named and costed, and both are physics/AI asks
+   rather than scheduling jobs:**
+   - **Advancing squads + melee are unported** — an EIGHTH dead system, and the one that holds
+     Overwatch Flare. `AdvanceRemaining` is written nowhere and `SkirmishEntity` is never created.
+     `PROGRESSION_DESIGN`'s whole survival/defend archetype is made of this.
+   - **Wind is still cosmetic** — `windAccelZ` drifts the round in Z while the collision test is
+     X/Y only, so wind cannot change what a shot hits.
+
+   **One SMALL thing worth doing early, from Rob at the controls:** the aircraft *"gets fairly
+   large as it passes nearest the camera"* — brief, and arguably the point, but flying it higher is
+   a one-constant change (`BattleTick.PlaneY`) if it reads as too much. Judge it at full speed, not
+   on a contact sheet.
 
 <details>
 <summary>The Tier 1.3 briefing as it stood before the work — kept because its reasoning is the
@@ -572,6 +587,20 @@ session without anyone having to remember this file. They sit beside the sibling
 generalise — "prefer a PROBE to a detector" and "a search that finds nothing is not evidence of
 absence".
 
+**2026-08-10 added two more, both from the airstrike work:**
+
+- **TAKE THE CONTROL SHOT.** Two write-ups in this file described the airstrike as "findable
+  because one round falls nose-down while the rest fly arcs". Firing the identical drag with
+  NOTHING armed shows that round anyway — it is the TANK SHELL, which fires on every volley for
+  free. Nobody had ever actually seen the airstrike. An observation about a feature means nothing
+  until the same observation has been made with the feature switched OFF.
+- **A CHECK RUN ON AN EMPTY PURSE CANNOT FAIL.** The "test supply writes nothing to the economy"
+  check was written against the editor's real balance of ZERO, so the broken code it was meant to
+  catch simply could not afford anything, wrote nothing, and passed. Staking coins first gave it
+  teeth. This is the same family as the `ReferenceEquals(Use(x), y)` refusal test from Tier 1.3 and
+  the deleted phase-spread check from the flame work: **ask what STATE the check needs to be in for
+  the failure to be reachable at all**, then put it in that state.
+
 **2026-08-09 added a third costume, and it is the subtlest:** a check written against a NOTE IN A
 DOC asserts the note, not the behaviour. The glyph check above was written as "ASCII only" on
 CLAUDE.md's word, flagged 23 strings, and every one was a false positive. Assert against the
@@ -688,6 +717,27 @@ adb shell input tap 180 2210                  # the AUTO button — drives a lev
 
 `DISPLAY=:1` is mandatory for anything Unity/Hub. The app id is `...armedconflictspike`,
 deliberately NOT the shipping id, so both builds sit on the phone for A/B.
+
+### CHECK `mCurrentFocus` BEFORE EVERY adb INPUT BATCH. It is Rob's real phone.
+
+**This has now hijacked into personal apps FOUR times**, most recently on 2026-08-10: DND had been
+switched off at what looked like the end of device work, a notification arrived mid-sequence, and a
+tap aimed at the RIGS button opened a private conversation instead. One frame of it was captured
+and deleted; no further input reached that app.
+
+```bash
+adb shell dumpsys window | grep -i mCurrentFocus | grep -q armedconflictspike || exit 1
+```
+
+Put that line before each batch and abort on it, rather than trusting that the game was in front a
+minute ago. Also:
+
+- **DND ON for the whole session** (`settings put global zen_mode 2`), and only off when the phone
+  is actually being handed back — not when device work merely looks finished. Verify it took:
+  `dumpsys notification | grep mZenMode`.
+- **Never `KEYCODE_BACK` for in-game navigation.** Use HOME to leave, and uiautomator-found bounds
+  to press things.
+- **Restore what you changed**: auto-rotate, DND, `svc power stayon`.
 
 The phone locks itself during long builds and a locked device backgrounds the app before
 `Start()` runs — which reads as "no output" rather than as a lock. Check

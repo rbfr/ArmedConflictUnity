@@ -81,6 +81,12 @@ adb uninstall com.dullesengineering.armedconflictspike; adb install Builds/Step1
 adb shell monkey -p com.dullesengineering.armedconflictspike -c android.intent.category.LAUNCHER 1
 ```
 
+**Testing a CONSUMABLE? Turn RIGS on.** It doubles as a free consumable supply — every item free
+to equip, nothing ever spent, and nothing written to the economy. Without it, verifying one
+consumable change costs a ~250-coin re-earn on every build, because the release build is not
+debuggable (`run-as` cannot reach PlayerPrefs) and the test protocol is uninstall/reinstall, which
+wipes the balance every time.
+
 **Run `PortSelfTest.Run` after every change.** Its checks assert the behaviour the comments
 describe, not that the code compiles — several of them exist because the thing they check silently
 broke once already.
@@ -237,7 +243,8 @@ each level owes one beat.
   sets `Ammo`, so it cannot test an ammo type either. That one cost most of a session on
   2026-08-10: six "incendiary" Auto volleys, not one man alight, and nothing wrong with the code.
   **And it never throws an ARMED AIRSTRIKE**, for the same reason and by the same mechanism: the
-  consumable is consumed by `FireVolley`, which Auto does not call. The list of what Auto cannot
+  consumable is consumed by `FireVolley`, which Auto does not call — so it never flies the
+  aircraft or its `TurnPhase.AirstrikeRun` either. The list of what Auto cannot
   test is now THREE long — structures, ammo, consumables — and every entry is the same root cause:
   Auto builds its own volley. All three are asserted in `PortSelfTest`. Measure difficulty, ammo,
   consumables and anything that depends on spread with REAL DRAGS.
@@ -248,6 +255,16 @@ each level owes one beat.
   onto HUD text, tracers, a boot and a bunker window, and twice declared a working feature broken.
 - **A search that finds nothing is not evidence of absence** until it has been shown to find the
   thing when it IS there.
+- **TAKE THE CONTROL SHOT.** An observation about a feature means nothing until the same
+  observation has been made with the feature switched OFF. On 2026-08-10 two write-ups described
+  the airstrike as visible because "one round falls nose-down among the arcs"; the identical drag
+  with nothing armed shows that round anyway — it is the TANK SHELL, which fires every volley for
+  free, and the airstrike had never been seen at all.
+- **PUT A CHECK IN A STATE WHERE IT COULD FAIL.** Ask what the world must look like for the bug to
+  be reachable, then arrange that before asserting. A "test supply spends no coins" check written
+  against the editor's balance of ZERO passed against code that really did spend, because there was
+  nothing to spend. Same family as a refusal test that allocates two records and compares them by
+  reference: it wears the costume of a check and can never go red.
 - **ASSERT THE OUTPUT, NOT THE INPUT.** A check on a factor is not a check on the result. Three
   separate green tests hid real bugs on 2026-08-07: AP ammo asserted its multiplier was `2` and
   passed while the round's real effect was **1.2x** (the engine multiplies `Damage` by that factor
