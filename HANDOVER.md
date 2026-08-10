@@ -3,10 +3,12 @@
 ## START HERE
 
 - **EVERYTHING IS COMMITTED AND NOTHING IS PUSHED — check with `git status`, not with this line.**
-  2026-08-10 closed with FOUR commits on `main` here (the loadout NRE guard, Tier 1.3's
-  consumables, the airstrike's aircraft, the RIGS test supply) plus ONE in the ART repo
-  (`build_attack_plane.py`). Rob commits and pushes on an explicit ask; the commits were asked for
-  and the push was not. (No hashes here — a hash is stale the moment anything lands on top.)
+  2026-08-10 closed with **eleven commits on `main` here and one in the ART repo**
+  (`build_attack_plane.py`): the loadout NRE guard, Tier 1.3's consumables, the airstrike's whole
+  aircraft arc (beat, orientation, height, sound, strafing burst, tracer bomb, and the projectile
+  scale regression that arc caused), the RIGS test supply, and the docs. Rob commits and pushes on
+  an explicit ask; the commits were asked for and **the push was not**. (No hashes and no running
+  tally you should trust — `git log --oneline origin/main..HEAD` is the answer.)
   The Android repo's `projectile-refinement` is never being merged; **the Android build is
   RETIRED**, reference only.
 - **ALL OF TIER 0 IS DONE AND SIGNED OFF.** The Phase E balance audit — the last thing it owed —
