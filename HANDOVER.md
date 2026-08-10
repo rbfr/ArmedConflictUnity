@@ -52,6 +52,11 @@ blocked on a physics decision (below), so tier work continues around it rather t
    - **Wind is still cosmetic** — `windAccelZ` drifts the round in Z while the collision test is
      X/Y only, so wind cannot change what a shot hits.
 
+   **OPEN, from Rob at the controls: the strafing burst wants MORE ROUNDS.** It is thin at seven.
+   The levers and the arithmetic that bounds them are in "What the strafing burst still owes"; the
+   short version is that density (more rounds over the same walk) is cheap and a longer walk is
+   nearly out of room. Keep the damage budget separate from the round count.
+
    **One SMALL thing worth doing early, from Rob at the controls:** the aircraft *"gets fairly
    large as it passes nearest the camera"* — brief, and arguably the point, but flying it higher is
    a one-constant change (`BattleTick.PlaneY`) if it reads as too much. Judge it at full speed, not
@@ -187,6 +192,11 @@ costs **1.10s** and no damage number moved.
   `BattleRunner.PlaneBank` / `PlaneScale` directly, so it cannot drift again. **Delete
   `Builds/plane` before reading a sheet from it** — stale frames from an earlier run are glob-matched
   alongside the new ones and produced one thoroughly misleading comparison.
+- **STILL OPEN — Rob wants MORE ROUNDS coming from the plane** (2026-08-10). The burst reads, but
+  it is thin: seven rounds is a tap, not a strafing run. Details and the arithmetic that bounds it
+  are in "What the strafing burst still owes" below. **This is a presentation ask; keep the damage
+  budget separate** — more rounds at the same `StrafeDamage` is a straight buff to an item that has
+  already been buffed once today.
 - **THE BOMB IS A BULLET, not a grenade** (2026-08-10). The grenade prefab is olive-lime at 0.16
   scale and was, in Rob's words, hard to see; the bullet draws as the bright unlit TRACER. It is
   told apart from the aircraft's own cannon fire by `IsAirstrike`, which the renderer scales 2.4x —
@@ -218,6 +228,35 @@ costs **1.10s** and no damage number moved.
   aircraft deliberately OUTLIVES its phase, exiting over the top of the volley. It is the same rule
   as "anything that decays must decay on EVERY tick path". Motion moved to the physics section and
   the despawn point is carried on the entity, so it depends on nothing the phase owns.
+
+### What the strafing burst still owes — RAISED BY ROB 2026-08-10, NOT DONE
+
+**"Still want to see more rounds coming from the plane."** The burst works and walks correctly, but
+seven rounds over a 4-unit walk reads as a tap rather than as a strafing run. What follows is the
+arithmetic, so nobody has to rediscover why it cannot simply be turned up.
+
+Current: `StrafeRounds 7`, `StrafeLength 4`, `StrafeLead 4`, `StrafeFallTime 0.40`, `StrafeDamage 4`.
+
+**The burst is bounded by the run, not by taste.** The first round is fired
+`StrafeLength + StrafeLead` = **8 units** behind the target, and the aircraft only spawns
+`PlaneRunHalfLength` = **9** back. There is one unit of headroom. So the two obvious knobs — a
+longer walk, or a longer lead — are nearly exhausted, and raising either without also moving the
+spawn fires the first round before the aircraft exists.
+
+Levers, cheapest first:
+
+- **More rounds over the SAME walk.** Pure density: `StrafeRounds` 7 -> 14 halves the spacing and
+  doubles the rate. Costs nothing structurally and is almost certainly what Rob is asking for.
+- **Two rounds per firing point**, offset slightly in Z, so each "shot" is a pair. Reads as a
+  cannon rather than a rifle, and does not touch the walk at all.
+- **Spawn the aircraft further back** (`PlaneRunHalfLength`), buying room for a longer walk. Note
+  this also lengthens the beat, which currently costs 1.10s.
+- **A faster cadence with a shorter `StrafeFallTime`** — but the rounds are already 0.40s, and the
+  first version proved that short flights are what made them invisible. Do not shorten this.
+
+**KEEP THE DAMAGE BUDGET SEPARATE.** More rounds at `StrafeDamage 4` is a straight buff to an item
+that went from 24 to 52 today. If the count doubles, halve the damage unless a buff is intended —
+the total is the number the campaign feels, and `BalanceAudit` does not know about consumables.
 
 **And the release log was lying.** It reported `volley: 0 rounds`, because the volley had not been
 built yet — a false line in the one instrument a release build has. It now reports the run, and the
