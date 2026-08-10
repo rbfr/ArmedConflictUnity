@@ -156,6 +156,11 @@ Two traps in that:
 
 - **The scale is assigned on EVERY round, not just the flagged one.** These slots are pooled; a
   slot left big would hand the next rifleman a giant tracer.
+- **It multiplies the PREFAB'S OWN SCALE, never `Vector3.one`.** The prefabs are authored at their
+  own sizes (bullet 0.22, grenade 0.16, rocket 0.30, shell 0.34). The first version reset unflagged
+  rounds to one and drew every projectile in the game ~4.5x too big — shipped, and caught by Rob in
+  a single look. The multiplier had also been tuned against that wrong base, so fixing the reset
+  silently shrank the bomb too; both had to be re-judged together on the device.
 - **Exactly one round may carry the flag**, and `PortSelfTest` asserts it. Flag the burst too and
   the player gets seven giant tracers and no payload; flag nothing and the payload is a rifle
   round. Neither failure is visible to any test of the renderer, so it is asserted on the flag.

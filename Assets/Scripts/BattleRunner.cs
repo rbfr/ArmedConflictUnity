@@ -77,6 +77,7 @@ public class BattleRunner : MonoBehaviour
     // One pool PER TYPE. A shared pool would need the prefab swapped per frame, which
     // means destroying and recreating renderers mid-flight.
     readonly Dictionary<ProjectileType, List<GameObject>> shotPools = new();
+    readonly Dictionary<ProjectileType, Vector3> shotBaseScale = new();
     readonly List<GameObject> scorchSlots = new();
     readonly List<GameObject> debrisSlots = new();
     readonly List<(int Id, GameObject Go)> structureObjects = new();
@@ -572,6 +573,11 @@ public class BattleRunner : MonoBehaviour
             var pool = new List<GameObject>();
             for (int i = 0; i < ProjectilePoolSize; i++) pool.Add(Spawn(prefab, $"{type}{i}"));
             shotPools[type] = pool;
+            // THE PREFAB'S OWN SCALE IS THE BASE, and it is not 1. Each projectile prefab is
+            // authored at its own size (the grenade at 0.16, the shell at 0.34), so anything that
+            // writes localScale per frame has to multiply THIS rather than reset to Vector3.one.
+            // Resetting to one drew every round in the game at raw GLB size.
+            shotBaseScale[type] = prefab != null ? prefab.transform.localScale : Vector3.one;
         }
         BuildHealthBars();
         BuildShadows();
@@ -1315,10 +1321,15 @@ public class BattleRunner : MonoBehaviour
             float deg = Mathf.Atan2(pr.Vy, -pr.Vx) * Mathf.Rad2Deg;
             go.transform.rotation = Quaternion.Euler(0f, 0f, deg);
             // The airstrike's bomb is a BULLET so it is bright enough to follow, and scaled up so
-            // it is not mistaken for one of the aircraft's own cannon rounds. Assigned on EVERY
-            // round, not only the airstrike: these slots are pooled, and a slot left big would
-            // hand the next rifleman a giant tracer.
-            go.transform.localScale = Vector3.one * (pr.IsAirstrike ? AirstrikeRoundScale : 1f);
+            // it is not mistaken for one of the aircraft's own cannon rounds.
+            //
+            // Assigned on EVERY round, not only the airstrike, because these slots are pooled and
+            // a slot left big would hand the next rifleman a giant tracer. **Off the prefab's own
+            // scale, never off Vector3.one** — the first version reset to one and drew every
+            // projectile in the game at raw GLB size, which is what a 0.16-scale grenade looks
+            // like six times too big.
+            var baseScale = shotBaseScale.TryGetValue(pr.Type, out var bs) ? bs : Vector3.one;
+            go.transform.localScale = baseScale * (pr.IsAirstrike ? AirstrikeRoundScale : 1f);
         }
 
         // Explosions: swell fast, then FADE. Without the fade an opaque sphere just sits there

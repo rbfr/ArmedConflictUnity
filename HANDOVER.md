@@ -192,6 +192,12 @@ costs **1.10s** and no damage number moved.
   told apart from the aircraft's own cannon fire by `IsAirstrike`, which the renderer scales 2.4x —
   the flag had been set since Tier 1.3 and read NOWHERE. The scale is assigned on EVERY round
   because the slots are POOLED, and exactly one round may carry the flag; both are asserted.
+  **AND IT IS MULTIPLIED ONTO THE PREFAB'S OWN SCALE, NEVER ONTO `Vector3.one`.** Every projectile
+  prefab is authored at its own size — bullet 0.22, grenade 0.16, rocket 0.30, shell 0.34 — so the
+  first version, which reset unflagged rounds to `Vector3.one`, drew EVERY ROUND IN THE GAME at
+  raw GLB size, about 4.5x too big. Rob caught it in one look. **No test covers a per-frame
+  transform write clobbering an authored value**, and the device is the only instrument that sees
+  it: check an ORDINARY volley after touching this path, not just the case being added.
 - **IT STRAFES, with REAL rounds** (added on Rob's ask, 2026-08-10). Seven cannon rounds at 4
   damage, walked along the ground into the bomb's own impact point. The earlier decision NOT to add
   gunfire is reversed and its reasoning survives: refusing a cue that does NOTHING was right, so
