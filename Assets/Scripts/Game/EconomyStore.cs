@@ -22,10 +22,31 @@ namespace ArmedConflict.Game
         public int CoinPrice;
     }
 
+    /// <summary>
+    /// One single-use battle item. The purchase half (Type + CoinPrice) is all `EconomyStore`
+    /// needs; the rest is what the loadout screen and the HUD button show, and it lives here
+    /// rather than in a ScriptableObject because consumables never came through the data import —
+    /// see `Consumables`, which is the catalog.
+    /// </summary>
     public class ConsumableDefinition
     {
         public ConsumableType Type;
         public int CoinPrice;
+        public string DisplayName;
+        /// <summary>Short label for the HUD button, where the full name will not fit.</summary>
+        public string ShortName;
+        public string Description;
+
+        /// <summary>
+        /// True for the items that are ARMED and then spent when they fire (Airstrike, Smoke), as
+        /// against the ones that resolve on the tap (Trauma Kit, Early Reinforcements).
+        ///
+        /// The distinction is the one the Kotlin paid for on device: an armed item must NOT be
+        /// spent at arm time, because the HUD button's visibility is gated on the equipped count
+        /// and spending at arm time made the button vanish the instant it was tapped — no ARMED
+        /// state to see, and no way to change your mind.
+        /// </summary>
+        public bool IsArmed;
     }
 
     public class CosmeticDefinition

@@ -278,7 +278,7 @@ reference itself does.
 | A | Ammo types: 3 payloads + selector HUD + unlocks + pure-function tests | shipped (2026-07-20) |
 | B1 | Wind shifts (schedule + telegraph) | shipped (2026-07-20) |
 | B2 | Reinforcement waves (`arrivesOnTurn` trigger + telegraph) | shipped (2026-07-20) |
-| C | Smoke Screen + Overwatch Flare | both shipped (2026-07-20, 2026-07-21) |
+| C | Smoke Screen + Overwatch Flare | both shipped (2026-07-20, 2026-07-21) — in UNITY, **Smoke only** (2026-08-10); Overwatch held, see below |
 | D1 | Enemy factions per stage (palettes + identity surfacing) | shipped (2026-07-20) |
 | D2 | Biome art per stage | rescoped + shipped as prop-dressing pass (2026-07-20) — see below |
 | D3 | New unit silhouettes (2–3 Blender builds + economy wiring) | shipped (2026-07-20) |
@@ -404,6 +404,28 @@ convention as boss waves.
   stretch the battle; by turn 5 the log showed roll=0.168 (below the 0.35 threshold),
   wind dropped 1.2→0.85, and "🌬️ Wind falling ←" appeared in the HUD on the same tick —
   confirmed end-to-end, debug log then removed.
+
+## Phase C in UNITY — Smoke shipped, Overwatch HELD (2026-08-10)
+
+**Smoke Screen shipped and was confirmed on device**: armed from the HUD (`Smoke / ARMED` — the
+button stays visible while armed, which is the whole point of the arm/spend split below), and
+spent at the enemy volley it blinds. `BattleTick.FireEnemyVolley` passes
+`SmokeScreenJitterMultiplier` into the already-ported `EnemyAI.AimAt`. `PortSelfTest` asserts the
+effect the way the player meets it — the standard deviation of where 40 volleys of rounds actually
+LAND, which widens by well over a third — rather than asserting that a 2f was passed somewhere.
+
+**OVERWATCH FLARE IS NOT BUILT, and this is a decision, not an omission.** It halves the enemy's
+next advance budget. In this port **nothing ever advances**: `UnitEntity.AdvancePerTurn` is
+imported and read only to count advancers for a threat line, `AdvanceRemaining` is written
+nowhere, there is no march step for enemies, and `SkirmishEntity` — the melee an arrival resolves
+into — is defined, counted, and never created. Advancing squads and melee are an EIGHTH dead
+system in this port.
+
+A 200-coin item that changes nothing the player can feel is worse than no item: it teaches that
+coins are decorative. That is the same reasoning already applied to wind ("do not author a wind
+level or a wind schedule until wind does something"). `PortSelfTest` asserts BOTH halves — that
+Overwatch is not sold, AND that no enemy ever banks an advance — so the day advancing squads are
+ported the check goes red and adding the catalog entry is the fix.
 
 ## Phase C — shipped notes (2026-07-20)
 

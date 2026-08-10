@@ -236,8 +236,11 @@ each level owes one beat.
   STANDARD rounds whatever ammo is selected** — `AutoFire` builds its own projectiles and never
   sets `Ammo`, so it cannot test an ammo type either. That one cost most of a session on
   2026-08-10: six "incendiary" Auto volleys, not one man alight, and nothing wrong with the code.
-  Both facts are asserted in `PortSelfTest`. Measure difficulty, ammo, and anything that depends
-  on spread with REAL DRAGS.
+  **And it never throws an ARMED AIRSTRIKE**, for the same reason and by the same mechanism: the
+  consumable is consumed by `FireVolley`, which Auto does not call. The list of what Auto cannot
+  test is now THREE long — structures, ammo, consumables — and every entry is the same root cause:
+  Auto builds its own volley. All three are asserted in `PortSelfTest`. Measure difficulty, ammo,
+  consumables and anything that depends on spread with REAL DRAGS.
   A drag that clears ~16 units — L1's geometry — is `adb shell input swipe 300 900 631 1231 600`:
   the pull is DOWN-and-across, 331 px on each axis gives v=8 at 45°, and range is v²/g with g=4.
 - **Prefer a PROBE to a detector.** A one-build `Debug.Log` at both ends of a suspect path settles

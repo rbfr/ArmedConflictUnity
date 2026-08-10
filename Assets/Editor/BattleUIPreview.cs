@@ -1,9 +1,12 @@
 using System.IO;
+using System.Linq;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.UI;
 using ArmedConflict.UI;
+using ArmedConflict.Game;
+using ArmedConflict.Data;
 
 /// <summary>
 /// Renders the victory and defeat cards offscreen, headless.
@@ -37,6 +40,119 @@ public static class BattleUIPreview
              bonus: "Daily Bonus!", survivors: 14, initial: 14);
         Shot("defeat", victory: false, stars: 0, coins: 15,
              bonus: null, survivors: 0, initial: 14);
+
+        LoadoutShots();
+    }
+
+    /// <summary>
+    /// The LOADOUT picker, with and without consumables owned.
+    ///
+    /// This is the panel the Kotlin's equivalent feature broke: adding a consumables section
+    /// pushed Confirm past the bottom of the screen — not clipped, ABSENT from the compose tree
+    /// and unreachable by any input, found on a locked device. `PortSelfTest` pins the arithmetic;
+    /// this shows the thing itself, in seconds, before a three-minute device build.
+    /// </summary>
+    static void LoadoutShots()
+    {
+        var level = AssetDatabase.FindAssets("t:LevelDefinitionSO")
+            .Select(g => AssetDatabase.LoadAssetAtPath<ArmedConflict.Data.LevelDefinitionSO>(
+                AssetDatabase.GUIDToAssetPath(g)))
+            .Where(l => l != null && !l.isTestLevel)
+            .OrderBy(l => l.levelNumber).FirstOrDefault();
+        var roster = AssetDatabase.LoadAssetAtPath<ArmedConflict.Data.RosterDefinitionSO>(
+            "Assets/GameData/Roster.asset");
+        if (level == null || roster == null)
+        {
+            Debug.LogError("[BattleUIPreview] no campaign level or roster to preview the loadout on");
+            return;
+        }
+
+        // The owned counts come out of PlayerPrefs, so the shot has to stage them — and PUT THEM
+        // BACK. A preview that quietly grants the editor three airstrikes would make every later
+        // run of this file a lie about what a real player sees.
+        var staged = new[] { ConsumableType.Airstrike, ConsumableType.TraumaKit };
+        var before = staged.ToDictionary(t => t, ProgressStore.OwnedConsumables);
+        try
+        {
+            LoadoutShot("loadout-unowned", level, roster, null);
+            foreach (var t in staged) ProgressStore.AddConsumable(t, 2);
+            LoadoutShot("loadout-owned", level, roster, null);
+            LoadoutShot("loadout-carrying", level, roster, ConsumableType.Airstrike);
+        }
+        finally
+        {
+            foreach (var kv in before)
+                ProgressStore.AddConsumable(kv.Key, kv.Value - ProgressStore.OwnedConsumables(kv.Key));
+        }
+    }
+
+    static void LoadoutShot(string name, ArmedConflict.Data.LevelDefinitionSO level,
+                            ArmedConflict.Data.RosterDefinitionSO roster, ConsumableType? carrying)
+    {
+        const int W = 1080, H = 2400;
+        var camGo = new GameObject("PreviewCam", typeof(Camera));
+        var cam = camGo.GetComponent<Camera>();
+        cam.clearFlags = CameraClearFlags.SolidColor;
+        cam.backgroundColor = Backdrop;
+
+        var ui = BattleUI.Create();
+        ui.SetCoins(1240);
+        ui.PreviewLoadout(level, roster, carrying);
+
+        var canvas = ui.GetComponent<Canvas>();
+        canvas.renderMode = RenderMode.ScreenSpaceCamera;
+        canvas.worldCamera = cam;
+        canvas.planeDistance = 10f;
+        ui.GetComponent<CanvasScaler>().uiScaleMode = CanvasScaler.ScaleMode.ConstantPixelSize;
+        Canvas.ForceUpdateCanvases();
+
+        var rt = new RenderTexture(W, H, 24, RenderTextureFormat.ARGB32);
+        cam.targetTexture = rt;
+        cam.Render();
+        var prev = RenderTexture.active;
+        RenderTexture.active = rt;
+        var tex = new Texture2D(W, H, TextureFormat.RGB24, false);
+        tex.ReadPixels(new Rect(0, 0, W, H), 0, 0);
+        tex.Apply();
+        RenderTexture.active = prev;
+        File.WriteAllBytes($"{OutDir}/{name}.png", tex.EncodeToPNG());
+
+        // THE CHECK THE KOTLIN NEEDED: every interactive control must be ON SCREEN. A control
+        // laid out past the bottom is not merely ugly, it is untappable, and the panel that
+        // starts the battle is the worst place in the game for that.
+        int offScreen = 0;
+        var corners = new Vector3[4];
+        foreach (var b in ui.GetComponentsInChildren<Button>(false))
+        {
+            ((RectTransform)b.transform).GetWorldCorners(corners);
+            var sp = corners.Select(c => cam.WorldToScreenPoint(c)).ToList();
+            if (sp.Max(p => p.y) < 0f || sp.Min(p => p.y) > H ||
+                sp.Max(p => p.x) < 0f || sp.Min(p => p.x) > W)
+            {
+                offScreen++;
+                Debug.LogError($"[BattleUIPreview] {name}: '{b.name}' is laid out OFF SCREEN "
+                               + "and cannot be tapped");
+            }
+        }
+
+        int labels = 0, laidOut = 0;
+        foreach (var t in ui.GetComponentsInChildren<TMPro.TMP_Text>(false))
+        {
+            if (string.IsNullOrEmpty(t.text)) continue;
+            labels++;
+            t.ForceMeshUpdate();
+            if (t.textInfo.characterCount > 0) laidOut++;
+        }
+        Debug.Log($"[BattleUIPreview] {OutDir}/{name}.png  labels={labels} laidOut={laidOut} "
+                  + $"buttons={ui.GetComponentsInChildren<Button>(false).Length} offScreen={offScreen}");
+        if (laidOut < labels)
+            Debug.LogError($"[BattleUIPreview] {name}: {labels - laidOut} labels laid out no glyphs");
+
+        cam.targetTexture = null;
+        Object.DestroyImmediate(ui.gameObject);
+        Object.DestroyImmediate(camGo);
+        Object.DestroyImmediate(rt);
+        Object.DestroyImmediate(tex);
     }
 
     static void Shot(string name, bool victory, int stars, int coins, string bonus,

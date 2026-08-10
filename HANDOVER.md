@@ -1,10 +1,14 @@
-# Handover — Unity, as of 2026-08-09
+# Handover — Unity, as of 2026-08-10
 
 ## START HERE
 
-- **`main` is PUSHED and the working tree is CLEAN — check with `git status`, not with this line.**
-  The twelve-commit backlog went up on 2026-08-07 and the Tier 1.2 work on 2026-08-09; nothing is
-  in flight. (A hash here is stale the moment it is committed, which is why there isn't one.)
+- **THE WORKING TREE IS DIRTY AND NOTHING FROM 2026-08-10 IS COMMITTED — check with `git status`,
+  not with this line.** The loadout NRE fix and the whole of Tier 1.3 (12 files modified, 3 new:
+  `Consumables.cs`, `ConsumableActions.cs`, `_plans/TIER1_3_CONSUMABLES.md`) are in the working
+  tree only. Rob commits on an explicit ask and had not given one when the session ended; the work
+  is finished and device-confirmed, not half-done. Everything before it — the twelve-commit backlog
+  of 2026-08-07 and the Tier 1.2 work of 2026-08-09 — is pushed. (A hash here is stale the moment
+  it is committed, which is why there isn't one.)
   Android
   `projectile-refinement` at `66a778a` is never being merged; **the Android build is RETIRED**,
   reference only.
@@ -15,14 +19,33 @@
   a burning unit, shipped 2026-08-09 and was confirmed on device on 2026-08-10.**
 - **Tier 1.2 is HALF DONE**: reinforcement waves are telegraphed with a live countdown and the
   schedule covers two levels. **Wind is the other half and is still blocked** — see below.
-- **559 self-test checks, all passing — run `PortSelfTest.Run` after every change.** It was 281 at
+- **TIER 1.3 IS BUILT** — four consumables, bought, carried and fired, confirmed on device
+  2026-08-10. **Overwatch Flare is deliberately not among them**; see its section.
+- **576 self-test checks, all passing — run `PortSelfTest.Run` after every change.** It was 281 at
   the start of 2026-08-06, 411 at the end of it, 444 on 2026-08-07, 539 after the Tier 1.2 and
-  glyph-coverage blocks, and 559 with the flame and the Auto-ammo pair.
+  glyph-coverage blocks, 559 with the flame and the Auto-ammo pair, and 576 with Tier 1.3's
+  consumables. **Assert related facts TOGETHER** — Tier 1.3's block was first written as 50
+  assertions over 307 lines and is 18 over 232, with the same nine breakages still caught. A
+  failure message naming three properties is as diagnostic as three checks, and this file is read
+  by people.
 
 ### Pick up here
 
 **WIND IS PARKED** — Rob's call, 2026-08-10. It is the only thing Tier 1.2 still owes and it is
 blocked on a physics decision (below), so tier work continues around it rather than waiting on it.
+
+0. **TIER 1.3 IS DONE — 2026-08-10, four consumables live and device-confirmed** — with ONE
+   UNRESOLVED item worth picking up early: **the Airstrike has no author.** Nothing flies, nothing
+   strafes; a grenade appears in mid-air and drops. Mechanically right, presentationally empty, and
+   it is the dearest thing in the shop. Options costed in `_plans/BACKLOG.md`. See its own
+   section below. **Tier 1.4 (Heli) stays shut**, so the next tier item is whatever
+   `PRODUCT_DIRECTION.md` puts after it — and the two biggest OPEN things in the port are now
+   named and costed: **advancing squads + melee are unported** (which is what holds Overwatch
+   Flare), and **wind is still cosmetic**. Both are physics/AI asks, not scheduling jobs.
+
+<details>
+<summary>The Tier 1.3 briefing as it stood before the work — kept because its reasoning is the
+standing lesson, not because it is current</summary>
 
 1. **TIER 1.3 IS THE NEXT TIER ITEM, AND ITS FIRST HALF IS NOT WHAT THE TABLE SAYS.**
    `PRODUCT_DIRECTION.md` calls 1.3 "tactical consumable expansion — Smoke / Overwatch", gated on
@@ -42,6 +65,8 @@ blocked on a physics decision (below), so tier work continues around it rather t
    `DYNAMISM_DESIGN.md` Phase C, including the cap-2-per-battle rule and the arm-vs-spend
    distinction (Airstrike's toggle pattern, not Trauma Kit's).
 
+</details>
+
 2. **Tier 1.4 (Heli) stays shut.** `HELI_ENABLED=false` is a camera-load decision, not a stale
    flag, and `PRODUCT_DIRECTION` gates it on "camera choreography is boring-stable". Do not flip it.
 
@@ -56,15 +81,190 @@ blocked on a physics decision (below), so tier work continues around it rather t
    **Do not author a wind level or a wind schedule until someone decides whether the collision test
    becomes 3D.**
 
-5. **A per-frame NullReferenceException on the LOADOUT screen, pre-existing** — 195 in 3 seconds
-   there, ZERO in battle. Measured, not guessed, and the flame is ruled out. Written up in
-   `_plans/BACKLOG.md` with where to look. Worth fixing before building the consumable UI, which
-   will live on that same screen.
+5. ~~A per-frame NullReferenceException on the LOADOUT screen.~~ **FIXED 2026-08-10** — it was the
+   tick running with no battle to tick. See its own section below. That screen is now clean, which
+   matters because the consumable UI 1.3 needs will be built on it.
 
 6. **`_plans/BACKLOG.md`** holds what Rob has parked: a **nuclear reactor structure** (open
    question is what MECHANIC it owns — a blast on destruction would make it the first structure
    with one), **dead units sinking** into the ground instead of vanishing, and the **ragdoll /
    structure report**, which is PARTLY fixed and deliberately left open.
+
+## Tier 1.3 — the consumables, built 2026-08-10
+
+Found fully ported and reached by nothing (the SIXTH such system), and now live: **Airstrike 250c,
+Early Reinforcements 200c, Trauma Kit 150c, Smoke Screen 200c** — bought and equipped on the
+loadout screen at the locked cap of TWO, triggered from the battle HUD on the player's own Aiming
+phase. `Consumables` is the catalog, `ConsumableActions` holds the effects, and each is confirmed
+on a device by what it DID, not by the fact a button existed.
+
+### Overwatch Flare is NOT built, and that is the most important line in this section
+
+It halves the enemy's next advance budget. **Nothing in this port ever advances.**
+`UnitEntity.AdvancePerTurn` is imported and read only to count advancers for a threat line;
+`AdvanceRemaining` is written NOWHERE; there is no enemy march step; and `SkirmishEntity` — the
+melee an arrival resolves into — is defined, counted in `IsVisuallyIdle`, and never created.
+**Advancing squads and melee are an EIGHTH dead system**, and a large one: they are what
+`PROGRESSION_DESIGN`'s whole survival/defend archetype is made of.
+
+A 200-coin button that changes nothing teaches the player that coins are decorative, which is
+worse than having no button. That is the same call already made about wind. `PortSelfTest` asserts
+BOTH halves — Overwatch is not sold, AND no enemy ever banks an advance — so the day advancing
+squads land, the check goes red and adding one catalog entry is the fix.
+
+### Confirmed on device, each by its output
+
+```
+Trauma Kit    [Consumable] TraumaKit: hp 304 -> 320      (clamped; front rank only)
+Airstrike     [Consumable] Airstrike armed=True -> Airstrike fired
+              [Battle] volley: 12 rounds   <- the volley alone is 11
+              Garrison Post 135 -> 87, round visibly falling NOSE-DOWN among the arcs
+Reinforce     [Consumable] reinforcements: 10 -> 13 player units, formed up right of the line
+Smoke         [Consumable] SmokeScreen armed=True (button reads `Smoke / ARMED`, still THERE)
+              [Consumable] Smoke Screen spent on the enemy volley
+```
+
+Bought with coins earned in play, because the release build is not debuggable and `run-as` cannot
+seed PlayerPrefs — which turned out to be a better test than seeding would have been: the purchase,
+the balance, the affordability tint and the carry cap were all exercised for real.
+
+### UNRESOLVED: the Airstrike is mechanically right and presentationally empty
+
+Rob asked, the day it shipped, whether anything actually flies across the screen and strafes, or
+whether it is "just explosions out of nowhere". **It is much closer to the latter**, and this is
+read off the code rather than remembered:
+
+a single **grenade** — the grenadier's own `projectile_grenade`, olive-lime at 0.16 scale — **pops
+into existence in mid-air** with no fade-in, falls straight down for 1.4s among eleven infantry
+arcs, and lands with the standard blast, scorch and explosion sound. **No aircraft, no approach, no
+strafing run, no dedicated audio, no ground telegraph.** `IsAirstrike` is set on the projectile and
+**read nowhere** — it has no rendering meaning at all.
+
+Nor does it enter from off-frame: `AirstrikeOriginY` is 5.0 against a ~1.30-unit soldier, so it
+appears under four soldier-heights up, about a fifth of the frame height, in clear sky.
+**The comment on that constant used to claim otherwise and has been corrected** — it is the same
+"assert the artefact, not the note about it" failure this file keeps recording, committed by the
+person writing the note.
+
+So the most expensive consumable has the least legible presentation, which is worse for a
+consumable than for an unlock because it is gone after one use. Options are costed in
+`_plans/BACKLOG.md` under "the Airstrike has no author" — the ground shadow looks like the best
+value (it telegraphs WHERE, turning 1.4s of hang time into suspense), and the strafing plane is
+explicitly NOT obviously right, because it puts a second moving subject in front of a LOCKED camera
+that already has the heli switched off for exactly that reason.
+
+### The arm/spend split, which is the one piece of this that cost something
+
+**Airstrike and Smoke are ARMED and spent only when they FIRE. Trauma Kit and Reinforcements
+resolve on the tap.** A first Kotlin implementation spent at arm time and the HUD button — whose
+visibility is gated on the equipped count — vanished the instant it was tapped, with no ARMED state
+to see and no way to change your mind. That was found on a device, not in a test suite. The device
+shot above showing `Smoke / ARMED` still on screen is the evidence that this port did not repeat it,
+and `PortSelfTest` asserts arming does not decrement.
+
+**The permanent `ProgressStore` spend lives in `BattleRunner`, never in the tick.** The two armed
+items are consumed inside pure tick functions, and a `PlayerPrefs` write in there would fire on
+every `PortSelfTest` call to `FireVolley` and quietly drain the editor's own inventory. The runner
+watches the armed flag's true→false transition — which is NOT the "inferred from a list-length
+delta" trap this project has been bitten by, because the flag exists for exactly this and nothing
+else clears it.
+
+### Early Reinforcements dragged a second port in with it
+
+The relief squad did not exist here either — no builder, no march. It enters a formation's width
+BEHIND the player line and runs to its slots on `MarchTargetX`, so **without a march step the men
+bought and paid for would stand off the framed edge for the rest of the battle.** `BattleTick
+.StepMarch` is that step, and it runs on the battle-over tick path too: a jogging man frozen the
+instant victory lands is on screen, because that path deliberately re-frames onto the survivors.
+
+The squad is built from the player's OWN commonest ground unit rather than a hardcoded Rifleman as
+the Kotlin does — `BattleTick` has no asset table, and giving it one means a serialized reference
+and a scene rebuild for a squad the player already described at the loadout screen.
+
+*A claim in the first draft of the plan was WRONG and the compiler caught it: I wrote that an
+unwalked march would hang the turn via `GameState.Settled`. The property is `IsVisuallyIdle`, the
+handover is `TurnFlow.EvaluateVolley` and does not consult it, and nothing in the port reads it yet.
+The real cost is a permanent latch on a ported facility. Recorded because it is this file's own
+standing rule — assert the artefact, not the name you remember — catching the person applying it.*
+
+### The checks: 576, and every new one was seen to fail first
+
+`PortSelfTest` went 559 → 576 (17 checks, deliberately consolidated — see below). Per the standing rule, the new block was run against **nine
+deliberate breakages** and each one turned the intended check red: smoke wired to nothing
+(`1.87 -> 1.97` spread, refused), the airstrike aimed 3 units off (`13.92 vs 10.92`), the march
+removed, the trauma kit healing everyone, arming spending the carry, the cap truncating instead of
+refusing, Overwatch sold, and — the ninth, added after the first pass — the airstrike reusing the
+PLAYER's flight time, the real Kotlin bug, which a flat drag compresses to 0.63s and an arced one
+stretches to 3.08s against its own fixed 1.4s.
+
+**The block was then CONSOLIDATED, on Rob's instruction** — 50 assertions over 307 lines became
+18 over 232, and the same nine breakages were re-run to prove nothing was lost. Coverage went UP:
+a merged check caught the flight-time constant the split version had missed. Related facts belong
+in ONE check whose message names them all; a failure naming three properties is as diagnostic as
+three checks, and this file is read by people. Keep a check separate only when it can fail
+independently for a reason worth naming. **Consolidating is not a licence to drop coverage —
+re-run the breakages after merging.**
+
+**One of the first-pass checks was worthless and was rewritten**: a refusal test written as
+`ReferenceEquals(Use(hurt with {...}), hurt with {...})` allocates two different records, so it was
+false whatever the code did — a check that could never fail, wearing the costume of a refusal test.
+The same family as the phase-spread check deleted during the flame work.
+
+**And one check was self-referential**: the airstrike's fall time was asserted against the same
+constant that defines it, so setting that constant to 0.18s passed every check. It now carries an
+absolute floor (`>= 0.8f`, "legible means SECONDS, not frames") alongside the flat-drag comparison
+that does the real work.
+
+### What the headless preview caught before the device
+
+`BattleUIPreview.Shots` now renders the loadout panel in three states (nothing owned, owned, and
+carrying) and **fails the run if any Button lays out off screen**. That is precisely the failure the
+Kotlin hit when it added a consumables section: Confirm was pushed past the bottom of the screen,
+not clipped but ABSENT from the tree and unreachable by any input, found on a locked device with no
+way to start a battle. The strip here is positioned from the panel's own top rather than stacked
+after the roster rows, so a longer roster cannot push it anywhere, and `PortSelfTest` pins the
+arithmetic against the live roster's row count.
+
+## The loadout screen's per-frame NullReferenceException — FIXED 2026-08-10
+
+**The tick was running before there was a battle to tick.** `Start` calls `EnterLevel(0)`, which for
+a campaign level opens the picker and RETURNS — `LoadLevel` does not run until the player presses
+BEGIN. `GameState` is a `record`, so it is a CLASS and `state` is null for that whole screen, and
+`Update` entered `BattleTick.Step` anyway. Its first line is `s.SelectedAmmo`. One thrown exception
+and one stack capture per frame, on the one screen where the player is sitting still and reading.
+
+The guard is `if (state == null) return;` at the top of `Update`, and it is on the STATE rather than
+on `ui.LoadoutOpen` deliberately: a LATER picker (RETRY, NEXT LEVEL) opens over a state that exists
+and ticks through it perfectly well. What must not run is a tick with nothing to tick.
+
+**Why it hid.** Nothing looked wrong, because the picker is uGUI on its own canvas and both
+`HandleInput` and `OnGUI` already stand down while it is open — so the screen drew correctly, BEGIN
+worked, and the battle ran clean at 60 fps. The release build's IL2CPP trace carries no line
+numbers, and `BattleRunner.Update` was the only frame in it.
+
+**Measured both ways, same instrument, same 3-second window, same screen** — which is what makes the
+numbers mean anything, per the standing rule:
+
+```
+OLD code   186 NullReferenceExceptions in 3s on the LOADOUT screen  (~62/s = one per frame)
+FIXED        0 in 3s on the LOADOUT screen, 0 in 3s in battle, 0 across a real volley
+```
+
+The negative run cost one extra build and is the only thing proving the guard reaches the bug. The
+instrument was proved too, because a silent logcat is not evidence: the same capture shows
+`[Battle] L1 Patrol Encounter: 10 player, 9 enemy, 2 structures` on the BEGIN press, and a real drag
+(`input swipe 300 900 631 1231 600`) took the enemy line 9 -> 4 at a steady 60 fps.
+
+**No self-test covers this**, and that is a considered choice rather than an omission: `PortSelfTest`
+does not drive `MonoBehaviour` frame callbacks, and a check on the guard's CONDITION would assert the
+fix's own restatement of itself — the "assert the output, not the input" trap in its purest form. The
+device count IS the assertion here, and both halves of it are recorded above.
+
+**The diagnosis was READ, not probed** — the backlog entry recommended a probe and the code answered
+faster. That is not a correction to the rule: the probe is right when a static read leaves a
+hypothesis, and here the read produced a null field, a dereference of it, and an exact match to both
+measured contexts (null only before the first `LoadLevel`; zero after). The negative run then did the
+job the probe would have.
 
 ## The incendiary flame — 2026-08-09
 
@@ -264,7 +464,7 @@ it was written for. Ask the thing itself — the font, the engine, the device.
 ### The state of the checks, as of the handover
 
 ```
-PortSelfTest.Run          539 checks, ALL PASS
+PortSelfTest.Run          576 checks, ALL PASS
 LevelComposition.Report   12 campaign levels, 0 errors, 2 accepted warnings (L3, L5 rule 7 —
                           reasons in their designNotes; both beats are about height)
 BalanceAudit.Report       0 errors, 19 warnings (race-ratio flags on the dearest-squad
@@ -273,8 +473,14 @@ BalanceAudit.Report       0 errors, 19 warnings (race-ratio flags on the dearest
 
 **A scene rebuild is NOT pending** — one was run on 2026-08-10 after `BattleRunner` gained its
 `flamePrefab` field, so `Assets/Scenes/Battle.unity` and several materials are dirty because of it.
-**The APK on the device is current and probe-free**, rebuilt and reinstalled after the temporary
-`[Probe]` line was removed, and the flame was re-confirmed on that final build.
+**The APK on the device is current** — rebuilt on 2026-08-10 with Tier 1.3's consumables and the
+loadout NRE guard, and everything above was confirmed on that build. Both are CODE-ONLY changes, so
+neither needs a scene rebuild.
+
+**The device now carries real progress**: L1–L3 cleared with stars, coins earned and spent, and one
+Trauma Kit / Airstrike / Early Reinforcements / Smoke Screen bought and used. Nothing was seeded —
+the release build is not debuggable, so `run-as` cannot reach PlayerPrefs. Worth knowing before a
+future session uninstalls and wonders where the balance went.
 
 Note the flame's own assets are NEW and untracked until committed: `Assets/Prefabs/Flame.prefab`,
 `Assets/Materials/Flame.mat`, `Assets/Materials/FlameTex.asset`, `Assets/Scripts/Render/FlameRig.cs`

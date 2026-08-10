@@ -181,6 +181,238 @@ public static class PortSelfTest
         }
     }
 
+    /// <summary>
+    /// The CONSUMABLES — `PROGRESSION_DESIGN.md` Phase 2 and `DYNAMISM_DESIGN.md` Phase C, wired
+    /// on 2026-08-10 after being found fully ported and reached by nothing (the sixth such system).
+    ///
+    /// Each check asserts what the PLAYER would notice — HP restored, men added, where the round
+    /// lands, how wide their volley scatters — never that a multiplier is present. Related facts
+    /// are asserted TOGETHER rather than one per line: a failure message that names three
+    /// properties is as diagnostic as three checks, and the suite is read by people.
+    /// </summary>
+    static void CheckConsumables()
+    {
+        var level = AssetDatabase.FindAssets("t:LevelDefinitionSO")
+            .Select(g => AssetDatabase.LoadAssetAtPath<LevelDefinitionSO>(
+                AssetDatabase.GUIDToAssetPath(g)))
+            .Where(l => l != null && !l.isTestLevel)
+            .OrderBy(l => l.levelNumber).FirstOrDefault();
+        if (level == null) { Check(false, "a campaign level to test consumables on"); return; }
+
+        var fresh = LevelBuilder.BuildInitialState(level, 1, 12, new System.Random(7))
+            with { Phase = GamePhase.Playing, TurnPhase = TurnPhase.Aiming,
+                   TurnSide = TurnSide.Player };
+        GameState Carrying(ConsumableType t) => fresh with
+            { LoadedConsumables = new Dictionary<ConsumableType, int> { { t, 1 } } };
+
+        Check(Consumables.All.Count == 4 && Consumables.All.All(c => c.CoinPrice > 0)
+              && Consumables.All.Select(c => c.Type).Distinct().Count() == 4,
+              $"four consumables ship, each priced and listed once ({Consumables.All.Count})");
+
+        // OVERWATCH FLARE MUST STAY OUT until something advances — it halves an advance budget,
+        // and nothing in this port ever banks one. Both halves in one check: the day advancing
+        // squads land, this goes red and adding the catalog entry is the fix.
+        var advanced = fresh with { Phase = GamePhase.Playing };
+        for (int i = 0; i < 120; i++)
+            advanced = BattleTick.Step(advanced, 1f / 60f, level, new System.Random(2));
+        Check(Consumables.For(ConsumableType.OverwatchFlare) == null
+              && advanced.EnemyUnits.All(u => u.AdvanceRemaining == 0f),
+              "Overwatch Flare is NOT sold, and nothing advances for it to halve");
+
+        // --- TRAUMA KIT: the HP comes back, on the front rank only, clamped ------------------
+        {
+            var hurt = Carrying(ConsumableType.TraumaKit);
+            hurt = hurt with { PlayerUnits = hurt.PlayerUnits
+                .Select((u, i) => u with { Hp = i == 0 ? u.Definition.maxHp : 1 }).ToList() };
+            var frontIds = hurt.PlayerUnits.Where(u => u.StandingOnStructureId == null)
+                .OrderByDescending(u => u.X).Take(ConsumableActions.TraumaKitFrontRank)
+                .Select(u => u.Id).ToHashSet();
+
+            var healed = ConsumableActions.UseTraumaKit(hurt);
+            int gained = healed.PlayerUnits.Sum(u => u.Hp) - hurt.PlayerUnits.Sum(u => u.Hp);
+            Check(gained > 0
+                  && healed.PlayerUnits.All(u => u.Hp <= u.Definition.maxHp)
+                  && healed.PlayerUnits.Where(u => !frontIds.Contains(u.Id))
+                           .All(u => u.Hp == hurt.PlayerUnits.First(h => h.Id == u.Id).Hp)
+                  && Consumables.Equipped(healed, ConsumableType.TraumaKit) == 0,
+                  $"the trauma kit heals the FRONT RANK only (+{gained}), clamps to max HP, "
+                  + "and is consumed");
+
+            // Every refusal in one place. Each returns the state UNCHANGED, so reference equality
+            // is the test — and the states are built ONCE, because `x with {}` allocates and an
+            // earlier version of this compared two fresh records and could never fail.
+            var midVolley = hurt with { TurnPhase = TurnPhase.Resolving };
+            var theirTurn = hurt with { TurnSide = TurnSide.Enemy };
+            Check(ReferenceEquals(ConsumableActions.UseTraumaKit(fresh), fresh)
+                  && ReferenceEquals(ConsumableActions.UseTraumaKit(midVolley), midVolley)
+                  && ReferenceEquals(ConsumableActions.UseTraumaKit(theirTurn), theirTurn),
+                  "an item does nothing when it is not carried, mid-volley, or on their turn");
+        }
+
+        // --- EARLY REINFORCEMENTS: men arrive, and they ARRIVE -------------------------------
+        {
+            var carrying = Carrying(ConsumableType.EarlyReinforcements);
+            int before = carrying.PlayerUnits.Count;
+            var called = ConsumableActions.UseEarlyReinforcements(carrying);
+            int added = called.PlayerUnits.Count - before;
+
+            Check(added == Mathf.CeilToInt(carrying.InitialPlayerCount
+                                           * ConsumableActions.ReinforcementSizeFraction)
+                  && called.ReinforcementsSent
+                  && called.PlayerUnits.Skip(before).All(
+                         u => u.Id >= ConsumableActions.ReinforcementIdBase
+                              && u.MarchTargetX != null
+                              && u.X < called.PlayerUnits.Take(before).Max(p => p.X)),
+                  $"the relief squad is a quarter of the roster ({added}), enters from BEHIND the "
+                  + "line in its own id band, and sets the one-per-battle flag");
+            Check(ReferenceEquals(ConsumableActions.UseEarlyReinforcements(called), called),
+                  "...so a second call does nothing, carried or not");
+
+            // THE PART THAT MAKES IT WORTH BUYING: they have to reach their slots. Without the
+            // march step they stand a formation's width behind the line, off the framed edge, for
+            // the rest of the battle — bought, paid for and out of the fight. Clearing the target
+            // also releases IsVisuallyIdle, which is a LATCH nothing else would clear.
+            var slots = called.PlayerUnits.Skip(before)
+                              .ToDictionary(u => u.Id, u => u.MarchTargetX.Value);
+            var marching = called with { Projectiles = new List<ProjectileEntity>() };
+            bool idleDuringMarch = marching.IsVisuallyIdle;
+            for (int i = 0; i < 600 && !marching.IsVisuallyIdle; i++)
+                marching = BattleTick.Step(marching, 1f / 60f, level, new System.Random(2));
+            Check(!idleDuringMarch && !marching.PlayerMarchInProgress
+                  && marching.PlayerUnits.Where(u => slots.ContainsKey(u.Id))
+                             .All(u => u.MarchTargetX == null
+                                       && Mathf.Abs(u.X - slots[u.Id]) < 1e-3f),
+                  "every reinforcement runs in and stops on the exact slot it was sent to");
+
+            // ...and keeps running once the battle is decided: that tick path re-frames onto the
+            // survivors, so a man frozen mid-stride is on screen.
+            var over = called with { Phase = GamePhase.Victory,
+                                     Projectiles = new List<ProjectileEntity>() };
+            Check(BattleTick.Step(over, 1f / 60f, level, new System.Random(2))
+                      .PlayerUnits.Last().X > over.PlayerUnits.Last().X,
+                  "a reinforcement keeps running after the battle is over");
+        }
+
+        // --- AIRSTRIKE: a round in the air, where the volley is going -------------------------
+        {
+            var armed = ConsumableActions.ToggleArmed(Carrying(ConsumableType.Airstrike),
+                                                      ConsumableType.Airstrike);
+            Check(armed.AirstrikeArmed
+                  && Consumables.Equipped(armed, ConsumableType.Airstrike) == 1
+                  && !ConsumableActions.ToggleArmed(fresh, ConsumableType.Airstrike).AirstrikeArmed,
+                  "arming does NOT spend it — the HUD count must survive the tap, or the button "
+                  + "vanishes the instant it is pressed (found on a device, in the Kotlin)");
+
+            var aim = new Vector3(6f, 6f, 0f);
+            var plain = BattleTick.FireVolley(fresh, aim, new System.Random(3));
+            var struck = BattleTick.FireVolley(armed, aim, new System.Random(3));
+            var extra = struck.Projectiles.Where(p => p.IsAirstrike).ToList();
+
+            Check(plain.Projectiles.All(p => !p.IsAirstrike) && extra.Count == 1
+                  && struck.Projectiles.Count == plain.Projectiles.Count + 1
+                  && !struck.AirstrikeArmed
+                  && Consumables.Equipped(struck, ConsumableType.Airstrike) == 0,
+                  "an armed volley throws exactly one extra round, changes nothing else, and "
+                  + "THEN spends the item");
+
+            if (extra.Count == 1)
+            {
+                var round = extra[0];
+                var origin = new Vector3(round.X, round.Y, round.Z);
+                var velocity = new Vector3(round.Vx, round.Vy, round.Vz);
+                var volleyTarget = TrajectoryPhysics.LandingPoint(
+                    new Vector3(fresh.PlayerUnits.Average(u => u.X),
+                                fresh.PlayerUnits.Average(u => u.Y) + BattleTick.InfantryMuzzleY, 0f),
+                    aim);
+                Near(TrajectoryPhysics.LandingPoint(origin, velocity).x, volleyTarget.x, 0.05f,
+                     "the airstrike lands on the volley's own landing point");
+                Check(round.Y >= BattleTick.AirstrikeOriginY - 0.01f && round.SplashRadius > 0f
+                      && round.Damage >= BattleTick.AirstrikeDamage,
+                      "...dropped from overhead as a SPLASH round, not thrown from the line");
+
+                // The plunge must be SLOW ENOUGH TO SEE, however the player aimed. A flat drag can
+                // put the real volley in the air for under 0.2s, and reusing that time compressed
+                // the whole fall into a few frames — "nothing happened". The absolute floor is not
+                // decoration: without it this only agrees with whatever the constant says, which a
+                // 0.18s constant passed cleanly.
+                var flat = BattleTick.FireVolley(armed, new Vector3(9f, 0.5f, 0f),
+                                                 new System.Random(3))
+                                     .Projectiles.First(p => p.IsAirstrike);
+                float flatFall = TrajectoryPhysics.FlightTime(
+                    new Vector3(flat.X, flat.Y, flat.Z), new Vector3(flat.Vx, flat.Vy, flat.Vz));
+                Check(Mathf.Abs(TrajectoryPhysics.FlightTime(origin, velocity)
+                                - BattleTick.AirstrikeFlightTime) < 0.05f
+                      && Mathf.Abs(flatFall - BattleTick.AirstrikeFlightTime) < 0.05f
+                      && BattleTick.AirstrikeFlightTime >= 0.8f,
+                      $"the fall takes its own fixed time ({BattleTick.AirstrikeFlightTime:F2}s, "
+                      + $"{flatFall:F2}s on a FLAT drag) and legible means SECONDS, not frames");
+            }
+        }
+
+        // --- SMOKE SCREEN: their volley really does go wider -----------------------------------
+        {
+            // THE SPREAD OF WHERE THE ROUNDS ACTUALLY GO, over many volleys — not "the multiplier
+            // was passed". Wired to the wrong knob, or to nothing, the landing points do not move
+            // and this is the only check that would see it.
+            float SpreadOf(GameState s)
+            {
+                var landings = new List<float>();
+                for (int seed = 0; seed < 40; seed++)
+                    foreach (var p in BattleTick.FireEnemyVolley(s, new System.Random(seed))
+                                                .Projectiles.Where(p => !p.OwnerIsPlayer))
+                        landings.Add(TrajectoryPhysics.LandingPoint(
+                            new Vector3(p.X, p.Y, p.Z), new Vector3(p.Vx, p.Vy, p.Vz)).x);
+                float mean = landings.Average();
+                return Mathf.Sqrt(landings.Sum(x => (x - mean) * (x - mean)) / landings.Count);
+            }
+
+            var theirTurn = fresh with { TurnSide = TurnSide.Enemy };
+            float clear = SpreadOf(theirTurn);
+            float smoked = SpreadOf(theirTurn with { SmokeScreenArmed = true });
+            Check(smoked > clear * 1.3f,
+                  $"a volley fired through smoke lands measurably WIDER ({clear:F2} -> {smoked:F2})");
+
+            var armed = ConsumableActions.ToggleArmed(Carrying(ConsumableType.SmokeScreen),
+                                                      ConsumableType.SmokeScreen);
+            var after = BattleTick.FireEnemyVolley(armed with { TurnSide = TurnSide.Enemy },
+                                                  new System.Random(3));
+            Check(Consumables.Equipped(armed, ConsumableType.SmokeScreen) == 1
+                  && !after.SmokeScreenArmed
+                  && Consumables.Equipped(after, ConsumableType.SmokeScreen) == 0,
+                  "smoke covers exactly ONE volley, and is spent by it rather than by the arming");
+        }
+
+        // --- THE CAP, and the panel that has to fit it ------------------------------------------
+        {
+            var two = new Dictionary<ConsumableType, int>
+                { { ConsumableType.Airstrike, 1 }, { ConsumableType.TraumaKit, 1 } };
+            var three = new Dictionary<ConsumableType, int>(two)
+                { { ConsumableType.SmokeScreen, 1 } };
+            Check(Consumables.TotalEquipped(ConsumableActions.Equip(two)) == 2
+                  && Consumables.TotalEquipped(ConsumableActions.Equip(three)) == 0
+                  && Consumables.TotalEquipped(ConsumableActions.Equip(null)) == 0,
+                  "two may be carried and a third is refused OUTRIGHT — which two to keep is the "
+                  + "player's decision, not something to truncate silently");
+
+            // Adding a consumables section is what pushed the Kotlin's Confirm button off the
+            // bottom of the screen: not clipped, ABSENT from the tree and unreachable by input.
+            // BattleUIPreview renders the panel and fails on any off-screen Button; this pins the
+            // arithmetic against the live roster.
+            var roster = AssetDatabase.LoadAssetAtPath<RosterDefinitionSO>(
+                "Assets/GameData/Roster.asset");
+            int rows = roster != null ? roster.slots.Count : 6;
+            float lastRowBottom = ArmedConflict.UI.BattleUI.LoadoutRowTop
+                                + (rows - 1) * ArmedConflict.UI.BattleUI.LoadoutRowPitch
+                                + ArmedConflict.UI.BattleUI.LoadoutRowHeight;
+            Check(lastRowBottom <= ArmedConflict.UI.BattleUI.ConsumableHeaderY
+                  && ArmedConflict.UI.BattleUI.ConsumableStripY
+                     + ArmedConflict.UI.BattleUI.ConsumableStripHeight
+                     <= ArmedConflict.UI.BattleUI.BeginButtonY,
+                  $"the consumable strip clears the last of {rows} roster rows, and BEGIN clears "
+                  + "the strip");
+        }
+    }
+
     public static void Run()
     {
         failed = 0;
@@ -2120,6 +2352,8 @@ public static class PortSelfTest
                       "...while a real DRAG volley carries the selected ammo");
             }
         }
+
+        CheckConsumables();
 
         Debug.Log($"[PortSelfTest] {(failed == 0 ? "ALL PASS" : $"{failed} FAILURES")}\n{Log}");
         if (failed > 0 && Application.isBatchMode) EditorApplication.Exit(1);

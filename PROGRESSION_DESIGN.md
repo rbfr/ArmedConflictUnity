@@ -203,18 +203,37 @@ thin-line roster constraint, heli+wave). Frostline stage unlocks at 30 stars (�
 | 1a | EconomyStore + coin payouts + balance UI | shipped |
 | 1b | Loadout screen, deployBudget, level sanity pass | shipped (full sanity-pass audit deferred, see below) |
 | 1c | Unlocks, upgrade tiers, unlockRewardId wiring | shipped |
-| 2  | Consumables (3 items, HUD trigger, inventory) | shipped |
+| 2  | Consumables (3 items, HUD trigger, inventory) | shipped — **and re-built in UNITY 2026-08-10**, see below |
 | 3  | Variety archetypes + boss retrofits | shipped — boss retrofits, survival/defend (Frostline), elevation maps (6672e84), wind levels (9df1a0c) |
 | 4  | Chests, daily bonus, ad/IAP/analytics stubs | shipped (af0e158) — stubs only; real ads/IAP still future work |
 
 Each slice ships independently and is playable on its own. Update the Status column as
 slices land, and promote settled tuning values from "placeholder" to real numbers here.
 
+**READ THE STATUS COLUMN ABOVE AS A RECORD OF THE RETIRED ANDROID BUILD.** Every "shipped"
+there was shipped in Kotlin. For the Unity port — which is the product — the column is a SPEC,
+and the only honest way to know what exists is to grep for callers. Phase 2 is the sixth system
+found fully ported, unit-tested and reached by nothing.
+
+**Phase 2 in UNITY — shipped 2026-08-10, confirmed on device.** Airstrike (250c), Early
+Reinforcements (200c) and Trauma Kit (150c), plus Phase C's Smoke Screen (200c): bought and
+equipped on the loadout screen at the locked cap of 2, triggered from the battle HUD on the
+player's Aiming phase. `Consumables` is the catalog, `ConsumableActions` the effects (pure), and
+the permanent `ProgressStore` spend lives in `BattleRunner` so the tick stays testable. Details
+and the numbers each item was verified by are in `HANDOVER.md`.
+
+**Overwatch Flare is NOT in the Unity build**, deliberately: it halves the enemy's next advance
+budget and nothing in the port ever advances (`AdvanceRemaining` is written nowhere; the march
+step and `SkirmishEntity` are unported). Selling a button that changes nothing is the call this
+project already made about wind. It returns when advancing squads do.
+
 **Phase 2 implementation note:** the debug "Auto" test-fire button (`GameViewModel
 .testAutoFire()`) bypasses `onAimRelease` entirely and so never triggers the Airstrike
 consumable (its firing logic lives only in the real drag-release path) — this is fine
 since Auto is dev-only tooling, never shown to players, but worth knowing if Airstrike
-ever looks like it "does nothing" while testing with Auto instead of a real drag.
+ever looks like it "does nothing" while testing with Auto instead of a real drag. **The Unity
+port inherits this exactly**, which makes it the third entry on the list of what Auto cannot
+test (structures, ammo, now consumables).
 
 ### Slice 1b — non-negotiable requirements
 

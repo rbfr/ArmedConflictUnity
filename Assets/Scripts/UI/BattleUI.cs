@@ -75,7 +75,14 @@ namespace ArmedConflict.UI
         LevelDefinitionSO loadoutLevel;
         RosterDefinitionSO loadoutRoster;
         List<Pick> loadoutPicks = new();
-        Action<List<Pick>> onLoadoutBegin;
+        ConsumableTile[] consumableTiles;
+        /// <summary>
+        /// What the player is carrying INTO this battle. Owned inventory lives in ProgressStore
+        /// and is not touched here — equipping is a choice about this battle, and nothing is spent
+        /// until an item is actually used.
+        /// </summary>
+        readonly Dictionary<ConsumableType, int> loadoutConsumables = new();
+        Action<List<Pick>, IReadOnlyDictionary<ConsumableType, int>> onLoadoutBegin;
 
         /// <summary>
         /// Creates the canvas and its EventSystem. Called once from BattleRunner.Start — there is
@@ -192,6 +199,20 @@ namespace ArmedConflict.UI
         /// coroutines do not run outside play mode, so BattleUIPreview cannot reach this state by
         /// calling ShowVictory. Nothing in the game should use it.
         /// </summary>
+        /// <summary>
+        /// Raises the LOADOUT picker for a headless shot — the panel whose layout is the one thing
+        /// this feature could break in the way the Kotlin did (Confirm laid out past the bottom of
+        /// the screen, absent from the tree, unreachable). `carrying` taps a tile so the CARRYING
+        /// state is in the picture too.
+        /// </summary>
+        public void PreviewLoadout(LevelDefinitionSO level, RosterDefinitionSO roster,
+                                   ConsumableType? carrying = null)
+        {
+            var picks = Loadout.Default(level, roster, ProgressStore.IsUnitUnlocked);
+            ShowLoadout(level, roster, picks, (_, __) => { });
+            if (carrying is ConsumableType type) TapConsumable(type);
+        }
+
         public void PreviewEndCard(bool victory, int stars, int coins, string bonusTag,
                                    int survivors, int initialCount)
         {
@@ -489,12 +510,139 @@ namespace ArmedConflict.UI
             for (int i = 0; i < loadoutRows.Length; i++)
                 loadoutRows[i] = BuildLoadoutRow(panel, -430f - i * 168f, i);
 
+            BuildConsumableStrip(panel);
+
             beginButton = NewButton("Begin", panel, new Vector2(0f, -1800f), "BEGIN",
                                     new Color(0.16f, 0.42f, 0.24f), OnBeginPressed, out _);
             var brt = (RectTransform)beginButton.transform;
             brt.sizeDelta = new Vector2(560f, 140f);
 
             loadoutPanel.SetActive(false);
+        }
+
+        /// <summary>
+        /// Where the consumable strip's tiles start, measured down from the top of the panel, and
+        /// how tall they are. Public so `PortSelfTest` can assert the strip clears both the roster
+        /// rows above it and BEGIN below it.
+        ///
+        /// **This layout is the one the Kotlin got wrong.** Adding a consumables section there
+        /// pushed Confirm past the bottom of the screen — not clipped, ABSENT from the tree and
+        /// unreachable by any input, on a locked device with no way to start a battle. Everything
+        /// here is positioned from the panel's own top rather than stacked after the roster rows,
+        /// so a longer roster can never push this section anywhere.
+        /// </summary>
+        public const float ConsumableStripY = 1520f;
+        public const float ConsumableStripHeight = 150f;
+        public const float ConsumableHeaderY = 1462f;
+        public const float BeginButtonY = 1800f;
+        /// <summary>Row 0's top, the per-row pitch and a row's height — see BuildLoadoutPanel.</summary>
+        public const float LoadoutRowTop = 430f;
+        public const float LoadoutRowPitch = 168f;
+        public const float LoadoutRowHeight = 152f;
+
+        void BuildConsumableStrip(RectTransform panel)
+        {
+            var header = NewText("ConsumablesHeader", panel, 30f, new Color(0.66f, 0.69f, 0.74f),
+                                 TextAlignmentOptions.Center);
+            header.rectTransform.anchorMin = header.rectTransform.anchorMax = new Vector2(0.5f, 1f);
+            header.rectTransform.pivot = new Vector2(0.5f, 1f);
+            header.rectTransform.anchoredPosition = new Vector2(0f, -ConsumableHeaderY);
+            header.rectTransform.sizeDelta = new Vector2(1000f, 44f);
+            header.text = $"Consumables — carry up to {Consumables.MaxEquippedPerBattle}";
+
+            var items = Consumables.All;
+            consumableTiles = new ConsumableTile[items.Count];
+            const float Gap = 14f;
+            float w = (1000f - Gap * (items.Count - 1)) / items.Count;
+
+            for (int i = 0; i < items.Count; i++)
+            {
+                var def = items[i];
+                var tile = NewButton($"Consumable{i}", panel, Vector2.zero, "",
+                                     new Color(0.16f, 0.17f, 0.21f), () => TapConsumable(def.Type),
+                                     out var label);
+                var rt = (RectTransform)tile.transform;
+                rt.sizeDelta = new Vector2(w, ConsumableStripHeight);
+                rt.anchoredPosition = new Vector2(-500f + w / 2f + i * (w + Gap),
+                                                  -ConsumableStripY);
+                label.fontSize = 26f;
+                label.textWrappingMode = TextWrappingModes.Normal;
+
+                consumableTiles[i] = new ConsumableTile
+                {
+                    Root = tile, Image = tile.GetComponent<Image>(), Label = label, Type = def.Type,
+                };
+            }
+        }
+
+        class ConsumableTile
+        {
+            public GameObject Root;
+            public Image Image;
+            public TMP_Text Label;
+            public ConsumableType Type;
+        }
+
+        /// <summary>
+        /// One tap, two meanings — buy it if you have none, otherwise carry it or put it back.
+        ///
+        /// The same double duty the ammo selector already does, and for the same reason: the
+        /// alternative is a separate buy affordance on a tile this size, and there is no room for
+        /// one that a thumb could hit. Buying does NOT also equip: the cap is two, so an automatic
+        /// equip would silently spend a slot the player may want elsewhere.
+        /// </summary>
+        void TapConsumable(ConsumableType type)
+        {
+            var def = Consumables.For(type);
+            if (def == null) return;
+
+            int owned = ProgressStore.OwnedConsumables(type);
+            if (owned <= 0)
+            {
+                if (EconomyStore.PurchaseConsumable(new ConsumableDefinition
+                    { Type = type, CoinPrice = def.CoinPrice })) SetCoins(EconomyStore.Balance());
+                RefreshLoadout();
+                return;
+            }
+
+            loadoutConsumables.TryGetValue(type, out int equipped);
+            if (equipped > 0)
+            {
+                loadoutConsumables.Remove(type);
+            }
+            else if (Consumables.TotalEquipped(loadoutConsumables) < Consumables.MaxEquippedPerBattle)
+            {
+                loadoutConsumables[type] = 1;
+            }
+            // Over the cap the tap is REFUSED rather than swapping something out — dropping
+            // somebody else's pick to make room is the same decision-stealing the roster rows
+            // already refuse to make.
+            RefreshLoadout();
+        }
+
+        void RefreshConsumables()
+        {
+            if (consumableTiles == null) return;
+            foreach (var tile in consumableTiles)
+            {
+                var def = Consumables.For(tile.Type);
+                int owned = ProgressStore.OwnedConsumables(tile.Type);
+                loadoutConsumables.TryGetValue(tile.Type, out int equipped);
+
+                // Three states, and each one has to be readable at arm's length: not owned (price),
+                // owned and left behind (how many you have), owned and coming with you (gold).
+                tile.Label.text = owned <= 0
+                    ? $"{def.DisplayName}\n{def.CoinPrice}c"
+                    : equipped > 0 ? $"{def.DisplayName}\nCARRYING" : $"{def.DisplayName}\nx{owned}";
+
+                tile.Label.color = equipped > 0 ? Gold
+                                 : owned > 0 ? Body
+                                 : ProgressStore.Coins() >= def.CoinPrice
+                                     ? new Color(0.78f, 0.72f, 0.55f)
+                                     : new Color(0.45f, 0.46f, 0.5f);
+                tile.Image.color = equipped > 0 ? new Color(0.26f, 0.30f, 0.20f)
+                                                : new Color(0.16f, 0.17f, 0.21f);
+            }
         }
 
         LoadoutRow BuildLoadoutRow(RectTransform parent, float y, int index)
@@ -577,7 +725,7 @@ namespace ArmedConflict.UI
             if (!Loadout.IsLegal(loadoutPicks, loadoutLevel, loadoutRoster,
                                  ProgressStore.IsUnitUnlocked)) return;
             HideLoadout();
-            onLoadoutBegin?.Invoke(loadoutPicks);
+            onLoadoutBegin?.Invoke(loadoutPicks, ConsumableActions.Equip(loadoutConsumables));
         }
 
         class LoadoutRow
@@ -599,12 +747,17 @@ namespace ArmedConflict.UI
         /// point is.
         /// </summary>
         public void ShowLoadout(LevelDefinitionSO level, RosterDefinitionSO roster,
-                                List<Pick> picks, System.Action<List<Pick>> onBegin)
+                                List<Pick> picks,
+                                System.Action<List<Pick>, IReadOnlyDictionary<ConsumableType, int>> onBegin)
         {
             loadoutLevel = level;
             loadoutRoster = roster;
             loadoutPicks = picks;
             onLoadoutBegin = onBegin;
+            // The carry selection does NOT persist across levels. An item survives a battle it was
+            // never used in — it is still in the inventory — but silently re-equipping it would
+            // spend it on a level the player never chose it for.
+            loadoutConsumables.Clear();
             loadoutPanel.SetActive(true);
             // The in-battle furniture belongs to a battle that has not started. The picker
             // carries its own balance, so leaving the pill up double-printed it and ghosted
@@ -654,6 +807,8 @@ namespace ArmedConflict.UI
                     ? $"BUY {entry.coinPrice}" : $"{entry.coinPrice}";
                 row.Name.color = unlocked ? Body : new Color(0.55f, 0.57f, 0.62f);
             }
+
+            RefreshConsumables();
 
             bool legal = Loadout.IsLegal(loadoutPicks, loadoutLevel, loadoutRoster,
                                          ProgressStore.IsUnitUnlocked);

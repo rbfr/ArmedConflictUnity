@@ -23,4 +23,5 @@ Sits outside `Assets/`, so Unity never imports it.
 | Plan | Covers | State |
 |---|---|---|
 | `TIER0_PLAN.md` | `PRODUCT_DIRECTION.md` Tier 0 — the product spine (0.1–0.6) | Phases A–F DONE; balance audit run, retune partly verified |
+| `TIER1_3_CONSUMABLES.md` | Tier 1.3 — the four base/tactical consumables | **DONE 2026-08-10**, device-confirmed. Overwatch Flare deliberately held |
 | `BACKLOG.md` | Asked for, not yet scheduled — one section per idea, with why | Not sequenced; pick one and give it its own plan file |

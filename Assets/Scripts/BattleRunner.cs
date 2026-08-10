@@ -107,6 +107,12 @@ public class BattleRunner : MonoBehaviour
     /// <summary>The squad chosen for THIS battle. Null means "as authored".</summary>
     List<EnemyGroup> loadoutGroups;
     /// <summary>
+    /// What the picker said the player is carrying. Held on the runner rather than read back out
+    /// of the state, because LoadLevel rebuilds the state from the level and would otherwise drop
+    /// it — the same reason loadoutGroups lives here.
+    /// </summary>
+    IReadOnlyDictionary<ConsumableType, int> loadoutConsumables;
+    /// <summary>
     /// The battle whose end has already been paid for. The award must run EXACTLY ONCE per
     /// battle: the Playing->over edge is a single frame, but a level with no enemies resolves on
     /// its first tick and the free camera keeps the finished battle ticking indefinitely
@@ -295,15 +301,17 @@ public class BattleRunner : MonoBehaviour
         {
             // No roster authored, or a rig: field the level exactly as written.
             loadoutGroups = null;
+            loadoutConsumables = null;
             LoadLevel(clamped);
             return;
         }
 
         ui.Hide();
         var picks = Loadout.Default(target, roster, ProgressStore.IsUnitUnlocked);
-        ui.ShowLoadout(target, roster, picks, chosen =>
+        ui.ShowLoadout(target, roster, picks, (chosen, consumables) =>
         {
             loadoutGroups = Loadout.ToPlayerGroups(target, chosen);
+            loadoutConsumables = consumables;
             LoadLevel(clamped);
         });
     }
@@ -326,6 +334,10 @@ public class BattleRunner : MonoBehaviour
             Phase = GamePhase.Playing,
             TurnPhase = TurnPhase.Aiming,
             SelectedAmmo = ProgressStore.SelectedAmmo(),
+            // The carry is per-battle: a RESTART re-runs the picker and re-equips, and the ◀ ▶
+            // stepper (which skips the picker) carries nothing, which is right — a debug sweep
+            // should not spend the player's inventory.
+            LoadedConsumables = EquippedFromInventory(),
         };
 
         scenery.Build(level, state.Structures);
@@ -359,6 +371,26 @@ public class BattleRunner : MonoBehaviour
         Debug.Log($"[Battle] L{level.levelNumber} {level.displayName}: " +
                   $"{state.PlayerUnits.Count} player, {state.EnemyUnits.Count} enemy, " +
                   $"{state.Structures.Count} structures");
+    }
+
+    /// <summary>
+    /// The picker's carry selection, CLAMPED to what the player still actually owns.
+    ///
+    /// The clamp is not paranoia. The ◀ ▶ stepper loads a level without re-running the picker, so
+    /// last battle's selection is still sitting here — and if the item was used, the inventory
+    /// behind it is gone. Without this the HUD would offer a phantom item that no spend backs.
+    /// </summary>
+    IReadOnlyDictionary<ConsumableType, int> EquippedFromInventory()
+    {
+        var equipped = ConsumableActions.Equip(loadoutConsumables);
+        var clamped = new Dictionary<ConsumableType, int>();
+        foreach (var kv in equipped)
+        {
+            int owned = ProgressStore.OwnedConsumables(kv.Key);
+            int n = Mathf.Min(kv.Value, owned);
+            if (n > 0) clamped[kv.Key] = n;
+        }
+        return clamped;
     }
 
     void HideAll()
@@ -917,7 +949,9 @@ public class BattleRunner : MonoBehaviour
             if (enemyWindup >= TurnFlow.EnemyWindupSeconds)
             {
                 enemyWindup = 0f;
+                var beforeEnemyVolley = state;
                 state = BattleTick.FireEnemyVolley(state, random);
+                SettleArmedSpend(beforeEnemyVolley, state);
                 VolleyAnim(playerSide: false);
                 // The enemy volley had no fire sound at all — PlayVolleyFire was only wired to
                 // the player's release path, so half the battle fired silently.
@@ -979,6 +1013,7 @@ public class BattleRunner : MonoBehaviour
             // Same trap the free-cam pad paid for: a tap that lands on a button must not ALSO
             // start an aim drag, or picking ammo throws a volley and ends the turn.
             if (AmmoSelectorRect.Contains(fromTop)) return;
+            if (ConsumableBarRect.Contains(fromTop)) return;
             dragging = true; dragStart = t.position; dragFrames = 0; worstDragDt = 0f;
         }
         else if (dragging && (t.phase == TouchPhase.Moved || t.phase == TouchPhase.Stationary))
@@ -1001,7 +1036,9 @@ public class BattleRunner : MonoBehaviour
         arc.Clear();
         if (aimVel.sqrMagnitude < 0.01f) return;
         if (state.TurnPhase != TurnPhase.Aiming) return;
+        var beforeVolley = state;
         state = BattleTick.FireVolley(state, aimVel, random, ammoCatalog);
+        SettleArmedSpend(beforeVolley, state);
         if (audioFx != null) audioFx.PlayVolleyFire();
         VolleyAnim(playerSide: true);
         Debug.Log($"[Battle] volley: {state.Projectiles.Count} rounds at " +
@@ -1430,6 +1467,16 @@ public class BattleRunner : MonoBehaviour
         ? new Rect(0f, 0f, 0f, 0f)
         : new Rect(30f, Screen.height - 348f, Screen.width - 60f, 104f);
 
+    /// <summary>
+    /// The consumable bar's footprint, directly above the ammo selector. Same ONE-definition rule
+    /// as the ammo row, and for the same reason: a tap that both triggers an item and starts an aim
+    /// drag would fire a volley on release, so the drag exclusion and the drawing must read the
+    /// identical rect.
+    /// </summary>
+    Rect ConsumableBarRect => Consumables.TotalEquipped(state?.LoadedConsumables) <= 0
+        ? new Rect(0f, 0f, 0f, 0f)
+        : new Rect(30f, Screen.height - 470f, Screen.width - 60f, 104f);
+
     Rect FreeCamPadRect => new(PadX, PadTop,
                                3f * PadButton + 2f * PadGap, 2f * PadButtonH + PadGap);
 
@@ -1598,6 +1645,7 @@ public class BattleRunner : MonoBehaviour
         GUI.enabled = true;
 
         DrawAmmoSelector();
+        DrawConsumables();
         DrawLevelNav();
         DrawFreeCamPad();
         DrawHud();
@@ -1672,6 +1720,124 @@ public class BattleRunner : MonoBehaviour
             }
             GUI.color = prev;
             GUI.enabled = true;
+        }
+    }
+
+    /// <summary>
+    /// The consumable triggers — `PROGRESSION_DESIGN.md` Phase 2's "triggered from the battle HUD
+    /// on the player's turn".
+    ///
+    /// ONLY WHAT THIS BATTLE IS CARRYING IS DRAWN. The bar is empty for a player who brought
+    /// nothing, which is most of them and every first-time player: an item you do not have is not
+    /// a decision, and four permanently dead buttons over the aim area would tax every turn of
+    /// every battle to advertise a shop.
+    ///
+    /// Two shapes, and the difference is visible in the label:
+    /// - **Armed** (Airstrike, Smoke) toggle to ARMED and are spent by the volley that fires them.
+    ///   The count stays on the button while armed — it is not gone until it has done something.
+    /// - **Instant** (Trauma Kit, Reinforce) resolve on the tap.
+    ///
+    /// The permanent ProgressStore spend happens HERE, not in the tick: the tick's use functions
+    /// are pure so PortSelfTest can fire them freely, and a PlayerPrefs write inside one would
+    /// drain the editor's own inventory on every run.
+    /// </summary>
+    void DrawConsumables()
+    {
+        if (state.Phase != GamePhase.Playing) return;
+        if (Consumables.TotalEquipped(state.LoadedConsumables) <= 0) return;
+
+        var bar = ConsumableBarRect;
+        const float Gap = 10f;
+        var carried = Consumables.All.Where(c => Consumables.Equipped(state, c.Type) > 0).ToList();
+        if (carried.Count == 0) return;
+
+        float w = Mathf.Min(360f, (bar.width - Gap * (carried.Count - 1)) / carried.Count);
+        var label = new GUIStyle(GUI.skin.button) { fontSize = 24, alignment = TextAnchor.MiddleCenter };
+        bool canUse = ConsumableActions.CanUse(state) && !dragging;
+
+        for (int i = 0; i < carried.Count; i++)
+        {
+            var def = carried[i];
+            int have = Consumables.Equipped(state, def.Type);
+            bool armed = def.Type == ConsumableType.Airstrike ? state.AirstrikeArmed
+                       : def.Type == ConsumableType.SmokeScreen && state.SmokeScreenArmed;
+            // The relief squad is one per battle whichever path calls it, so the button goes dead
+            // once it has been sent rather than taking a tap that would do nothing.
+            bool spent = def.Type == ConsumableType.EarlyReinforcements && state.ReinforcementsSent;
+
+            var r = new Rect(bar.x + i * (w + Gap), bar.y, w, bar.height);
+            var prev = GUI.color;
+            GUI.color = armed ? new Color(1f, 0.85f, 0.3f) : Color.white;
+            GUI.enabled = canUse && !spent;
+
+            string caption = armed ? $"{def.ShortName}\nARMED" : $"{def.ShortName} ({have})";
+            if (GUI.Button(r, caption, label)) UseConsumable(def);
+
+            GUI.color = prev;
+            GUI.enabled = true;
+        }
+    }
+
+    /// <summary>
+    /// One tap on a consumable. Arms the armed ones; resolves the instant ones and spends them.
+    /// </summary>
+    void UseConsumable(ConsumableDefinition def)
+    {
+        if (def.IsArmed)
+        {
+            // No spend here, deliberately — see ConsumableActions. The item is spent by the volley
+            // that carries it, and the runner picks that up in SettleArmedSpend.
+            state = ConsumableActions.ToggleArmed(state, def.Type);
+            Debug.Log($"[Consumable] {def.Type} armed=" +
+                      (def.Type == ConsumableType.Airstrike ? state.AirstrikeArmed
+                                                            : state.SmokeScreenArmed));
+            return;
+        }
+
+        var before = state;
+        state = def.Type switch
+        {
+            ConsumableType.TraumaKit => ConsumableActions.UseTraumaKit(state),
+            ConsumableType.EarlyReinforcements => ConsumableActions.UseEarlyReinforcements(state),
+            _ => state,
+        };
+
+        // Spend the permanent inventory only if the action actually took. Every use function
+        // returns the state UNCHANGED when it refuses, so reference equality is the whole test —
+        // GameState uses it on purpose, and here that is exactly what is wanted.
+        if (!ReferenceEquals(before, state))
+        {
+            ProgressStore.SpendConsumable(def.Type);
+            // The log reports what CHANGED, not that a method was called — a "TraumaKit used" line
+            // is exactly the input-assertion this project keeps paying for. From a device, HP
+            // restored is the only thing that settles whether the item did anything.
+            if (def.Type == ConsumableType.EarlyReinforcements)
+                Debug.Log($"[Consumable] reinforcements: {before.PlayerUnits.Count} -> " +
+                          $"{state.PlayerUnits.Count} player units");
+            else
+                Debug.Log($"[Consumable] {def.Type}: hp {before.PlayerUnits.Sum(u => u.Hp)} -> " +
+                          $"{state.PlayerUnits.Sum(u => u.Hp)}");
+        }
+    }
+
+    /// <summary>
+    /// Spends the permanent inventory for an ARMED item the moment a volley consumes it.
+    ///
+    /// It watches the armed FLAG fall, which is not the "inferred from a list-length delta" trap
+    /// this project has been bitten by: the flag exists for exactly this purpose, only firing
+    /// clears it, and the tick clears it in the same expression that decrements the carry.
+    /// </summary>
+    void SettleArmedSpend(GameState before, GameState after)
+    {
+        if (before.AirstrikeArmed && !after.AirstrikeArmed)
+        {
+            ProgressStore.SpendConsumable(ConsumableType.Airstrike);
+            Debug.Log("[Consumable] Airstrike fired");
+        }
+        if (before.SmokeScreenArmed && !after.SmokeScreenArmed)
+        {
+            ProgressStore.SpendConsumable(ConsumableType.SmokeScreen);
+            Debug.Log("[Consumable] Smoke Screen spent on the enemy volley");
         }
     }
 

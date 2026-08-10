@@ -112,6 +112,12 @@ namespace ArmedConflict.Game
                                       dt, 0.35f);
                 }
 
+                // The relief squad keeps running even though the battle is over. A jogging man
+                // frozen mid-stride the instant victory lands is the same artefact as a value
+                // that only decays inside the combat block — and the men are on screen, because
+                // this path deliberately re-frames onto the survivors.
+                var endMarch = StepMarch(s.PlayerUnits, dt, out bool endMarching);
+
                 return s with
                 {
                     Projectiles = ProjectileSystem.Cull(stepped, new HashSet<int>(),
@@ -122,6 +128,8 @@ namespace ArmedConflict.Game
                     Helicopter = helicopter,
                     NextExplosionSlot = nextExplosionSlot,
                     ShakeIntensity = shake,
+                    PlayerUnits = endMarch,
+                    PlayerMarchInProgress = endMarching,
                     CameraFollowX = endX,
                     CameraFollowXVelocity = endXVel,
                     CameraFollowZ = endZ,
@@ -149,6 +157,11 @@ namespace ArmedConflict.Game
             // --- 3. damage and deaths ----------------------------------------------------
             var enemyUnits = ApplyDamage(s.EnemyUnits, hits, dt, out var enemyKilled);
             var playerUnits = ApplyDamage(s.PlayerUnits, hits, dt, out var playerKilled);
+
+            // The relief squad jogs in from the player's edge to its formation slots. They are
+            // full roster members from the moment they spawn — a volley fired mid-march simply
+            // launches from wherever each man has got to.
+            playerUnits = StepMarch(playerUnits, dt, out bool marching);
 
             // INCENDIARY: mark the SURVIVORS of an incendiary hit. CollisionSystem has populated
             // IncendiaryHitUnitIds since the port and nothing has ever read it. The dead are
@@ -647,6 +660,7 @@ namespace ArmedConflict.Game
                 Projectiles = projectiles,
                 Explosions = explosions,
                 PlayerUnits = playerUnits,
+                PlayerMarchInProgress = marching,
                 EnemyUnits = enemyUnits,
                 Structures = structures,
                 DyingUnits = dyingUnits,
@@ -959,12 +973,28 @@ namespace ArmedConflict.Game
                 ammo);
             rounds.AddRange(shells);
 
+            // AIRSTRIKE: one off-roster splash round, dropped from high overhead onto the same
+            // point the volley is going. Same "no owning UnitEntity" pattern as the tank shell —
+            // losing the whole line does not ground it, and it is not a body to be shot at.
+            int grenadeSlot = s.NextGrenadeSlot;
+            if (s.AirstrikeArmed)
+            {
+                rounds.Add(Airstrike(volleyTarget, ref grenadeSlot));
+            }
+
             return s with
             {
                 Projectiles = rounds,
                 NextBulletSlot = slot,
                 NextShellSlot = shellSlot,
+                NextGrenadeSlot = grenadeSlot,
                 TankShellsRemaining = s.TankShellsRemaining - shells.Count,
+                // Consumed BY THE VOLLEY, not by the tap that armed it. The runner watches this
+                // flag fall to make the permanent inventory spend.
+                AirstrikeArmed = false,
+                LoadedConsumables = s.AirstrikeArmed
+                    ? Consumables.Decrement(s.LoadedConsumables, ConsumableType.Airstrike)
+                    : s.LoadedConsumables,
                 TurnPhase = TurnPhase.Resolving,
                 TurnSide = TurnSide.Player,
             };
@@ -973,6 +1003,114 @@ namespace ArmedConflict.Game
         /// <summary>Shell ids sit in their own band, like the bullets' 10000 and the enemy's
         /// 20000. Raw ids have to stay globally unique — hit tracking keys off them.</summary>
         const int ShellIdBase = 30000;
+
+        /// <summary>
+        /// Smoke Screen doubles the enemy's aim jitter radius for exactly one volley
+        /// (`EnemyAI.JitterRadius`). Two is the figure the Kotlin shipped and it is the whole
+        /// effect — no new state, no new pipeline, one knob that already existed.
+        /// </summary>
+        public const float SmokeScreenJitterMultiplier = 2f;
+
+        // ---- the Airstrike consumable ------------------------------------------------------
+        //
+        /// <summary>Airstrike ids get their own band, beside the shells' 30000.</summary>
+        const int AirstrikeIdBase = 40000;
+        /// <summary>
+        /// How high the round is dropped from.
+        ///
+        /// **This is NOT off-frame, and an earlier version of this comment claimed it was.** A
+        /// soldier is ~1.30 world units tall (2.70 model x UnitGeometry.UnitScaleUnits 0.48), so
+        /// 5.0 is under FOUR soldier-heights — about a fifth of the frame's height, well inside
+        /// the picture. The round pops into existence in clear sky, mid-screen. That is the
+        /// presentation gap tracked in `_plans/BACKLOG.md` as "the Airstrike has no author", and
+        /// raising this number is one of the candidate fixes there — but only one of them, and
+        /// not the one that matters most.
+        /// </summary>
+        public const float AirstrikeOriginY = 5.0f;
+        /// <summary>
+        /// The plunge takes this long, and it is its OWN fixed constant — never the player's
+        /// flight time.
+        ///
+        /// A flat, direct drag (the precision-aim style this game supports) can put the real volley
+        /// in the air for under 0.2s. Reusing that for a 5-unit vertical drop forced the whole
+        /// visible arc through a handful of frames, which reads as "nothing happened" — the exact
+        /// failure the Kotlin recorded. A generous fixed duration guarantees a legible fall however
+        /// the player aimed.
+        /// </summary>
+        public const float AirstrikeFlightTime = 1.4f;
+        public const int AirstrikeDamage = 24;
+        public const float AirstrikeSplashRadius = 1.1f;
+        public const float AirstrikeStructureMultiplier = 2f;
+
+        /// <summary>
+        /// The airstrike round: a Grenade-type splash shot solved to arrive at `target` after
+        /// exactly `AirstrikeFlightTime`, straight down from `AirstrikeOriginY` above it.
+        ///
+        /// It reuses the Grenade pool, visual and splash path as-is — the item is a new BUTTON,
+        /// not a new combat pipeline, which is what `PROGRESSION_DESIGN.md` asks of all three.
+        /// </summary>
+        static ProjectileEntity Airstrike(Vector3 target, ref int slot)
+        {
+            // Straight down onto the target: horizontal velocity is zero, and the vertical is
+            // whatever covers the drop in the fixed time under this game's gravity.
+            float vy = (0f - AirstrikeOriginY) / AirstrikeFlightTime
+                     + 0.5f * TrajectoryPhysics.Gravity * AirstrikeFlightTime;
+            return new ProjectileEntity(
+                Id: AirstrikeIdBase + slot++,
+                X: target.x, Y: AirstrikeOriginY, Z: target.z,
+                Vx: 0f, Vy: vy, Vz: 0f,
+                Damage: AirstrikeDamage,
+                OwnerIsPlayer: true)
+            {
+                Type = ProjectileType.Grenade,
+                SplashRadius = AirstrikeSplashRadius,
+                StructureDamageMultiplier = AirstrikeStructureMultiplier,
+                IsAirstrike = true,
+            };
+        }
+
+        /// <summary>
+        /// How fast a reinforcement jogs to its slot, in units per second.
+        ///
+        /// dt-PARAMETERISED, never a per-tick multiply: this runs on the same varying dt every
+        /// other motion here does.
+        /// </summary>
+        public const float MarchSpeed = 2.4f;
+
+        /// <summary>
+        /// Walks any player unit still carrying a `MarchTargetX` toward it, clearing the target on
+        /// arrival so the unit becomes an ordinary member of the line.
+        ///
+        /// **Without this the relief squad simply never arrives.** It spawns a formation's width
+        /// BEHIND the player line, off the edge the camera frames, and would stand there for the
+        /// rest of the battle: men bought, paid for and permanently out of the fight. The march is
+        /// the item, not decoration on it.
+        ///
+        /// Clearing the target on arrival is the other half. `GameState.IsVisuallyIdle` is false
+        /// while any player unit still carries one, and it is a LATCH — nothing else would ever
+        /// clear it, so the state would report something moving for the rest of the battle. Nothing
+        /// in this port reads that property yet (it is ported facility, asserted by PortSelfTest),
+        /// which is exactly why it would have gone wrong quietly.
+        /// </summary>
+        static List<UnitEntity> StepMarch(IReadOnlyList<UnitEntity> units, float dt,
+                                          out bool marching)
+        {
+            marching = false;
+            var list = units as List<UnitEntity> ?? units.ToList();
+            bool any = false;
+            foreach (var u in list) if (u.MarchTargetX != null) { any = true; break; }
+            if (!any) return list;
+
+            var stepped = new List<UnitEntity>(list.Count);
+            foreach (var u in list)
+            {
+                if (u.MarchTargetX is not float target) { stepped.Add(u); continue; }
+                float x = u.X + MarchSpeed * dt;
+                if (x >= target) stepped.Add(u with { X = target, MarchTargetX = null });
+                else { stepped.Add(u with { X = x }); marching = true; }
+            }
+            return stepped;
+        }
 
         /// <summary>
         /// The muzzle height FireVolley gives every infantry round, above the shooter's feet.
@@ -1176,11 +1314,18 @@ namespace ArmedConflict.Game
             var rounds = new List<ProjectileEntity>(s.Projectiles);
             var aim = new Dictionary<int, float>(s.EnemyUnits.Count);
             int slot = s.NextBulletSlot;
+
+            // SMOKE SCREEN: this one volley is fired through smoke, so every shooter's aim wanders
+            // twice as far. It is spent HERE, at the volley it affects — the same "consumed by the
+            // thing it does, not by the tap that armed it" rule the Airstrike follows.
+            float jitterMultiplier = s.SmokeScreenArmed ? SmokeScreenJitterMultiplier : 1f;
+
             foreach (var e in s.EnemyUnits)
             {
                 var target = s.PlayerUnits[random.Next(s.PlayerUnits.Count)];
                 var v = EnemyAI.AimAt(new Vector3(e.X, e.Y + 0.35f, e.Z),
-                                      new Vector3(target.X, target.Y, target.Z));
+                                      new Vector3(target.X, target.Y, target.Z),
+                                      jitterMultiplier);
 
                 // The elevation this unit is ABOUT TO FIRE at, read back off the velocity rather
                 // than drawn again — AimAt picks its arc at random, so a second draw would pose
@@ -1201,6 +1346,10 @@ namespace ArmedConflict.Game
                 Projectiles = rounds,
                 NextBulletSlot = slot,
                 EnemyAimDegrees = aim,
+                SmokeScreenArmed = false,
+                LoadedConsumables = s.SmokeScreenArmed
+                    ? Consumables.Decrement(s.LoadedConsumables, ConsumableType.SmokeScreen)
+                    : s.LoadedConsumables,
                 TurnPhase = TurnPhase.Resolving,
                 TurnSide = TurnSide.Enemy,
             };

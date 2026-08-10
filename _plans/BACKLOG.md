@@ -72,34 +72,110 @@ Worth knowing before anyone spends time on it:
 
 ---
 
-## A NullReferenceException every frame on the LOADOUT screen — found 2026-08-10
+## UNRESOLVED: the AIRSTRIKE has no author — raised by Rob 2026-08-10
 
-Not asked for; found while device-testing the flame, and **pre-existing** — the flame is not
-implicated (see below). Nothing visibly breaks: the loadout screen renders correctly, BEGIN works,
-and the battle runs clean at 60 fps.
+**Asked, on the day it shipped: "do we actually show something fly across the screen from the
+player's side and strafe the enemy, or is it just explosions out of nowhere? user needs to see
+more value if the latter."** It is much closer to the latter, and the answer below is read off the
+code, not remembered.
 
-**The measurement**, taken with the app focused and logcat cleared immediately before each window:
+**What the player actually sees today:**
 
-```
-195 NullReferenceExceptions in 3 seconds on the LOADOUT screen  (~65/s = one per frame)
-  0 NullReferenceExceptions in 3 seconds IN BATTLE
-```
+- A single **grenade** — literally the grenadier's `projectile_grenade` prefab, olive-lime, 0.16
+  scale — **pops into existence in mid-air**, no fade-in, nothing preceding it.
+- It falls **straight down** (`vx = 0`) for **1.4s** onto the volley's landing point, mixed in
+  among eleven infantry arcs.
+- Impact runs the **standard splash path**: same blast, same scorch, same `PlayExplosion` as any
+  grenade. `ProjectileEntity.IsAirstrike` is set and **read nowhere** — it has no rendering
+  meaning at all.
+- **No aircraft, no approach, no strafing run, no dedicated sound, no ground telegraph.**
 
-`BattleRunner.Update` is the only frame in the IL2CPP trace — a release build carries no line
-numbers, so that is as far as the stack goes.
+**Two specifics that make it worse than that sounds:**
 
-**Why the flame is ruled out:** `SyncFlames` runs from `Render()`, which `Update` calls on EVERY
-frame in BOTH contexts. Code that runs in both cannot explain an exception that occurs in only one.
+1. **It is the same object the grenadier throws**, in the same material at the same size. Nothing
+   distinguishes a 250-coin airstrike from one more round in the volley. On the device capture it
+   was only findable because one round falls nose-down while the rest fly arcs.
+2. **It does not come from off-screen.** `AirstrikeOriginY` is 5.0 and a soldier is ~1.30 world
+   units tall, so it spawns under four soldier-heights up — about a fifth of the frame height,
+   comfortably inside the picture. *The code comment on that constant used to claim it read as
+   coming from off the top of the frame. It does not; the comment is corrected.*
 
-**Where to look.** `Update` runs the whole tick and `Render` while the picker is open — only
-`HandleInput` early-returns on `ui.LoadoutOpen`. So something the tick or the renderer touches is
-null *before a battle has been entered* and not after. Prime suspects, cheapest first: `level`, and
-anything `Render` reads off the not-yet-loaded level. **Put a probe in rather than reading for it**
-— one build, a log at the top of each Sync\* — and note that the release build's stack will not
-narrow it for you.
+**The design problem, stated plainly: the most expensive consumable has the least legible
+presentation.** Its mechanics are fine — 24 damage, 1.1 splash, 2x against structures, the only
+thing besides the tank shell that hurts a building — but the player cannot SEE what they bought.
+That is worse for a consumable than for a permanent unlock, because it is gone after one use and
+there is no second chance to appreciate it. `PRODUCT_DIRECTION.md`'s dopamine model is the doc
+that governs.
 
-Worth fixing rather than ignoring: it is a thrown exception plus a stack capture per frame, on the
-one screen where the player is sitting still and reading.
+**Candidate fixes, cheapest first. None is chosen:**
+
+- **A growing ground shadow under the falling round.** Probably the best value of the lot: it
+  telegraphs WHERE, which makes the 1.4s of hang time suspenseful instead of merely long, and it
+  is the one change that adds gameplay information rather than decoration. The shadow pool exists
+  but currently serves units only, and ground decals are sized in DEPTH, never width — the camera
+  sits ~6 degrees above the plane.
+- **Its own silhouette and its own blast.** A larger, darker bomb shape and a bigger explosion
+  scale, so it is not the grenadier's round. `IsAirstrike` is already on the projectile and read
+  by nothing, so the renderer has the hook it needs for free.
+- **Its own sound** — a whistle on the way down. Audio is per-event already (`PlayExplosion`,
+  `PlayGroundImpact`); there is no airstrike entry.
+- **Raise the spawn genuinely off-frame**, so it enters the picture rather than appearing in it.
+  Cheap, but on its own it just moves the pop-in somewhere less visible.
+- **A plane that crosses and strafes** is the expensive option, and it is not obviously right:
+  it drags in a second moving subject for the camera to hold at the same time as the ground
+  exchange, which is exactly the load problem that keeps `HELI_ENABLED` switched off. Read
+  `CAMERA_ARCHITECTURE.md` before costing this one — the camera is LOCKED.
+
+Worth doing before any of it: watch one on a device at full speed rather than in a contact sheet.
+The judgement above is from a 12 fps capture plus the code, and "1.4s of hang time reads as
+nothing" is a hypothesis about feel, not a measurement.
+
+---
+
+## A crowd-runner BONUS LEVEL — asked 2026-08-10
+
+Rob's ask, in his words: "a bonus level that plays like those vertical scrollers where you have a
+small force of units initially, you go through gates like x3 or +10 to increase the size, with
+enemies coming down".
+
+**The genre is the crowd runner** — *Count Masters: Crowd Runner*, *Join Clash*, *Crowd City*. The
+loop: a squad runs forward on rails, the player steers left/right only, multiplier gates (`x3`,
+`+10`, and their punishing siblings `-15`, `÷2`) sit in pairs so picking one refuses the other, and
+obstacles and oncoming enemies shave the crowd. It ends in a mass collision where the surviving
+COUNT is the whole result. The reason it works is that the number on screen is the score, the health
+bar and the power-up at once, and steering is the only verb.
+
+**Why it is a genuinely good fit here, and worth more than a novelty:**
+
+- The game already owns a **crowd of soldiers as its unit of value** — the loadout picker is
+  literally a count of troops, and a level is won or lost on how many men are left. A mode whose
+  entire scoreboard is "how many did you finish with" speaks the game's existing language.
+- It is the **first mode that could pay in TROOPS rather than coins**, which `PRODUCT_DIRECTION.md`
+  has no answer for today.
+- One rails camera and one input axis means it borrows nothing from `CAMERA_ARCHITECTURE.md`, which
+  is LOCKED. It cannot destabilise the thing this project has spent the most time protecting.
+
+**Open questions, none of them small:**
+
+- **It shares no mechanic with the game.** No drag, no arc, no guessing angle and power — the one
+  thing `GAME_DESIGN_LOCKS.md` builds everything else around. That is either the point (a bonus
+  level is a palate cleanser) or it is a second game wearing this one's uniform. Worth deciding
+  deliberately, because it also decides how much art and tech it may honestly borrow.
+- **What does it pay, and can it be farmed?** If it pays coins it competes with the campaign as a
+  grind; if it pays a one-off unlock it is content, not a loop. The stuck-player valve is what
+  consumables are for, so this should probably NOT be another one.
+- **Where does it sit?** A gate between stages, a daily, or an always-available side door — each
+  implies a different amount of it.
+- **What does the crowd DO at the end?** The genre's finale is a mass melee against a boss blob.
+  This game has no melee: `SkirmishEntity` is defined and, like advancing squads, **is not ported**
+  (see the Tier 1.3 write-up). So either the finale is a volley — which quietly returns it to the
+  real game and might be the best idea in this whole entry — or melee gets built.
+- **Art cost is the real bill**, not code: a rails runner wants a forward-facing camera and
+  therefore front-on unit silhouettes, and every unit in this game is authored and MEASURED for a
+  side-on camera at ~6° (`UNIT_VARIETY_DESIGN.md`, "width is all there is"). A crowd seen from
+  behind is a new silhouette problem, not the solved one.
+
+Not scheduled, and nothing above is a decision.
 
 ---
 
