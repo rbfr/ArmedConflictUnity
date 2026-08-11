@@ -25,3 +25,4 @@ MonoBehaviour:
   starsToUnlock: 0
   unlockRewardId: sniper
   completionCoinBonus: 150
+  faction: {fileID: 11400000, guid: 8da0f57f41f0d2a1c9d8a719ef618143, type: 2}

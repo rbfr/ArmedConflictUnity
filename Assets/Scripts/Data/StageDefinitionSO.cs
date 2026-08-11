@@ -14,5 +14,12 @@ namespace ArmedConflict.Data
         public int starsToUnlock;
         public string unlockRewardId;
         public int completionCoinBonus = 0;
+
+        /// <summary>
+        /// Who the enemy IS on this stage — Tier 2.1. Optional: a stage with no faction fields
+        /// the enemy's default red, which is exactly the pre-2026-08-12 behaviour and is also what
+        /// every test rig gets, since a rig belongs to no stage.
+        /// </summary>
+        public FactionDefinitionSO faction;
     }
 }

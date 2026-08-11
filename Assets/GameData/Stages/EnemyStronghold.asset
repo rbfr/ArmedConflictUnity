@@ -25,3 +25,4 @@ MonoBehaviour:
   starsToUnlock: 8
   unlockRewardId: rocket_trooper
   completionCoinBonus: 300
+  faction: {fileID: 11400000, guid: 9fa832f293e959f24a4330b2e8faf76c, type: 2}
