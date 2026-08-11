@@ -1,21 +1,19 @@
-# Handover — Unity, as of 2026-08-12
+# Handover — Unity, as of 2026-08-11 (second session that day)
 
 ## START HERE
 
-- **2026-08-11's airstrike work IS COMMITTED and the tree is clean** (checked at the start of
-  2026-08-12). Read "What 2026-08-11 changed" below before touching the airstrike. **Always
-  `git status` first rather than trusting this line** — the previous session ended with seven
-  uncommitted files and this bullet said so for a day.
-- **`main` WAS PUSHED on 2026-08-12** — nineteen commits, everything from 2026-08-10's airstrike
-  arc through Tier 2.1's factions. That was the first push in three sessions, so a line in this
-  file saying otherwise is stale by definition: **`git log --oneline origin/main..HEAD` is the
-  answer, never this bullet.** Rob commits and pushes on an explicit ask.
-  Before it, 2026-08-10 closed with **eleven commits on `main` here and one in the ART repo**
-  (`build_attack_plane.py`): the loadout NRE guard, Tier 1.3's consumables, the airstrike's whole
-  aircraft arc (beat, orientation, height, sound, strafing burst, tracer bomb, and the projectile
-  scale regression that arc caused), the RIGS test supply, and the docs — all of it now pushed.
+- **EVERYTHING IS COMMITTED AND PUSHED**, as of the close of 2026-08-11's SECOND session — twenty
+  commits went up, covering 2026-08-10's airstrike arc, 2026-08-11's airstrike rework, and Tier
+  2.1 factions + Tier 2.4 camo. That was the first push in three sessions.
+  **`git status` and `git log --oneline origin/main..HEAD` are the answer, never this bullet** —
+  it has been wrong before and the previous version of it claimed the opposite for a day.
+  Rob commits and pushes on an explicit ask.
   The Android repo's `projectile-refinement` is never being merged; **the Android build is
   RETIRED**, reference only.
+- **TWO SESSIONS RAN ON 2026-08-11 and this file distinguishes them by subject, not by date.**
+  The first rebuilt the airstrike ("What 2026-08-11 changed", below) and Rob signed it off. The
+  second built Tier 2.1 and 2.4. Anything dated 2026-08-12 in an older revision of these docs was
+  mislabelled and has been corrected.
 - **ALL OF TIER 0 IS DONE AND SIGNED OFF.** The Phase E balance audit — the last thing it owed —
   was run on 2026-08-07 in both halves, and Rob played the campaign afterwards and reported the
   levels feel fine. That closed it.
@@ -25,31 +23,64 @@
   schedule covers two levels. **Wind is the other half and is still blocked** — see below.
 - **TIER 1.3 IS BUILT** — four consumables, bought, carried and fired, confirmed on device
   2026-08-10. **Overwatch Flare is deliberately not among them**; see its section.
-- **THE AIRSTRIKE HAS AN AIRCRAFT** (2026-08-10), and 2026-08-11 rebuilt almost everything about
-  how it reads. It cuts the camera to the strike, enters across the LEFT EDGE, rakes the WHOLE
-  ENEMY POSITION with tracer streaks, and its bomb LANDS WITH the player's volley rather than
-  before it. **Rob signed it off: "ok this will work."** See "What 2026-08-11 changed".
-- **TIER 2.1 (ENEMY FACTIONS) AND TIER 2.4 (PLAYER CAMO) ARE BOTH BUILT** (2026-08-12) and both
+- **THE AIRSTRIKE HAS AN AIRCRAFT** (2026-08-10), rebuilt almost entirely on 2026-08-11. It cuts
+  the camera to the strike, enters across the LEFT EDGE, rakes the WHOLE ENEMY POSITION with
+  tracer streaks, and its bomb LANDS WITH the player's volley rather than before it.
+  **Rob signed it off: "ok this will work."** See "What 2026-08-11 changed".
+- **TIER 2.1 (ENEMY FACTIONS) AND TIER 2.4 (PLAYER CAMO) ARE BOTH BUILT** and both
   device-confirmed. Factions: L1's Redguard red, L7's Ironclad Legion steel blue-grey, and L1 red
   AGAIN after stepping back — the third of those is the evidence, not the second. Camo: Arctic
   White on the infantry and the tank crew with the tank itself unchanged, and Olive back the moment
-  RIGS was switched off. See both sections below. **NEITHER HAS BEEN SEEN BY ROB.**
-- **RIGS NOW LENDS THE WARDROBE TOO.** Any camo, free, session-only, writing nothing — same bargain
-  as the consumable supply and for the same reason.
-- **RIGS NOW DOUBLES AS A FREE CONSUMABLE SUPPLY** for testing, writing nothing to the economy.
-  Use it — otherwise verifying any consumable change costs a 250-coin re-earn on every build.
+  RIGS was switched off. See both sections below. **NEITHER HAS BEEN SEEN BY ROB** — every device
+  confirmation in them is mine, not his.
+- **RIGS IS THE TEST SUPPLY FOR BOTH CONSUMABLES AND CAMO** — every item free to equip, every camo
+  free to wear, nothing spent and nothing written to the economy or the wardrobe. Use it: the
+  release build is not debuggable, `run-as` cannot reach PlayerPrefs, and the test protocol is
+  uninstall/reinstall — so without it, verifying one consumable costs a ~250-coin re-earn per
+  build and one camo costs up to 400.
 - **606 self-test checks, all passing — run `PortSelfTest.Run` after every change.** It was 281 at
   the start of 2026-08-06, 411 at the end of it, 444 on 2026-08-07, 539 after the Tier 1.2 and
   glyph-coverage blocks, 559 with the flame and the Auto-ammo pair, 576 with Tier 1.3's
-  consumables, 582 with the airstrike's aircraft, 585 with its strafing burst, and 587 with the burst's
-  absolute count-and-budget check and the aircraft's left-edge entry, and 592 with 2026-08-11's
-  rake-coverage, aim-independence, whole-burst and impact-alignment checks, 599 with Tier 2.1's seven
-  faction checks, and 606 with Tier 2.4's camo block. **Assert related facts TOGETHER** — Tier
-  1.3's block was first written as 50 assertions over 307 lines and is 18 over 232, with the same
-  nine breakages still caught. A failure message naming three properties is as diagnostic as three
-  checks, and this file is read by people.
+  consumables, 582 with the airstrike's aircraft, 585 with its strafing burst, 587 with the burst's
+  absolute count-and-budget check and the aircraft's left-edge entry, 592 with 2026-08-11's
+  rake-coverage, aim-independence, whole-burst and impact-alignment checks, 599 with Tier 2.1's
+  seven faction checks, and 606 with Tier 2.4's camo block. **Assert related facts TOGETHER** —
+  Tier 1.3's block was first written as 50 assertions over 307 lines and is 18 over 232, with the
+  same nine breakages still caught. A failure message naming three properties is as diagnostic as
+  three checks, and this file is read by people.
 
-### What 2026-08-11 changed — the airstrike, rebuilt in five passes
+### What the SECOND 2026-08-11 session changed — Tier 2.1 and 2.4, the two repaint features
+
+Both are in their own sections below. What belongs at the top is the cross-cutting lesson, because
+it is the fifth session running to produce one:
+
+**A CHECK CAN BE UNFALSIFIABLE FOR MORE THAN ONE REASON AT A TIME, and fixing the first one does
+not make it a check.** The camo vanity check — same seeded volley under two camo sets, demanding
+identical damage — passed against a build where the camo really did buff damage 50%. Twice:
+
+1. the volley never landed, so both runs did zero damage and zero equals zero; then
+2. once that was fixed, the set was never actually WORN — `SelectedCosmetic` validates on read,
+   so selecting a set the player does not own silently returns Olive, and it was comparing Olive
+   with Olive.
+
+Only after both did it read `enemy 280/276`. **Fix one hole and re-run the breakage, do not assume
+the check is now live.**
+
+**AND A CHECK CAN INDICT THE WRONG THING WHEN ITS OWN METRIC IS NEW.** The faction distinctness
+check began as a luma-weighted rgb distance, which weights blue at 0.11; it scored Ironclad's steel
+blue-grey at 0.082 from the player's olive green and failed a palette the Kotlin build shipped and
+played fine. The metric was three hours old and the palette was three weeks old. It is an
+opponent-colour distance now, and only a coarse floor. Same family as the "ASCII only" glyph check
+that flagged 23 strings a device screenshot then showed rendering perfectly: **be suspicious when a
+brand-new check indicts long-standing, apparently working content.**
+
+**A THIRD ONE, about where checks can reach at all.** `PortSelfTest` does not drive MonoBehaviours,
+so it tested `Cosmetics.TestOverride` rather than the tile's tap handler — and a test supply that
+quietly UNLOCKED a camo for real passed every check in the file. `BattleUIPreview` is the only
+harness that drives real uGUI; it now taps the tile and asks the STORE whether anything moved, and
+it caught that breakage on the first run (`unlocked 0->1, worn Olive->Arctic`).
+
+### What the FIRST 2026-08-11 session changed — the airstrike, rebuilt in five passes
 
 **Signed off by Rob: "ok this will work."** The whole session was one loop — build, put it on the
 device, let Rob look at it, be told what was actually wrong. **Every single pass was rejected for a
@@ -120,11 +151,14 @@ After touching this beat, fire one on a device and read the log AND listen.
 **WIND IS PARKED** — Rob's call, 2026-08-10. It is the only thing Tier 1.2 still owes and it is
 blocked on a physics decision (below), so tier work continues around it rather than waiting on it.
 
-0. **TIER 1.3 IS DONE, and so is the airstrike's presentation.** Both closed 2026-08-10 and both
-   are device-confirmed. `_plans/AIRSTRIKE_PLANE.md` is finished and can be archived per
-   `_plans/README.md` whenever someone is tidying.
+0. **NOTHING IS HALF-BUILT AND NOTHING IS UNCOMMITTED.** The session closed on a clean tree, a
+   pushed `main`, 606 green checks and two features Rob has not yet looked at. **The first thing
+   worth doing is putting the build in his hands** — factions read on the stage change, camo reads
+   on the loadout screen, and both are the kind of change only he can accept.
+   `_plans/AIRSTRIKE_PLANE.md` is finished and can be archived per `_plans/README.md` whenever
+   someone is tidying.
 
-   **TIER 2.1 (FACTIONS) AND 2.4 (PLAYER CAMO) ARE BOTH DONE** (2026-08-12). The stack's only
+   **TIER 2.1 (FACTIONS) AND 2.4 (PLAYER CAMO) ARE BOTH DONE** (2026-08-11). The stack's only
    unclaimed Tier 2 entries are now **2.2 crowd + hero readability** and **2.3 keep the roster
    mechanic-distinct** — both art/design asks against `UNIT_VARIETY_DESIGN.md`, which is seven
    recorded attempts at exactly that problem and should be read before anything is modelled. 2.3
@@ -138,17 +172,20 @@ blocked on a physics decision (below), so tier work continues around it rather t
    - **Wind is still cosmetic** — `windAccelZ` drifts the round in Z while the collision test is
      X/Y only, so wind cannot change what a shot hits.
 
-   **THE AIRSTRIKE IS DONE AND SIGNED OFF** (2026-08-11, "ok this will work"). Read "What
-   2026-08-11 changed" before touching it — six rejections in one session, none of which a green
-   suite could see. **It is committed** — the four commits landed; nothing is pushed.
+   **THE AIRSTRIKE IS DONE AND SIGNED OFF** (2026-08-11, "ok this will work"). Read "What the
+   FIRST 2026-08-11 session changed" before touching it — six rejections in one session, none of
+   which a green suite could see.
 
-   **Two SMALL open notes from Rob at the controls, neither urgent:**
+   **One SMALL open note, and one now CLOSED:**
    - The aircraft *"gets fairly large as it passes nearest the camera"* — brief and arguably the
      point, but `BattleTick.PlaneY` is a one-constant fix if it reads as too much. Judge it at full
      speed, not on a contact sheet.
-   - The pass-by sound's OFFSET has never been checked by ear since the beat was realigned. Its
-     anchor is now correct (the aircraft's release) but whether the peak still lands on the drop is
-     unverified — `screenrecord` captures no audio, so this needs a human.
+   - ~~The pass-by sound's offset has never been checked by ear.~~ **Rob's call, later on
+     2026-08-11: "the aircraft sound is fine for the moment."** Do not spend a session on it.
+
+   **The device was left with the app installed and 230 coins earned by Auto**, RIGS off, nothing
+   written to the wardrobe, and the screen timeout raised to 30 minutes. The coins are a test
+   install's, not a save worth protecting — the protocol is uninstall/reinstall anyway.
 
 <details>
 <summary>The Tier 1.3 briefing as it stood before the work — kept because its reasoning is the
@@ -197,7 +234,7 @@ standing lesson, not because it is current</summary>
    with one), **dead units sinking** into the ground instead of vanishing, and the **ragdoll /
    structure report**, which is PARTLY fixed and deliberately left open.
 
-## Enemy factions — Tier 2.1, built 2026-08-12
+## Enemy factions — Tier 2.1, built 2026-08-11
 
 **Two stages, two armies**: Redguard (Valley Front) is the existing enemy red, UNCHANGED, and
 Ironclad Legion (Enemy Stronghold) is steel blue-grey. The full reasoning — what a faction may
@@ -251,9 +288,10 @@ showed rendering perfectly: **be suspicious when a brand-new check indicts long-
 the two enemy side-materials the classification keys on). The materials must be the SAME asset
 references the enemy prefabs were toned with; reference equality is the whole mechanism.
 
-## Player camo — Tier 2.4, built 2026-08-12
+## Player camo — Tier 2.4, built 2026-08-11
 
-**The NINTH dead system.** `CosmeticSet`, `ProgressStore`'s cosmetic block and
+**The NINTH dead system** (factions, the other half of this session, were ABSENT rather than
+dead — see "assume NOTHING is wired"). `CosmeticSet`, `ProgressStore`'s cosmetic block and
 `EconomyStore.PurchaseCosmetic` were all ported and reached by nothing. Four sets now: Olive Drab
 free, Desert Tan 300c, Urban Grey 350c, Arctic White 400c, bought and worn in a strip below the
 consumables. Design detail is in `DYNAMISM_DESIGN.md`'s "Phase D4 in UNITY"; the traps are here.
@@ -1211,10 +1249,18 @@ engine, the font, the device — not against the summary someone wrote of them.
 
 ### The other standing lesson: assume NOTHING is wired
 
-**Nothing in this port is live just because it exists and has tests.** SIX systems have been
-found fully ported, unit-tested and reached by nothing — the economy, boss phases, reinforcement
-waves, stages, ammo, and (found 2026-08-10) **consumables**. **Grep for callers before believing a
-feature is live.**
+**Nothing in this port is live just because it exists and has tests.** The running count is at
+NINE systems found fully ported, unit-tested and reached by nothing — the economy, boss phases,
+reinforcement waves, stages, ammo, consumables (2026-08-10), advancing squads + melee (the EIGHTH,
+still unported, and the one holding Overwatch Flare) and **player cosmetics** (the NINTH, found
+and wired 2026-08-11 by a grep that returned three hits, all inside the files that define them).
+Every one but advancing squads is now live. **Grep for callers before believing a feature is
+live.**
+
+**Enemy factions were a different failure and worth telling apart**: not ported-and-dead but
+ABSENT — the Unity tree had three comments mentioning a faction palette and no code at all, while
+`DYNAMISM_DESIGN`'s status table called D1 shipped. Ported-and-dead greps as callers-inside-their-
+own-file; absent greps as nothing. **Both look identical in the design docs.**
 
 **And the design docs will not tell you.** Their Status tables say "shipped" about the **RETIRED
 ANDROID BUILD** — consumables are marked shipped in `PROGRESSION_DESIGN.md` Phase 2 and

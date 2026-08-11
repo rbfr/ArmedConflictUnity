@@ -279,10 +279,10 @@ reference itself does.
 | B1 | Wind shifts (schedule + telegraph) | shipped (2026-07-20) |
 | B2 | Reinforcement waves (`arrivesOnTurn` trigger + telegraph) | shipped (2026-07-20) |
 | C | Smoke Screen + Overwatch Flare | both shipped (2026-07-20, 2026-07-21) — in UNITY, **Smoke only** (2026-08-10); Overwatch held, see below |
-| D1 | Enemy factions per stage (palettes + identity surfacing) | shipped (2026-07-20); **ported to UNITY 2026-08-12** — TWO factions, one per stage, device-confirmed. See below |
+| D1 | Enemy factions per stage (palettes + identity surfacing) | shipped (2026-07-20); **ported to UNITY 2026-08-11** — TWO factions, one per stage, device-confirmed. See below |
 | D2 | Biome art per stage | rescoped + shipped as prop-dressing pass (2026-07-20) — see below |
 | D3 | New unit silhouettes (2–3 Blender builds + economy wiring) | shipped (2026-07-20) |
-| D4 | Player cosmetics | shipped (2026-07-20); **ported to UNITY 2026-08-12** — four camo sets, device-confirmed. See below |
+| D4 | Player cosmetics | shipped (2026-07-20); **ported to UNITY 2026-08-11** — four camo sets, device-confirmed. See below |
 
 Each slice ships independently and is playable on its own. A→B→C is the gameplay track;
 D1/D2 can run in parallel with any of it (art-heavy, low code risk). Update the Status
@@ -560,7 +560,7 @@ original green, enemy formation stayed red, no crash. Fired one live volley thro
 turn (enemy volley resolved, camera panned back) — cosmetic held steady through combat,
 no flicker, no reversion.
 
-## Phase D4 in UNITY — 2026-08-12
+## Phase D4 in UNITY — 2026-08-11
 
 **The NINTH dead system found in this port**: `CosmeticSet`, `ProgressStore`'s whole cosmetic
 block and `EconomyStore.PurchaseCosmetic` were all ported on day one and a grep for callers
@@ -596,11 +596,11 @@ test supply strikes, and for the same reason: the release build is not debuggabl
 borrowed camo back IN THE BATTLE YOU ARE STANDING IN, which is the same lesson the consumable
 supply learned.
 
-**Confirmed on device 2026-08-12**: Arctic White on the infantry and the tank crew with the tank
+**Confirmed on device 2026-08-11**: Arctic White on the infantry and the tank crew with the tank
 structure unchanged, the enemy still Redguard red, and the army back in Olive the moment RIGS was
 switched off.
 
-## Phase D1 in UNITY — 2026-08-12
+## Phase D1 in UNITY — 2026-08-11
 
 **Two factions, not four, because this port has two stages**: Redguard (Valley Front) keeps the
 existing enemy red UNCHANGED, and Ironclad Legion (Enemy Stronghold) is the Kotlin's steel
@@ -630,7 +630,7 @@ mesh-name prefixes, because that convention belongs to the art pipeline and a se
 can disagree with the first. `sharedMaterial`, not a `MaterialPropertyBlock`: every enemy on a
 level wears the same uniform, so one material per faction keeps the army in one batch.
 
-**Confirmed on device 2026-08-12, and the control is half the evidence**: L1 red → six ▶ steps to
+**Confirmed on device 2026-08-11, and the control is half the evidence**: L1 red → six ▶ steps to
 L7 steel blue-grey → six ◀ steps back to L1 red again. A single paint proves nothing here; the
 failure mode is a recycled slot keeping the previous stage's colours, and only the second and
 third paint can show it.
