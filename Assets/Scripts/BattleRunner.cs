@@ -403,10 +403,22 @@ public class BattleRunner : MonoBehaviour
     /// </summary>
     IReadOnlyDictionary<ConsumableType, int> EquippedFromInventory()
     {
+        // TEST SUPPLY CARRIES EVERYTHING, and does not ask the picker what you chose.
+        //
+        // It used to carry only the picker's selection, which made the switch almost useless for
+        // its own purpose: RIGS lives on the battle HUD, so turning it on mid-battle granted a
+        // free shelf you could not reach without finishing the level to get back to a picker.
+        // Rob, with RIGS on and no way to fire an airstrike: "thought that would expose it by
+        // default." It does now.
+        //
+        // This deliberately exceeds the locked CARRY CAP OF TWO — a testing state must be able to
+        // reach every item in one battle, and the HUD says TEST in as many words so a result is
+        // never recorded against this state believing it to be the player's. Nothing here is
+        // backed by an inventory, so there is nothing to clamp against either.
+        if (TestSupply)
+            return Consumables.All.ToDictionary(c => c.Type, _ => 1);
+
         var equipped = ConsumableActions.Equip(loadoutConsumables);
-        // Test supply is not backed by an inventory, so clamping it against one would silently
-        // empty the carry the picker just showed as equipped.
-        if (TestSupply) return equipped;
 
         var clamped = new Dictionary<ConsumableType, int>();
         foreach (var kv in equipped)
@@ -1899,7 +1911,15 @@ public class BattleRunner : MonoBehaviour
             GUI.color = armed ? new Color(1f, 0.85f, 0.3f) : Color.white;
             GUI.enabled = canUse && !spent;
 
-            string caption = armed ? $"{def.ShortName}\nARMED" : $"{def.ShortName} ({have})";
+            // The count is what the player has left; under test supply it is meaningless and the
+            // word TEST goes there instead. The loadout header says the same thing, and it says it
+            // for the same reason: a test mode that looks identical to the real one is how a
+            // "confirmed on device" gets recorded against a state no player can ever be in. Here
+            // it matters more than on the picker, because this bar is carrying FOUR items past a
+            // cap of two.
+            string caption = armed ? $"{def.ShortName}\nARMED"
+                           : TestSupply ? $"{def.ShortName}\nTEST"
+                           : $"{def.ShortName} ({have})";
             if (GUI.Button(r, caption, label)) UseConsumable(def);
 
             GUI.color = prev;
@@ -2017,6 +2037,19 @@ public class BattleRunner : MonoBehaviour
             showRigs = !showRigs;
             // Locking them again while standing on one would leave the session out of bounds.
             if (!showRigs && levelIndex > LastReachableIndex) LoadLevel(LastReachableIndex);
+
+            // THE SUPPLY LANDS IN THE BATTLE YOU ARE ALREADY IN. The carry is otherwise only read
+            // by LoadLevel, so a tap here changed nothing until the NEXT level — which is exactly
+            // the round trip that made the switch useless from the HUD it lives on. Re-reading it
+            // rather than adding items keeps ONE source of truth, so switching RIGS back off takes
+            // the shelf away again and restores whatever the picker really equipped.
+            //
+            // An ARMED item is disarmed on the way, because the flags outlive the carry: leaving
+            // an airstrike armed while its supply is withdrawn is a volley that spends an item the
+            // player does not have.
+            if (state != null)
+                state = state with { LoadedConsumables = EquippedFromInventory(),
+                                     AirstrikeArmed = false, SmokeScreenArmed = false };
         }
 
         // CAM sits beside the stepper, matching the shipping build's placement.
