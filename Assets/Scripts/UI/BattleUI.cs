@@ -70,9 +70,10 @@ namespace ArmedConflict.UI
         int shownBalance;
 
         GameObject loadoutPanel, beginButton, safeArea;
-        TMP_Text loadoutTitle, loadoutSummary, loadoutBalance;
+        TMP_Text loadoutTitle, loadoutSummary, loadoutBalance, loadoutFaction;
         LoadoutRow[] loadoutRows;
         LevelDefinitionSO loadoutLevel;
+        FactionDefinitionSO loadoutFactionDef;
         RosterDefinitionSO loadoutRoster;
         List<Pick> loadoutPicks = new();
         ConsumableTile[] consumableTiles;
@@ -213,10 +214,11 @@ namespace ArmedConflict.UI
         /// state is in the picture too.
         /// </summary>
         public void PreviewLoadout(LevelDefinitionSO level, RosterDefinitionSO roster,
-                                   ConsumableType? carrying = null, bool testSupply = false)
+                                   ConsumableType? carrying = null, bool testSupply = false,
+                                   FactionDefinitionSO faction = null)
         {
             var picks = Loadout.Default(level, roster, ProgressStore.IsUnitUnlocked);
-            ShowLoadout(level, roster, picks, testSupply, (_, __) => { });
+            ShowLoadout(level, roster, picks, testSupply, (_, __) => { }, faction);
             if (carrying is ConsumableType type) TapConsumable(type);
         }
 
@@ -485,20 +487,31 @@ namespace ArmedConflict.UI
             loadoutTitle.rectTransform.anchorMin = loadoutTitle.rectTransform.anchorMax
                 = new Vector2(0.5f, 1f);
             loadoutTitle.rectTransform.pivot = new Vector2(0.5f, 1f);
-            loadoutTitle.rectTransform.anchoredPosition = new Vector2(0f, -180f);
-            loadoutTitle.rectTransform.sizeDelta = new Vector2(1000f, 90f);
+            loadoutTitle.rectTransform.anchoredPosition = new Vector2(0f, -172f);
+            loadoutTitle.rectTransform.sizeDelta = new Vector2(1000f, 86f);
+
+            // WHO you are fighting, under the level's own name — Tier 2.1. The stack above the
+            // roster rows is title / enemy / troops / balance, and it is sized to end exactly on
+            // LoadoutRowTop: everything here is positioned from the panel's TOP, so a line added
+            // in the middle of it moves the three below it and nothing else.
+            loadoutFaction = NewText("Faction", panel, 34f, Color.white, TextAlignmentOptions.Center);
+            loadoutFaction.rectTransform.anchorMin = loadoutFaction.rectTransform.anchorMax
+                = new Vector2(0.5f, 1f);
+            loadoutFaction.rectTransform.pivot = new Vector2(0.5f, 1f);
+            loadoutFaction.rectTransform.anchoredPosition = new Vector2(0f, -256f);
+            loadoutFaction.rectTransform.sizeDelta = new Vector2(1000f, 44f);
 
             loadoutSummary = NewText("Summary", panel, 40f, Gold, TextAlignmentOptions.Center);
             loadoutSummary.rectTransform.anchorMin = loadoutSummary.rectTransform.anchorMax
                 = new Vector2(0.5f, 1f);
             loadoutSummary.rectTransform.pivot = new Vector2(0.5f, 1f);
-            loadoutSummary.rectTransform.anchoredPosition = new Vector2(0f, -270f);
-            loadoutSummary.rectTransform.sizeDelta = new Vector2(1000f, 60f);
+            loadoutSummary.rectTransform.anchoredPosition = new Vector2(0f, -304f);
+            loadoutSummary.rectTransform.sizeDelta = new Vector2(1000f, 56f);
 
             var bal = NewRect("Balance", panel);
             bal.anchorMin = bal.anchorMax = new Vector2(0.5f, 1f);
             bal.pivot = new Vector2(0.5f, 1f);
-            bal.anchoredPosition = new Vector2(0f, -336f);
+            bal.anchoredPosition = new Vector2(0f, -366f);
             bal.sizeDelta = new Vector2(260f, 64f);
             var coin = NewRect("Coin", bal);
             coin.anchorMin = coin.anchorMax = new Vector2(0f, 0.5f);
@@ -769,10 +782,12 @@ namespace ArmedConflict.UI
         /// </summary>
         public void ShowLoadout(LevelDefinitionSO level, RosterDefinitionSO roster,
                                 List<Pick> picks, bool testSupply,
-                                System.Action<List<Pick>, IReadOnlyDictionary<ConsumableType, int>> onBegin)
+                                System.Action<List<Pick>, IReadOnlyDictionary<ConsumableType, int>> onBegin,
+                                FactionDefinitionSO faction = null)
         {
             this.testSupply = testSupply;
             loadoutLevel = level;
+            loadoutFactionDef = faction;
             loadoutRoster = roster;
             loadoutPicks = picks;
             onLoadoutBegin = onBegin;
@@ -803,6 +818,15 @@ namespace ArmedConflict.UI
             int points = Loadout.PointsUsed(loadoutPicks, loadoutRoster);
 
             loadoutTitle.text = $"{loadoutLevel.displayName}";
+            // Hidden rather than blanked when a level has no faction (every test rig, and any
+            // stage still unpainted): an empty line reads as a layout hole, and the rows below are
+            // anchored to the panel's top, so nothing moves either way.
+            loadoutFaction.gameObject.SetActive(loadoutFactionDef != null);
+            if (loadoutFactionDef != null)
+            {
+                loadoutFaction.text = $"Enemy: {loadoutFactionDef.displayName}";
+                loadoutFaction.color = loadoutFactionDef.bannerColor;
+            }
             loadoutSummary.text = $"{used}/{slots} troops     {points}/{budget} points";
             loadoutBalance.SetText("{0}", ProgressStore.Coins());
 

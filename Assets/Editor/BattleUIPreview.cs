@@ -130,7 +130,14 @@ public static class BattleUIPreview
 
         var ui = BattleUI.Create();
         ui.SetCoins(1240);
-        ui.PreviewLoadout(level, roster, carrying, testSupply);
+        // With the level's real faction, so the shot exercises the layout the GAME uses. The
+        // "Enemy: <faction>" line sits between the title and the troop summary, which is the one
+        // place a new line can push the rest of the panel around.
+        var stages = AssetDatabase.FindAssets("t:StageDefinitionSO")
+            .Select(g => AssetDatabase.LoadAssetAtPath<StageDefinitionSO>(
+                AssetDatabase.GUIDToAssetPath(g)))
+            .Where(s => s != null).ToArray();
+        ui.PreviewLoadout(level, roster, carrying, testSupply, Factions.For(level, stages));
 
         var canvas = ui.GetComponent<Canvas>();
         canvas.renderMode = RenderMode.ScreenSpaceCamera;
