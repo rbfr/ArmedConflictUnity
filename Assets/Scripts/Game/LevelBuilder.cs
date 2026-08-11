@@ -46,6 +46,48 @@ namespace ArmedConflict.Game
              + (p.definition.hasDeckY ? p.definition.deckY : p.definition.size);
 
         /// <summary>
+        /// One row per DECK, not per group. A structure's deck is a single piece of ground and
+        /// every man standing on it belongs to the same formation, whatever unit type he is —
+        /// laying each group out separately made every group centre itself on the same ledge.
+        ///
+        /// Groups are served in author order, so the first group fills the front rank and the
+        /// next takes the rank behind it. That reads as ordered ranks rather than as a mixture,
+        /// which is what the reference's tiers actually look like.
+        ///
+        /// Spacing takes the LARGEST renderScale on the deck: a mixed garrison has to leave room
+        /// for its biggest body, and pitch is a property of the row, not of one man in it.
+        /// </summary>
+        static Dictionary<string, Queue<Vector2>> DeckSpots(
+            IReadOnlyList<EnemyGroup> groups,
+            IReadOnlyDictionary<string, StructurePlacement> byLevelId)
+        {
+            var spots = new Dictionary<string, Queue<Vector2>>();
+            foreach (var deck in groups
+                         .Where(g => !string.IsNullOrEmpty(g.standingOnStructureId) && g.count > 0)
+                         .GroupBy(g => g.standingOnStructureId))
+            {
+                if (!byLevelId.TryGetValue(deck.Key, out var placement) ||
+                    placement.definition == null) continue;
+
+                float weight = deck.Sum(g => (float)g.count);
+                var laid = Formation.Mounted(
+                    count: deck.Sum(g => g.count),
+                    // Count-weighted, so a deck whose groups disagree about where they stand
+                    // lands where most of the men are rather than wherever the first group said.
+                    anchorX: deck.Sum(g => g.anchorX * g.count) / weight,
+                    width: placement.hasStandWidth ? placement.standWidth
+                                                   : placement.definition.standWidth,
+                    anchorZ: deck.Sum(g => g.anchorZ * g.count) / weight
+                             + placement.definition.deckStandZOffset,
+                    columnSpacing: Formation.MountedColumnSpacing *
+                        deck.Max(g => g.definition != null ? g.definition.renderScale : 1f),
+                    deckCenterX: placement.x);
+                spots[deck.Key] = new Queue<Vector2>(laid);
+            }
+            return spots;
+        }
+
+        /// <summary>
         /// Formation for one group. Three cases, and which one applies is the whole
         /// crowd-vs-hero presentation decision:
         ///  - garrison on a structure -> compressed deck row, clamped onto the deck
@@ -54,7 +96,8 @@ namespace ArmedConflict.Game
         /// </summary>
         static List<Vector2> FormationFor(EnemyGroup group,
                                           IReadOnlyDictionary<string, StructurePlacement> byLevelId,
-                                          System.Random random)
+                                          System.Random random,
+                                          IReadOnlyDictionary<string, Queue<Vector2>> deckSpots)
         {
             float renderScale = group.definition != null ? group.definition.renderScale : 1f;
             float columnSpacing = Formation.DefaultColumnSpacing * renderScale;
@@ -65,10 +108,26 @@ namespace ArmedConflict.Game
 
             if (placement != null)
             {
-                // Anchor at the GROUP's x so a garrison can sit off-centre on its ledge, but pass
-                // the STRUCTURE's x as deckCenterX so the row can be clamped onto the deck. An
-                // older comment claimed levels always set both the same, "so this is equivalent";
-                // that was wrong, and six garrisons stood in mid-air off the tier edge as a result.
+                // THE DECK IS LAID OUT ONCE, FOR EVERY GROUP STANDING ON IT — see DeckSpots. This
+                // used to call Mounted per group, and two groups garrisoned on the same structure
+                // were each centred on it, so they stood INSIDE ONE ANOTHER. L6, L11 and L12 all
+                // shipped that way: L11's riflemen and machine gunners occupied an identical
+                // 5.81..6.19, three men in three spots twice over.
+                if (deckSpots != null &&
+                    deckSpots.TryGetValue(group.standingOnStructureId, out var queue))
+                {
+                    var mine = new List<Vector2>();
+                    for (int i = 0; i < group.count && queue.Count > 0; i++)
+                        mine.Add(queue.Dequeue());
+                    return mine;
+                }
+
+                // No shared layout (a reinforcement wave builds its own arrivals in isolation, so
+                // it cannot see who is already up there). Anchor at the GROUP's x so a garrison
+                // can sit off-centre on its ledge, but pass the STRUCTURE's x as deckCenterX so
+                // the row can be clamped onto the deck. An older comment claimed levels always set
+                // both the same, "so this is equivalent"; that was wrong, and six garrisons stood
+                // in mid-air off the tier edge as a result.
                 return Formation.Mounted(
                     count: group.count,
                     anchorX: group.anchorX,
@@ -118,6 +177,7 @@ namespace ArmedConflict.Game
 
             var outp = new List<UnitEntity>();
             int nextId = startId;
+            var deckSpots = DeckSpots(groups, byLevelId);
 
             foreach (var group in groups)
             {
@@ -136,7 +196,7 @@ namespace ArmedConflict.Game
                     ? tierResolver(group.definition)
                     : group.definition;
 
-                foreach (var spot in FormationFor(group, byLevelId, random))
+                foreach (var spot in FormationFor(group, byLevelId, random, deckSpots))
                 {
                     outp.Add(new UnitEntity(
                         Id: nextId++,

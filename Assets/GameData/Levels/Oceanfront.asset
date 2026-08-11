@@ -24,7 +24,13 @@ MonoBehaviour:
     standingOnStructureId: 
     advancePerTurn: 0
   - definition: {fileID: 11400000, guid: 75e1a253a474334eb8576862998ca8e1, type: 2}
-    count: 4
+    count: 1
+    anchorX: 4.2
+    anchorZ: 0.4
+    standingOnStructureId: 
+    advancePerTurn: 0
+  - definition: {fileID: 11400000, guid: b51688fb293b69e5cab2885bcaa975b8, type: 2}
+    count: 3
     anchorX: 6
     anchorZ: 0.12
     standingOnStructureId: beach_post

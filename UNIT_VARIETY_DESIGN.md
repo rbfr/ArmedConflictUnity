@@ -659,3 +659,139 @@ A small garrison on a wide deck is still a small clump on a wide deck — packin
 and cannot fill a wall that was authored with eight men on it. **Filling a tier is a roster-size
 question, not a spacing one.** The reference runs ~15 per rank. Do not "fix" it by spreading the
 row, which is the 2026-07-25 mistake in the opposite direction.
+
+## Tier 2.2, part one — the heroes were never composed, 2026-08-11
+
+**The engine half of crowd-vs-hero was finished months ago and the LEVEL half was never done.**
+Every one of the seven attempts above crossed into Unity intact — `Formation.Clustered` carries
+the 2.2 gap ratio, `Mounted` carries the reference-derived density and two ranks at count >= 5,
+and the port's own `renderScale` bug (it spread heroes apart but never made them bigger) was
+fixed at `BattleRunner.cs`. None of that was the problem.
+
+**All four hero groups in the campaign were authored ONTO a structure, in counts of four and
+five.** L6 x4 on the keep, L7 x5 on the barracks, L11 x4 on the beach post, L12 x5 on the citadel.
+Attempt 4b cut hero counts to 2 per side specifically so they would stand apart; the port went
+back to 4-5 and gridded them into a deck row.
+
+**`FormationFor` dispatches on the garrison branch FIRST**, so `Formation.Heroes` — the whole
+"stands apart, individually" path this document spent three attempts arguing for — was reached by
+exactly ONE thing in the entire game: L10's turn-4 reinforcement wave. It was not a bug in the
+function. Nothing ever called it.
+
+**Nothing else could see this.** `LevelComposition` passed all twelve levels while four of them
+packed five 1.9x bodies onto a roof, because spans and reach and garrison-majority were all
+satisfied — a hero is a legal garrison member. The rules measure geometry, not casting.
+
+### What changed
+
+Heroes moved to the GROUND in front of their structure, cut to 1-2, at z 0.4 (forward of the
+crowd line, and free: `SweptCollision` is x/y only, so a forward hero is exactly as hittable).
+Surplus heavies were swapped 1:1 for enemy riflemen IN the garrison they left, which is why every
+level's roster total is unchanged and enemy DAMAGE OUTPUT is identical — `EnemyHeavyRifleman` is
+`EnemyRifleman` with 2x HP and 1.9x scale and the same damage 8. The only balance movement is
+enemy HP: **L6 -64, L7 -96, L11 -96, L12 -96.** Four levels are slightly faster to clear.
+
+L11 fields ONE hero, not two, and that is deliberate: at 10 units, two heroes on the ground pushed
+the garrison to exactly half the roster and broke rule 5's majority. A lone champion on the beach
+is a better composition than a rule bent for symmetry.
+
+### The measurement that killed the third assertion
+
+The intended check was three properties: heroes on the ground, heroes rare, heroes FORWARD IN Z.
+The third is false and only measuring found it — **L12's deck garrison sits at z 0.80 against the
+hero's 0.34**, because `deckStandZOffset` and a staging offset are different things that happen to
+share an axis. Asserting it would have asserted a belief. It is not in the check.
+
+### The check, and its negative run
+
+`PortSelfTest.CheckHeroStaging` builds every campaign level and measures the units a player would
+see: no hero at deck height, at most 2 per level, and every hero's nearest CROWD body at least
+2.5x the crowd's own column spacing away. The hero COUNT is inside the condition rather than
+beside it — with no heroes authored anywhere the whole function is vacuously true, which is the
+empty-purse trap this repo has now paid for three times.
+
+Against the old level data, per the standing rule that a check never seen to fail is not evidence:
+
+```
+[FAIL] heroes stand APART on the ground, never gridded into the crowd — 18 across the campaign,
+       biggest group 5 (max 2), 18 on a deck, 13 inside the 0.76 clearance floor
+       (tightest 0.00 on L12, crowd spacing 0.31)
+```
+
+**Tightest 0.00 is a hero standing at the same x as a crowd body** — interleaved in the citadel's
+rifle row, which is the defect in one number.
+
+### Device, with the control shot
+
+Confirmed on L6 at real framing, and the CONTROL was taken — the same drag, same frame, on a build
+with the old level data. Before: four oversized red figures crowding the keep's roofline as one
+lump, taller than its own crenellations, nothing on the ground. After: two greatcoated heroes
+standing alone at the base in front, small crowd on the roof. **This is the first change in this
+document's history to be confirmed against its own control shot rather than against a bare
+observation.**
+
+Still NOT verified by the only arbiter that has ever settled anything here — Rob's judgment in
+moving play. Every attempt in this document that skipped that was wrong.
+
+### What Tier 2.2 still owes
+
+The crowd half. This pass fixed which units are staged as heroes and where they stand; it did
+nothing to the CROWD's own readability, which is what 2.2's entry in `PRODUCT_DIRECTION.md`
+actually names. Before spending a pass on that, re-read "the honest limit" above twice: three
+attempts (stance, faces, limb fold) each cleared "is it correct" and failed "does it survive the
+frame", and the two changes that DID read were large-scale layout, not local detail.
+
+## Tier 2.2, part two — a deck is ONE formation, 2026-08-11
+
+**Two groups garrisoned on the same structure stood inside one another.** `FormationFor` called
+`Formation.Mounted` once per authored GROUP, and every call centred its row on the same deck — so
+L11's three riflemen and three machine gunners occupied an identical `5.81..6.19`, **dx 0.000
+dz 0.000**, three men in three spots twice over. L6 and L12 were partial versions of the same
+thing. L12's was the `tightest 0.00` that part one's hero check reported.
+
+**Nothing could see it, and the reason generalises.** `LevelComposition` reads span and reach,
+both of which a doubled-up garrison satisfies perfectly: a row of six that is really three men
+twice over measures exactly like a row of three. Every unit is individually correct too — right
+deck, right height, right rank. **A rule-checker is evidence about the rules it has**, and none of
+the seven has an opinion about how many bodies are in a spot.
+
+`LevelBuilder.DeckSpots` now lays out each deck ONCE across every group standing on it and serves
+the groups in author order, so the first group fills the front rank and the next takes the rank
+behind it — ordered ranks rather than a mixture, which is what the reference's tiers look like.
+Spacing takes the LARGEST `renderScale` on the deck, because pitch is a property of the row and
+not of one man in it.
+
+**A reinforcement wave still builds its arrivals in isolation** and cannot see who is already up
+there, so a wave that garrisons onto an occupied deck would reintroduce this. No campaign wave
+garrisons today — L10's is ground — and the fallback path is kept and commented for that case.
+
+### The detector was wrong before the code was right
+
+The first version compared each group's x-RANGE and reported L11 as still broken after the fix had
+landed. It had not: a back rank legitimately spans the same x as the front one, which is what a
+second rank IS. The check is **Chebyshev** now — apart on EITHER axis is apart — and the standing
+lesson is the mirror of the usual one: a detector that reports a failure has to be checked for
+what it is actually finding, exactly as one that reports nothing has to be shown finding the thing
+when it is there.
+
+`PortSelfTest.CheckNobodyOverlaps` asserts it over all 1511 same-side pairs in the campaign, with
+the pair COUNT inside the condition so an empty campaign cannot pass it vacuously. Negative run,
+against the old builder and the current level data:
+
+```
+[FAIL] no two units on a side stand in the same place — 3 co-located pairs over 1511 same-side
+       pairs, tightest 0.000 on L11 (floor 0.065, body 0.131)
+```
+
+### Deck FILL is measured, and it is the open question
+
+Garrisons occupy **12-56% of their deck, most of them 12-25%** — L2, L6, L8, L10, L11 and L12's
+main tier all sit at 12%. This is the "small clump on a wide deck" this document already names,
+and it is NOT a spacing bug: pitch was derived against the reference in the 2026-08-02 pass and
+measures correctly. The cause is that the body shrank 0.77 -> 0.48 while `standWidth` is real
+structure geometry and did not, so the same deck now holds a smaller clump.
+
+**Do not fix it by spreading the row** — that is the 2026-07-25 mistake, and this document already
+records it. The reference runs ~15 per rank; ours run 3-8. Filling a tier is a ROSTER-SIZE
+question and therefore a balance question, which is why it is written down here rather than
+applied: it needs Rob's call, not a constant.

@@ -30,13 +30,13 @@ MonoBehaviour:
     standingOnStructureId: gate
     advancePerTurn: 0
   - definition: {fileID: 11400000, guid: 75e1a253a474334eb8576862998ca8e1, type: 2}
-    count: 5
-    anchorX: 6
-    anchorZ: 0.12
-    standingOnStructureId: citadel
+    count: 2
+    anchorX: 4.3
+    anchorZ: 0.4
+    standingOnStructureId: 
     advancePerTurn: 0
   - definition: {fileID: 11400000, guid: b51688fb293b69e5cab2885bcaa975b8, type: 2}
-    count: 5
+    count: 8
     anchorX: 6
     anchorZ: 0.12
     standingOnStructureId: citadel

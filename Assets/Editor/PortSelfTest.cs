@@ -3083,8 +3083,150 @@ public static class PortSelfTest
         CheckConsumables();
         CheckFactions();
         CheckCosmetics();
+        CheckHeroStaging();
+        CheckNobodyOverlaps();
 
         Debug.Log($"[PortSelfTest] {(failed == 0 ? "ALL PASS" : $"{failed} FAILURES")}\n{Log}");
         if (failed > 0 && Application.isBatchMode) EditorApplication.Exit(1);
     }
+
+    /// <summary>
+    /// CROWD + HERO staging — Tier 2.2. The reference composition is a mass of interchangeable
+    /// crowd plus a SMALL number of large heroes standing apart at the front, and the port had
+    /// only the first half: every hero group in the campaign was authored ONTO a structure, in
+    /// counts of four and five.
+    ///
+    /// That is invisible to every other check. `LevelComposition` measures spans and reach and
+    /// passed all twelve levels while four of them packed five 1.9x bodies into a deck row, and
+    /// `FormationFor` dispatches on the garrison branch FIRST — so `Formation.Heroes`, the whole
+    /// "stands apart, individually" path, was reached by exactly one reinforcement wave in the
+    /// entire game and nothing said so.
+    ///
+    /// Asserted on the BUILT state, per the standing rule — the positions a player would see,
+    /// not the fields an author typed. A hero that is gridded in reads as elite crowd, and the
+    /// measurable form of "gridded in" is: it stands at deck height, or its nearest crowd body is
+    /// a crowd spacing away.
+    ///
+    /// NOT asserted: that a hero stands forward in Z. That was the intended third property and
+    /// measuring killed it — L12's deck garrison sits at z 0.80 against the hero's 0.34, because
+    /// a deck z offset and a staging z offset are different things. It would have asserted a
+    /// belief.
+    ///
+    /// The hero COUNT is part of the condition, not a separate check: with no heroes authored
+    /// anywhere this whole function is vacuously true, which is the empty-purse trap.
+    /// </summary>
+    static void CheckHeroStaging()
+    {
+        // 2.5x the crowd's own column spacing. A hero packed back into a garrison measures at
+        // MountedColumnSpacing (0.187) and a hero gridded into a ground cluster at the packed
+        // cluster spacing (0.189) — both an order below this, so the floor is coarse on purpose.
+        const float ClearanceFactor = 2.5f;
+        float floor = Formation.DefaultColumnSpacing * ClearanceFactor;
+
+        var levels = AssetDatabase.FindAssets("t:LevelDefinitionSO")
+            .Select(AssetDatabase.GUIDToAssetPath)
+            .Select(AssetDatabase.LoadAssetAtPath<LevelDefinitionSO>)
+            .Where(l => l != null && !l.isTestLevel)
+            .OrderBy(l => l.levelNumber)
+            .ToList();
+
+        int heroes = 0, onDeck = 0, crowded = 0, biggestGroup = 0;
+        float tightest = float.MaxValue;
+        string worst = "none";
+
+        foreach (var level in levels)
+        {
+            GameState state;
+            try { state = LevelBuilder.BuildInitialState(level, 1, 1, new System.Random(12345)); }
+            catch { continue; }   // a level that does not build is LevelComposition's finding
+
+            var heroUnits = state.EnemyUnits
+                .Where(u => u.Definition != null && u.Definition.renderScale > 1.01f).ToList();
+            if (heroUnits.Count == 0) continue;
+            heroes += heroUnits.Count;
+            biggestGroup = Mathf.Max(biggestGroup, heroUnits.Count);
+
+            var crowd = state.EnemyUnits
+                .Where(u => u.Definition != null && u.Definition.renderScale <= 1.01f).ToList();
+
+            foreach (var h in heroUnits)
+            {
+                if (h.Y > 0.01f || h.StandingOnStructureId != null) onDeck++;
+                float nearest = crowd.Select(c => Mathf.Abs(c.X - h.X)).DefaultIfEmpty(99f).Min();
+                if (nearest < tightest) { tightest = nearest; worst = $"L{level.levelNumber}"; }
+                if (nearest < floor) crowded++;
+            }
+        }
+
+        Check(heroes > 0 && onDeck == 0 && crowded == 0 && biggestGroup <= 2,
+              $"heroes stand APART on the ground, never gridded into the crowd — {heroes} across " +
+              $"the campaign, biggest group {biggestGroup} (max 2), {onDeck} on a deck, {crowded} " +
+              $"inside the {floor:F2} clearance floor (tightest {tightest:F2} on {worst}, crowd " +
+              $"spacing {Formation.DefaultColumnSpacing:F2})");
+    }
+
+
+    /// <summary>
+    /// NO TWO MEN ON A SIDE STAND IN THE SAME PLACE. A deck is one piece of ground, and
+    /// `FormationFor` used to lay out each authored GROUP on it separately — so two groups
+    /// garrisoned on the same structure were each centred on that structure and stood INSIDE one
+    /// another. L11 shipped with three riflemen and three machine gunners occupying an identical
+    /// three spots, dx 0.000 dz 0.000; L6 and L12 were partial versions of the same thing.
+    ///
+    /// Nothing could see it. `LevelComposition` reads span and reach, both of which a doubled-up
+    /// garrison satisfies perfectly — a row of six that is really three men twice over measures
+    /// exactly like a row of three, and the rules have no opinion about how many bodies are in a
+    /// spot. The units are also individually correct: right deck, right height, right rank.
+    ///
+    /// CHEBYSHEV, not Euclidean, and that is the whole subtlety. Two men one RANK apart are not
+    /// overlapping however close they are in x — that is what a second rank IS. An earlier
+    /// version of this compared x-RANGES per group and reported L11 as still broken after the fix
+    /// had landed, because a back rank legitimately spans the same x as the front one. The
+    /// detector was wrong, not the code.
+    /// </summary>
+    static void CheckNobodyOverlaps()
+    {
+        // A body is ~0.21 wide in legacy units. Half of that is the floor: closer than half a
+        // body on BOTH axes at once is one man standing in another, not a tight formation.
+        float body = 0.21f * UnitGeometry.LegacyScaleRatio;
+        float floor = body * 0.5f;
+
+        var levels = AssetDatabase.FindAssets("t:LevelDefinitionSO")
+            .Select(AssetDatabase.GUIDToAssetPath)
+            .Select(AssetDatabase.LoadAssetAtPath<LevelDefinitionSO>)
+            .Where(l => l != null && !l.isTestLevel)
+            .OrderBy(l => l.levelNumber)
+            .ToList();
+
+        int pairs = 0, measured = 0;
+        float tightest = float.MaxValue;
+        string worst = "none";
+
+        foreach (var level in levels)
+        {
+            GameState state;
+            try { state = LevelBuilder.BuildInitialState(level, 1, 1, new System.Random(12345)); }
+            catch { continue; }
+
+            var all = state.PlayerUnits.Concat(state.EnemyUnits).ToList();
+            for (int i = 0; i < all.Count; i++)
+                for (int j = i + 1; j < all.Count; j++)
+                {
+                    if (all[i].IsPlayerSide != all[j].IsPlayerSide) continue;
+                    measured++;
+                    float d = Mathf.Max(Mathf.Abs(all[i].X - all[j].X),
+                                        Mathf.Abs(all[i].Z - all[j].Z));
+                    if (d < tightest) { tightest = d; worst = $"L{level.levelNumber}"; }
+                    if (d < floor) pairs++;
+                }
+        }
+
+        // measured > 0 is part of the condition: over an empty campaign this is vacuously true,
+        // which is the same empty-purse trap the hero check guards against.
+        Check(measured > 0 && pairs == 0,
+              $"no two units on a side stand in the same place — {pairs} co-located pairs over " +
+              $"{measured} same-side pairs, tightest {tightest:F3} on {worst} " +
+              $"(floor {floor:F3}, body {body:F3})");
+    }
+
 }

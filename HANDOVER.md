@@ -2,7 +2,8 @@
 
 ## START HERE
 
-- **EVERYTHING IS COMMITTED AND PUSHED**, as of the close of 2026-08-11's SECOND session — twenty
+- **UNCOMMITTED WORK IS IN THE TREE** as of 2026-08-11's THIRD session (Tier 2.2 hero staging).
+  Everything before it was committed and pushed at the close of the SECOND session — twenty
   commits went up, covering 2026-08-10's airstrike arc, 2026-08-11's airstrike rework, and Tier
   2.1 factions + Tier 2.4 camo. That was the first push in three sessions.
   **`git status` and `git log --oneline origin/main..HEAD` are the answer, never this bullet** —
@@ -38,13 +39,13 @@
   release build is not debuggable, `run-as` cannot reach PlayerPrefs, and the test protocol is
   uninstall/reinstall — so without it, verifying one consumable costs a ~250-coin re-earn per
   build and one camo costs up to 400.
-- **606 self-test checks, all passing — run `PortSelfTest.Run` after every change.** It was 281 at
+- **608 self-test checks, all passing — run `PortSelfTest.Run` after every change.** It was 281 at
   the start of 2026-08-06, 411 at the end of it, 444 on 2026-08-07, 539 after the Tier 1.2 and
   glyph-coverage blocks, 559 with the flame and the Auto-ammo pair, 576 with Tier 1.3's
   consumables, 582 with the airstrike's aircraft, 585 with its strafing burst, 587 with the burst's
   absolute count-and-budget check and the aircraft's left-edge entry, 592 with 2026-08-11's
   rake-coverage, aim-independence, whole-burst and impact-alignment checks, 599 with Tier 2.1's
-  seven faction checks, and 606 with Tier 2.4's camo block. **Assert related facts TOGETHER** —
+  seven faction checks, 606 with Tier 2.4's camo block, 607 with Tier 2.2's hero-staging check, and 608 with its deck-overlap check. **Assert related facts TOGETHER** —
   Tier 1.3's block was first written as 50 assertions over 307 lines and is 18 over 232, with the
   same nine breakages still caught. A failure message naming three properties is as diagnostic as
   three checks, and this file is read by people.
@@ -146,6 +147,61 @@ release:
 **Neither was visible to any check, and both were caused by a timing change three files away.**
 After touching this beat, fire one on a device and read the log AND listen.
 
+### What THIS session changed — Tier 2.2, part one
+
+**The heroes were never composed.** Every hero group in the campaign was authored ONTO a
+structure in counts of 4-5 (L6 x4, L7 x5, L11 x4, L12 x5), so `FormationFor`'s garrison branch
+won every time and **`Formation.Heroes` — the entire "stands apart, individually" path — was
+reached by exactly one thing in the game**, L10's turn-4 reinforcement wave. Not a bug in the
+function; nothing called it. The engine half of crowd-vs-hero has been finished for months.
+
+**`LevelComposition` passed all twelve levels the whole time**, because a hero is a legal garrison
+member and spans, reach and garrison-majority were all satisfied. The seven rules measure
+geometry, not casting. This is the shape to remember: **a green rule-checker is evidence about the
+rules it has, not about the thing you are looking at.**
+
+Heroes now stand on the GROUND in front of their structure, 1-2 per level, z 0.4 forward (free —
+`SweptCollision` is x/y only). Surplus heavies swapped 1:1 for enemy riflemen in the garrison they
+left, so **every roster total is unchanged and enemy damage output is identical**; the only
+balance movement is enemy HP, **L6 -64, L7 -96, L11 -96, L12 -96**. Four levels clear slightly
+faster. L11 fields ONE hero on purpose: two would have dropped its garrison to exactly half the
+roster and broken rule 5.
+
+**A third assertion died to measurement.** "Heroes stand forward in z" is FALSE — L12's deck
+garrison sits at z 0.80 against the hero's 0.34, because `deckStandZOffset` and a staging offset
+share an axis and mean different things. It is not in the check; asserting it would have asserted
+a belief.
+
+**A SECOND, OLDER DEFECT FELL OUT OF THE SAME AUDIT: two groups garrisoned on one structure
+stood INSIDE one another.** `FormationFor` laid out each authored group separately and every one
+centred on the same deck — L11's three riflemen and three machine gunners occupied an identical
+`5.81..6.19`, dx 0.000 dz 0.000. Six men rendering as three. `LevelBuilder.DeckSpots` lays out
+each deck ONCE across all its groups now, first group in the front rank and the next behind it.
+**A reinforcement wave still builds in isolation and cannot see who is already up there** — no
+campaign wave garrisons today, and the old path is kept for that case.
+
+**The overlap detector was wrong before the code was right.** Its first version compared x-RANGES
+per group and called L11 broken AFTER the fix landed, because a back rank legitimately spans the
+same x as the front one. It is Chebyshev now. **A detector that reports a failure needs checking
+for what it is actually finding, exactly as one that reports nothing does.**
+
+**DECK FILL is measured and left alone deliberately**: garrisons occupy 12-56% of their deck, most
+of them 12-25%, because the body shrank 0.77 -> 0.48 while `standWidth` is real structure geometry
+and did not. Pitch is correct — it was derived against the reference in 2026-08-02. **Filling a
+tier is a roster-size question and therefore a balance one**, so it is written up in
+`UNIT_VARIETY_DESIGN.md` rather than applied. Do NOT fix it by spreading the row.
+
+**608 checks.** `CheckHeroStaging` builds every campaign level and measures what a player would
+see. Its negative run against the old data, per the standing rule:
+`18 across the campaign, biggest group 5, 18 on a deck, 13 inside the 0.76 clearance floor,
+tightest 0.00 on L12` — **0.00 is a hero at the same x as a crowd body**, interleaved in the
+citadel's rifle row.
+
+**The CONTROL SHOT was taken** — same drag, same frame, on a build carrying the old level data.
+Before: four oversized red figures crowding the keep roofline as one lump, taller than its own
+crenellations. After: two greatcoated heroes alone at the base, small crowd on the roof.
+**Rob has not seen it.**
+
 ### Pick up here
 
 **WIND IS PARKED** — Rob's call, 2026-08-10. It is the only thing Tier 1.2 still owes and it is
@@ -158,11 +214,18 @@ blocked on a physics decision (below), so tier work continues around it rather t
    `_plans/AIRSTRIKE_PLANE.md` is finished and can be archived per `_plans/README.md` whenever
    someone is tidying.
 
-   **TIER 2.1 (FACTIONS) AND 2.4 (PLAYER CAMO) ARE BOTH DONE** (2026-08-11). The stack's only
-   unclaimed Tier 2 entries are now **2.2 crowd + hero readability** and **2.3 keep the roster
-   mechanic-distinct** — both art/design asks against `UNIT_VARIETY_DESIGN.md`, which is seven
-   recorded attempts at exactly that problem and should be read before anything is modelled. 2.3
-   is likely a short audit rather than a build; 2.2 is the multi-session one.
+   **TIER 2.1 (FACTIONS), 2.4 (PLAYER CAMO) AND THE HERO HALF OF 2.2 ARE DONE** (2026-08-11).
+   **2.2 still owes the CROWD half** — this session fixed which units are staged as heroes and
+   where they stand, which is not what 2.2's entry in `PRODUCT_DIRECTION.md` names. Before
+   spending a pass on crowd readability, read `UNIT_VARIETY_DESIGN.md`'s "honest limit" twice:
+   three attempts (stance, faces, limb fold) each cleared "is it correct" and failed "does it
+   survive the frame", and the only two changes that ever DID read were large-scale layout.
+   **2.3 keep the roster mechanic-distinct** is still unclaimed and is likely a short audit
+   rather than a build.
+
+   **The player has no hero anywhere, and that is now a decision** (Rob, 2026-08-11:
+   enemy-only for now). `HeavyRifleman` is not among the six pickable roster slots and no
+   campaign level puts one in `playerGroups`. Revisit only with the build in hand.
 
    **The two biggest OPEN things in the port are named and costed, and both are physics/AI asks
    rather than scheduling jobs:**
