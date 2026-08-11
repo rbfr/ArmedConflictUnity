@@ -2,10 +2,10 @@
 
 ## START HERE
 
-- **UNCOMMITTED WORK IS IN THE TREE** as of 2026-08-11's THIRD session (Tier 2.2 hero staging).
-  Everything before it was committed and pushed at the close of the SECOND session — twenty
-  commits went up, covering 2026-08-10's airstrike arc, 2026-08-11's airstrike rework, and Tier
-  2.1 factions + Tier 2.4 camo. That was the first push in three sessions.
+- **EVERYTHING IS COMMITTED AND PUSHED**, as of the close of 2026-08-11's THIRD session — Tier
+  2.2's hero staging and deck-overlap fix went up as one commit. The SECOND session's twenty
+  commits (2026-08-10's airstrike arc, 2026-08-11's airstrike rework, Tier 2.1 factions and Tier
+  2.4 camo) went up before it.
   **`git status` and `git log --oneline origin/main..HEAD` are the answer, never this bullet** —
   it has been wrong before and the previous version of it claimed the opposite for a day.
   Rob commits and pushes on an explicit ask.
