@@ -346,4 +346,7 @@ locks and unit measurement.
 | 0.6 enemy turn juice | **DONE 2026-08-06** — flash banner + standing telegraph strip, handover names the advance |
 | Tier 1 ammo | per `DYNAMISM_DESIGN.md` status |
 | 1.2 telegraphed events | **HALF DONE 2026-08-07.** Reinforcement waves ship with a live multi-turn countdown, and the schedule now covers L10 and L11 (both 2-turn leads). **Wind is NOT shipped and is not a scheduling problem** — `windAccelZ` drifts the round in Z while collision is X/Y only, so a wind schedule would telegraph a change that cannot alter what a shot hits. Making it real is a physics change and needs an ask |
+| 1.3 consumables | **DONE 2026-08-10**, device-confirmed. Four items bought, carried and fired; the Airstrike's aircraft was rebuilt 2026-08-11 and signed off. Overwatch Flare is deliberately NOT sold — nothing in this port advances for it to halve |
+| 1.4 heli | **SHUT.** `HELI_ENABLED=false` is a camera-load decision, not a stale flag |
+| 2.1 enemy factions | **DONE 2026-08-12**, device-confirmed on L1 → L7 → L1. Redguard (Valley Front, the existing red, unchanged) and Ironclad Legion (Enemy Stronghold, steel blue-grey), authored as `FactionDefinitionSO` assets and attached to the stage. Enemy uniform + gear only; trim, skin, structures and the player are untouched. The level card reads "Enemy: &lt;faction&gt;" |
 | This doc | living — update priorities when Rob reorders work |

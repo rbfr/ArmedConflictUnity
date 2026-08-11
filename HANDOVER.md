@@ -1,14 +1,11 @@
-# Handover — Unity, as of 2026-08-11
+# Handover — Unity, as of 2026-08-12
 
 ## START HERE
 
-- **2026-08-11 ENDED WITH UNCOMMITTED WORK IN THE TREE, WHICH IS NOT THE NORM HERE.** A full
-  session of airstrike iteration — seven files — was never committed, because Rob commits on an
-  explicit ask and the session ended on a handoff instead. **`git status` first, and read
-  "What 2026-08-11 changed" below before touching the airstrike.** The suggested split is four
-  commits, because two of them touch locked docs and deserve to be revertable alone: the strafe
-  work (streaks + enemy-derived rake), the camera CUT (`CAMERA_ARCHITECTURE.md` exception), the
-  impact realignment, and the RIGS test supply.
+- **2026-08-11's airstrike work IS COMMITTED and the tree is clean** (checked at the start of
+  2026-08-12). Read "What 2026-08-11 changed" below before touching the airstrike. **Always
+  `git status` first rather than trusting this line** — the previous session ended with seven
+  uncommitted files and this bullet said so for a day.
 - **NOTHING IS PUSHED — check with `git status`, not with this line.**
   2026-08-10 closed with **eleven commits on `main` here and one in the ART repo**
   (`build_attack_plane.py`): the loadout NRE guard, Tier 1.3's consumables, the airstrike's whole
@@ -31,14 +28,18 @@
   how it reads. It cuts the camera to the strike, enters across the LEFT EDGE, rakes the WHOLE
   ENEMY POSITION with tracer streaks, and its bomb LANDS WITH the player's volley rather than
   before it. **Rob signed it off: "ok this will work."** See "What 2026-08-11 changed".
+- **TIER 2.1 (ENEMY FACTIONS) IS BUILT** (2026-08-12) and device-confirmed: L1's Redguard red, L7's
+  Ironclad Legion steel blue-grey, and L1 red AGAIN after stepping back — the third of those is the
+  evidence, not the second. See "Enemy factions" below. **NOT YET SEEN BY ROB.**
 - **RIGS NOW DOUBLES AS A FREE CONSUMABLE SUPPLY** for testing, writing nothing to the economy.
   Use it — otherwise verifying any consumable change costs a 250-coin re-earn on every build.
-- **592 self-test checks, all passing — run `PortSelfTest.Run` after every change.** It was 281 at
+- **599 self-test checks, all passing — run `PortSelfTest.Run` after every change.** It was 281 at
   the start of 2026-08-06, 411 at the end of it, 444 on 2026-08-07, 539 after the Tier 1.2 and
   glyph-coverage blocks, 559 with the flame and the Auto-ammo pair, 576 with Tier 1.3's
   consumables, 582 with the airstrike's aircraft, 585 with its strafing burst, and 587 with the burst's
   absolute count-and-budget check and the aircraft's left-edge entry, and 592 with 2026-08-11's
-  rake-coverage, aim-independence, whole-burst and impact-alignment checks. **Assert related facts TOGETHER** — Tier
+  rake-coverage, aim-independence, whole-burst and impact-alignment checks, and 599 with Tier 2.1's
+  seven faction checks. **Assert related facts TOGETHER** — Tier
   1.3's block was first written as 50 assertions over 307 lines and is 18 over 232, with the same
   nine breakages still caught. A failure message naming three properties is as diagnostic as three
   checks, and this file is read by people.
@@ -118,8 +119,13 @@ blocked on a physics decision (below), so tier work continues around it rather t
    are device-confirmed. `_plans/AIRSTRIKE_PLANE.md` is finished and can be archived per
    `_plans/README.md` whenever someone is tidying.
 
-   **The next tier item is whatever `PRODUCT_DIRECTION.md` puts after 1.4**, because **Tier 1.4
-   (Heli) stays shut** — `HELI_ENABLED=false` is a camera-load decision, not a stale flag.
+   **TIER 2.1 (ENEMY FACTIONS) IS ALSO DONE** (2026-08-12), which was the next open item once 1.4
+   was ruled shut. The stack's next unclaimed entries are **2.2 crowd + hero readability** and
+   **2.3 keep the roster mechanic-distinct** — both art/design asks against
+   `UNIT_VARIETY_DESIGN.md`, which is seven recorded attempts at exactly that problem and should
+   be read before anything is modelled. **2.4 player cosmetics** is the cheapest of the three
+   (a coin sink, zero balance effect) and now has a repaint pipeline to build on — but see the
+   warning in its section: cosmetics and factions must never both own the same army.
 
    **The two biggest OPEN things in the port are named and costed, and both are physics/AI asks
    rather than scheduling jobs:**
@@ -131,9 +137,7 @@ blocked on a physics decision (below), so tier work continues around it rather t
 
    **THE AIRSTRIKE IS DONE AND SIGNED OFF** (2026-08-11, "ok this will work"). Read "What
    2026-08-11 changed" before touching it — six rejections in one session, none of which a green
-   suite could see.
-
-   **The one thing it still owes is a COMMIT.** Seven files, four suggested commits. See START HERE.
+   suite could see. **It is committed** — the four commits landed; nothing is pushed.
 
    **Two SMALL open notes from Rob at the controls, neither urgent:**
    - The aircraft *"gets fairly large as it passes nearest the camera"* — brief and arguably the
@@ -189,6 +193,60 @@ standing lesson, not because it is current</summary>
    question is what MECHANIC it owns — a blast on destruction would make it the first structure
    with one), **dead units sinking** into the ground instead of vanishing, and the **ragdoll /
    structure report**, which is PARTLY fixed and deliberately left open.
+
+## Enemy factions — Tier 2.1, built 2026-08-12
+
+**Two stages, two armies**: Redguard (Valley Front) is the existing enemy red, UNCHANGED, and
+Ironclad Legion (Enemy Stronghold) is steel blue-grey. The full reasoning — what a faction may
+touch, why the data lives in `Assets/GameData/Factions` rather than in the UI layer as the Kotlin
+had it, and why only two — is in `DYNAMISM_DESIGN.md`'s "Phase D1 in UNITY" section. What belongs
+here is the traps.
+
+**IT IS A POOL RESET, NOT A PAINT.** Pools are built once and survive a level switch, so the enemy
+is repainted in `BattleRunner.ApplyFaction` on every `LoadLevel`, beside the scorch re-material and
+`TintShadows`. The failure mode is the one this repo already paid for in scorch marks, shadows and
+structure chunks: a recycled slot wearing the PREVIOUS level's colour. **A single paint cannot show
+it — the device run is L1 red → L7 blue → L1 red again, and the third leg is the evidence.**
+
+**Renderers are classified against the two build-time MATERIALS, not against the `skin*`/`trim*`/
+`accent*` mesh-name prefixes.** That convention belongs to `RiggedUnits.Tone` in the art pipeline,
+and a second copy of it at the render end is a copy that can disagree with the first. The
+classification runs once with the pools; the per-switch cost is a list walk.
+
+**`FactionPaint.Recolour` CLONES the material.** Tinting the source in place edits
+`Assets/Materials/EnemyUniform.mat` ON DISK — the negative run proved it, leaving both .mat assets
+modified in `git status` — and every faction then shares whichever colour was applied last, in the
+editor and in every build after it.
+
+**What is asserted and what is NOT.** The seven new checks cover the lookup (12/12 campaign levels
+field a faction, 0/17 rigs do), the palettes being visibly different armies, and the repaint itself
+on the SHIPPED rifleman prefab through three successive paints. **They do not cover the call
+site** — `PortSelfTest` does not drive `MonoBehaviour` frame callbacks, so "ApplyFaction is called
+on every LoadLevel" is device-verified only. Same considered gap as the loadout NRE guard.
+
+**The distinctness check was WRONG when written, and it is the lesson of the session.** It began as
+a luma-weighted rgb distance, which weights blue at 0.11; it scored steel blue-grey at 0.082 from
+the player's olive green — under its own threshold — and indicted a palette the Kotlin build
+shipped and played fine. **The metric, not the palette, was the thing that was three hours old.**
+Equal-brightness opposite hues are trivially told apart, and hue is the axis the whole feature
+works in. It is an opponent-colour distance now and is deliberately only a coarse floor. This is
+the same family as the "ASCII only" glyph check that flagged 23 strings a device screenshot then
+showed rendering perfectly: **be suspicious when a brand-new check indicts long-standing content.**
+
+**All three negative runs are recorded**, per the standing rule:
+
+```
+[FAIL] the shared EnemyUniform/EnemyGear ASSETS come out of it unchanged
+       (RGBA(0.270, 0.330, 0.420) was RGBA(0.520, 0.200, 0.180))   <- Recolour tinting in place
+[FAIL] the rifleman splits into uniform / gear / neither (5 / 6 / 0 renderers)
+                                                          <- skin+trim swept into the repaint
+[FAIL] every campaign level fields a faction and no rig does (12/12 campaign, 17/17 rigs)
+                                                          <- lookup ignoring stage membership
+```
+
+**A scene rebuild was required** — three new `[SerializeField]`s on `BattleRunner` (`stages`, and
+the two enemy side-materials the classification keys on). The materials must be the SAME asset
+references the enemy prefabs were toned with; reference equality is the whole mechanism.
 
 ## Tier 1.3 — the consumables, built 2026-08-10
 

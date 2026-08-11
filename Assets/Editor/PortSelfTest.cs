@@ -6,6 +6,7 @@ using UnityEditor;
 using UnityEngine;
 using ArmedConflict.Game;
 using ArmedConflict.Data;
+using ArmedConflict.Render;
 
 /// <summary>
 /// Behavioural checks on the ported game/ modules. "It compiles" is not evidence a port is
@@ -190,6 +191,163 @@ public static class PortSelfTest
     /// are asserted TOGETHER rather than one per line: a failure message that names three
     /// properties is as diagnostic as three checks, and the suite is read by people.
     /// </summary>
+    /// <summary>
+    /// ENEMY FACTIONS — Tier 2.1. The feature is "the army you are fighting LOOKS different on
+    /// stage 2", so every check here asks about pixels-in-waiting (the colour a renderer ends up
+    /// wearing) rather than about the data that chose it. Asserting `stage.faction != null` would
+    /// be asserting the input, and this file has three separate entries about doing that.
+    ///
+    /// The repaint is exercised on the SHIPPED enemy prefab, and the case that matters is the
+    /// SECOND paint: pools are built once and survive a level switch, so the failure to catch is a
+    /// slot that keeps the previous stage's uniform. A single paint can never show it.
+    /// </summary>
+    static void CheckFactions()
+    {
+        var stages = AssetDatabase.FindAssets("t:StageDefinitionSO")
+            .Select(g => AssetDatabase.LoadAssetAtPath<StageDefinitionSO>(
+                AssetDatabase.GUIDToAssetPath(g)))
+            .Where(s => s != null).ToArray();
+        var levels = AssetDatabase.FindAssets("t:LevelDefinitionSO")
+            .Select(g => AssetDatabase.LoadAssetAtPath<LevelDefinitionSO>(
+                AssetDatabase.GUIDToAssetPath(g)))
+            .Where(l => l != null).ToArray();
+        if (stages.Length == 0 || levels.Length == 0) { Check(false, "stage and level assets"); return; }
+
+        // --- who wears what -------------------------------------------------------------------
+        //
+        // Both halves in one check. A campaign level with no faction renders the default red while
+        // its neighbours do not, which reads as an art bug; a RIG resolving to one would mean the
+        // lookup is matching on something other than stage membership, since a rig is in no stage.
+        var campaign = levels.Where(l => !l.isTestLevel).ToArray();
+        var rigs = levels.Where(l => l.isTestLevel).ToArray();
+        int painted = campaign.Count(l => Factions.For(l, stages) != null);
+        int rigsPainted = rigs.Count(l => Factions.For(l, stages) != null);
+        Check(painted == campaign.Length && rigsPainted == 0,
+              $"every campaign level fields a faction and no rig does " +
+              $"({painted}/{campaign.Length} campaign, {rigsPainted}/{rigs.Length} rigs)");
+
+        // --- the colours are actually different armies ------------------------------------------
+        //
+        // The point of the feature is a stage you can tell apart AT A GLANCE, so the assertion is a
+        // distance, not an inequality: two factions three hundredths apart would pass `!=` and look
+        // identical on a phone.
+        //
+        // OPPONENT-COLOUR distance — brightness, red-vs-green and blue-vs-yellow as three separate
+        // axes. The first version of this check was a LUMA-WEIGHTED rgb distance and it was wrong,
+        // in the way this file keeps warning about: it weights blue at 0.11, so it scored steel
+        // blue-grey as 0.082 from the player's olive green and indicted a palette the Kotlin build
+        // shipped and played fine. Two tones of equal brightness and opposite HUE are trivially
+        // told apart, and hue is the axis this whole feature works in. A metric invented in the
+        // same hour as the thing it judges is not the artefact — the device is, and this is only a
+        // coarse floor against someone authoring two palettes that are genuinely the same colour.
+        //
+        // The PLAYER's tone is read from the .mat asset rather than restated here, and it is in the
+        // comparison because "the enemy now wears something close to your own green" is the one way
+        // this feature breaks the GAME rather than merely looking dull.
+        float Dist(Color a, Color b)
+        {
+            float dl = (0.30f * a.r + 0.59f * a.g + 0.11f * a.b)
+                     - (0.30f * b.r + 0.59f * b.g + 0.11f * b.b);
+            float drg = (a.r - a.g) - (b.r - b.g);
+            float dby = (0.5f * (a.r + a.g) - a.b) - (0.5f * (b.r + b.g) - b.b);
+            return Mathf.Sqrt(dl * dl + drg * drg + dby * dby);
+        }
+        var playerMat = AssetDatabase.LoadAssetAtPath<Material>("Assets/Materials/PlayerUniform.mat");
+        var factions = stages.Select(s => s.faction).Where(f => f != null).Distinct().ToArray();
+        const float Apart = 0.15f;
+        float closestPair = float.MaxValue, closestToPlayer = float.MaxValue;
+        for (int i = 0; i < factions.Length; i++)
+        {
+            if (playerMat != null)
+                closestToPlayer = Mathf.Min(closestToPlayer,
+                                            Dist(factions[i].uniformColor, playerMat.color));
+            for (int j = i + 1; j < factions.Length; j++)
+                closestPair = Mathf.Min(closestPair,
+                                        Dist(factions[i].uniformColor, factions[j].uniformColor));
+        }
+        Check(factions.Length >= 2 && closestPair >= Apart && closestToPlayer >= Apart,
+              $"{factions.Length} factions, each visibly its own army — closest pair {closestPair:F3}, " +
+              $"closest to the PLAYER's green {closestToPlayer:F3} (need {Apart})");
+
+        // Gear is the dark half of the two-tone. A faction authored with gear lighter than its
+        // uniform inverts the silhouette's reading — the webbing stops being webbing.
+        Check(factions.All(f => f.gearColor.grayscale < f.uniformColor.grayscale),
+              "every faction's gear is darker than its uniform");
+
+        // --- the repaint reaches the ART, and survives a recycled slot --------------------------
+        var uniformMat = AssetDatabase.LoadAssetAtPath<Material>("Assets/Materials/EnemyUniform.mat");
+        var gearMat = AssetDatabase.LoadAssetAtPath<Material>("Assets/Materials/EnemyGear.mat");
+        var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(
+            "Assets/Prefabs/EnemyUnit_unit_rifleman.prefab");
+        if (prefab == null || uniformMat == null || gearMat == null)
+        {
+            Check(false, "the shipped enemy rifleman prefab and its two side-materials");
+            return;
+        }
+
+        var uniformWas = uniformMat.color;
+        var gearWas = gearMat.color;
+        var soldier = Object.Instantiate(prefab);
+        try
+        {
+            var all = soldier.GetComponentsInChildren<Renderer>(true);
+            var wearsUniform = new List<Renderer>();
+            var wearsGear = new List<Renderer>();
+            FactionPaint.Classify(new[] { soldier }, uniformMat, gearMat, wearsUniform, wearsGear);
+
+            // The renderers a faction must NEVER touch: skin is shared flesh and the per-class TRIM
+            // is what says which class a man is. Captured BEFORE any paint, by identity, so the
+            // check is "these exact materials are still on these exact renderers" afterwards.
+            var untouched = all.Where(r => !wearsUniform.Contains(r) && !wearsGear.Contains(r))
+                               .Select(r => (r, r.sharedMaterial)).ToArray();
+            Check(wearsUniform.Count > 0 && wearsGear.Count > 0 && untouched.Length > 0,
+                  $"the rifleman splits into uniform / gear / neither " +
+                  $"({wearsUniform.Count} / {wearsGear.Count} / {untouched.Length} renderers)");
+
+            var red = factions.FirstOrDefault(f => f.id == "stage_valley") ?? factions[0];
+            var steel = factions.FirstOrDefault(f => f != red) ?? factions[0];
+
+            Color UniformNow() => wearsUniform[0].sharedMaterial.color;
+            Color GearNow() => wearsGear[0].sharedMaterial.color;
+
+            void Paint(FactionDefinitionSO f) => FactionPaint.Apply(
+                wearsUniform, wearsGear,
+                FactionPaint.Recolour(uniformMat, f.uniformColor),
+                FactionPaint.Recolour(gearMat, f.gearColor));
+
+            Paint(red);
+            bool first = Dist(UniformNow(), red.uniformColor) < 1e-3f
+                      && Dist(GearNow(), red.gearColor) < 1e-3f;
+            Paint(steel);
+            bool second = Dist(UniformNow(), steel.uniformColor) < 1e-3f
+                       && Dist(GearNow(), steel.gearColor) < 1e-3f;
+            // Back to the build-time pair, which is what a level in NO stage gets. A rig entered
+            // after a campaign level is the third state, and the one a "paint it once at startup"
+            // implementation gets wrong.
+            FactionPaint.Apply(wearsUniform, wearsGear, uniformMat, gearMat);
+            bool back = Dist(UniformNow(), uniformMat.color) < 1e-3f;
+
+            Check(first && second && back,
+                  $"a pooled soldier wears the stage he is IN, repaint after repaint — " +
+                  $"{red.displayName} {(first ? "ok" : "NO")}, {steel.displayName} " +
+                  $"{(second ? "ok" : "NO")}, then a rig's default {(back ? "ok" : "NO")}");
+
+            Check(untouched.All(u => u.r.sharedMaterial == u.Item2),
+                  "a faction repaint leaves SKIN and the per-class TRIM alone");
+
+            // The source assets must come out of all that unchanged. Recolour clones for exactly
+            // this reason: tinting in place would edit EnemyUniform.mat on disk, and every faction
+            // in the game would then be whichever one was painted last — including in the build.
+            Check(Dist(uniformMat.color, uniformWas) < 1e-4f && Dist(gearMat.color, gearWas) < 1e-4f,
+                  $"the shared EnemyUniform/EnemyGear ASSETS come out of it unchanged " +
+                  $"({uniformMat.color} was {uniformWas})");
+        }
+        finally
+        {
+            Object.DestroyImmediate(soldier);
+        }
+    }
+
     static void CheckConsumables()
     {
         var level = AssetDatabase.FindAssets("t:LevelDefinitionSO")
@@ -2713,6 +2871,7 @@ public static class PortSelfTest
         }
 
         CheckConsumables();
+        CheckFactions();
 
         Debug.Log($"[PortSelfTest] {(failed == 0 ? "ALL PASS" : $"{failed} FAILURES")}\n{Log}");
         if (failed > 0 && Application.isBatchMode) EditorApplication.Exit(1);

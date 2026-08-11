@@ -279,7 +279,7 @@ reference itself does.
 | B1 | Wind shifts (schedule + telegraph) | shipped (2026-07-20) |
 | B2 | Reinforcement waves (`arrivesOnTurn` trigger + telegraph) | shipped (2026-07-20) |
 | C | Smoke Screen + Overwatch Flare | both shipped (2026-07-20, 2026-07-21) — in UNITY, **Smoke only** (2026-08-10); Overwatch held, see below |
-| D1 | Enemy factions per stage (palettes + identity surfacing) | shipped (2026-07-20) |
+| D1 | Enemy factions per stage (palettes + identity surfacing) | shipped (2026-07-20); **ported to UNITY 2026-08-12** — TWO factions, one per stage, device-confirmed. See below |
 | D2 | Biome art per stage | rescoped + shipped as prop-dressing pass (2026-07-20) — see below |
 | D3 | New unit silhouettes (2–3 Blender builds + economy wiring) | shipped (2026-07-20) |
 | D4 | Player cosmetics | shipped (2026-07-20) |
@@ -559,6 +559,50 @@ rendered in sandy Desert Tan uniform/gear while the player tank structure stayed
 original green, enemy formation stayed red, no crash. Fired one live volley through a full
 turn (enemy volley resolved, camera panned back) — cosmetic held steady through combat,
 no flicker, no reversion.
+
+## Phase D1 in UNITY — 2026-08-12
+
+**Two factions, not four, because this port has two stages**: Redguard (Valley Front) keeps the
+existing enemy red UNCHANGED, and Ironclad Legion (Enemy Stronghold) is the Kotlin's steel
+blue-grey. Stage 1 is where the player learns what "the enemy" looks like, so a faction system
+whose first act is repainting the tutorial army teaches nothing — the identity is what is new
+there, not the colour. Ashfall Militia and Frost Legion have no stage to live on here and were
+not authored; the day a third stage exists, the two palettes are in this file's shipped notes below.
+
+**The data lives where the campaign's data lives** — `FactionDefinitionSO` assets in
+`Assets/GameData/Factions`, attached to `StageDefinitionSO.faction`, authored once by
+`FactionAuthoring.Author` and edited directly afterwards. This is the one place the Unity port
+disagrees with the Kotlin on purpose: there the palettes sat in the UI layer (`SceneHost.kt`),
+because colour had always been a UI concern in that build. Here `Assets/GameData` is the source of
+truth and a stage asset already exists to hang it on.
+
+**What a faction may touch is deliberately narrow: the enemy's UNIFORM and GEAR.** Per-class TRIM
+is shared across both armies — the uniform says which SIDE a soldier is on and the trim says which
+CLASS he is, and letting a faction repaint the trim collapses the two readings into one. Skin,
+structures and the player are untouched; the player's colour belongs to cosmetics (D4/Tier 2.4),
+and two systems repainting one army is how the Kotlin build got a permanently stale uniform.
+
+**The repaint is a POOL RESET, and that is the whole engineering risk.** Pools are built once and
+survive a level switch, so `BattleRunner.ApplyFaction` runs on every `LoadLevel` beside the scorch
+re-material and `TintShadows`. Renderers are classified ONCE against the two build-time materials
+(`FactionPaint.Classify`) — matching on the material rather than on the `skin*`/`trim*`/`accent*`
+mesh-name prefixes, because that convention belongs to the art pipeline and a second copy of it
+can disagree with the first. `sharedMaterial`, not a `MaterialPropertyBlock`: every enemy on a
+level wears the same uniform, so one material per faction keeps the army in one batch.
+
+**Confirmed on device 2026-08-12, and the control is half the evidence**: L1 red → six ▶ steps to
+L7 steel blue-grey → six ◀ steps back to L1 red again. A single paint proves nothing here; the
+failure mode is a recycled slot keeping the previous stage's colours, and only the second and
+third paint can show it.
+
+**One check was wrong when written, in this file's favourite way.** The "these are visibly
+different armies" check began as a LUMA-WEIGHTED rgb distance, which weights blue at 0.11 — it
+scored steel blue-grey as 0.082 from the player's olive green and indicted a palette the Kotlin
+shipped and played fine. Two tones of equal brightness and opposite HUE are trivially told apart,
+and hue is the axis the whole feature works in. It is an opponent-colour distance now (brightness,
+red-vs-green, blue-vs-yellow as three axes) and is only a coarse floor against someone authoring
+two palettes that are genuinely the same colour. **A metric invented in the same hour as the thing
+it judges is not the artefact — the device is.**
 
 ## Phase D1 — shipped notes (2026-07-20)
 
