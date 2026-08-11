@@ -201,6 +201,220 @@ public static class PortSelfTest
     /// SECOND paint: pools are built once and survive a level switch, so the failure to catch is a
     /// slot that keeps the previous stage's uniform. A single paint can never show it.
     /// </summary>
+    /// <summary>
+    /// How far apart two army colours read — brightness, red-vs-green and blue-vs-yellow as three
+    /// separate axes.
+    ///
+    /// **The first version of this was a luma-weighted rgb distance and it was WRONG.** Luma
+    /// weights blue at 0.11, so it scored steel blue-grey at 0.082 from the player's olive green
+    /// and indicted a palette the Kotlin build shipped and played fine. Two tones of equal
+    /// brightness and opposite HUE are trivially told apart, and hue is the axis both the faction
+    /// and the camo features work in.
+    ///
+    /// It is a COARSE FLOOR against someone authoring two palettes that are genuinely the same
+    /// colour, and nothing more — the device is the judge of whether an army reads.
+    /// </summary>
+    static float OpponentDistance(Color a, Color b)
+    {
+        float dl = (0.30f * a.r + 0.59f * a.g + 0.11f * a.b)
+                 - (0.30f * b.r + 0.59f * b.g + 0.11f * b.b);
+        float drg = (a.r - a.g) - (b.r - b.g);
+        float dby = (0.5f * (a.r + a.g) - a.b) - (0.5f * (b.r + b.g) - b.b);
+        return Mathf.Sqrt(dl * dl + drg * drg + dby * dby);
+    }
+
+    /// <summary>
+    /// PLAYER CAMO — Tier 2.4. Vanity, so the checks are about two things only: that it changes
+    /// nothing in the simulation, and that it never dresses your army as somebody else's.
+    /// </summary>
+    static void CheckCosmetics()
+    {
+        var sets = Cosmetics.All;
+        var olive = Cosmetics.For(CosmeticSet.Olive);
+
+        // Olive is free, is the default, and — the Kotlin's own device bug — is UNLOCKED without
+        // ever being stored, exactly like Standard ammo. A local "is it in the unlocked set?" test
+        // that misses that special case shows the free item as buyable, which is what shipped there.
+        Check(sets.Count == 4 && sets.Select(c => c.Set).Distinct().Count() == 4
+              && olive.CoinPrice == 0 && olive.UniformColor == null
+              && ProgressStore.IsCosmeticUnlocked(CosmeticSet.Olive)
+              && !ProgressStore.UnlockedCosmetics().Contains(CosmeticSet.Olive.ToString())
+              && sets.Where(c => c.Set != CosmeticSet.Olive)
+                     .All(c => c.CoinPrice > 0 && c.UniformColor != null && c.GearColor != null),
+              $"four camo sets, Olive free and unlocked without being stored ({sets.Count})");
+
+        // A SELECTION THE PLAYER DOES NOT OWN MUST FALL BACK, not render a set they never bought.
+        // The check asserts its own precondition: with the set already unlocked in the editor's
+        // prefs there is nothing to fall back FROM, and it would pass while testing nothing.
+        {
+            var stored = ProgressStore.SelectedCosmetic();
+            bool reachable = !ProgressStore.IsCosmeticUnlocked(CosmeticSet.Arctic);
+            ProgressStore.SetSelectedCosmetic(CosmeticSet.Arctic);
+            var got = ProgressStore.SelectedCosmetic();
+            ProgressStore.SetSelectedCosmetic(stored);
+            Check(reachable && got == CosmeticSet.Olive,
+                  $"an unowned selection falls back to Olive (got {got}, Arctic owned="
+                  + $"{!reachable} — if it IS owned this check is testing nothing, clear the "
+                  + "editor's PlayerPrefs)");
+        }
+
+        // RIGS TEST SUPPLY must dress the army and write NOTHING — the same bargain the consumable
+        // supply strikes. Asserted against the store, not against the flag: the failure worth
+        // catching is a "free" wardrobe that quietly unlocks or persists a set, which would
+        // survive RIGS being switched off and corrupt a real save.
+        {
+            var storedSel = ProgressStore.SelectedCosmetic();
+            var ownedBefore = ProgressStore.UnlockedCosmetics().ToList();
+            Cosmetics.TestOverride = CosmeticSet.Arctic;
+            bool worn = Cosmetics.Selected().Set == CosmeticSet.Arctic;
+            bool wroteNothing = ProgressStore.SelectedCosmetic() == storedSel
+                && !ProgressStore.IsCosmeticUnlocked(CosmeticSet.Arctic)
+                && ProgressStore.UnlockedCosmetics().Count == ownedBefore.Count;
+            Cosmetics.TestOverride = null;
+            Check(worn && wroteNothing && Cosmetics.Selected().Set == storedSel,
+                  $"the RIGS wardrobe wears a set it does not own and writes nothing "
+                  + $"(worn={worn}, storeUntouched={wroteNothing}, back to {storedSel})");
+        }
+
+        // --- NO CAMO MAY READ AS THE ENEMY ------------------------------------------------------
+        //
+        // The one way this feature damages the game rather than merely looking dull. Two systems
+        // now paint two armies, so every camo is measured against every faction AND against the
+        // enemy's build-time red, which is what a level in no stage still fields.
+        var factions = AssetDatabase.FindAssets("t:FactionDefinitionSO")
+            .Select(g => AssetDatabase.LoadAssetAtPath<FactionDefinitionSO>(
+                AssetDatabase.GUIDToAssetPath(g)))
+            .Where(f => f != null).ToArray();
+        var enemyMat = AssetDatabase.LoadAssetAtPath<Material>("Assets/Materials/EnemyUniform.mat");
+        var playerMat = AssetDatabase.LoadAssetAtPath<Material>("Assets/Materials/PlayerUniform.mat");
+        if (enemyMat == null || playerMat == null || factions.Length == 0)
+        { Check(false, "the side materials and the faction assets"); return; }
+
+        var enemyTones = factions.Select(f => (f.name, f.uniformColor))
+                                 .Append(("the enemy default", enemyMat.color)).ToArray();
+        const float Apart = 0.15f;
+        float worst = float.MaxValue;
+        string worstPair = "";
+        foreach (var camo in sets)
+        {
+            var tone = camo.UniformColor ?? playerMat.color;
+            foreach (var (name, enemyTone) in enemyTones)
+            {
+                float d = OpponentDistance(tone, enemyTone);
+                if (d < worst) { worst = d; worstPair = $"{camo.DisplayName} vs {name}"; }
+            }
+        }
+        Check(worst >= Apart,
+              $"no camo reads as an enemy army — closest is {worstPair} at {worst:F3} "
+              + $"(need {Apart})");
+
+        // Camo sets must also be told apart from EACH OTHER, or the 400-coin one is a 400-coin
+        // nothing. Measured against the whole set including Olive, which is what they are bought
+        // as an alternative to.
+        float closest = float.MaxValue;
+        for (int i = 0; i < sets.Count; i++)
+            for (int j = i + 1; j < sets.Count; j++)
+                closest = Mathf.Min(closest, OpponentDistance(
+                    sets[i].UniformColor ?? playerMat.color,
+                    sets[j].UniformColor ?? playerMat.color));
+        Check(closest >= Apart, $"every camo is distinct from every other ({closest:F3})");
+
+        // --- VANITY MEANS VANITY ----------------------------------------------------------------
+        //
+        // Asserted on the OUTPUT of a real volley rather than on the absence of stat fields in the
+        // Camo class: the same seed, the same drag, two different camo selections, and every
+        // number the battle produces must match. A cosmetic that quietly reached a stat would show
+        // up here as a different enemy HP total.
+        var level = AssetDatabase.FindAssets("t:LevelDefinitionSO")
+            .Select(g => AssetDatabase.LoadAssetAtPath<LevelDefinitionSO>(
+                AssetDatabase.GUIDToAssetPath(g)))
+            .Where(l => l != null && !l.isTestLevel)
+            .OrderBy(l => l.levelNumber).FirstOrDefault();
+        if (level != null)
+        {
+            // ARCTIC HAS TO BE OWNED FOR THIS TO TEST ANYTHING. SelectedCosmetic validates on
+            // read, so selecting a set the player does not own silently returns Olive — and the
+            // first version of this check compared Olive with Olive and passed against a build
+            // where the camo really did buff damage 50%. Unlocked here, locked again below.
+            var was = ProgressStore.SelectedCosmetic();
+            bool ownedBefore = ProgressStore.IsCosmeticUnlocked(CosmeticSet.Arctic);
+            ProgressStore.UnlockCosmetic(CosmeticSet.Arctic);
+            var fresh = LevelBuilder.BuildInitialState(level, 1, 12, new System.Random(7));
+            int hpBefore = fresh.EnemyUnits.Sum(u => u.Hp) + fresh.Structures.Sum(st => st.Hp);
+
+            int[] Run(CosmeticSet set)
+            {
+                ProgressStore.SetSelectedCosmetic(set);
+                var s = LevelBuilder.BuildInitialState(level, 1, 12, new System.Random(7))
+                    with { Phase = GamePhase.Playing, TurnPhase = TurnPhase.Aiming,
+                           TurnSide = TurnSide.Player };
+                // This aim LANDS on L1, which is the whole requirement — a volley that misses
+                // makes both runs identical for free, and the check would test nothing.
+                s = BattleTick.FireVolley(s, new Vector3(6f, 6f, 0f), new System.Random(3), null);
+                for (int i = 0; i < 600; i++) s = BattleTick.Step(s, 1f / 60f, level,
+                                                                 new System.Random(5));
+                return new[] { s.EnemyUnits.Sum(u => u.Hp), s.PlayerUnits.Sum(u => u.Hp),
+                               s.Structures.Sum(st => st.Hp), s.EnemyUnits.Count };
+            }
+            var oliveRun = Run(CosmeticSet.Olive);
+            var arcticRun = Run(CosmeticSet.Arctic);
+            // Read back what the store actually holds — the fallback is silent, and "I asked for
+            // Arctic" is not the same fact as "Arctic is what the run wore".
+            bool reallyWorn = ProgressStore.SelectedCosmetic() == CosmeticSet.Arctic;
+            if (!ownedBefore) ProgressStore.LockCosmetic(CosmeticSet.Arctic);
+            ProgressStore.SetSelectedCosmetic(was);
+
+            // THE VOLLEY MUST HAVE HURT SOMETHING, asserted as part of the condition. The first
+            // version of this check compared two volleys that both missed: it passed against a
+            // deliberately broken build where Arctic hit 15% harder, because 0 damage equals 0
+            // damage. Same family as the airstrike check that had to assert its own aim was short.
+            int hpAfter = oliveRun[0] + oliveRun[2];
+            Check(hpAfter < hpBefore && reallyWorn && oliveRun.SequenceEqual(arcticRun),
+                  $"a camo changes NOTHING a volley does — and the volley LANDED ({hpBefore} hp "
+                  + $"-> {hpAfter}) while the camo was really WORN ({reallyWorn}); enemy "
+                  + $"{oliveRun[0]}/{arcticRun[0]}, structures {oliveRun[2]}/{arcticRun[2]}, "
+                  + $"survivors {oliveRun[3]}/{arcticRun[3]}");
+        }
+
+        // --- the repaint reaches the PLAYER's art, and Olive is a real destination ---------------
+        var pGear = AssetDatabase.LoadAssetAtPath<Material>("Assets/Materials/PlayerGear.mat");
+        var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(
+            "Assets/Prefabs/PlayerUnit_unit_rifleman.prefab");
+        if (prefab == null || pGear == null) { Check(false, "the player rifleman prefab"); return; }
+
+        var soldier = Object.Instantiate(prefab);
+        try
+        {
+            var wearsUniform = new List<Renderer>();
+            var wearsGear = new List<Renderer>();
+            FactionPaint.Classify(new[] { soldier }, playerMat, pGear, wearsUniform, wearsGear);
+            var desert = Cosmetics.For(CosmeticSet.Desert);
+
+            FactionPaint.Apply(wearsUniform, wearsGear,
+                               FactionPaint.Recolour(playerMat, desert.UniformColor.Value),
+                               FactionPaint.Recolour(pGear, desert.GearColor.Value));
+            bool painted = wearsUniform.Count > 0
+                && OpponentDistance(wearsUniform[0].sharedMaterial.color,
+                                    desert.UniformColor.Value) < 1e-3f;
+
+            // Olive repaints back to the build-time ASSETS themselves, not to a clone that
+            // matches them — a default you can return to has to be a real destination, and this
+            // is the half a "paint it once" implementation gets wrong.
+            FactionPaint.Apply(wearsUniform, wearsGear, playerMat, pGear);
+            bool home = wearsUniform[0].sharedMaterial == playerMat
+                     && wearsGear[0].sharedMaterial == pGear;
+
+            Check(painted && home,
+                  $"the player's rifleman wears his camo and comes home to Olive — "
+                  + $"{wearsUniform.Count} uniform / {wearsGear.Count} gear renderers, "
+                  + $"desert {(painted ? "ok" : "NO")}, olive {(home ? "ok" : "NO")}");
+        }
+        finally
+        {
+            Object.DestroyImmediate(soldier);
+        }
+    }
+
     static void CheckFactions()
     {
         var stages = AssetDatabase.FindAssets("t:StageDefinitionSO")
@@ -244,14 +458,7 @@ public static class PortSelfTest
         // The PLAYER's tone is read from the .mat asset rather than restated here, and it is in the
         // comparison because "the enemy now wears something close to your own green" is the one way
         // this feature breaks the GAME rather than merely looking dull.
-        float Dist(Color a, Color b)
-        {
-            float dl = (0.30f * a.r + 0.59f * a.g + 0.11f * a.b)
-                     - (0.30f * b.r + 0.59f * b.g + 0.11f * b.b);
-            float drg = (a.r - a.g) - (b.r - b.g);
-            float dby = (0.5f * (a.r + a.g) - a.b) - (0.5f * (b.r + b.g) - b.b);
-            return Mathf.Sqrt(dl * dl + drg * drg + dby * dby);
-        }
+        var Dist = (System.Func<Color, Color, float>)OpponentDistance;
         var playerMat = AssetDatabase.LoadAssetAtPath<Material>("Assets/Materials/PlayerUniform.mat");
         var factions = stages.Select(s => s.faction).Where(f => f != null).Distinct().ToArray();
         const float Apart = 0.15f;
@@ -924,9 +1131,12 @@ public static class PortSelfTest
             Check(lastRowBottom <= ArmedConflict.UI.BattleUI.ConsumableHeaderY
                   && ArmedConflict.UI.BattleUI.ConsumableStripY
                      + ArmedConflict.UI.BattleUI.ConsumableStripHeight
+                     <= ArmedConflict.UI.BattleUI.CamoHeaderY
+                  && ArmedConflict.UI.BattleUI.CamoStripY
+                     + ArmedConflict.UI.BattleUI.CamoStripHeight
                      <= ArmedConflict.UI.BattleUI.BeginButtonY,
-                  $"the consumable strip clears the last of {rows} roster rows, and BEGIN clears "
-                  + "the strip");
+                  $"the panel stacks without collision — {rows} roster rows, then consumables, "
+                  + "then camo, and BEGIN below all of it");
         }
     }
 
@@ -2872,6 +3082,7 @@ public static class PortSelfTest
 
         CheckConsumables();
         CheckFactions();
+        CheckCosmetics();
 
         Debug.Log($"[PortSelfTest] {(failed == 0 ? "ALL PASS" : $"{failed} FAILURES")}\n{Log}");
         if (failed > 0 && Application.isBatchMode) EditorApplication.Exit(1);

@@ -99,9 +99,26 @@ public static class BattleUIPreview
             ProgressStore.AddCoins(stakeCoins);
             int ownedBefore = ProgressStore.OwnedConsumables(spySupply);
             int coinsBefore = ProgressStore.Coins();
-            LoadoutShot("loadout-testsupply", level, roster, spySupply, testSupply: true);
+            // The CAMO tile rides the same shot and the same argument (Tier 2.4). Its test supply
+            // is a session-only override, so the property to prove is the same one and it is
+            // proved the same way: tap the tile, then ask the STORE whether anything moved.
+            var spyCamo = CosmeticSet.Arctic;
+            var wardrobeBefore = ProgressStore.UnlockedCosmetics().Count;
+            var wornBefore = ProgressStore.SelectedCosmetic();
+            LoadoutShot("loadout-testsupply", level, roster, spySupply, testSupply: true,
+                        wearing: spyCamo);
             int ownedAfter = ProgressStore.OwnedConsumables(spySupply);
             int coinsAfter = ProgressStore.Coins();
+            if (ProgressStore.UnlockedCosmetics().Count != wardrobeBefore
+                || ProgressStore.SelectedCosmetic() != wornBefore
+                || ProgressStore.IsCosmeticUnlocked(spyCamo))
+                Debug.LogError($"[BattleUIPreview] TEST SUPPLY WROTE TO THE REAL WARDROBE — " +
+                               $"unlocked {wardrobeBefore}->{ProgressStore.UnlockedCosmetics().Count}, " +
+                               $"worn {wornBefore}->{ProgressStore.SelectedCosmetic()}. " +
+                               $"It must dress the army without buying.");
+            else
+                Debug.Log($"[BattleUIPreview] test supply wore {spyCamo} and wrote nothing " +
+                          $"(still {wardrobeBefore} owned, still wearing {wornBefore})");
             if (ownedAfter != ownedBefore || coinsAfter != coinsBefore)
                 Debug.LogError($"[BattleUIPreview] TEST SUPPLY WROTE TO THE REAL ECONOMY — " +
                                $"{spySupply} owned {ownedBefore}->{ownedAfter}, " +
@@ -120,7 +137,7 @@ public static class BattleUIPreview
 
     static void LoadoutShot(string name, ArmedConflict.Data.LevelDefinitionSO level,
                             ArmedConflict.Data.RosterDefinitionSO roster, ConsumableType? carrying,
-                            bool testSupply = false)
+                            bool testSupply = false, CosmeticSet? wearing = null)
     {
         const int W = 1080, H = 2400;
         var camGo = new GameObject("PreviewCam", typeof(Camera));
@@ -137,7 +154,7 @@ public static class BattleUIPreview
             .Select(g => AssetDatabase.LoadAssetAtPath<StageDefinitionSO>(
                 AssetDatabase.GUIDToAssetPath(g)))
             .Where(s => s != null).ToArray();
-        ui.PreviewLoadout(level, roster, carrying, testSupply, Factions.For(level, stages));
+        ui.PreviewLoadout(level, roster, carrying, testSupply, Factions.For(level, stages), wearing);
 
         var canvas = ui.GetComponent<Canvas>();
         canvas.renderMode = RenderMode.ScreenSpaceCamera;

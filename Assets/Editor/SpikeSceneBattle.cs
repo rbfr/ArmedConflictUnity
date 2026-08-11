@@ -149,6 +149,11 @@ public static class SpikeSceneBattle
         // equality is the whole mechanism, so these must never be re-loaded copies.
         so.FindProperty("enemyUniformMaterial").objectReferenceValue = mats.enemyUniform;
         so.FindProperty("enemyGearMaterial").objectReferenceValue = mats.enemyGear;
+        // And the player's pair, for the camo repaint. Same requirement: these must be the assets
+        // the PLAYER prefabs were toned with, or nothing is classified and Olive has nowhere to
+        // repaint back to.
+        so.FindProperty("playerUniformMaterial").objectReferenceValue = mats.playerUniform;
+        so.FindProperty("playerGearMaterial").objectReferenceValue = mats.playerGear;
         so.FindProperty("scenery").objectReferenceValue = scenery;
         so.FindProperty("playerUnitPrefab").objectReferenceValue = playerPrefab;
         so.FindProperty("enemyUnitPrefab").objectReferenceValue = enemyPrefab;

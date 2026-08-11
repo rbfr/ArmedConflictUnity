@@ -151,6 +151,18 @@ namespace ArmedConflict.Game
         public static void UnlockCosmetic(CosmeticSet set)
             => AddToSet(KeyUnlockedCosmetics, set.ToString());
 
+        /// <summary>
+        /// The inverse. Nothing in the game takes a cosmetic away — it exists so a CHECK can put
+        /// the store into the state its failure needs and then put it back.
+        ///
+        /// Without it the vanity check was unfalsifiable twice over: comparing a battle under
+        /// Olive with one under a set the player does not own is comparing Olive with Olive,
+        /// because <see cref="SelectedCosmetic"/> validates on read. It passed against a build
+        /// where the camo really did buff damage 50%.
+        /// </summary>
+        public static void LockCosmetic(CosmeticSet set)
+            => RemoveFromSet(KeyUnlockedCosmetics, set.ToString());
+
         public static CosmeticSet SelectedCosmetic()
         {
             string stored = PlayerPrefs.GetString(KeySelectedCosmetic, "");
@@ -208,6 +220,14 @@ namespace ArmedConflict.Game
         {
             var set = ReadSet(key);
             if (!set.Add(value)) return;
+            PlayerPrefs.SetString(key, string.Join(SetSep.ToString(), set));
+            PlayerPrefs.Save();
+        }
+
+        static void RemoveFromSet(string key, string value)
+        {
+            var set = ReadSet(key);
+            if (!set.Remove(value)) return;
             PlayerPrefs.SetString(key, string.Join(SetSep.ToString(), set));
             PlayerPrefs.Save();
         }

@@ -77,6 +77,11 @@ public class BattleRunner : MonoBehaviour
     /// </summary>
     [SerializeField] Material enemyUniformMaterial;
     [SerializeField] Material enemyGearMaterial;
+    /// <summary>The player's pair, for the CAMO repaint (Tier 2.4). Same mechanism as the enemy's,
+    /// pointed at the other army — and Olive repaints back to these exact assets rather than to a
+    /// clone that matches them.</summary>
+    [SerializeField] Material playerUniformMaterial;
+    [SerializeField] Material playerGearMaterial;
 
     const int UnitPoolSize = 48;
     const int ProjectilePoolSize = 64;
@@ -267,6 +272,12 @@ public class BattleRunner : MonoBehaviour
     /// is over every mesh of every pooled soldier on both prefabs sets, and it cannot change.</summary>
     readonly List<Renderer> enemyUniformRenderers = new();
     readonly List<Renderer> enemyGearRenderers = new();
+    /// <summary>The same, for the player's own army — see ApplyCamo.</summary>
+    readonly List<Renderer> playerUniformRenderers = new();
+    readonly List<Renderer> playerGearRenderers = new();
+    /// <summary>One uniform+gear pair per PAID camo set. Olive is absent and always will be: it
+    /// wears the build-time materials, so it has nothing to mint.</summary>
+    readonly Dictionary<CosmeticSet, (Material Uniform, Material Gear)> camoMaterials = new();
     /// <summary>One uniform+gear pair per faction, minted with the pools. Minting a material the
     /// frame a level loads is a smaller sin than minting a render slot, but it is the same sin.</summary>
     readonly Dictionary<FactionDefinitionSO, (Material Uniform, Material Gear)> factionMaterials = new();
@@ -412,6 +423,7 @@ public class BattleRunner : MonoBehaviour
 
         TintShadows();
         ApplyFaction();
+        ApplyCamo();
         HideAll();
         // The end panel belongs to the battle that raised it. It must come down here rather than
         // on the button that caused the switch, because the ◀ ▶ stepper leaves a finished battle
@@ -694,6 +706,19 @@ public class BattleRunner : MonoBehaviour
             factionMaterials[f] = (FactionPaint.Recolour(enemyUniformMaterial, f.uniformColor),
                                    FactionPaint.Recolour(enemyGearMaterial, f.gearColor));
         }
+
+        // The player's side of the same machinery. EVERY paid camo is minted here, owned or not:
+        // the pools are built before the loadout screen can sell one, and a material minted the
+        // moment a purchase lands is a mid-session mint for no reason. Four small materials.
+        FactionPaint.Classify(playerUnits.All, playerUniformMaterial, playerGearMaterial,
+                              playerUniformRenderers, playerGearRenderers);
+        foreach (var camo in Cosmetics.All)
+        {
+            if (camo.UniformColor == null || camoMaterials.ContainsKey(camo.Set)) continue;
+            camoMaterials[camo.Set] =
+                (FactionPaint.Recolour(playerUniformMaterial, camo.UniformColor.Value),
+                 FactionPaint.Recolour(playerGearMaterial, camo.GearColor ?? camo.UniformColor.Value));
+        }
     }
 
     /// <summary>
@@ -712,6 +737,26 @@ public class BattleRunner : MonoBehaviour
             ? p
             : (Uniform: enemyUniformMaterial, Gear: enemyGearMaterial);
         FactionPaint.Apply(enemyUniformRenderers, enemyGearRenderers, pair.Uniform, pair.Gear);
+    }
+
+    /// <summary>
+    /// Dresses the player's own army in the camo they have selected — Tier 2.4.
+    ///
+    /// **The selection is read UNCACHED, every time.** That is the one bug the Kotlin build
+    /// actually shipped here: a cached read evaluated once, on a screen that never unmounts, so a
+    /// set bought and confirmed on the loadout screen never reached the battle and the whole
+    /// feature looked broken with nothing wrong in the shop.
+    ///
+    /// Olive repaints back to the build-time materials — a selection can be changed back, so the
+    /// default has to be a real destination rather than "whatever the slot happened to keep".
+    /// </summary>
+    void ApplyCamo()
+    {
+        var camo = Cosmetics.Selected();
+        var pair = camo != null && camoMaterials.TryGetValue(camo.Set, out var p)
+            ? p
+            : (Uniform: playerUniformMaterial, Gear: playerGearMaterial);
+        FactionPaint.Apply(playerUniformRenderers, playerGearRenderers, pair.Uniform, pair.Gear);
     }
 
     /// <summary>
@@ -2181,6 +2226,15 @@ public class BattleRunner : MonoBehaviour
             if (state != null)
                 state = state with { LoadedConsumables = EquippedFromInventory(),
                                      AirstrikeArmed = false, SmokeScreenArmed = false };
+
+            // The free WARDROBE is withdrawn on the same tap, and the army changes back in the
+            // battle you are standing in — the repaint is otherwise only read by LoadLevel, so a
+            // borrowed camo would survive the supply that lent it until the next level.
+            if (!showRigs && Cosmetics.TestOverride != null)
+            {
+                Cosmetics.TestOverride = null;
+                ApplyCamo();
+            }
         }
 
         // CAM sits beside the stepper, matching the shipping build's placement.

@@ -77,7 +77,8 @@ namespace ArmedConflict.UI
         RosterDefinitionSO loadoutRoster;
         List<Pick> loadoutPicks = new();
         ConsumableTile[] consumableTiles;
-        TMPro.TMP_Text consumableHeader;
+        CamoTile[] camoTiles;
+        TMPro.TMP_Text consumableHeader, camoHeader;
         /// <summary>
         /// What the player is carrying INTO this battle. Owned inventory lives in ProgressStore
         /// and is not touched here — equipping is a choice about this battle, and nothing is spent
@@ -215,11 +216,12 @@ namespace ArmedConflict.UI
         /// </summary>
         public void PreviewLoadout(LevelDefinitionSO level, RosterDefinitionSO roster,
                                    ConsumableType? carrying = null, bool testSupply = false,
-                                   FactionDefinitionSO faction = null)
+                                   FactionDefinitionSO faction = null, CosmeticSet? wearing = null)
         {
             var picks = Loadout.Default(level, roster, ProgressStore.IsUnitUnlocked);
             ShowLoadout(level, roster, picks, testSupply, (_, __) => { }, faction);
             if (carrying is ConsumableType type) TapConsumable(type);
+            if (wearing is CosmeticSet set) TapCamo(set);
         }
 
         public void PreviewEndCard(bool victory, int stars, int coins, string bonusTag,
@@ -531,8 +533,9 @@ namespace ArmedConflict.UI
                 loadoutRows[i] = BuildLoadoutRow(panel, -430f - i * 168f, i);
 
             BuildConsumableStrip(panel);
+            BuildCamoStrip(panel);
 
-            beginButton = NewButton("Begin", panel, new Vector2(0f, -1800f), "BEGIN",
+            beginButton = NewButton("Begin", panel, new Vector2(0f, -BeginButtonY), "BEGIN",
                                     new Color(0.16f, 0.42f, 0.24f), OnBeginPressed, out _);
             var brt = (RectTransform)beginButton.transform;
             brt.sizeDelta = new Vector2(560f, 140f);
@@ -554,7 +557,14 @@ namespace ArmedConflict.UI
         public const float ConsumableStripY = 1520f;
         public const float ConsumableStripHeight = 150f;
         public const float ConsumableHeaderY = 1462f;
-        public const float BeginButtonY = 1800f;
+        /// <summary>The CAMO strip (Tier 2.4), between the consumables and BEGIN. Adding it moved
+        /// BEGIN down, which is the move the Kotlin failed to make — everything here is measured
+        /// from the panel's top and pinned by PortSelfTest, so the button cannot be pushed off the
+        /// bottom of the tree by a section added above it.</summary>
+        public const float CamoHeaderY = 1700f;
+        public const float CamoStripY = 1756f;
+        public const float CamoStripHeight = 128f;
+        public const float BeginButtonY = 1930f;
         /// <summary>Row 0's top, the per-row pitch and a row's height — see BuildLoadoutPanel.</summary>
         public const float LoadoutRowTop = 430f;
         public const float LoadoutRowPitch = 168f;
@@ -593,6 +603,137 @@ namespace ArmedConflict.UI
                 {
                     Root = tile, Image = tile.GetComponent<Image>(), Label = label, Type = def.Type,
                 };
+            }
+        }
+
+        /// <summary>
+        /// The camo shop — Tier 2.4. Four tiles: buy once, then select freely for ever.
+        ///
+        /// Each tile carries a SWATCH of the actual uniform colour, because the name of a camo set
+        /// is not the thing being bought. Olive's swatch is the player prefab's own tone, restated
+        /// here as a constant — the catalog stores null for it (it repaints to the build-time
+        /// material rather than to a clone), and a tile with no swatch would be the one set you
+        /// cannot see before choosing.
+        /// </summary>
+        void BuildCamoStrip(RectTransform panel)
+        {
+            var header = NewText("CamoHeader", panel, 30f, new Color(0.66f, 0.69f, 0.74f),
+                                 TextAlignmentOptions.Center);
+            header.rectTransform.anchorMin = header.rectTransform.anchorMax = new Vector2(0.5f, 1f);
+            header.rectTransform.pivot = new Vector2(0.5f, 1f);
+            header.rectTransform.anchoredPosition = new Vector2(0f, -CamoHeaderY);
+            header.rectTransform.sizeDelta = new Vector2(1000f, 44f);
+            camoHeader = header;
+
+            var sets = Cosmetics.All;
+            camoTiles = new CamoTile[sets.Count];
+            const float Gap = 14f;
+            float w = (1000f - Gap * (sets.Count - 1)) / sets.Count;
+
+            for (int i = 0; i < sets.Count; i++)
+            {
+                var camo = sets[i];
+                var tile = NewButton($"Camo{i}", panel, Vector2.zero, "",
+                                     new Color(0.16f, 0.17f, 0.21f), () => TapCamo(camo.Set),
+                                     out var label);
+                var rt = (RectTransform)tile.transform;
+                rt.sizeDelta = new Vector2(w, CamoStripHeight);
+                rt.anchoredPosition = new Vector2(-500f + w / 2f + i * (w + Gap), -CamoStripY);
+                label.fontSize = 24f;
+                label.textWrappingMode = TextWrappingModes.Normal;
+                // Below the swatch, not over it — text on a pale Arctic swatch is unreadable and
+                // text on a dark one hides the colour being sold.
+                label.margin = new Vector4(0f, 44f, 0f, 0f);
+
+                var swatch = NewRect("Swatch", rt);
+                swatch.anchorMin = swatch.anchorMax = new Vector2(0.5f, 1f);
+                swatch.pivot = new Vector2(0.5f, 1f);
+                swatch.anchoredPosition = new Vector2(0f, -10f);
+                swatch.sizeDelta = new Vector2(w - 36f, 30f);
+                var img = swatch.gameObject.AddComponent<Image>();
+                img.color = camo.UniformColor ?? OliveSwatch;
+                img.raycastTarget = false;
+
+                camoTiles[i] = new CamoTile
+                {
+                    Root = tile, Image = tile.GetComponent<Image>(), Label = label, Set = camo.Set,
+                };
+            }
+        }
+
+        /// <summary>PlayerUniform.mat's own tone. Olive is the only set whose colour is not in the
+        /// catalog, because it repaints to the material rather than to a clone of it.</summary>
+        static readonly Color OliveSwatch = new Color(0.30f, 0.40f, 0.24f);
+
+        class CamoTile
+        {
+            public GameObject Root;
+            public Image Image;
+            public TMP_Text Label;
+            public CosmeticSet Set;
+        }
+
+        /// <summary>
+        /// Buy it if it is not owned, wear it if it is. The same one-tap-two-meanings the ammo
+        /// selector and the consumable tiles already use.
+        ///
+        /// Buying DOES also select here, unlike a consumable — a camo has no cap to spend and no
+        /// reason to be owned and not worn, so making the player tap twice would be ceremony. The
+        /// selection is persisted immediately rather than at BEGIN: it is a standing preference,
+        /// like the ammo choice, and it survives backing out of the picker.
+        /// </summary>
+        void TapCamo(CosmeticSet set)
+        {
+            var camo = Cosmetics.For(set);
+            if (camo == null) return;
+
+            // TEST SUPPLY: wear it, buy nothing, store nothing. Not "grant it and then select it"
+            // — that would write an unlock, which is the one thing this must never do.
+            if (testSupply)
+            {
+                Cosmetics.TestOverride = set;
+                RefreshLoadout();
+                return;
+            }
+
+            if (!ProgressStore.IsCosmeticUnlocked(set))
+            {
+                if (!EconomyStore.PurchaseCosmetic(new CosmeticDefinition
+                    { Set = set, CoinPrice = camo.CoinPrice })) { RefreshLoadout(); return; }
+                SetCoins(EconomyStore.Balance());
+            }
+            ProgressStore.SetSelectedCosmetic(set);
+            RefreshLoadout();
+        }
+
+        void RefreshCamo()
+        {
+            if (camoTiles == null) return;
+            if (camoHeader != null)
+                camoHeader.text = "Your camo — vanity only, no effect in battle"
+                                + (testSupply ? "   [TEST SUPPLY — RIGS]" : "");
+
+            var selected = Cosmetics.SelectedSet();
+            foreach (var tile in camoTiles)
+            {
+                var camo = Cosmetics.For(tile.Set);
+                bool owned = testSupply || ProgressStore.IsCosmeticUnlocked(tile.Set);
+                bool worn = selected == tile.Set;
+
+                // SAY SO ON SCREEN, as the consumable strip does: a free-wardrobe mode that looks
+                // identical to the real one is how a "confirmed on device" result gets recorded
+                // against a state the player can never be in.
+                tile.Label.text = worn ? $"{camo.DisplayName}\nWORN"
+                                : testSupply ? $"{camo.DisplayName}\nFREE"
+                                : owned ? $"{camo.DisplayName}\nOwned"
+                                : $"{camo.DisplayName}\n{camo.CoinPrice}c";
+                tile.Label.color = worn ? Gold
+                                 : owned ? Body
+                                 : ProgressStore.Coins() >= camo.CoinPrice
+                                     ? new Color(0.78f, 0.72f, 0.55f)
+                                     : new Color(0.45f, 0.46f, 0.5f);
+                tile.Image.color = worn ? new Color(0.26f, 0.30f, 0.20f)
+                                        : new Color(0.16f, 0.17f, 0.21f);
             }
         }
 
@@ -855,6 +996,7 @@ namespace ArmedConflict.UI
             }
 
             RefreshConsumables();
+            RefreshCamo();
 
             bool legal = Loadout.IsLegal(loadoutPicks, loadoutLevel, loadoutRoster,
                                          ProgressStore.IsUnitUnlocked);

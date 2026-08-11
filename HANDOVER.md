@@ -29,18 +29,22 @@
   how it reads. It cuts the camera to the strike, enters across the LEFT EDGE, rakes the WHOLE
   ENEMY POSITION with tracer streaks, and its bomb LANDS WITH the player's volley rather than
   before it. **Rob signed it off: "ok this will work."** See "What 2026-08-11 changed".
-- **TIER 2.1 (ENEMY FACTIONS) IS BUILT** (2026-08-12) and device-confirmed: L1's Redguard red, L7's
-  Ironclad Legion steel blue-grey, and L1 red AGAIN after stepping back — the third of those is the
-  evidence, not the second. See "Enemy factions" below. **NOT YET SEEN BY ROB.**
+- **TIER 2.1 (ENEMY FACTIONS) AND TIER 2.4 (PLAYER CAMO) ARE BOTH BUILT** (2026-08-12) and both
+  device-confirmed. Factions: L1's Redguard red, L7's Ironclad Legion steel blue-grey, and L1 red
+  AGAIN after stepping back — the third of those is the evidence, not the second. Camo: Arctic
+  White on the infantry and the tank crew with the tank itself unchanged, and Olive back the moment
+  RIGS was switched off. See both sections below. **NEITHER HAS BEEN SEEN BY ROB.**
+- **RIGS NOW LENDS THE WARDROBE TOO.** Any camo, free, session-only, writing nothing — same bargain
+  as the consumable supply and for the same reason.
 - **RIGS NOW DOUBLES AS A FREE CONSUMABLE SUPPLY** for testing, writing nothing to the economy.
   Use it — otherwise verifying any consumable change costs a 250-coin re-earn on every build.
-- **599 self-test checks, all passing — run `PortSelfTest.Run` after every change.** It was 281 at
+- **606 self-test checks, all passing — run `PortSelfTest.Run` after every change.** It was 281 at
   the start of 2026-08-06, 411 at the end of it, 444 on 2026-08-07, 539 after the Tier 1.2 and
   glyph-coverage blocks, 559 with the flame and the Auto-ammo pair, 576 with Tier 1.3's
   consumables, 582 with the airstrike's aircraft, 585 with its strafing burst, and 587 with the burst's
   absolute count-and-budget check and the aircraft's left-edge entry, and 592 with 2026-08-11's
-  rake-coverage, aim-independence, whole-burst and impact-alignment checks, and 599 with Tier 2.1's
-  seven faction checks. **Assert related facts TOGETHER** — Tier
+  rake-coverage, aim-independence, whole-burst and impact-alignment checks, 599 with Tier 2.1's seven
+  faction checks, and 606 with Tier 2.4's camo block. **Assert related facts TOGETHER** — Tier
   1.3's block was first written as 50 assertions over 307 lines and is 18 over 232, with the same
   nine breakages still caught. A failure message naming three properties is as diagnostic as three
   checks, and this file is read by people.
@@ -120,13 +124,11 @@ blocked on a physics decision (below), so tier work continues around it rather t
    are device-confirmed. `_plans/AIRSTRIKE_PLANE.md` is finished and can be archived per
    `_plans/README.md` whenever someone is tidying.
 
-   **TIER 2.1 (ENEMY FACTIONS) IS ALSO DONE** (2026-08-12), which was the next open item once 1.4
-   was ruled shut. The stack's next unclaimed entries are **2.2 crowd + hero readability** and
-   **2.3 keep the roster mechanic-distinct** — both art/design asks against
-   `UNIT_VARIETY_DESIGN.md`, which is seven recorded attempts at exactly that problem and should
-   be read before anything is modelled. **2.4 player cosmetics** is the cheapest of the three
-   (a coin sink, zero balance effect) and now has a repaint pipeline to build on — but see the
-   warning in its section: cosmetics and factions must never both own the same army.
+   **TIER 2.1 (FACTIONS) AND 2.4 (PLAYER CAMO) ARE BOTH DONE** (2026-08-12). The stack's only
+   unclaimed Tier 2 entries are now **2.2 crowd + hero readability** and **2.3 keep the roster
+   mechanic-distinct** — both art/design asks against `UNIT_VARIETY_DESIGN.md`, which is seven
+   recorded attempts at exactly that problem and should be read before anything is modelled. 2.3
+   is likely a short audit rather than a build; 2.2 is the multi-session one.
 
    **The two biggest OPEN things in the port are named and costed, and both are physics/AI asks
    rather than scheduling jobs:**
@@ -248,6 +250,52 @@ showed rendering perfectly: **be suspicious when a brand-new check indicts long-
 **A scene rebuild was required** — three new `[SerializeField]`s on `BattleRunner` (`stages`, and
 the two enemy side-materials the classification keys on). The materials must be the SAME asset
 references the enemy prefabs were toned with; reference equality is the whole mechanism.
+
+## Player camo — Tier 2.4, built 2026-08-12
+
+**The NINTH dead system.** `CosmeticSet`, `ProgressStore`'s cosmetic block and
+`EconomyStore.PurchaseCosmetic` were all ported and reached by nothing. Four sets now: Olive Drab
+free, Desert Tan 300c, Urban Grey 350c, Arctic White 400c, bought and worn in a strip below the
+consumables. Design detail is in `DYNAMISM_DESIGN.md`'s "Phase D4 in UNITY"; the traps are here.
+
+**It rides the faction repaint, pointed at the other army.** Same `FactionPaint` classify-once /
+apply-on-switch machinery, so the same pool-reset reasoning applies unchanged.
+
+**Olive stores NO colour and that is deliberate**: selecting it repaints back to the build-time
+material ASSETS. A default you can return to has to be a real destination — a "paint it once"
+implementation has nowhere to go back to.
+
+**RIGS lends the wardrobe** through `Cosmetics.TestOverride`, session-only, writing nothing. Switch
+RIGS off and the borrowed camo is withdrawn IN THE BATTLE YOU ARE STANDING IN — the repaint is
+otherwise only read by `LoadLevel`, which is the same round trip the consumable supply had to fix.
+
+**THE VANITY CHECK WAS UNFALSIFIABLE TWICE OVER, and this is the entry worth reading.** It fires
+the same seeded volley under two camo sets and demands identical damage. Against a deliberately
+broken build where the camo really did buff damage 50%, it passed — twice, for two different
+reasons:
+
+1. **The volley never landed.** Both runs did zero damage, and zero equals zero. It now asserts
+   the enemy's HP actually FELL as part of its own condition.
+2. **The camo was never worn.** `SelectedCosmetic` validates on read, so selecting a set the
+   player does not own silently returns Olive — the check was comparing Olive with Olive. It now
+   unlocks the set first (and locks it again afterwards, via a new `ProgressStore.LockCosmetic`
+   that exists for exactly this) and READS BACK what the store holds rather than trusting what it
+   asked for.
+
+Only after both fixes did it read `enemy 280/276` against the broken build. **Two independent
+reasons a check could not fail, in one check, in one session** — ask what state the failure needs
+and then verify you are actually in it.
+
+**The UI's tap path needed its own spy.** `PortSelfTest` tests `Cosmetics.TestOverride`, not
+`TapCamo`, so a test supply that quietly UNLOCKED the set for real passed every check.
+`BattleUIPreview` now taps the tile and asks the STORE whether anything moved — it caught the
+breakage immediately (`unlocked 0->1, worn Olive->Arctic`). That preview is the only harness that
+drives real MonoBehaviour UI.
+
+**Two palettes now compete for the same colour space.** Urban Grey is boxed in on three sides —
+Ironclad's steel, the player's own Olive (measured 0.159, barely over the floor) and Desert Tan.
+Before adding a fifth camo or a third faction, run the distinctness checks first and expect to
+have to move something.
 
 ## Tier 1.3 — the consumables, built 2026-08-10
 

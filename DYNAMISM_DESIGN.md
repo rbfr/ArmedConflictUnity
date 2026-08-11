@@ -282,7 +282,7 @@ reference itself does.
 | D1 | Enemy factions per stage (palettes + identity surfacing) | shipped (2026-07-20); **ported to UNITY 2026-08-12** — TWO factions, one per stage, device-confirmed. See below |
 | D2 | Biome art per stage | rescoped + shipped as prop-dressing pass (2026-07-20) — see below |
 | D3 | New unit silhouettes (2–3 Blender builds + economy wiring) | shipped (2026-07-20) |
-| D4 | Player cosmetics | shipped (2026-07-20) |
+| D4 | Player cosmetics | shipped (2026-07-20); **ported to UNITY 2026-08-12** — four camo sets, device-confirmed. See below |
 
 Each slice ships independently and is playable on its own. A→B→C is the gameplay track;
 D1/D2 can run in parallel with any of it (art-heavy, low code risk). Update the Status
@@ -559,6 +559,46 @@ rendered in sandy Desert Tan uniform/gear while the player tank structure stayed
 original green, enemy formation stayed red, no crash. Fired one live volley through a full
 turn (enemy volley resolved, camera panned back) — cosmetic held steady through combat,
 no flicker, no reversion.
+
+## Phase D4 in UNITY — 2026-08-12
+
+**The NINTH dead system found in this port**: `CosmeticSet`, `ProgressStore`'s whole cosmetic
+block and `EconomyStore.PurchaseCosmetic` were all ported on day one and a grep for callers
+outside those three files returned nothing — no UI, no purchase, no repaint. The docs said
+"shipped" because their status tables record the RETIRED ANDROID BUILD. Check the Unity callers,
+not the status table.
+
+**Four sets, the Kotlin's prices**: Olive Drab free, Desert Tan 300c, Urban Grey 350c, Arctic
+White 400c. Bought and worn on the loadout screen, in a strip below the consumables — buying also
+WEARS, unlike a consumable, because a camo has no cap to spend and no reason to be owned and not
+worn. The selection persists immediately as a standing preference, like the ammo choice.
+
+**It rides the faction repaint** (`Render.FactionPaint`), pointed at the player's army instead of
+the enemy's. Uniform and gear; skin and per-class trim are shared across both armies and stay put,
+and the player's STRUCTURES keep their fixed palette — confirmed on device, where the tank crew
+changed camo and the tank did not.
+
+**Olive is a real destination, not an absence.** Its catalog entry stores NO colour: selecting it
+repaints back to the build-time material assets themselves. A default you can return to has to be
+somewhere the repaint can go, which is the half a "paint it once at startup" implementation gets
+wrong.
+
+**Two palettes now compete, and the colours are boxed in by each other.** Urban Grey is the
+squeezed one: cooler and it approaches Ironclad Legion's steel blue-grey (two grey armies on stage
+2), darker and it approaches the player's own Olive (measured 0.159 — the 350 coins buy a set
+nobody can see you wearing), warmer and it approaches Desert Tan. It is a LIGHT warm grey because
+that is the gap. `PortSelfTest` measures every camo against every faction, against the enemy
+default, and against every other camo.
+
+**RIGS lends the whole wardrobe**, session-only, writing nothing — the same bargain the consumable
+test supply strikes, and for the same reason: the release build is not debuggable, so confirming a
+400-coin camo would otherwise cost a 400-coin re-earn on every build. Switching RIGS off takes the
+borrowed camo back IN THE BATTLE YOU ARE STANDING IN, which is the same lesson the consumable
+supply learned.
+
+**Confirmed on device 2026-08-12**: Arctic White on the infantry and the tank crew with the tank
+structure unchanged, the enemy still Redguard red, and the army back in Olive the moment RIGS was
+switched off.
 
 ## Phase D1 in UNITY — 2026-08-12
 
