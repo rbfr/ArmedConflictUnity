@@ -1,8 +1,15 @@
-# Handover — Unity, as of 2026-08-10
+# Handover — Unity, as of 2026-08-11
 
 ## START HERE
 
-- **EVERYTHING IS COMMITTED AND NOTHING IS PUSHED — check with `git status`, not with this line.**
+- **2026-08-11 ENDED WITH UNCOMMITTED WORK IN THE TREE, WHICH IS NOT THE NORM HERE.** A full
+  session of airstrike iteration — seven files — was never committed, because Rob commits on an
+  explicit ask and the session ended on a handoff instead. **`git status` first, and read
+  "What 2026-08-11 changed" below before touching the airstrike.** The suggested split is four
+  commits, because two of them touch locked docs and deserve to be revertable alone: the strafe
+  work (streaks + enemy-derived rake), the camera CUT (`CAMERA_ARCHITECTURE.md` exception), the
+  impact realignment, and the RIGS test supply.
+- **NOTHING IS PUSHED — check with `git status`, not with this line.**
   2026-08-10 closed with **eleven commits on `main` here and one in the ART repo**
   (`build_attack_plane.py`): the loadout NRE guard, Tier 1.3's consumables, the airstrike's whole
   aircraft arc (beat, orientation, height, sound, strafing burst, tracer bomb, and the projectile
@@ -20,19 +27,87 @@
   schedule covers two levels. **Wind is the other half and is still blocked** — see below.
 - **TIER 1.3 IS BUILT** — four consumables, bought, carried and fired, confirmed on device
   2026-08-10. **Overwatch Flare is deliberately not among them**; see its section.
-- **THE AIRSTRIKE HAS AN AIRCRAFT** (2026-08-10). It crosses from the player's side and drops its
-  bomb BEFORE the volley, in its own `TurnPhase.AirstrikeRun`. This began as "is it just explosions
-  out of nowhere?" and a device capture found the bomb was detonating OFF-SCREEN entirely. Costs
-  1.10s; no damage number moved.
+- **THE AIRSTRIKE HAS AN AIRCRAFT** (2026-08-10), and 2026-08-11 rebuilt almost everything about
+  how it reads. It cuts the camera to the strike, enters across the LEFT EDGE, rakes the WHOLE
+  ENEMY POSITION with tracer streaks, and its bomb LANDS WITH the player's volley rather than
+  before it. **Rob signed it off: "ok this will work."** See "What 2026-08-11 changed".
 - **RIGS NOW DOUBLES AS A FREE CONSUMABLE SUPPLY** for testing, writing nothing to the economy.
   Use it — otherwise verifying any consumable change costs a 250-coin re-earn on every build.
-- **585 self-test checks, all passing — run `PortSelfTest.Run` after every change.** It was 281 at
+- **592 self-test checks, all passing — run `PortSelfTest.Run` after every change.** It was 281 at
   the start of 2026-08-06, 411 at the end of it, 444 on 2026-08-07, 539 after the Tier 1.2 and
   glyph-coverage blocks, 559 with the flame and the Auto-ammo pair, 576 with Tier 1.3's
-  consumables, 582 with the airstrike's aircraft, and 585 with its strafing burst. **Assert related facts TOGETHER** — Tier
+  consumables, 582 with the airstrike's aircraft, 585 with its strafing burst, and 587 with the burst's
+  absolute count-and-budget check and the aircraft's left-edge entry, and 592 with 2026-08-11's
+  rake-coverage, aim-independence, whole-burst and impact-alignment checks. **Assert related facts TOGETHER** — Tier
   1.3's block was first written as 50 assertions over 307 lines and is 18 over 232, with the same
   nine breakages still caught. A failure message naming three properties is as diagnostic as three
   checks, and this file is read by people.
+
+### What 2026-08-11 changed — the airstrike, rebuilt in five passes
+
+**Signed off by Rob: "ok this will work."** The whole session was one loop — build, put it on the
+device, let Rob look at it, be told what was actually wrong. **Every single pass was rejected for a
+reason a green test suite could not see, and three of my own checks were worthless when written.**
+That is the lesson worth carrying, more than any constant below.
+
+| Rob said | What was actually wrong | Fix |
+|---|---|---|
+| "i don't really see a difference — looks like only one" | Round COUNT was never the bottleneck. A 0.22-scale dot at 25 u/s covers a fifth of the gap it opens between frames, so 7 and 14 draw the same dotted chain | `IsStrafe` + a **tracer STREAK** — 4.5x along flight, 0.7x across |
+| "the plane should come from the left... it seems to just appear in the middle" | Not the spawn. The camera began the run over the player line and **swept past** the aircraft | The run **CUTS** to its anchor and holds. `CAMERA_ARCHITECTURE.md` exception, asked for and granted |
+| "the strafe should spread further horizontally" | 4 units inside a ~10 unit frame reads as a cluster | Walk widened; `PlaneRunHalfLength` pays for it |
+| "it's not hitting the structure" | The walk ENDED on the aim point, approaching from the left — every round but the last landed SHORT of whatever you aimed at | Then superseded ↓ |
+| "the strafe is independent of the player unit volley... cover the whole enemy position and its structures" | The rake was defined relative to the AIM, so its ground moved with every drag. Every fix above was tuning an offset from the wrong origin | **`StrafeSpan`** — enemy units + structure EDGES, carried on the aircraft |
+| "sync the player projectile volley with the plane. it's a little awkward" | The two halves were ADDED: 4.53s on an ordinary shot, a third of it watching a plane with none of the player's rounds in the air | Aligned on their IMPACTS — `max(flight, run)`, 2.91s |
+
+**The design rule that fell out of it, and it is the one to keep:** the BOMB belongs to the player's
+aim; the GUNS belong to the enemy's position. Those are different origins and conflating them is
+what produced four of the six rejections above.
+
+**Everything the aircraft does now lives on the ALWAYS-RUN physics path** — motion, guns, and (as of
+this session) the bomb release. Three separate things have had to move out of `TurnPhase
+.AirstrikeRun` after freezing or silently dropping work when the phase ended. **Assume the fourth
+will too**: the run is a phase whose subject deliberately outlives it.
+
+**Numbers that matter now:** `StrafeRounds 28` at `StrafeDamage 1` (budget held at 28, item total
+52), `StrafeMargin 1.5`, `PlaneRunHalfLength 11` as a FLOOR not a spawn, `StrafeRoundStretch 4.5`.
+**The beat is no longer one fixed length across the campaign** — it is derived from the enemy's
+width and the shot's flight time, so a wide level holds longer than L1's ~1.4s.
+
+### The three checks that were WORTHLESS when written, all in one session
+
+Each passed against the exact broken code it was written for. All three failed for the same reason:
+**the check was not in a state where its failure was reachable.**
+
+1. **The camera-entry check.** `fresh` has never ticked, so `CameraFollowX` is null — the spring
+   then begins AT the anchor and sweeps past nothing. Seeded onto the player line, it went red with
+   `camera -7.44 (anchor 9.42)`, which is Rob's bug in numbers.
+2. **The whole-burst check.** Written with the block's standard aim, which lands PAST the enemy —
+   so the rake finished before the bomb and a phase-bound firing loop dropped nothing. Re-pointed
+   at an aim landing SHORT (the ordinary case) it read `17/28`: eleven rounds dropped in silence.
+   It now asserts the aim IS short as part of its own condition.
+3. **The "spawned off-frame" claim**, inherited from 2026-08-10 — a message naming a property about
+   the FRAME that the assertion never looked at.
+
+**This is now four sessions running.** With the empty-purse check and the `ReferenceEquals` refusal
+test, the standing rule has earned its place in `CLAUDE.md`: **ask what STATE the failure needs to
+be reachable in, then put the check in it** — and never trust a new check until you have watched it
+go red.
+
+### And two things only the DEVICE found, both from the same cause
+
+The aircraft is now HELD BACK while the volley flies, and two things were still anchored to the
+release:
+
+- **The pass-by sound played over empty sky**, a second before the plane existed. Now on the
+  true->false edge of `AirstrikeSpawnDelay`. The clip's peak is cut to land as the plane crosses its
+  drop point and that offset is measured from the START OF THE RUN — anchor it anywhere else and
+  the peak is thrown away silently.
+- **The release log said `volley held` when the volley was already away.** THIRD false reading from
+  that one line (`volley: 0 rounds`, then strafe tracers counted as volley rounds, now this). It is
+  the only instrument a release build has. It reports the three real cases now.
+
+**Neither was visible to any check, and both were caused by a timing change three files away.**
+After touching this beat, fire one on a device and read the log AND listen.
 
 ### Pick up here
 
@@ -54,15 +129,19 @@ blocked on a physics decision (below), so tier work continues around it rather t
    - **Wind is still cosmetic** — `windAccelZ` drifts the round in Z while the collision test is
      X/Y only, so wind cannot change what a shot hits.
 
-   **OPEN, from Rob at the controls: the strafing burst wants MORE ROUNDS.** It is thin at seven.
-   The levers and the arithmetic that bounds them are in "What the strafing burst still owes"; the
-   short version is that density (more rounds over the same walk) is cheap and a longer walk is
-   nearly out of room. Keep the damage budget separate from the round count.
+   **THE AIRSTRIKE IS DONE AND SIGNED OFF** (2026-08-11, "ok this will work"). Read "What
+   2026-08-11 changed" before touching it — six rejections in one session, none of which a green
+   suite could see.
 
-   **One SMALL thing worth doing early, from Rob at the controls:** the aircraft *"gets fairly
-   large as it passes nearest the camera"* — brief, and arguably the point, but flying it higher is
-   a one-constant change (`BattleTick.PlaneY`) if it reads as too much. Judge it at full speed, not
-   on a contact sheet.
+   **The one thing it still owes is a COMMIT.** Seven files, four suggested commits. See START HERE.
+
+   **Two SMALL open notes from Rob at the controls, neither urgent:**
+   - The aircraft *"gets fairly large as it passes nearest the camera"* — brief and arguably the
+     point, but `BattleTick.PlaneY` is a one-constant fix if it reads as too much. Judge it at full
+     speed, not on a contact sheet.
+   - The pass-by sound's OFFSET has never been checked by ear since the beat was realigned. Its
+     anchor is now correct (the aircraft's release) but whether the peak still lands on the drop is
+     unverified — `screenrecord` captures no audio, so this needs a human.
 
 <details>
 <summary>The Tier 1.3 briefing as it stood before the work — kept because its reasoning is the
@@ -194,11 +273,9 @@ costs **1.10s** and no damage number moved.
   `BattleRunner.PlaneBank` / `PlaneScale` directly, so it cannot drift again. **Delete
   `Builds/plane` before reading a sheet from it** — stale frames from an earlier run are glob-matched
   alongside the new ones and produced one thoroughly misleading comparison.
-- **STILL OPEN — Rob wants MORE ROUNDS coming from the plane** (2026-08-10). The burst reads, but
-  it is thin: seven rounds is a tap, not a strafing run. Details and the arithmetic that bounds it
-  are in "What the strafing burst still owes" below. **This is a presentation ask; keep the damage
-  budget separate** — more rounds at the same `StrafeDamage` is a straight buff to an item that has
-  already been buffed once today.
+- ~~**STILL OPEN — Rob wants MORE ROUNDS coming from the plane**~~ **DONE** (2026-08-10) — 14
+  rounds over the same walk at half the damage each, and then STRETCHED INTO STREAKS, which is the
+  half that actually made a difference. See "The strafing burst" below.
 - **THE BOMB IS A BULLET, not a grenade** (2026-08-10). The grenade prefab is olive-lime at 0.16
   scale and was, in Rob's words, hard to see; the bullet draws as the bright unlit TRACER. It is
   told apart from the aircraft's own cannon fire by `IsAirstrike`, which the renderer scales 2.4x —
@@ -231,38 +308,352 @@ costs **1.10s** and no damage number moved.
   as "anything that decays must decay on EVERY tick path". Motion moved to the physics section and
   the despawn point is carried on the entity, so it depends on nothing the phase owns.
 
-### What the strafing burst still owes — RAISED BY ROB 2026-08-10, NOT DONE
+### The strafing burst — doubled, and that ALONE CHANGED NOTHING. 2026-08-10
 
-**"Still want to see more rounds coming from the plane."** The burst works and walks correctly, but
-seven rounds over a 4-unit walk reads as a tap rather than as a strafing run. What follows is the
-arithmetic, so nobody has to rediscover why it cannot simply be turned up.
+**"Still want to see more rounds coming from the plane."** The count went **`StrafeRounds` 7 -> 14
+with `StrafeDamage` 4 -> 2** — twice the rounds over the same 4-unit walk, ~25 rounds/sec at
+`PlaneSpeed 7`, with the burst's contribution held at 28 so the Airstrike's total stays 52.
 
-Current: `StrafeRounds 7`, `StrafeLength 4`, `StrafeLead 4`, `StrafeFallTime 0.40`, `StrafeDamage 4`.
+**Rob then looked at the real thing and reported NO VISIBLE DIFFERENCE.** That verdict is the most
+useful thing in this section, so it is recorded before the fix:
 
-**The burst is bounded by the run, not by taste.** The first round is fired
-`StrafeLength + StrafeLead` = **8 units** behind the target, and the aircraft only spawns
-`PlaneRunHalfLength` = **9** back. There is one unit of headroom. So the two obvious knobs — a
-longer walk, or a longer lead — are nearly exhausted, and raising either without also moving the
-spawn fires the first round before the aircraft exists.
+> "hmm i don't really see a difference — looks like only one."
 
-Levers, cheapest first:
+**The count was never the bottleneck, and the device capture that "confirmed" it was measuring the
+wrong thing.** The capture showed eight tracers in the air at once against seven with gaps, which is
+true, and irrelevant: a **0.22-scale bullet travelling ~25 u/s covers a fifth of the gap it opens
+between frames**, so seven of them and fourteen of them both draw a faint DOTTED CHAIN. A dot is the
+same shape whether it is moving or not. This is "assert the OUTPUT, not the input" wearing a new
+costume and it fooled a device screenshot: I asserted the round COUNT — an input — and read the
+frames for confirmation of it rather than for what the burst LOOKED like.
 
-- **More rounds over the SAME walk.** Pure density: `StrafeRounds` 7 -> 14 halves the spacing and
-  doubles the rate. Costs nothing structurally and is almost certainly what Rob is asking for.
-- **Two rounds per firing point**, offset slightly in Z, so each "shot" is a pair. Reads as a
-  cannon rather than a rifle, and does not touch the walk at all.
-- **Spawn the aircraft further back** (`PlaneRunHalfLength`), buying room for a longer walk. Note
-  this also lengthens the beat, which currently costs 1.10s.
-- **A faster cadence with a shorter `StrafeFallTime`** — but the rounds are already 0.40s, and the
-  first version proved that short flights are what made them invisible. Do not shorten this.
+**The fix is the round's SHAPE.** `ProjectileEntity.IsStrafe` marks the aircraft's cannon fire, and
+the renderer stretches those rounds **4.5x along their own flight and 0.7x across it**
+(`BattleRunner.StrafeRoundStretch` / `StrafeRoundWidth`), turning each into a tracer STREAK that
+bridges most of the gap to the next frame. It costs nothing — the round is already rotated onto its
+velocity, so local X is the direction of travel. **A bigger dot was the obvious change and is the
+wrong one**: what fails to read is the shape, not the area, and the bomb already owns "big round
+dot" (`IsAirstrike`, 2.4x). Three shapes now come out of one pooled prefab and the two flags are
+the whole distinction, so `PortSelfTest` asserts they are MUTUALLY EXCLUSIVE.
 
-**KEEP THE DAMAGE BUDGET SEPARATE.** More rounds at `StrafeDamage 4` is a straight buff to an item
-that went from 24 to 52 today. If the count doubles, halve the damage unless a buff is intended —
-the total is the number the campaign feels, and `BalanceAudit` does not know about consumables.
+**Density was still the only count lever with room.** The first round is fired
+`StrafeLength + StrafeLead` = **8 units** behind the target and the aircraft spawns
+`PlaneRunHalfLength` = **9** back — one unit of headroom — so a longer walk or lead needs the spawn
+moved, which lengthens the beat. A shorter `StrafeFallTime` would raise the cadence and must NOT be
+used: 0.40s is already short, and the first version proved short flights are what made these rounds
+invisible.
 
-**And the release log was lying.** It reported `volley: 0 rounds`, because the volley had not been
-built yet — a false line in the one instrument a release build has. It now reports the run, and the
-volley logs itself when it launches:
+**The damage budget was held deliberately.** More rounds at `StrafeDamage 4` would have been a
+straight buff to an item that had already gone 24 -> 52 the same day, smuggled in under a
+presentation ask. Count is presentation; the total is what the campaign feels, and `BalanceAudit`
+does not know about consumables at all. The guarding check asserts ABSOLUTES (`>= 12` rounds, total
+in `[24, 32]`) because the existing one asserted `Count == StrafeRounds` and `Damage ==
+StrafeDamage` — self-consistency with its own constants, green on the tap Rob rejected and green on
+a silent doubling. Run against both: `(7 rounds)` red, `(56, held at 28)` red.
+
+### The rake had to SPREAD, not just fire more. 2026-08-11
+
+> "the strafe should spread further horizontally. right now it seems to be directed at one or spots
+> that are close together. it's a strafe — as plane moves to the right, the rounds should also move
+> that way. it's more of a burst at the moment."
+
+**Third verdict on this burst, and the third time the wrong dimension had been turned up.** Count
+(7 -> 14) did nothing visible; SHAPE (dots -> streaks) made the rounds legible; neither moved the
+one thing that makes gunfire read as strafing, which is the impacts WALKING across the shot. Four
+units of walk inside a ~10.2-unit frame is a third of the screen — a cluster, whatever is in it.
+
+**`StrafeLength` 4 -> 6, paid for with `PlaneRunHalfLength` 9 -> 11.** The two are locked together
+by one inequality, and it is worth keeping in mind before touching either:
+
+```
+PlaneRunHalfLength >= StrafeLength + StrafeLead + 1
+```
+
+The first round is fired `StrafeLength + StrafeLead` behind the target, so the aircraft has to
+exist that far back. **The spare unit is not slack**: the firing loop fires every round whose point
+the plane has already passed, so a spawn at or beyond the first firing point dumps several rounds
+from ONE position in a single tick — a literal burst, which is the thing being fixed.
+
+**6 is the frame's limit, not a taste call.** The walk ends on the bomb, so it can only grow
+leftward, and the run's frame reaches `PlaneCameraBias + AirstrikeRunHalfWidth` = 6.6 units left of
+the target at the half-width FLOOR. Past that the opening rounds land off-screen: more spread, less
+visible strafe. 6 leaves 0.6 units of margin on the tightest level.
+
+**The cost is beat length** — the run is `(PlaneRunHalfLength - PlaneSpeed * BombFallTime) /
+PlaneSpeed + BombFallTime`, so +2 units is +0.29s, taking the beat ~1.15s -> ~1.44s. That is the
+price of a 50% wider rake and there is no cheaper lever: `StrafeLead` cannot shrink much (it is
+`lead / fall` = 10 u/s of forward speed, and below `PlaneSpeed 7` the rounds stop outrunning the
+aircraft, which is what made them invisible in the first place), and `StrafeFallTime` must not
+shorten for the same reason.
+
+**One thing to LISTEN to, not measurable from here: the pass-by sound.** Its peak is cut to land as
+the aircraft crosses the drop point, and the drop now happens 0.72s into the run rather than 0.44s.
+Nothing in the build can check that — `screenrecord` captures no audio — so it wants a human ear.
+
+### The rake had to CROSS the target, not stop on it. 2026-08-11
+
+> "the airstrike should continue to fire until the plane reaches the right side. it's not hitting
+> the structure."
+
+**A probe found the cause immediately, and it was not the walk's length.** The walk ENDED on the
+aim point and approached it from the left, so every round but the last landed SHORT of whatever the
+player aimed at:
+
+```
+[Geom] target=10.92   walk = [4.92, 10.92]
+[Geom] structure 'Outpost'  span=[6.00, 8.00]
+[Geom] enemyXs=4.0,4.3,4.7,4.9,6.8,7.0,7.2,6.9,7.1
+```
+
+Aim at a building and the burst rakes the dirt in front of it and stops at the near wall. **The fix
+is `StrafeOvershoot = 3` — the walk now crosses the bomb's own impact point** and carries on past
+it, so the rake goes over the target rather than up to it. Rounds land on BOTH sides.
+
+**3 is the frame's right-hand limit, and it is smaller than the left one, because the camera LEADS
+the aircraft.** `PlaneCameraBias` puts the frame 6.6 units left of the target and only 3.6 right of
+it — so the overshoot spends the short side, and 3 keeps the same 0.6 of margin the left end has.
+
+**Keeping the overshoot UNDER `StrafeLead` is what kept this a two-constant change.** The last
+round is fired when the aircraft is `StrafeLead` short of it, at `target + 3 - 4`, which is still
+before the bomb lands and the phase ends. Push it past the lead and rounds want to fire AFTER
+handover — and the firing loop lives inside the run's own step, which stops being called the
+instant the phase changes. That is the trap the aircraft's own motion already paid for. **The
+negative run at `StrafeOvershoot 7` shows it exactly: 21 of 28 rounds ever fired**, the rest
+silently dropped on the floor with no error anywhere.
+
+**Density held: `StrafeRounds` 14 -> 28 and `StrafeDamage` 2 -> 1.** The count has now been raised
+twice for the same reason — to hold the SPACING near 0.33 units as the walk grew 4 -> 6 -> 9 — and
+the damage halved each time so the burst's contribution stays 28 and the item's total stays 52.
+
+**One thing the budget arithmetic does NOT capture, and it is worth knowing before tuning:** a wider
+rake spreads the same nominal damage over more empty ground, so its EFFECTIVE damage falls even
+though the total is unchanged. The burst is presentation that happens to hurt. If it ever needs to
+hurt a FIXED amount, that is a different design and wants a different mechanism than a walk of
+independent rounds.
+
+### The volley and the pass now land TOGETHER. 2026-08-11
+
+> "i wonder if we can sync the player projectile volley with the plane. right now it's a little
+> awkward."
+
+**The two halves used to be ADDED.** The aircraft made its whole pass, its bomb landed, and only
+then did the volley launch. Measured across the power range before changing anything:
+
+```
+power   plane run -> impact   volley flight   TOTAL NOW   if synced
+ 40%          1.57s               1.47s         3.05s       1.57s
+ 65%          1.57s               2.24s         3.81s       2.24s
+ 86%          1.62s               2.91s         4.53s       2.91s
+100%          2.43s               3.36s         5.79s       3.36s
+```
+
+An ordinary shot cost **4.53 seconds** from release to impact, a third of it spent watching an
+aircraft with none of the player's own rounds in the air. That is the awkwardness, and the table is
+why it was not a matter of shaving a constant.
+
+**Whichever half takes LONGER to reach the target now starts first, and the other is delayed by the
+difference**, so both land together and the beat costs `max(flight, run)` instead of their sum.
+`GameState.AirstrikeSpawnDelay` and `PendingVolleyDelay` are the two halves of that one alignment
+and **at most one is ever non-zero**. At any usable power the volley is the slower half, so in
+practice the volley goes at the moment of release — the game feels responsive to the drag again —
+and the aircraft is held back to catch up.
+
+**The phase stays `AirstrikeRun` even though the volley is away.** That is deliberate and it is
+what keeps the earlier fixes intact: the run's camera cuts to the strike and HOLDS, so the aircraft
+still enters across the left edge and the player's rounds arc into the same held frame rather than
+dragging the camera off after them. Hits land either way — **collision runs on the always-run path,
+not inside a phase** — which is the fact that made this possible at all.
+
+**Everything the aircraft does moved to the always-run path.** Motion was already there; the guns
+went there when the rake started outliving the bomb; and the BOMB RELEASE went there now, because
+an aircraft held back is routinely still short of its drop point long after the phase has moved on.
+`AirstrikePlaneEntity.BombTargetX` carries the target, because the aim it came from is cleared the
+instant the volley launches — which is now usually BEFORE the aircraft is even released.
+
+**A held aircraft must not be drawn.** The entity exists from the moment of release so nothing has
+to be recomputed when it is let go, but a stationary aeroplane parked at its spawn for a second and
+a half is a worse artefact than the one the delay fixes. The renderer gates on the same value the
+tick does.
+
+**TWO THINGS THE DEVICE FOUND THAT NO CHECK DID**, both caused by the aircraft now being HELD:
+
+- **The pass-by sound fired at the moment of release**, over empty sky, a second before the plane
+  existed. It used to be the same instant; it is not any more. It now plays on the true->false edge
+  of `AirstrikeSpawnDelay` — the moment the aircraft is actually let go — because the clip is cut
+  so its peak lands as the plane crosses its drop point, and that offset is measured from the START
+  OF THE RUN. Anchor it anywhere else and the peak is silently thrown away, which is exactly what
+  the original 8.3s clip did.
+- **The release log said `volley held` when the volley was already away.** Third false reading from
+  that one line — `volley: 0 rounds`, then strafe tracers counted as volley rounds, now this. Each
+  time the beat changed under it. It reports the three real cases now: held, away with an airstrike
+  inbound, or a plain volley.
+
+**The check measures IMPACT TIMES out of a real stepped flight**, not the arithmetic that schedules
+them:
+
+```
+[ok  ] bomb at 3.08s, volley at 3.17s from release (0.08s apart)
+[FAIL] bomb at 1.92s, volley at 5.08s from release (3.17s apart)   <- the old added beat
+```
+
+That 3.17s gap in the negative run is the awkwardness, in numbers.
+
+### The rake belongs to the ENEMY, not to the volley. 2026-08-11 — the design change
+
+> "the strafe is independent of the player unit volley. it should start from the left, strafe
+> should cover the whole enemy position and its structures."
+
+**This is the change that made the previous three unnecessary.** The burst had always been defined
+relative to the player's landing point — walk to it, then walk 3 past it — so its ground moved with
+every drag: aim short and it raked open dirt, aim long and it raked past the line. Every fix before
+this one was tuning an offset from the wrong origin.
+
+**The rake is now derived from the enemy position and carried on the aircraft.**
+`BattleTick.StrafeSpan` takes the enemy units and the enemy STRUCTURE EDGES — edges, because an
+outpost is 2 units wide and raking to its centre leaves half the building unhit — plus
+`StrafeMargin` at each end. `AirstrikePlaneEntity.StrafeFromX/ToX` carry it, fixed at the moment the
+aircraft is committed. Carried rather than recomputed because the run outlives its own phase, and
+because the enemy set SHRINKS as the rake kills, which would walk the far end backwards mid-burst.
+
+**The bomb is the only part of an airstrike that cares where you aimed.** That split is the whole
+design and it is what `PortSelfTest` now asserts, by firing the item at two different aims and
+demanding the identical ground — the one property no arrangement of aim-relative constants can
+fake.
+
+**Three things had to move with it:**
+
+- **The SPAWN is derived, not a fixed offset.** The aircraft must exist `StrafeLead` before the
+  rake's first firing point AND still be short of the release when it drops, so it spawns at
+  whichever is further back. `PlaneRunHalfLength` is now a FLOOR, not the spawn. Consequence worth
+  knowing: **the beat is no longer one fixed length across the campaign** — a wider enemy line
+  costs a longer pass.
+- **The GUNS moved to the always-run physics path**, beside the aircraft's motion, for exactly the
+  reason that motion moved there. See below.
+- **The CAMERA frames the rake AND the bomb**, which are now different places. The anchor is the
+  midpoint of everything the pass must show; the half-width covers all three points and is still
+  floored by `AirstrikeRunHalfWidth`, so it can only ever pull back.
+
+### The guns had to leave the phase, and the check that proved it was itself broken first
+
+The rake reaches past the bomb's impact whenever the player aims short of the enemy's far edge —
+the ordinary case — so the last rounds are fired AFTER the phase has handed over to the volley.
+While the firing loop lived in the run's own step those rounds were **never fired at all**: no
+error, no log, just a burst that stopped early. Same family as the aircraft freezing in mid-air,
+and the second time this beat has paid for it.
+
+**The check written for it PASSED against the broken code.** It used the same synthetic aim as
+everything else in that block — one landing PAST the enemy's far edge — where the rake finishes
+before the bomb and a phase-bound loop drops nothing. Re-pointed at an aim landing SHORT, which is
+the only state where the failure is reachable, it reads:
+
+```
+[ok  ] a shot aimed SHORT ... fires the whole burst (28/28) — impact 3.16 vs rake end 10.13
+[FAIL] a shot aimed SHORT ... fires the whole burst (17/28)      <- guns confined to the phase
+```
+
+**Eleven of twenty-eight rounds, dropped in silence.** The check now asserts the aim IS short as
+part of its own condition, so it cannot quietly stop testing this if the geometry moves. This is
+the third time in two days that a check had to be put into the state where its failure was
+reachable before it was worth anything — see the empty purse and the null CameraFollowX.
+
+### The check that caught the burst outliving its own phase
+
+A pre-existing check went red on this change and was RIGHT to: "the volley that follows the run is
+the volley the player aimed" counted `!IsAirstrike`, which had quietly meant "the volley" only
+because the burst always finished before handover. It does not any more — the last rounds land
+after the bomb — so they were being counted as volley rounds. It now excludes `IsStrafe` as well.
+Worth recording because the check noticed a real behavioural change before any device did.
+
+### The check that guards it asserts the FRAME, and the FIRING POSITIONS
+
+Written against `StrafeLength` it would have been green through all three verdicts. It asks instead
+for an impact span of `>= 5.5` units with the first landing inside the frame's left edge — the
+frame being the thing the spread is actually competing with.
+
+**And it asserts where the rounds were FIRED FROM, which the landings cannot see.** Every round is
+solved onto its own point, so a clumped burst still produces a perfect walk of landing points. The
+negative run proves it: spawning the aircraft too far forward left the impacts spanning a flawless
+`6.00` while the firing positions collapsed from `5.95` to `3.97`.
+
+```
+[FAIL] ... impacts span 4.00 units ...          <- the old 4-unit walk
+[FAIL] ... fired from 3.97 units ... not one    <- the clump, invisible in the impacts
+```
+
+### The aircraft did not FLY IN — the camera swept past it. 2026-08-10
+
+> "the plane should come from the left side of the screen. it seems to just appear in the
+> middle/left middle of the shot."
+
+**It was never the spawn point, and no spawn distance could have fixed it.** A probe against L1:
+
+```
+target=10.92  spawn=1.92
+AIMING frame  centre=-7.54  half=2.05  left=-9.59   spawnInside=False
+RUN    frame  centre= 9.42  half=5.10  left= 4.32   spawnInside=False
+```
+
+The aircraft spawns off-frame under BOTH framings. But the run BEGINS with the camera still over
+the player's own line at **-7.54**, and it then springs **17 units right** at
+`MarchEscortSmoothTime` while the plane sits at 1.92 doing 7 u/s. **The camera overtakes the
+aircraft and arrives to find it already mid-frame.** A camera travelling the same direction faster
+than the plane always will.
+
+**So the run CUTS to its anchor and holds, and it is the only phase that does.** Everything else
+keeps the one continuous spring, deliberately — "every phase change TELEPORTED the camera" is a bug
+this project already fixed once. `CAMERA_ARCHITECTURE.md` is LOCKED, so **this exception was asked
+for and granted, not assumed**. It also delivers what the phase always claimed ("a hold, not a
+chase"): the aircraft now crosses a frame that is already still, entering across the left edge
+~0.34s into the run.
+
+**The check that shipped this bug had the answer in its own failure message.** It read "aircraft
+spawned off-frame" and asserted only `spawn == target - PlaneRunHalfLength` — the message named a
+property about the FRAME that nothing in the check ever looked at. That is a doc asserting itself
+one level down, and it is why the bug reached a device. The replacement asserts the camera is AT
+the run anchor and the spawn is outside its left edge.
+
+**And the first version of that replacement was worthless, for this file's favourite reason.**
+`fresh` has never ticked, so its `CameraFollowX` is NULL — the spring then begins AT the anchor,
+travels nothing, and sweeps past nothing. **The check passed against the sweeping code it was
+written to catch.** Seeding the camera onto the player line first — where a real battle leaves it —
+is what gave it teeth, and the negative run then read:
+
+```
+[FAIL] the run CUTS to its own framing and the aircraft enters across the LEFT EDGE —
+       camera -7.44 (anchor 9.42, edge 4.32), spawn 1.92
+```
+
+That is Rob's bug, in numbers. Same family as the empty-purse check and the `ReferenceEquals`
+refusal test: **ask what STATE the failure needs to be reachable in, then put the check in it.**
+
+### Both confirmed on device, L1, 2026-08-10 — with the control in the same capture
+
+Fresh install, RIGS test supply, armed from the HUD, a real drag
+(`input swipe 300 900 631 1231 600`), recorded at 60 fps:
+
+```
+[Consumable] Airstrike armed=True -> Airstrike fired (TEST supply)
+[Battle] airstrike run, volley held at 86% / 45.0deg
+[Battle] volley: 11 rounds, after the airstrike          <- 1.15s later, beat unchanged
+```
+
+On the frames: the camera CUTS to the strike, holds on an empty frame for ~0.3s, and the aircraft's
+nose crosses the LEFT EDGE — the frame at 2.02s catches it half in. The cannon fire is now a line
+of distinct elongated TRACERS running from the aircraft to the ground, with impacts kicking up
+across the enemy rank; outpost 90 -> 82 and the burst visible on every frame of the pass.
+
+**The control is the same capture's ordinary volley**, which is where the pooled-scale regression
+would show: the eleven infantry rounds arrive at normal size and normal shape, so the stretch does
+not leak into a recycled slot. That is asserted nowhere and can only be seen — the same class of
+bug as the `Vector3.one` scale regression, and the reason the volley is now checked on every device
+run that touches this path.
+
+**And the release log was lying — TWICE, for different reasons.** First it reported
+`volley: 0 rounds`, because the volley had not been built yet. Then, once the burst began outliving
+the run, a raw `Projectiles.Count` swept its tracers into the total and reported **18 rounds for an
+11-round volley** on device. It now counts the volley and nothing else. A lying instrument is worse
+than a missing one when it is the only instrument a release build has, and this line has now earned
+that warning twice:
 
 ```
 [Battle] airstrike run, volley held at 86% / 45.0deg
@@ -580,7 +971,7 @@ it was written for. Ask the thing itself — the font, the engine, the device.
 ### The state of the checks, as of the handover
 
 ```
-PortSelfTest.Run          585 checks, ALL PASS
+PortSelfTest.Run          592 checks, ALL PASS
 LevelComposition.Report   12 campaign levels, 0 errors, 2 accepted warnings (L3, L5 rule 7 —
                           reasons in their designNotes; both beats are about height)
 BalanceAudit.Report       0 errors, 19 warnings (race-ratio flags on the dearest-squad
@@ -589,9 +980,12 @@ BalanceAudit.Report       0 errors, 19 warnings (race-ratio flags on the dearest
 
 **A scene rebuild is NOT pending** — one was run on 2026-08-10 after `BattleRunner` gained its
 `planePrefab` field (and earlier the same day for `flamePrefab`), so `Assets/Scenes/Battle.unity` and several materials are dirty because of it.
-**The APK on the device is current** — rebuilt on 2026-08-10 with the airstrike's aircraft, Tier
-1.3's consumables and the loadout NRE guard, and everything above was confirmed on that build. Both are CODE-ONLY changes, so
-neither needs a scene rebuild.
+**The APK on the device is current** — rebuilt on 2026-08-11 with the whole airstrike rework: tracer
+streaks, the run's camera cut, the enemy-derived rake, the impact realignment, the pass-by sound's
+new anchor, the honest release log, and test supply carrying all four consumables. Everything above
+was confirmed on that build. **All of 2026-08-11 is CODE-ONLY — no scene rebuild is pending.**
+The device is on L1 with RIGS ON and a fresh install's zero coins, which costs nothing because test
+supply is free.
 
 ## RIGS doubles as TEST SUPPLY — 2026-08-10
 
@@ -610,9 +1004,26 @@ RIGS cannot corrupt their own save, and switching it off leaves the economy exac
 one property is what made reusing RIGS acceptable instead of adding a second hidden switch, and it
 is asserted by `BattleUIPreview` (see below).
 
-**The workflow, and its one cost:** RIGS lives on the battle HUD, so from a cold start it is
-BEGIN -> tap RIGS -> finish the level -> NEXT, and the picker then offers everything free. One
-Auto-driven level, about a minute. `showRigs` is deliberately NOT persisted, so a relaunch starts
+**TEST SUPPLY CARRIES ALL FOUR, IMMEDIATELY, AND IGNORES THE PICKER** (corrected 2026-08-11).
+The first version carried only what the PICKER had selected, which made the switch nearly useless
+for its own purpose: RIGS lives on the battle HUD, so turning it on mid-battle granted a free shelf
+you could not reach without finishing the level to get back to a picker. Rob, with RIGS on and no
+way to fire an airstrike: *"thought that would expose it by default."*
+
+Two things make it work now. The carry under test supply is **every item at 1**, not the picker's
+selection — which **deliberately exceeds the locked carry cap of TWO**, because a testing state has
+to reach every item in one battle. And the RIGS toggle **re-reads the carry into the battle already
+running**, so the shelf appears on the tap; it re-reads rather than adds, so switching RIGS back off
+takes it away again and restores whatever the picker really equipped. Any ARMED flag is cleared on
+the way, because those outlive the carry and an airstrike armed after its supply is withdrawn is a
+volley spending an item the player has not got.
+
+**The HUD buttons read `TEST` where the count goes**, for the same reason the loadout header does,
+and it matters more here: this bar is showing FOUR items past a cap of two, and a state no player
+can be in must never be mistaken for one they can.
+
+**The old workflow, no longer needed:** BEGIN -> tap RIGS -> finish the level -> NEXT, one
+Auto-driven level, about a minute. It is now BEGIN -> tap RIGS, and the bar is there. `showRigs` is deliberately NOT persisted, so a relaunch starts
 clean — if that minute per session becomes annoying, persisting it is a one-line change, but it
 would also mean a player who ever taps RIGS keeps free consumables forever.
 
@@ -817,9 +1228,12 @@ adb shell dumpsys window | grep -i mCurrentFocus | grep -q armedconflictspike ||
 Put that line before each batch and abort on it, rather than trusting that the game was in front a
 minute ago. Also:
 
-- **DND ON for the whole session** (`settings put global zen_mode 2`), and only off when the phone
-  is actually being handed back — not when device work merely looks finished. Verify it took:
-  `dumpsys notification | grep mZenMode`.
+- **DND ON for the whole session**, and only off when the phone is actually being handed back —
+  not when device work merely looks finished. **`settings put global zen_mode 2` NO LONGER WORKS
+  on this device** (2026-08-10): it returns success, `settings get` reads back `0`, and DND stays
+  off — a silent no-op in the exact place a silent no-op is most expensive. Use
+  `adb shell cmd notification set_dnd priority`, and VERIFY with
+  `dumpsys notification | grep mZenMode` — `ZEN_MODE_OFF` means it did not take.
 - **Never `KEYCODE_BACK` for in-game navigation.** Use HOME to leave, and uiautomator-found bounds
   to press things.
 - **Restore what you changed**: auto-rotate, DND, `svc power stayon`.
