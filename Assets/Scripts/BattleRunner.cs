@@ -63,6 +63,20 @@ public class BattleRunner : MonoBehaviour
     /// <summary>What each ammo type does. Optional — with no catalogue every type resolves to
     /// Standard's identity modifier, which is exactly the pre-ammo behaviour.</summary>
     [SerializeField] AmmoCatalogSO ammoCatalog;
+    /// <summary>
+    /// The campaign's stages, for the level -> stage -> FACTION lookup (Tier 2.1). Optional — with
+    /// no stages every enemy wears the default red, which is what the build did before factions.
+    /// Rigs are in no stage and get the default too.
+    /// </summary>
+    [SerializeField] StageDefinitionSO[] stages = new StageDefinitionSO[0];
+    /// <summary>
+    /// The two materials the enemy prefabs were toned with at BUILD time — the uniform ("body")
+    /// and the gear ("accent"). They are the KEYS the faction repaint matches on, not just
+    /// defaults: a pooled soldier's renderers are classified against them ONCE, so a slot that has
+    /// already been repainted can still be repainted again on the next level.
+    /// </summary>
+    [SerializeField] Material enemyUniformMaterial;
+    [SerializeField] Material enemyGearMaterial;
 
     const int UnitPoolSize = 48;
     const int ProjectilePoolSize = 64;
@@ -237,6 +251,26 @@ public class BattleRunner : MonoBehaviour
     readonly List<GameObject> shadowSlots = new();
     Material shadowMat;
 
+    // ---- enemy factions (Tier 2.1) -------------------------------------------------------------
+    //
+    // The enemy's uniform is a property of the STAGE, so it changes on a level switch while the
+    // pooled soldiers do not: pools are built ONCE and survive the switch, and the repaint is
+    // therefore a RESET, in the same family as the scorch pool's re-material and TintShadows.
+    //
+    // sharedMaterial, not a MaterialPropertyBlock: every enemy on a level wears the SAME uniform,
+    // so one material per faction keeps the whole army in one batch. A property block would be
+    // per-instance state for a colour that is never per-instance — and it would have to be re-set
+    // on every recycled slot, which is exactly the class of bug the pool reset list exists for.
+
+    /// <summary>Every enemy renderer that wears the uniform / the gear, classified ONCE against
+    /// the two build-time materials. Held as renderers rather than re-walked per level: the walk
+    /// is over every mesh of every pooled soldier on both prefabs sets, and it cannot change.</summary>
+    readonly List<Renderer> enemyUniformRenderers = new();
+    readonly List<Renderer> enemyGearRenderers = new();
+    /// <summary>One uniform+gear pair per faction, minted with the pools. Minting a material the
+    /// frame a level loads is a smaller sin than minting a render slot, but it is the same sin.</summary>
+    readonly Dictionary<FactionDefinitionSO, (Material Uniform, Material Gear)> factionMaterials = new();
+
     // ---- the incendiary flame ----------------------------------------------------------------
     //
     // What a unit set alight by an incendiary round looks like. Before this the burn dealt its
@@ -334,7 +368,7 @@ public class BattleRunner : MonoBehaviour
             loadoutGroups = Loadout.ToPlayerGroups(target, chosen);
             loadoutConsumables = consumables;
             LoadLevel(clamped);
-        });
+        }, Factions.For(target, stages));
     }
 
     public void LoadLevel(int index)
@@ -377,6 +411,7 @@ public class BattleRunner : MonoBehaviour
                 s.GetComponent<MeshRenderer>().sharedMaterial = scenery.ScorchMaterial;
 
         TintShadows();
+        ApplyFaction();
         HideAll();
         // The end panel belongs to the battle that raised it. It must come down here rather than
         // on the button that caused the switch, because the ◀ ▶ stepper leaves a finished battle
@@ -569,6 +604,7 @@ public class BattleRunner : MonoBehaviour
     {
         playerUnits = BuildUnitSlots(true);
         enemyUnits = BuildUnitSlots(false);
+        BuildFactionPalettes();
         for (int i = 0; i < UnitPoolSize; i++)
         {
             playerGuns.Add(Spawn(gunPrefab, $"pg{i}"));
@@ -635,6 +671,47 @@ public class BattleRunner : MonoBehaviour
                 slots.Add(kv.Key, Spawn(prefab, $"{tag}_{kv.Key}{i}"), normalised);
         }
         return slots;
+    }
+
+    /// <summary>
+    /// Classifies every pooled enemy renderer as uniform / gear / neither, and mints one material
+    /// pair per faction. Both halves run ONCE, with the pools.
+    ///
+    /// The classification is against the material a prefab was TONED with rather than against the
+    /// mesh-name prefixes — the prefix convention lives in the art pipeline (RiggedUnits.Tone) and
+    /// re-deriving it here is a second copy of a rule that would then be able to disagree with the
+    /// first. What matters at this end is only "which of the two enemy side-materials is this".
+    /// </summary>
+    void BuildFactionPalettes()
+    {
+        FactionPaint.Classify(enemyUnits.All, enemyUniformMaterial, enemyGearMaterial,
+                              enemyUniformRenderers, enemyGearRenderers);
+
+        foreach (var stage in stages)
+        {
+            var f = stage != null ? stage.faction : null;
+            if (f == null || factionMaterials.ContainsKey(f)) continue;
+            factionMaterials[f] = (FactionPaint.Recolour(enemyUniformMaterial, f.uniformColor),
+                                   FactionPaint.Recolour(enemyGearMaterial, f.gearColor));
+        }
+    }
+
+    /// <summary>
+    /// Dresses the pooled enemy in the current stage's uniform. Called on every level switch, and
+    /// it must be: the pool survives the switch, so a slot left in the previous stage's colours is
+    /// the exact "recycled slot keeps the last level's tint" failure this project has paid for in
+    /// scorch marks, shadows and structure chunks.
+    ///
+    /// A level in NO stage (every test rig) falls back to the build-time materials rather than
+    /// keeping whatever it inherited — the fallback is a real case, not a null-guard.
+    /// </summary>
+    void ApplyFaction()
+    {
+        var faction = Factions.For(level, stages);
+        var pair = faction != null && factionMaterials.TryGetValue(faction, out var p)
+            ? p
+            : (Uniform: enemyUniformMaterial, Gear: enemyGearMaterial);
+        FactionPaint.Apply(enemyUniformRenderers, enemyGearRenderers, pair.Uniform, pair.Gear);
     }
 
     /// <summary>

@@ -135,6 +135,20 @@ public static class SpikeSceneBattle
         // Ammo stats. Optional in the same way: no catalogue means every type is Standard.
         so.FindProperty("ammoCatalog").objectReferenceValue =
             AssetDatabase.LoadAssetAtPath<AmmoCatalogSO>("Assets/GameData/AmmoCatalog.asset");
+        // The stages, for the level -> stage -> FACTION lookup. Ordered by their star gate so the
+        // array reads in campaign order; nothing depends on the order, since the lookup is by
+        // membership rather than by index.
+        var stages = AssetDatabase.FindAssets("t:StageDefinitionSO")
+            .Select(g => AssetDatabase.LoadAssetAtPath<StageDefinitionSO>(AssetDatabase.GUIDToAssetPath(g)))
+            .Where(s => s != null)
+            .OrderBy(s => s.starsToUnlock)
+            .Cast<Object>().ToArray();
+        Fill(so.FindProperty("stages"), stages);
+        // The two enemy side-materials, which the faction repaint matches its renderers against.
+        // They are the SAME assets the enemy prefabs were toned with a few lines above — reference
+        // equality is the whole mechanism, so these must never be re-loaded copies.
+        so.FindProperty("enemyUniformMaterial").objectReferenceValue = mats.enemyUniform;
+        so.FindProperty("enemyGearMaterial").objectReferenceValue = mats.enemyGear;
         so.FindProperty("scenery").objectReferenceValue = scenery;
         so.FindProperty("playerUnitPrefab").objectReferenceValue = playerPrefab;
         so.FindProperty("enemyUnitPrefab").objectReferenceValue = enemyPrefab;
