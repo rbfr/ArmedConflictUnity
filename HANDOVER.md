@@ -6,13 +6,14 @@
   2026-08-12). Read "What 2026-08-11 changed" below before touching the airstrike. **Always
   `git status` first rather than trusting this line** — the previous session ended with seven
   uncommitted files and this bullet said so for a day.
-- **NOTHING IS PUSHED — check with `git status`, not with this line.**
-  2026-08-10 closed with **eleven commits on `main` here and one in the ART repo**
+- **`main` WAS PUSHED on 2026-08-12** — nineteen commits, everything from 2026-08-10's airstrike
+  arc through Tier 2.1's factions. That was the first push in three sessions, so a line in this
+  file saying otherwise is stale by definition: **`git log --oneline origin/main..HEAD` is the
+  answer, never this bullet.** Rob commits and pushes on an explicit ask.
+  Before it, 2026-08-10 closed with **eleven commits on `main` here and one in the ART repo**
   (`build_attack_plane.py`): the loadout NRE guard, Tier 1.3's consumables, the airstrike's whole
   aircraft arc (beat, orientation, height, sound, strafing burst, tracer bomb, and the projectile
-  scale regression that arc caused), the RIGS test supply, and the docs. Rob commits and pushes on
-  an explicit ask; the commits were asked for and **the push was not**. (No hashes and no running
-  tally you should trust — `git log --oneline origin/main..HEAD` is the answer.)
+  scale regression that arc caused), the RIGS test supply, and the docs — all of it now pushed.
   The Android repo's `projectile-refinement` is never being merged; **the Android build is
   RETIRED**, reference only.
 - **ALL OF TIER 0 IS DONE AND SIGNED OFF.** The Phase E balance audit — the last thing it owed —
