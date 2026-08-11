@@ -317,16 +317,52 @@ public static class PortSelfTest
             // bomb used to land ~0.85s before the volley-follow camera finished panning, off-screen
             // every time. The item is spent the moment the aircraft is committed.
             Check(struck.TurnPhase == TurnPhase.AirstrikeRun
-                  && struck.Projectiles.Count == fresh.Projectiles.Count
+                  && struck.Projectiles.Count > fresh.Projectiles.Count
+                  && struck.AirstrikeSpawnDelay > 0f
                   && struck.AirstrikePlane != null
                   && !struck.AirstrikePlane.HasDropped
-                  && Mathf.Abs(struck.AirstrikePlane.X
-                               - (volleyTarget.x - BattleTick.PlaneRunHalfLength)) < 0.01f
-                  && struck.PendingVolleyAim.HasValue
+                  // The spawn is DERIVED now (far enough back to exist before the rake's first
+                  // firing point AND before the release), so it is no longer a fixed offset from
+                  // the aim. Asserted as the property that matters — never NEARER than the old
+                  // fixed distance — with the entry itself checked against the real frame below.
+                  && struck.AirstrikePlane.X
+                       <= volleyTarget.x - BattleTick.PlaneRunHalfLength + 0.01f
                   && !struck.AirstrikeArmed
                   && Consumables.Equipped(struck, ConsumableType.Airstrike) == 0,
-                  "an armed release starts the PLANE'S RUN and fires no volley yet — aircraft "
-                  + "spawned off-frame, aim held, item spent");
+                  "an armed release fires the volley AT ONCE and holds the AIRCRAFT back — the "
+                  + "volley's flight is the longer of the two halves at any usable power, so it "
+                  + "is the one that starts first, and the item is spent either way");
+
+            // ...AND THE AIRCRAFT MUST ENTER ACROSS THE LEFT EDGE, which the check above used to
+            // CLAIM in its message ("spawned off-frame") while asserting only its own spawn
+            // constant. It shipped, and Rob found on a device that the plane simply materialises
+            // mid-frame. Both halves are the reason, and neither is visible from the spawn X
+            // alone: the frame has to be the RUN's frame (the camera cuts to it, so there is no
+            // sweep past the aircraft), and the spawn has to sit outside its left edge.
+            {
+                // THE CAMERA MUST START WHERE IT REALLY STARTS. `fresh` has never ticked, so its
+                // CameraFollowX is NULL — and a null one makes the spring begin AT the anchor,
+                // with nothing to travel and nothing to sweep past. Written that way this check
+                // passed against the sweeping code it was written to catch. In a real battle the
+                // camera has been live all turn and is sitting over the player's own line, which
+                // is the entire ~17 units the aircraft used to get overtaken across.
+                var aimed = struck with { CameraFollowX = fresh.PlayerCamXAnchor };
+                var flying = BattleTick.Step(aimed, 1f / 60f, null, new System.Random(3));
+                // Asked of the RUN'S OWN framing rather than rebuilt from constants here. The
+                // anchor is no longer `target - bias`: the frame has to hold the whole rake AND
+                // the bomb, which are different places now, so a check that recomputed the old
+                // formula would be testing a formula the game no longer uses.
+                float runCamX = flying.CameraFollowX ?? 0f;
+                float runHalf = BattleTick.AirstrikeRunHalfWidth(flying);
+                float spawnX = struck.AirstrikePlane.X;
+
+                Check(flying.CameraFollowX.HasValue
+                      && Mathf.Abs(runCamX - BattleTick.AirstrikeCameraAnchorFor(flying)) < 0.01f
+                      && spawnX < runCamX - runHalf,
+                      $"the run CUTS to its own framing and the aircraft enters across the LEFT "
+                      + $"EDGE — camera {flying.CameraFollowX?.ToString("F2") ?? "null"} (anchor "
+                      + $"{runCamX:F2}, edge {runCamX - runHalf:F2}), spawn {spawnX:F2}");
+            }
 
             // ...and an UNARMED release is untouched by any of it. Without this the check above
             // would still pass if the airstrike path had eaten the ordinary volley.
@@ -359,6 +395,20 @@ public static class PortSelfTest
                     bomb = live;
                     bombReleaseX = run.AirstrikePlane?.X ?? 0f;
                 }
+            }
+
+            // KEEP STEPPING PAST THE HANDOVER. The rake covers the enemy position, which reaches
+            // past the bomb's impact whenever the player aims short of the far end — so the last
+            // rounds are fired AFTER the phase ends. Stopping collection at the handover, as this
+            // loop used to, would count only the rounds fired before it and call a truncated burst
+            // complete. That is the precise bug this restructure exists to make impossible, so the
+            // check must be in a state where it could see it.
+            var afterRun = run;
+            for (int i = 0; i < 400 && afterRun.AirstrikePlane != null; i++)
+            {
+                afterRun = BattleTick.Step(afterRun, 1f / 60f, null, new System.Random(3));
+                foreach (var p in afterRun.Projectiles.Where(p => p.Id >= 45000))
+                    if (!strafeSeen.Any(q => q.Id == p.Id)) strafeSeen.Add(p);
             }
 
             // THE PLANE MUST STILL BE FLYING when the volley launches. Not a decorative detail:
@@ -414,7 +464,7 @@ public static class PortSelfTest
             // THE STRAFING BURST. Asserted as a WALK OF LANDING POINTS ending on the bomb's own
             // impact point, because that is the thing the player sees — a line of hits marching
             // into the target. Counting rounds, or checking a constant, would pass just as happily
-            // on a burst that landed all seven in the same spot or trailed off behind the plane.
+            // on a burst that landed every round in the same spot or trailed off behind the plane.
             {
                 var strafe = run.Projectiles.Concat(strafeSeen)
                                 .Where(p => p.Id >= 45000)
@@ -430,15 +480,113 @@ public static class PortSelfTest
                 for (int i = 1; i < landings.Count; i++)
                     if (landings[i] <= landings[i - 1]) walksForward = false;
 
+                // EVERY ROUND MUST ACTUALLY BE FIRED. The burst outlives its own phase now, and
+                // when the firing loop lived inside that phase the surplus rounds were dropped in
+                // silence — no error, no log, just a shorter burst. Counted against the constant
+                // here on purpose: the failure is "fewer than asked for", so the number asked for
+                // is exactly the right thing to compare against.
                 Check(strafe.Count == BattleTick.StrafeRounds
                       && walksForward
-                      && landings.Count > 0
-                      && Mathf.Abs(landings[^1] - volleyTarget.x) < 0.35f
-                      && Mathf.Abs(landings[0] - (volleyTarget.x - BattleTick.StrafeLength)) < 0.35f
-                      && strafe.All(p => p.Damage == BattleTick.StrafeDamage && p.SplashRadius == 0f),
-                      $"the strafe walks {strafe.Count} rounds along the ground INTO the bomb's "
-                      + $"point ({(landings.Count > 0 ? landings[0] : 0):F2} -> "
-                      + $"{(landings.Count > 0 ? landings[^1] : 0):F2}, target {volleyTarget.x:F2})");
+                      && strafe.All(p => p.Damage == BattleTick.StrafeDamage
+                                      && p.SplashRadius == 0f),
+                      $"all {BattleTick.StrafeRounds} rounds are fired and walk FORWARD "
+                      + $"({strafe.Count} seen, {(landings.Count > 0 ? landings[0] : 0):F2} -> "
+                      + $"{(landings.Count > 0 ? landings[^1] : 0):F2})");
+
+                // ...AND AGAIN FROM AN AIM THAT LANDS SHORT, which is the ONLY state where the
+                // failure this guards is reachable.
+                //
+                // The check above uses an aim landing PAST the enemy's far edge, so the rake
+                // finishes before the bomb does and confining the firing loop to the run's own
+                // phase drops nothing. Run that way it passed against exactly the broken code it
+                // was written for. Aim short — the ordinary case — and the last rounds are fired
+                // after handover, which is when a phase-bound loop silently truncates the burst.
+                // The landing is asserted to BE short, so the check cannot quietly stop testing
+                // this if the geometry ever moves.
+                {
+                    var shortAim = new Vector3(3f, 7f, 0f);
+                    var shortMuzzle = new Vector3(
+                        fresh.PlayerUnits.Average(u => u.X),
+                        fresh.PlayerUnits.Average(u => u.Y) + BattleTick.InfantryMuzzleY, 0f);
+                    float shortTargetX =
+                        TrajectoryPhysics.LandingPoint(shortMuzzle, shortAim).x;
+
+                    var shortRun = BattleTick.FireVolley(armed, shortAim, new System.Random(3));
+                    var shortSeen = new List<ProjectileEntity>();
+                    for (int i = 0; i < 900 && shortRun.AirstrikePlane != null; i++)
+                    {
+                        shortRun = BattleTick.Step(shortRun, 1f / 60f, null, new System.Random(3));
+                        foreach (var p in shortRun.Projectiles.Where(p => p.Id >= 45000))
+                            if (!shortSeen.Any(q => q.Id == p.Id)) shortSeen.Add(p);
+                    }
+
+                    Check(shortTargetX < struck.AirstrikePlane.StrafeToX
+                          && shortSeen.Count == BattleTick.StrafeRounds,
+                          $"a shot aimed SHORT of the enemy's far edge still fires the whole burst "
+                          + $"({shortSeen.Count}/{BattleTick.StrafeRounds}) — the rake outlives the "
+                          + $"bomb (impact {shortTargetX:F2} vs rake end "
+                          + $"{struck.AirstrikePlane.StrafeToX:F2}), so the guns cannot live in "
+                          + "the run's phase");
+                }
+
+                // THE RAKE COVERS THE ENEMY POSITION, STRUCTURES INCLUDED. This is the contract
+                // Rob asked for — "it should start from the left, strafe should cover the whole
+                // enemy position and its structures" — and it is asserted against the enemy's own
+                // extents rather than against the constants that produce them.
+                //
+                // Structure EDGES, not centres: an outpost is 2 units wide and raking to its
+                // middle leaves half the building untouched, which is most of the way back to the
+                // bug this replaced.
+                var enemyEdges = fresh.EnemyUnits.Select(u => u.X).ToList();
+                foreach (var st in fresh.Structures.Where(st => !st.Definition.isPlayerSide))
+                {
+                    float hw = (st.Definition.hasHitWidth ? st.Definition.hitWidth
+                                                          : st.Definition.size) / 2f;
+                    enemyEdges.Add(st.X - hw);
+                    enemyEdges.Add(st.X + hw);
+                }
+
+                Check(landings.Count > 0
+                      && landings[0] < enemyEdges.Min()
+                      && landings[^1] > enemyEdges.Max(),
+                      $"the rake COVERS the whole enemy position including its structures — "
+                      + $"impacts {landings[0]:F2} -> {landings[^1]:F2} against an enemy footprint "
+                      + $"of {enemyEdges.Min():F2} -> {enemyEdges.Max():F2}");
+
+                // AND IT IS INDEPENDENT OF WHERE THE PLAYER AIMED, which is the whole design
+                // change. Asserted by FIRING IT TWICE AT DIFFERENT AIMS and demanding the same
+                // walk — the one thing no arrangement of aim-relative constants can fake. A check
+                // on "the walk covers the enemy" alone would pass on a burst that happened to
+                // reach the enemy from a lucky aim.
+                var elsewhere = BattleTick.FireVolley(armed, new Vector3(3f, 9f, 0f),
+                                                      new System.Random(3));
+                var otherAim = elsewhere.AirstrikePlane;
+                Check(otherAim != null
+                      && Mathf.Abs(otherAim.StrafeFromX - struck.AirstrikePlane.StrafeFromX) < 0.01f
+                      && Mathf.Abs(otherAim.StrafeToX - struck.AirstrikePlane.StrafeToX) < 0.01f,
+                      $"the rake is INDEPENDENT of the player's aim — a shot aimed elsewhere rakes "
+                      + $"the identical ground ([{otherAim?.StrafeFromX:F2}, {otherAim?.StrafeToX:F2}] "
+                      + $"vs [{struck.AirstrikePlane.StrafeFromX:F2}, "
+                      + $"{struck.AirstrikePlane.StrafeToX:F2}])");
+
+                // The firing POSITIONS are asserted too, because a walk of landing points can be
+                // produced by rounds all fired from ONE spot: the loop fires every round whose
+                // point the aircraft has already passed, so a spawn too far forward dumps them in
+                // a single tick. That is a literal burst, and it is invisible in the landings.
+                float landSpan = landings.Count > 0 ? landings[^1] - landings[0] : 0f;
+                float fireSpan = strafe.Count > 0
+                    ? strafe.Max(p => p.SpawnX) - strafe.Min(p => p.SpawnX) : 0f;
+
+                Check(landSpan >= 5.5f && fireSpan >= 5f,
+                      $"the burst RAKES rather than clustering — impacts span {landSpan:F2} units "
+                      + $"and the rounds are fired from {fireSpan:F2} units of DIFFERENT "
+                      + "positions, not one");
+
+                int strafeTotal = strafe.Sum(p => p.Damage);
+                Check(strafe.Count >= 12 && strafeTotal >= 24 && strafeTotal <= 32,
+                      $"the burst is a strafing RUN, not a tap ({strafe.Count} rounds), and its "
+                      + $"damage budget is unchanged ({strafeTotal}, held at 28) — count is "
+                      + "presentation, total is balance, and raising one must not raise the other");
 
                 // ...and they must not hold the beat open. The run hands over on the BOMB, so a
                 // burst still in the air has to be irrelevant to that — which is the whole reason
@@ -453,11 +601,20 @@ public static class PortSelfTest
                 // the player gets seven giant tracers and no payload; flag nothing and the payload
                 // is a rifle round. Neither is visible to any test of the renderer, so it is
                 // asserted here, on the flag itself.
-                Check(bomb != null && bomb.IsAirstrike
+                // Three shapes out of one pool and one prefab, and the flags are the whole of the
+                // distinction: the payload is a big round dot (IsAirstrike), the cannon fire is a
+                // stretched streak (IsStrafe), an infantry round is neither. The pair must be
+                // MUTUALLY EXCLUSIVE — a round wearing both would be scaled by whichever branch
+                // the renderer tested first, which is the kind of bug that only ever shows up as
+                // "something looked odd once".
+                Check(bomb != null && bomb.IsAirstrike && !bomb.IsStrafe
                       && bomb.Type == ProjectileType.Bullet
-                      && strafe.All(p => !p.IsAirstrike && p.Type == ProjectileType.Bullet),
-                      "the BOMB is the only round flagged IsAirstrike — that flag is all the "
-                      + "renderer has to tell the payload from the cannon fire around it");
+                      && strafe.All(p => p.IsStrafe && !p.IsAirstrike
+                                         && p.Type == ProjectileType.Bullet)
+                      && run.Projectiles.All(p => !(p.IsAirstrike && p.IsStrafe)),
+                      "the BOMB alone is IsAirstrike and the CANNON FIRE alone is IsStrafe, never "
+                      + "both — those two flags are all the renderer has to draw a payload, a "
+                      + "tracer streak and a rifle round out of one pooled prefab");
             }
 
             // THE AIRCRAFT MUST KEEP FLYING AFTER IT HANDS THE TURN OVER, and must eventually go.
@@ -510,10 +667,45 @@ public static class PortSelfTest
 
             // The volley that finally launches is the one the player aimed, unchanged by having
             // waited. Compared against the unarmed volley fired from the same aim and seed.
-            Check(run.Projectiles.Count(p => !p.IsAirstrike) == plain.Projectiles.Count
-                  && run.PendingVolleyAim == null,
-                  "the volley that follows the run is the volley the player aimed, and the held "
-                  + "aim is spent");
+            //
+            // THE BURST IS EXCLUDED, and it did not used to have to be. The rake now carries past
+            // the aim point, so its last rounds land AFTER the bomb does and are still in the air
+            // when the phase hands over — where a count of "everything that is not the bomb" swept
+            // them into the volley's total and this check went red. That is the check doing its
+            // job: it noticed the burst outliving the run before anyone looked at a device.
+            Check(run.PendingVolleyAim == null && run.PendingVolleyDelay <= 0f,
+                  "no aim and no volley are left held once the run is over");
+
+            // THE TWO HALVES LAND TOGETHER. This is the contract the whole realignment exists for
+            // — Rob: "i wonder if we can sync the player projectile volley with the plane. right
+            // now it's a little awkward" — and it is asserted as MEASURED IMPACT TIMES, stepped
+            // out of a real flight, not as the arithmetic that schedules them. The old beat was
+            // the two ADDED: 4.53s on an ordinary 86% shot, a third of it spent watching an
+            // aircraft with none of the player's rounds in the air.
+            {
+                var t = struck;
+                float bombAt = -1f, volleyAt = -1f;
+                bool bombSeen = false, volleySeen = false;
+                for (int i = 0; i < 1200 && (bombAt < 0f || volleyAt < 0f); i++)
+                {
+                    t = BattleTick.Step(t, 1f / 60f, null, new System.Random(3));
+                    float now = (i + 1) / 60f;
+
+                    bool bomb2 = t.Projectiles.Any(p => p.IsAirstrike);
+                    if (bomb2) bombSeen = true;
+                    else if (bombSeen && bombAt < 0f) bombAt = now;
+
+                    bool volley2 = t.Projectiles.Any(p => !p.IsAirstrike && !p.IsStrafe
+                                                       && p.OwnerIsPlayer);
+                    if (volley2) volleySeen = true;
+                    else if (volleySeen && volleyAt < 0f) volleyAt = now;
+                }
+
+                Check(bombAt > 0f && volleyAt > 0f && Mathf.Abs(bombAt - volleyAt) < 0.40f,
+                      $"the bomb and the volley LAND TOGETHER — bomb at {bombAt:F2}s, volley at "
+                      + $"{volleyAt:F2}s from release ({Mathf.Abs(bombAt - volleyAt):F2}s apart), "
+                      + "so the beat costs max(flight, run) rather than their sum");
+            }
         }
 
         // --- SMOKE SCREEN: their volley really does go wider -----------------------------------

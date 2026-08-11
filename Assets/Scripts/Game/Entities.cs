@@ -115,6 +115,16 @@ namespace ArmedConflict.Game
         /// </summary>
         public bool IsHeliShot { get; init; }
         public bool IsAirstrike { get; init; }
+
+        /// <summary>
+        /// A round of the aircraft's CANNON, drawn as a stretched tracer streak rather than as a
+        /// round dot. Not cosmetic trim: at the run's framing a 0.22-scale bullet covers a third
+        /// of its own width per frame, so a burst of them draws a faint dotted chain — and Rob,
+        /// looking at the real thing, reported no visible difference between SEVEN rounds and
+        /// FOURTEEN. Count was never the bottleneck; the round has to read as gunfire in one
+        /// frame, which means a streak.
+        /// </summary>
+        public bool IsStrafe { get; init; }
         public AmmoType Ammo { get; init; } = AmmoType.Standard;
 
         public float SpawnX { get; init; } = X;
@@ -251,6 +261,39 @@ namespace ArmedConflict.Game
         /// dt varies, so a timer would space the burst differently on a stuttering frame.
         /// </summary>
         public int StrafeFired { get; init; }
+
+        /// <summary>
+        /// The ground the strafing run rakes — CARRIED, and fixed the moment the aircraft is
+        /// committed.
+        ///
+        /// **The burst is independent of the player's volley** (Rob, 2026-08-11: *"the strafe is
+        /// independent of the player unit volley. it should start from the left, strafe should
+        /// cover the whole enemy position and its structures."*). So this is derived from where
+        /// the ENEMY is, not from where the shot was aimed — the bomb is the only part of an
+        /// airstrike that cares about the aim.
+        ///
+        /// It is carried rather than recomputed per tick for two reasons: the run OUTLIVES its own
+        /// phase, so anything recomputed from live state would keep changing under it; and the
+        /// enemy set shrinks as the rake kills, which would walk the far end of the burst backwards
+        /// while it was still firing.
+        /// </summary>
+        public float StrafeFromX { get; init; }
+        public float StrafeToX { get; init; }
+
+        /// <summary>
+        /// Id of this run's FIRST cannon round; the rest follow it. Carried because the burst is
+        /// fired from the always-run physics path, which has no access to the state's slot
+        /// counters — and because ids must stay globally unique, since hit tracking keys off them.
+        /// </summary>
+        public int StrafeIdFirst { get; init; }
+
+        /// <summary>
+        /// Where this run's BOMB is going. Carried, because the aim it came from is cleared the
+        /// moment the volley launches — and the volley now usually launches BEFORE the aircraft is
+        /// even released, so deriving the target from `PendingVolleyAim` would read a null the
+        /// whole time the bomb was in the air.
+        /// </summary>
+        public float BombTargetX { get; init; }
     }
 
     public static class StructureDamage

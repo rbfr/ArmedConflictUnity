@@ -73,7 +73,35 @@ namespace ArmedConflict.Game
             // device 2026-08-10, second build of the beat.
             //
             // The same family as "anything that decays must decay on EVERY tick path".
-            var planeNow = StepPlane(s.AirstrikePlane, dt);
+            AirstrikePlaneEntity planeNow;
+
+            // AND SO DO ITS GUNS AND ITS BOMB, for exactly the same reason. The rake covers the
+            // whole enemy position, which routinely reaches PAST the bomb's impact; and now that
+            // the volley and the pass are aligned on their impacts, the aircraft is often still
+            // short of its own drop point while the phase has already moved on to Resolving. While
+            // these lived inside the run's own step the surplus rounds were simply never fired —
+            // no error, no log, just a burst that stopped early. A deliberate over-long rake
+            // dropped 11 of 28 rounds that way and every check stayed green.
+            //
+            // THE SPAWN DELAY GATES ALL THREE. Until it expires the aircraft has not been released
+            // onto the field: it must not move, must not shoot, and must not drop.
+            float spawnDelay = Mathf.Max(0f, s.AirstrikeSpawnDelay - dt);
+            int grenadeSlotNow = s.NextGrenadeSlot;
+            if (s.AirstrikeSpawnDelay <= 0f)
+            {
+                planeNow = StepPlane(s.AirstrikePlane, dt);
+                (planeNow, stepped) = StepStrafe(planeNow, stepped);
+                (planeNow, stepped, grenadeSlotNow) =
+                    StepBomb(planeNow, stepped, grenadeSlotNow);
+            }
+            else
+            {
+                // Held back. The entity exists so nothing has to be recomputed at release time,
+                // but it is not on the field yet — the renderer hides it on the same condition.
+                planeNow = s.AirstrikePlane;
+            }
+
+            float volleyDelay = Mathf.Max(0f, s.PendingVolleyDelay - dt);
 
             var helicopter = s.Helicopter;
             var heliResult = HelicopterSystem.Step(helicopter, dt, s.Phase,
@@ -562,12 +590,35 @@ namespace ArmedConflict.Game
                     // centre and it would never appear to move, and this project already measured
                     // that less camera churn reads better. The bias is what gets the RELEASE and
                     // the IMPACT into the same frame — see PlaneCameraBias.
-                    TurnPhase.AirstrikeRun => AirstrikeCameraAnchor(s),
+                    TurnPhase.AirstrikeRun => AirstrikeCameraAnchorFor(s),
                     _ => s.PlayerCamXAnchor,
                 };
-                followX = s.CameraFollowX ?? anchorTarget;
-                SpringFollow.Step(ref followX, ref followXVel, anchorTarget, dt,
-                                  CameraDirector.MarchEscortSmoothTime);
+                if (turnPhase == TurnPhase.AirstrikeRun)
+                {
+                    // THE ONE PHASE THAT CUTS INSTEAD OF PANNING, and it is not a style choice.
+                    //
+                    // The aircraft spawns off-frame under the run's own framing — but the camera
+                    // begins the run over the PLAYER LINE, ~17 units away on L1, and springs
+                    // right. It therefore sweeps PAST the aircraft and arrives to find it already
+                    // sitting mid-frame, which is what Rob saw on a device: "the plane should come
+                    // from the left side of the screen. it seems to just appear in the middle."
+                    // No spawn distance fixes that — a camera travelling the same direction faster
+                    // than the plane will always overtake it.
+                    //
+                    // So the run CUTS to its anchor and holds there, and the aircraft crosses a
+                    // frame that is already still. That is also what the phase always claimed to
+                    // do ("a hold, not a chase") and the reason the spring is left alone
+                    // everywhere else: `CAMERA_ARCHITECTURE.md` is locked, and this exception was
+                    // asked for and granted rather than assumed.
+                    followX = anchorTarget;
+                    followXVel = 0f;
+                }
+                else
+                {
+                    followX = s.CameraFollowX ?? anchorTarget;
+                    SpringFollow.Step(ref followX, ref followXVel, anchorTarget, dt,
+                                      CameraDirector.MarchEscortSmoothTime);
+                }
             }
 
             // --- 7b. MID-BATTLE EVENTS ----------------------------------------------------
@@ -665,6 +716,13 @@ namespace ArmedConflict.Game
                 turnPhase, turnSide,
                 s.PlayerCamHalfWidth, s.EnemyCamHalfWidth, s.EnemyCamHalfWidth,
                 0f, false, s.PlayerCamHalfWidth, false);
+
+            // The RUN is the one phase whose framing is not a captured half-width. It has to hold
+            // the whole rake AND the bomb, and those are now different places — the burst covers
+            // the enemy position while the bomb goes where the player aimed. Widened, never
+            // narrowed: the standing floor still applies, so this can only pull the camera back.
+            if (turnPhase == TurnPhase.AirstrikeRun)
+                halfWidth = Mathf.Max(halfWidth, AirstrikeRunHalfWidth(s));
             float targetZ = CameraDirector.TargetZ(halfWidth + 1.2f, s.StaticCamera, s.StaticCamZ);
             float followZ = s.CameraFollowZ ?? targetZ;
             float followZVel = s.CameraFollowZVelocity;
@@ -709,6 +767,8 @@ namespace ArmedConflict.Game
                 Debris = debris,
                 NextDebrisSlot = nextDebris,
                 AirstrikePlane = planeNow,
+                AirstrikeSpawnDelay = spawnDelay,
+                PendingVolleyDelay = volleyDelay,
             };
 
             // --- 9. the airstrike run -----------------------------------------------------
@@ -721,8 +781,7 @@ namespace ArmedConflict.Game
             if (stepResult.Phase == GamePhase.Playing
                 && stepResult.TurnPhase == TurnPhase.AirstrikeRun)
             {
-                return StepAirstrikeRun(stepResult, dt, random, ammoCatalog,
-                                        stepResult.Projectiles);
+                return StepAirstrikeRun(stepResult, dt, random, ammoCatalog);
             }
 
             return stepResult;
@@ -937,11 +996,29 @@ namespace ArmedConflict.Game
             if (s.Phase != GamePhase.Playing || s.TurnPhase != TurnPhase.Aiming) return s;
             if (s.PlayerUnits.Count == 0) return s;
 
-            // AN ARMED AIRSTRIKE TAKES THE TURN FIRST. The aircraft makes its pass and drops, and
-            // only then does the volley launch — see TurnPhase.AirstrikeRun for the measurement
-            // that forced this. The aim is held in the state meanwhile; the volley below is built
-            // from it unchanged when the run completes.
-            if (s.AirstrikeArmed) return BeginAirstrikeRun(s, aimVelocity);
+            // AN ARMED AIRSTRIKE ALIGNS THE TWO HALVES ON THEIR IMPACTS. Whichever takes longer
+            // to reach the target goes first; the other is delayed by the difference. In almost
+            // every case that means the VOLLEY goes now — its flight is the longer of the two at
+            // any usable power — and the aircraft is held back so its bomb lands with the rounds.
+            if (s.AirstrikeArmed)
+            {
+                var prepared = BeginAirstrikeRun(s, aimVelocity);
+                if (prepared.AirstrikeSpawnDelay <= 0f) return prepared;
+
+                // The volley is the slower half: fire it NOW, exactly as an unarmed release would,
+                // and let the held aircraft catch up. PendingVolleyAim is cleared with it — the
+                // bomb's target rides on the aircraft precisely so nothing downstream needs it.
+                //
+                // **THE PHASE STAYS AirstrikeRun even though the volley is away.** That is what
+                // keeps the pass owning the frame: the run's camera cuts to the strike and HOLDS,
+                // so the aircraft still enters across the left edge and the player's rounds arc
+                // into the same held frame instead of dragging the camera off after them. Hits
+                // land either way — collision runs on the always-run path, not inside a phase.
+                var away = LaunchVolley(prepared with { TurnPhase = TurnPhase.Aiming },
+                                        aimVelocity, random, ammoCatalog);
+                return away with { PendingVolleyAim = null,
+                                   TurnPhase = TurnPhase.AirstrikeRun };
+            }
 
             return LaunchVolley(s, aimVelocity, random, ammoCatalog);
         }
@@ -1082,8 +1159,25 @@ namespace ArmedConflict.Game
         ///
         /// Both ends are off-frame at resolve framing, so it ENTERS and LEAVES rather than popping
         /// into and out of existence — which was the original round's worst single property.
+        ///
+        /// **IT IS A FLOOR NOW, NOT THE SPAWN ITSELF.** The spawn is DERIVED in
+        /// `BeginAirstrikeRun` — far enough back to exist `StrafeLead` before the rake's first
+        /// firing point, and to still be short of the release when it drops — because the rake is
+        /// sized by the enemy position and no fixed offset from the aim can guarantee both. This
+        /// constant only keeps the aircraft from ever spawning NEARER than it used to, and sets how
+        /// far past the far end it flies before it is retired.
+        ///
+        /// **The spare unit in that derivation is not slack.** The firing loop fires every round
+        /// whose point the plane has ALREADY passed, so a spawn at or beyond the first firing point
+        /// dumps several rounds from one position in a single tick — a literal burst, which is the
+        /// thing this whole beat has been iterating away from.
+        ///
+        /// It is also most of what sets the beat's LENGTH: the run lasts roughly
+        /// `(target - spawn) / PlaneSpeed`, so a wider enemy line now costs a longer pass. That is
+        /// the right trade — the pass exists to show the enemy position being raked — but it does
+        /// mean the beat is no longer one fixed number across the campaign.
         /// </summary>
-        public const float PlaneRunHalfLength = 9f;
+        public const float PlaneRunHalfLength = 11f;
 
         /// <summary>
         /// How far LEFT of the drop point the camera sits during the run, leading the subject.
@@ -1107,11 +1201,40 @@ namespace ArmedConflict.Game
         /// Falls back to the enemy anchor if there is somehow no aim to derive one from, so a
         /// missing aim cannot leave the camera staring at the player's boots.
         /// </summary>
-        static float AirstrikeCameraAnchor(GameState s)
+        public static float AirstrikeCameraAnchorFor(GameState s)
         {
             if (s.PendingVolleyAim is not Vector3 aim) return s.EnemyCamXAnchor;
-            return TrajectoryPhysics.LandingPoint(MeanMuzzle(s.PlayerUnits), aim).x
-                   - PlaneCameraBias;
+            float targetX = TrajectoryPhysics.LandingPoint(MeanMuzzle(s.PlayerUnits), aim).x;
+
+            // THE FRAME HAS TO HOLD THE WHOLE RAKE, not just the bomb. Now that the burst covers
+            // the enemy position rather than walking to the aim point, the two are different
+            // places — aim past the line and the rake is BEHIND the impact. Centring on the
+            // midpoint of everything that must be seen (both ends of the walk, and the bomb) is
+            // what keeps all three on screen; the bias then leads the aircraft into it.
+            var p = s.AirstrikePlane;
+            if (p == null) return targetX - PlaneCameraBias;
+
+            float lo = Mathf.Min(p.StrafeFromX, targetX);
+            float hi = Mathf.Max(p.StrafeToX, targetX);
+            return (lo + hi) / 2f - PlaneCameraBias;
+        }
+
+        /// <summary>
+        /// Half-width the run must frame: everything the pass shows — both ends of the rake and the
+        /// bomb's impact — measured from the anchor the camera actually uses, plus the standing
+        /// floor so a narrow engagement still gets the aircraft's own room.
+        /// </summary>
+        public static float AirstrikeRunHalfWidth(GameState s)
+        {
+            if (s.PendingVolleyAim is not Vector3 aim || s.AirstrikePlane == null)
+                return CameraDirector.AirstrikeRunHalfWidth;
+
+            float targetX = TrajectoryPhysics.LandingPoint(MeanMuzzle(s.PlayerUnits), aim).x;
+            float anchor = AirstrikeCameraAnchorFor(s);
+            var p = s.AirstrikePlane;
+            float needed = CameraFraming.HalfWidth(
+                anchor, new[] { p.StrafeFromX, p.StrafeToX, targetX });
+            return Mathf.Max(needed + StrafeMargin, CameraDirector.AirstrikeRunHalfWidth);
         }
 
         /// <summary>
@@ -1126,20 +1249,121 @@ namespace ArmedConflict.Game
             return x > p.ExitX ? null : p with { X = x };
         }
 
+        /// <summary>
+        /// The ground the burst rakes: THE WHOLE ENEMY POSITION, structures included, with a
+        /// margin at each end so the walk starts before the first man and finishes past the last
+        /// wall rather than on top of them.
+        ///
+        /// **Structure EDGES, not centres.** A structure's centre says nothing about how much
+        /// ground it covers, and an outpost is 2 units wide — raking to its centre leaves half the
+        /// building unhit, which is most of the way back to the bug this replaced.
+        ///
+        /// Falls back to the aim point if the enemy has no position at all (every unit dead and
+        /// every structure gone), which cannot happen while a turn is being taken but costs one
+        /// line to make impossible rather than merely unlikely.
+        /// </summary>
+        public static (float from, float to) StrafeSpan(GameState s, float targetX)
+        {
+            float min = float.MaxValue, max = float.MinValue;
+            foreach (var u in s.EnemyUnits) { min = Mathf.Min(min, u.X); max = Mathf.Max(max, u.X); }
+            foreach (var st in s.Structures)
+            {
+                if (st.Definition.isPlayerSide) continue;
+                float halfW = (st.Definition.hasHitWidth ? st.Definition.hitWidth
+                                                         : st.Definition.size) / 2f;
+                min = Mathf.Min(min, st.X - halfW);
+                max = Mathf.Max(max, st.X + halfW);
+            }
+            if (min > max) return (targetX - StrafeMargin, targetX + StrafeMargin);
+            return (min - StrafeMargin, max + StrafeMargin);
+        }
+
+        /// <summary>How far outside the enemy position the rake starts and finishes.</summary>
+        public const float StrafeMargin = 1.5f;
+
+        /// <summary>
+        /// How long the aircraft takes from its spawn to the moment its bomb lands: the run out to
+        /// the release point, plus the fall.
+        /// </summary>
+        static float PlaneRunToImpact(float spawnX, float targetX)
+            => (targetX - PlaneSpeed * BombFallTime - spawnX) / PlaneSpeed + BombFallTime;
+
+        /// <summary>
+        /// Where the aircraft must start to do its job: far enough back to exist `StrafeLead`
+        /// before the rake's first firing point, and to still be short of the release when it drops.
+        /// Never nearer than the standing `PlaneRunHalfLength`.
+        /// </summary>
+        static float PlaneSpawnX(float rakeFromX, float targetX)
+            => Mathf.Min(Mathf.Min(rakeFromX - StrafeLead - 1f,
+                                   targetX - PlaneSpeed * BombFallTime - 1f),
+                         targetX - PlaneRunHalfLength);
+
         public static GameState BeginAirstrikeRun(GameState s, Vector3 aimVelocity)
         {
             var target = TrajectoryPhysics.LandingPoint(MeanMuzzle(s.PlayerUnits), aimVelocity);
-            return s with
+            var (from, to) = StrafeSpan(s, target.x);
+
+            // THE AIRCRAFT IS SIZED TO ITS JOB, not to a fixed offset from the aim — see
+            // PlaneSpawnX. Deriving it means a level whose enemy line is wide, or an aim far from
+            // that line, cannot silently start the burst before the plane exists: that failure
+            // drops rounds with no error anywhere.
+            float spawn = PlaneSpawnX(from, target.x);
+
+            // THE TWO HALVES ARE ALIGNED ON THEIR IMPACTS, not queued one after the other.
+            //
+            // Whichever takes LONGER to reach the target starts first, and the other is delayed by
+            // the difference — so both land together and the beat costs `max(flight, run)` rather
+            // than their sum. On an ordinary 86% shot that is 2.91s against 4.53s, and the third of
+            // the old beat that was watching an aircraft with none of the player's rounds in the
+            // air disappears.
+            float volleyFlight = TrajectoryPhysics.FlightTime(MeanMuzzle(s.PlayerUnits), aimVelocity);
+            float runToImpact = PlaneRunToImpact(spawn, target.x);
+            float lead = volleyFlight - runToImpact;
+
+            var plane = new AirstrikePlaneEntity(
+                X: spawn, Y: PlaneY, Vx: PlaneSpeed,
+                ExitX: Mathf.Max(target.x, to) + PlaneRunHalfLength)
             {
-                AirstrikePlane = new AirstrikePlaneEntity(
-                    X: target.x - PlaneRunHalfLength, Y: PlaneY, Vx: PlaneSpeed,
-                    ExitX: target.x + PlaneRunHalfLength),
-                PendingVolleyAim = aimVelocity,
+                StrafeFromX = from,
+                StrafeToX = to,
+                StrafeIdFirst = StrafeIdBase + s.NextGrenadeSlot * StrafeRounds,
+                BombTargetX = target.x,
+            };
+
+            var committed = s with
+            {
                 AirstrikeArmed = false,
                 LoadedConsumables = Consumables.Decrement(s.LoadedConsumables,
                                                           ConsumableType.Airstrike),
-                TurnPhase = TurnPhase.AirstrikeRun,
                 TurnSide = TurnSide.Player,
+            };
+
+            if (lead >= 0f)
+            {
+                // The volley is the slower half: it goes NOW and the aircraft is held back. There
+                // is no AirstrikeRun phase in this case — the player's own rounds are in the air
+                // from the release, which is the whole point, and the volley camera has something
+                // to follow immediately.
+                return committed with
+                {
+                    // The entity exists from the moment of release so nothing has to be
+                    // recomputed when it is let go — the delay is what keeps it off the field,
+                    // and both the tick and the renderer gate on that one value.
+                    AirstrikePlane = plane,
+                    AirstrikeSpawnDelay = lead,
+                    PendingVolleyAim = aimVelocity,
+                    PendingVolleyDelay = 0f,
+                };
+            }
+
+            // The aircraft is the slower half — a flat, fast shot. It goes now and the volley is
+            // held, which is the old behaviour narrowed to the only case that still needs it.
+            return committed with
+            {
+                AirstrikePlane = plane,
+                PendingVolleyAim = aimVelocity,
+                PendingVolleyDelay = -lead,
+                TurnPhase = TurnPhase.AirstrikeRun,
             };
         }
 
@@ -1179,16 +1403,26 @@ namespace ArmedConflict.Game
         /// them off is worse feedback than no rounds at all, because it reads as the expensive
         /// thing having missed. These do something.
         ///
-        /// **This makes the Airstrike stronger: 24 becomes 24 + 7x4 = 52.** It is the dearest item
+        /// **This makes the Airstrike stronger: 24 becomes 24 + 28 = 52.** It is the dearest item
         /// in the shop at 250 coins and was doing less than a Sniper's single shot, so that is a
         /// deliberate correction rather than an accident — but it IS a balance change, and
         /// `StrafeDamage` is the one constant to turn down if the levels disagree.
+        ///
+        /// **The COUNT is presentation and the TOTAL is balance, and they are kept apart.** The
+        /// count has been raised twice, 7 -> 14 -> 28, each time to hold the SPACING at ~0.33 units
+        /// as the walk grew from 4 to 9 — and `StrafeDamage` has come down 4 -> 2 -> 1 each time so
+        /// the burst's contribution stays at 28 and the Airstrike's total stays at 52. Density is
+        /// presentation; the total is what the campaign feels, and `BalanceAudit` does not know
+        /// about consumables at all.
+        ///
+        /// **NOTE THE ONE THING THIS ARITHMETIC DOES NOT CAPTURE:** a wider rake spreads the same
+        /// nominal damage over more empty ground, so its EFFECTIVE damage falls even though the
+        /// total is unchanged. The burst is a presentation feature that happens to hurt; if it ever
+        /// needs to hurt a fixed amount, that is a different design and wants a different mechanism
+        /// than a walk of independent rounds.
         /// </summary>
-        public const int StrafeRounds = 7;
-        public const int StrafeDamage = 4;
-        /// <summary>How far the line of hits walks, ending ON the bomb's impact point.</summary>
-        public const float StrafeLength = 4f;
-
+        public const int StrafeRounds = 28;
+        public const int StrafeDamage = 1;
         /// <summary>
         /// How long a cannon round is in the air, and how far AHEAD of the aircraft it is thrown.
         ///
@@ -1199,16 +1433,26 @@ namespace ArmedConflict.Game
         /// `StrafeLead / StrafeFallTime` = 10 u/s of forward speed, so it outruns the aircraft and
         /// draws a streak, which is what gunfire looks like.
         ///
-        /// The lead is bounded by the run itself: the burst starts `StrafeLength + StrafeLead`
-        /// behind the target and the aircraft only spawns `PlaneRunHalfLength` back, so these
-        /// cannot grow without the first round being fired before the plane exists.
+        /// The lead no longer bounds the burst: the aircraft's SPAWN is derived from the rake's own
+        /// start (see BeginAirstrikeRun), so a longer lead moves the spawn back rather than firing
+        /// rounds before the plane exists.
         /// </summary>
         public const float StrafeFallTime = 0.40f;
         public const float StrafeLead = 4f;
 
-        /// <summary>Where round `k` of the burst lands. The last lands on the bomb's own point.</summary>
-        public static float StrafeLandingX(float targetX, int k)
-            => targetX - StrafeLength + k * (StrafeLength / (StrafeRounds - 1));
+        /// <summary>
+        /// Where round `k` of the burst lands: an even walk from one end of the ENEMY POSITION to
+        /// the other, carried on the aircraft.
+        ///
+        /// **The burst has nothing to do with where the player aimed.** It used to walk to the
+        /// volley's landing point and stop there, which made the rake a property of the shot rather
+        /// than of the target — aim short and it raked open ground; aim past the line and it raked
+        /// past the line. Rob: *"the strafe is independent of the player unit volley. it should
+        /// start from the left, strafe should cover the whole enemy position and its structures."*
+        /// The BOMB is the part of an airstrike that cares about the aim; the guns rake the enemy.
+        /// </summary>
+        public static float StrafeLandingX(AirstrikePlaneEntity p, int k)
+            => p.StrafeFromX + k * ((p.StrafeToX - p.StrafeFromX) / (StrafeRounds - 1));
 
         public const int AirstrikeDamage = 24;
         public const float AirstrikeSplashRadius = 1.1f;
@@ -1264,8 +1508,8 @@ namespace ArmedConflict.Game
         /// test asks the projectile list. Sharing a band would hold the volley back until the last
         /// tracer had landed, and a burst still in the air is not the beat ending.
         /// </summary>
-        static ProjectileEntity StrafeRound(Vector3 target, float fromX, float fromY,
-                                            float landX, int useSlot, int k)
+        static ProjectileEntity StrafeRound(int idFirst, float fromX, float fromY,
+                                            float landX, int k)
         {
             // SOLVED onto its own point of the walk, not dropped. Both components come from the
             // geometry: horizontal to cover the lead in the flight time, vertical to cover the
@@ -1275,18 +1519,22 @@ namespace ArmedConflict.Game
                      + 0.5f * TrajectoryPhysics.Gravity * StrafeFallTime;
             return new ProjectileEntity(
                 // Unique WITHOUT consuming the bomb's slot counter: the bomb is found again by an
-                // id-range test, and letting seven tracers per use march that counter along would
-                // eventually walk a bomb id out of the range being tested. Ids must stay globally
-                // unique — hit tracking keys off them — so the burst is indexed by (use, round).
-                Id: StrafeIdBase + useSlot * StrafeRounds + k,
-                X: fromX, Y: fromY, Z: target.z,
+                // id-range test, and letting a use's worth of tracers march that counter along
+                // would eventually walk a bomb id out of the range being tested. Ids must stay
+                // globally unique — hit tracking keys off them — so each run carries the base of
+                // its own block (see AirstrikePlaneEntity.StrafeIdFirst) and indexes within it.
+                Id: idFirst + k,
+                X: fromX, Y: fromY, Z: 0f,
                 Vx: forwardVx, Vy: vy, Vz: 0f,
                 Damage: StrafeDamage,
                 OwnerIsPlayer: true)
             {
                 // Deliberately NOT flagged IsAirstrike: that flag now means "the bomb" and is what
-                // the renderer scales up. A cannon round is meant to look like a cannon round.
+                // the renderer scales up. A cannon round is meant to look like a cannon round —
+                // which is what IsStrafe is for, and it is a DIFFERENT shape, not a smaller
+                // version of the same one. The bomb is a big round dot; these are streaks.
                 Type = ProjectileType.Bullet,
+                IsStrafe = true,
             };
         }
 
@@ -1294,8 +1542,34 @@ namespace ArmedConflict.Game
         const int StrafeIdBase = 45000;
 
         /// <summary>
-        /// Advances the aircraft, releases its bomb at the drop point, and hands the turn on to the
-        /// volley once that bomb has landed.
+        /// Fires whatever of the burst the aircraft has now flown far enough to fire.
+        ///
+        /// Lives on the ALWAYS-RUN physics path, not inside the run's phase step, because the rake
+        /// is sized by the enemy position and routinely outlasts the bomb — see the call site.
+        ///
+        /// A `while`, not an `if`: one tick can cover more than one firing point at 28 rounds over
+        /// a few units, and skipping the extras would thin the burst on exactly the frames where
+        /// the game is busiest.
+        /// </summary>
+        static (AirstrikePlaneEntity, List<ProjectileEntity>) StepStrafe(
+            AirstrikePlaneEntity p, List<ProjectileEntity> projectiles)
+        {
+            if (p == null || p.StrafeFired >= StrafeRounds) return (p, projectiles);
+
+            List<ProjectileEntity> fired = null;
+            while (p.StrafeFired < StrafeRounds)
+            {
+                float landX = StrafeLandingX(p, p.StrafeFired);
+                if (p.X < landX - StrafeLead) break;   // not close enough to shoot at it yet
+                fired ??= new List<ProjectileEntity>(projectiles);
+                fired.Add(StrafeRound(p.StrafeIdFirst, p.X, p.Y, landX, p.StrafeFired));
+                p = p with { StrafeFired = p.StrafeFired + 1 };
+            }
+            return (p, fired ?? projectiles);
+        }
+
+        /// <summary>
+        /// Releases the bomb once the aircraft reaches its drop point.
         ///
         /// **The drop point is DERIVED from the bomb's own flight, not tuned.** The bomb inherits
         /// the aircraft's forward speed, so releasing it `PlaneSpeed * BombFallTime` short of the
@@ -1303,81 +1577,71 @@ namespace ArmedConflict.Game
         /// two constants free to drift apart. Wrong in either direction and the most expensive
         /// consumable in the game misses.
         ///
-        /// **The run ends when the BOMB lands, not when the aircraft leaves.** The plane flies on,
-        /// exiting frame over the top of the volley, so the two beats read as one continuous action
-        /// rather than two events with a hole between them.
+        /// On the ALWAYS-RUN path with the guns and the aircraft's motion, and for the same reason:
+        /// once the volley and the pass are aligned on their impacts, the aircraft is routinely
+        /// still short of its drop point while the phase has already moved on to Resolving.
         /// </summary>
-        static GameState StepAirstrikeRun(GameState s, float dt, System.Random random,
-                                          AmmoCatalogSO ammoCatalog,
-                                          IReadOnlyList<ProjectileEntity> projectiles)
+        static (AirstrikePlaneEntity, List<ProjectileEntity>, int) StepBomb(
+            AirstrikePlaneEntity p, List<ProjectileEntity> projectiles, int grenadeSlot)
         {
-            // The aircraft has ALREADY been advanced this tick, in the physics section — its motion
-            // does not belong to this phase, because it keeps flying after this phase ends.
-            var moved = s.AirstrikePlane;
-            if (moved == null)
-            {
-                // Flown off, or never there. Fall through to the volley rather than latch: a hung
-                // turn is unrecoverable for the player.
-                return LaunchVolley(s with { TurnPhase = TurnPhase.Aiming },
-                                    s.PendingVolleyAim ?? Vector3.zero, random, ammoCatalog);
-            }
+            if (p == null || p.HasDropped) return (p, projectiles, grenadeSlot);
 
-            var target = TrajectoryPhysics.LandingPoint(MeanMuzzle(s.PlayerUnits),
-                                                        s.PendingVolleyAim ?? Vector3.zero);
-            float dropX = target.x - moved.Vx * BombFallTime;
+            var target = new Vector3(p.BombTargetX, 0f, 0f);
+            float dropX = target.x - p.Vx * BombFallTime;
+            if (p.X < dropX) return (p, projectiles, grenadeSlot);
 
             var rounds = new List<ProjectileEntity>(projectiles);
-            int grenadeSlot = s.NextGrenadeSlot;
+            rounds.Add(Airstrike(target, p.X, p.Y, p.Vx, ref grenadeSlot));
+            return (p with { HasDropped = true }, rounds, grenadeSlot);
+        }
 
-            // THE STRAFING BURST, walked along the ground INTO the bomb's impact point. Each round
-            // uses the same lead arithmetic the bomb does — released `speed * fall` short of where
-            // it should land — so the burst arrives as a line of hits marching at the target rather
-            // than as tracers landing wherever ballistics happened to put them.
-            while (moved.StrafeFired < StrafeRounds)
+        /// <summary>
+        /// Launches the HELD volley once its delay expires — the only thing left in the run's own
+        /// phase now that the aircraft, its guns and its bomb all live on the always-run path.
+        ///
+        /// Reached only when the aircraft is the SLOWER half of the beat (a flat, fast shot). When
+        /// the volley is slower it was launched at the moment of release and this phase is never
+        /// entered at all.
+        /// </summary>
+        static GameState StepAirstrikeRun(GameState s, float dt, System.Random random,
+                                          AmmoCatalogSO ammoCatalog)
+        {
+            // Still holding a volley? Launch it the moment its delay runs out. TurnPhase goes back
+            // to Aiming for exactly one call because LaunchVolley guards on it — the alternative is
+            // a second entry point into the same volley builder, and two ways to fire one volley is
+            // how they drift apart.
+            if (s.PendingVolleyAim is Vector3 held)
             {
-                float landX = StrafeLandingX(target.x, moved.StrafeFired);
-                if (moved.X < landX - StrafeLead) break;   // not close enough to shoot at it yet
-                rounds.Add(StrafeRound(target, moved.X, moved.Y, landX,
-                                       s.NextGrenadeSlot, moved.StrafeFired));
-                moved = moved with { StrafeFired = moved.StrafeFired + 1 };
+                if (s.PendingVolleyDelay > 0f) return s;
+                var launched = LaunchVolley(s with { TurnPhase = TurnPhase.Aiming },
+                                            held, random, ammoCatalog);
+                LogVolley(launched, "with the airstrike");
+                return launched with { PendingVolleyAim = null,
+                                       TurnPhase = TurnPhase.AirstrikeRun };
             }
 
-            if (!moved.HasDropped && moved.X >= dropX)
-            {
-                rounds.Add(Airstrike(target, moved.X, moved.Y, moved.Vx, ref grenadeSlot));
-                moved = moved with { HasDropped = true };
-            }
+            // The volley is away. The run OWNS THE FRAME until the bomb resolves, which is what
+            // keeps the aircraft's pass readable — asked of the PROJECTILE LIST, not of a timer: a
+            // bomb that clips a tall structure on the way down ends the run early and correctly,
+            // where a timer would hold on for a flight that had already finished.
+            var p = s.AirstrikePlane;
+            bool bombGone = p == null
+                         || (p.HasDropped && !s.Projectiles.Any(r => r.Id >= AirstrikeIdBase
+                                                                  && r.Id < AirstrikeIdBase + 1000));
+            return bombGone ? s with { TurnPhase = TurnPhase.Resolving } : s;
+        }
 
-            // Has the bomb resolved? Asked of the PROJECTILE LIST, not of a timer: a bomb that
-            // clips a tall structure on the way down ends the run early and correctly, where a
-            // timer would hold the volley back for a flight that had already finished.
-            bool bombGone = moved.HasDropped
-                         && !rounds.Any(p => p.Id >= AirstrikeIdBase
-                                          && p.Id < AirstrikeIdBase + 1000);
-
-            if (!bombGone)
-            {
-                return s with
-                {
-                    Projectiles = rounds, NextGrenadeSlot = grenadeSlot, AirstrikePlane = moved,
-                };
-            }
-
-            // Hand over. TurnPhase goes back to Aiming for exactly one call because LaunchVolley
-            // guards on it — the alternative is a second entry point into the same volley builder,
-            // and two ways to fire one volley is how they drift apart.
-            var handedOver = s with
-            {
-                Projectiles = rounds, NextGrenadeSlot = grenadeSlot, AirstrikePlane = moved,
-                TurnPhase = TurnPhase.Aiming,
-            };
-            var launched = LaunchVolley(handedOver, s.PendingVolleyAim ?? Vector3.zero,
-                                        random, ammoCatalog);
-            // The release log cannot report this volley — it had not been built yet when the player
-            // let go. Logged here so a device still gets one line per volley, which is how every
-            // ammo and consumable question in this project has ended up being settled.
-            Debug.Log($"[Battle] volley: {launched.Projectiles.Count} rounds, after the airstrike");
-            return launched;
+        /// <summary>
+        /// COUNT THE VOLLEY, NOT THE SKY. The burst outlives the run and the bomb may still be
+        /// falling, so a raw `Projectiles.Count` reported 18 rounds for an 11-round volley on
+        /// device. That is this line's SECOND false reading — it once said `volley: 0 rounds`
+        /// because the volley had not been built yet — and a lying instrument is worse than a
+        /// missing one when it is the only instrument a release build has.
+        /// </summary>
+        static void LogVolley(GameState s, string note)
+        {
+            int rounds = s.Projectiles.Count(p => !p.IsStrafe && !p.IsAirstrike);
+            Debug.Log($"[Battle] volley: {rounds} rounds, {note}");
         }
 
         /// <summary>

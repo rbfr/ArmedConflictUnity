@@ -129,6 +129,27 @@ namespace ArmedConflict.Game
         /// lost by anything that rebuilds the state mid-run.
         /// </summary>
         public Vector3? PendingVolleyAim { get; init; }
+
+        /// <summary>
+        /// Seconds until the aircraft is released onto the field, and seconds until the held volley
+        /// launches. **At most one of these is ever non-zero** — they are the two halves of one
+        /// alignment, and whichever half takes LONGER to reach the target starts first.
+        ///
+        /// The two used to be added together: the plane made its whole pass, and only when its bomb
+        /// landed did the volley launch. That cost 4.53s from release to impact on an ordinary 86%
+        /// shot, a third of it spent watching an aircraft with none of the player's own rounds in
+        /// the air. Rob: *"i wonder if we can sync the player projectile volley with the plane.
+        /// right now it's a little awkward."* Landing them TOGETHER makes the beat
+        /// `max(flight, run)` instead of `flight + run` — 2.91s on that same shot — and turns two
+        /// events into one impact.
+        ///
+        /// Both tick down on the ALWAYS-RUN physics path, not inside a phase: the volley's timer in
+        /// particular has to survive the phase it was started in, and this beat has already paid
+        /// twice for putting time-dependent work inside `TurnPhase.AirstrikeRun`.
+        /// </summary>
+        public float AirstrikeSpawnDelay { get; init; }
+        public float PendingVolleyDelay { get; init; }
+
         public bool OverwatchFlareArmed { get; init; }
         public AmmoType SelectedAmmo { get; init; } = AmmoType.Standard;
         public IReadOnlyCollection<int> BurningEnemyIds { get; init; } = new HashSet<int>();

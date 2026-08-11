@@ -158,3 +158,29 @@ mean of live enemies. Both are inside the battlefield by construction.
 to `[6, 14]`. Floor below the floor, ceiling above the ceiling. The flag only begins to do
 anything on a level whose whole battlefield is *tighter* than `CAMERA_GAMEPLAY_Z`. Keep it for
 intent, but if a framing swing ever shows up on L12, this is not what will stop it.
+
+## The ONE phase that cuts instead of springing — `AirstrikeRun`, added 2026-08-10
+
+**Camera X is a continuous spring everywhere else, and that is deliberate**: it used to be nulled
+outside a volley, so every phase change TELEPORTED the camera across the field. Keeping one spring
+and only changing its TARGET is what makes the choreography read as camera work. This document is
+LOCKED, and this exception was **asked for and granted** rather than assumed.
+
+**Why the run cannot use it.** The airstrike's aircraft spawns off-frame under the run's own
+framing — but the run BEGINS with the camera over the player's line, ~17 units away on L1, and the
+spring then travels right at `MarchEscortSmoothTime` while the aircraft does 7 u/s in the same
+direction. **The camera overtakes it and arrives to find it already mid-frame.** Measured on L1:
+
+```
+target=10.92  spawn=1.92
+AIMING frame  centre=-7.54  half=2.05  left=-9.59   RUN frame  centre=9.42  half=5.10  left=4.32
+```
+
+No spawn distance fixes this — a camera moving the same direction faster than the plane always
+overtakes it. So `TurnPhase.AirstrikeRun` sets `followX` to its anchor directly and zeroes the
+velocity: it CUTS to the strike and holds, the aircraft crosses a frame that is already still, and
+the spring resumes untouched the moment the volley launches. It is also what the phase always
+claimed to be — "a hold, not a chase".
+
+**Scope: this phase only.** Any future phase wanting a cut needs its own ask; the default stays a
+spring, for the reason at the top of this section.

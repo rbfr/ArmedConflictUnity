@@ -976,7 +976,16 @@ public class BattleRunner : MonoBehaviour
         if (plane == null) return;
 
         var p = state.AirstrikePlane;
-        if (p == null) { if (plane.activeSelf) plane.SetActive(false); return; }
+        // HELD BACK IS NOT YET ON THE FIELD. The entity exists from the moment of release so
+        // nothing has to be recomputed when it is let go, but the volley usually goes first and
+        // the aircraft waits out the difference — and a stationary aeroplane parked at its spawn
+        // for a second and a half is a worse artefact than the one this delay exists to fix. The
+        // tick gates its motion, its guns and its bomb on the same value.
+        if (p == null || state.AirstrikeSpawnDelay > 0f)
+        {
+            if (plane.activeSelf) plane.SetActive(false);
+            return;
+        }
 
         if (!plane.activeSelf) plane.SetActive(true);
         plane.transform.position = GameSpace.ToUnity(p.X, p.Y, 0f);
@@ -1027,6 +1036,22 @@ public class BattleRunner : MonoBehaviour
     /// burst around it.
     /// </summary>
     const float AirstrikeRoundScale = 2.4f;
+
+    /// <summary>
+    /// The aircraft's cannon rounds, stretched ALONG their flight and thinned across it.
+    ///
+    /// A tracer is a streak, and a streak is what says "fired" rather than "falling". These
+    /// numbers are set against the round's own travel: at ~25 u/s a round covers ~0.42 units
+    /// between frames, and a 0.22-scale bullet is a fifth of that — so the eye is given five gaps
+    /// for every mark and reads the burst as a faint dotted chain. At 4.5x the round is a little
+    /// over half the gap it must bridge, which is enough for the marks to join into a line
+    /// without pretending to be a solid beam.
+    ///
+    /// Thinner across its flight (0.7) as well as longer: keeping the width would draw a fat
+    /// lozenge, and it is the ASPECT that reads as speed, not the area.
+    /// </summary>
+    const float StrafeRoundStretch = 4.5f;
+    const float StrafeRoundWidth = 0.7f;
 
     GameObject Spawn(GameObject prefab, string name)
     {
@@ -1160,17 +1185,19 @@ public class BattleRunner : MonoBehaviour
         SettleArmedSpend(beforeVolley, state);
         if (audioFx != null) audioFx.PlayVolleyFire();
         VolleyAnim(playerSide: true);
-        // An armed airstrike defers the volley, so the round count here is ZERO and saying "volley:
-        // 0 rounds" would be a lie told to the one instrument a release build has. Report what
-        // actually happened; the volley logs itself when it launches.
-        bool airstrikeRun = state.TurnPhase == TurnPhase.AirstrikeRun;
-        // The pass-by, once, as the aircraft starts its run — the clip is cut so its peak lands as
-        // the plane crosses the drop point. See BattleAudio.PlayPlanePassby.
-        if (airstrikeRun && audioFx != null) audioFx.PlayPlanePassby();
-
-        string what = airstrikeRun
+        // REPORT WHAT ACTUALLY HAPPENED. This line has been wrong three times, each time because
+        // the beat changed under it: it said "volley: 0 rounds" when the volley had not been built
+        // yet, then counted strafe tracers as volley rounds, and then said "volley held" after the
+        // realignment had made the volley the half that goes FIRST. It is the only instrument a
+        // release build has, so it is worth the four lines.
+        //
+        // The count excludes the burst and the bomb for the same reason — see BattleTick.LogVolley.
+        int volleyRounds = state.Projectiles.Count(p => !p.IsStrafe && !p.IsAirstrike);
+        string what = state.PendingVolleyAim.HasValue
             ? "airstrike run, volley held"
-            : $"volley: {state.Projectiles.Count} rounds";
+            : state.AirstrikePlane != null
+                ? $"volley: {volleyRounds} rounds, airstrike inbound"
+                : $"volley: {volleyRounds} rounds";
         Debug.Log($"[Battle] {what} at " +
                   $"{AimSystem.StrengthPercent(aimVel):F0}% / {AimSystem.AngleDegrees(aimVel):F1}deg");
     }
@@ -1268,6 +1295,22 @@ public class BattleRunner : MonoBehaviour
 
         if (before.Phase == GamePhase.Playing && after.Phase == GamePhase.Victory) audioFx.PlayVictory();
         if (before.Phase == GamePhase.Playing && after.Phase == GamePhase.Defeat) audioFx.PlayDefeat();
+
+        // THE PASS-BY PLAYS WHEN THE AIRCRAFT IS ACTUALLY RELEASED, not when the player let go.
+        //
+        // It used to fire on the release, which was the same instant back when the aircraft went
+        // first. Now the VOLLEY goes first and the aircraft is held back to land with it — over a
+        // second on an ordinary shot — so a sound triggered at release arrived over empty sky
+        // before the plane existed. The clip is cut so its peak lands as the plane crosses its
+        // drop point, and that offset is measured from the START OF THE RUN; anchoring it anywhere
+        // else silently throws the peak away, which is the same failure the original 8.3s clip had.
+        //
+        // Watched as a true->false edge on the delay, with an aircraft present on the far side —
+        // the same shape as the armed-flag watch, and for the same reason: the transition is the
+        // event, and nothing else clears this field.
+        if (before.AirstrikeSpawnDelay > 0f && after.AirstrikeSpawnDelay <= 0f
+            && after.AirstrikePlane != null)
+            audioFx.PlayPlanePassby();
     }
 
     void Render()
@@ -1340,8 +1383,19 @@ public class BattleRunner : MonoBehaviour
             // scale, never off Vector3.one** — the first version reset to one and drew every
             // projectile in the game at raw GLB size, which is what a 0.16-scale grenade looks
             // like six times too big.
+            //
+            // The aircraft's CANNON rounds are stretched along their own flight instead, because
+            // the round is already rotated onto its velocity above — so local X is the direction
+            // of travel and scaling it lengthens the round into a TRACER STREAK. A bigger dot
+            // would have been the obvious change and is the wrong one: what fails to read at this
+            // framing is not the round's area, it is that a dot is the same shape whether it is
+            // moving or not. Seven of these and fourteen of them looked identical on a device.
             var baseScale = shotBaseScale.TryGetValue(pr.Type, out var bs) ? bs : Vector3.one;
-            go.transform.localScale = baseScale * (pr.IsAirstrike ? AirstrikeRoundScale : 1f);
+            go.transform.localScale =
+                pr.IsStrafe ? new Vector3(baseScale.x * StrafeRoundStretch,
+                                          baseScale.y * StrafeRoundWidth,
+                                          baseScale.z * StrafeRoundWidth)
+                            : baseScale * (pr.IsAirstrike ? AirstrikeRoundScale : 1f);
         }
 
         // Explosions: swell fast, then FADE. Without the fade an opaque sphere just sits there
