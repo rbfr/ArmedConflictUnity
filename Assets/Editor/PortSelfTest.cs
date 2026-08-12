@@ -2653,6 +2653,19 @@ public static class PortSelfTest
                 Glyphs(EventSystems.WindShiftAnnouncement(1f, 1.35f, true), "wind rising banner");
                 Glyphs(EventSystems.WindShiftAnnouncement(1.35f, 1f, false), "wind falling banner");
                 Glyphs(EventSystems.TelegraphLine("Armor column inbound", 2), "a composed telegraph");
+
+                // THE VICTORY BANNERS, which were not covered until 2026-08-12 and one of them
+                // was broken the whole time: "New 3★ Best!" carried U+2605 — the very codepoint
+                // this block proves the font lacks two checks above — onto the one screen whose
+                // job is to congratulate the player. Every tag AwardVictory can compose is listed
+                // here, so a new one cannot be added without passing through this.
+                Glyphs("First Clear!", "victory tag: first clear");
+                Glyphs("New 3-Star Best!", "victory tag: new 3-star best");
+                Glyphs("Daily Bonus!", "victory tag: daily bonus");
+                foreach (int star in new[] { 25, 50, 75, 100 })
+                    Glyphs(TurnFlow.MilestoneTag(star), $"victory tag: {star}-star chest");
+                Glyphs(TurnFlow.StarReason(7, 10), "victory star reason");
+                Glyphs(TurnFlow.StarReason(10, 10), "victory star reason, clean sweep");
             }
 
             // END TO END: a boss phase must actually put units on the field. The decision
@@ -3025,15 +3038,30 @@ public static class PortSelfTest
                 var bs = LevelBuilder.BuildInitialState(burstLevel, 1, levels.Count,
                              new System.Random(9), playerGroupsOverride: groups)
                          with { Phase = GamePhase.Playing, TurnPhase = TurnPhase.Aiming };
-                var bf = BattleTick.FireVolley(bs, new Vector3(6f, 6f, 0f), new System.Random(3));
+                var aim = new Vector3(6f, 6f, 0f);
+                var bf = BattleTick.FireVolley(bs, aim, new System.Random(3));
                 var bullets = bf.Projectiles
                     .Where(p => p.OwnerIsPlayer && p.Type != ProjectileType.Shell).ToList();
                 int want = bs.PlayerUnits.Count * burstUnit.projectilesPerVolley;
                 int distinctAim = bullets.Select(p => $"{p.Vx:F4}/{p.Vy:F4}").Distinct().Count();
-                Check(bs.PlayerUnits.Count > 0 && bullets.Count == want && distinctAim == bullets.Count,
-                      $"{burstUnit.name}'s burst reaches the PLAYER's volley: {bs.PlayerUnits.Count} " +
-                      $"shooters x {burstUnit.projectilesPerVolley} = {bullets.Count} rounds " +
-                      $"(want {want}), each on its own jitter ({distinctAim} distinct aims)");
+
+                // AND THE SPREAD HAS TWO DEGREES OF FREEDOM. "Distinct aims" was already true of
+                // the collinear version and is why it read as correct for a day: the old code drew
+                // ONE jitter and added it to Vx AND Vy, so every round differed from every other
+                // and every round sat on the same 45° line through the aim. Three rounds, one
+                // visible streak — confirmed on a device before it was confirmed here.
+                //
+                // The measurable form of "fanned" is that the per-axis offsets are not equal:
+                // under the old code (Vx-aimX) - (Vy-aimY) was EXACTLY 0 for every round.
+                float offAxis = bullets.Count == 0 ? 0f
+                    : bullets.Max(p => Mathf.Abs((p.Vx - aim.x) - (p.Vy - aim.y)));
+                Check(bs.PlayerUnits.Count > 0 && bullets.Count == want
+                      && distinctAim == bullets.Count && offAxis > 0.01f,
+                      $"{burstUnit.name}'s burst reaches the PLAYER's volley and FANS: " +
+                      $"{bs.PlayerUnits.Count} shooters x {burstUnit.projectilesPerVolley} = " +
+                      $"{bullets.Count} rounds (want {want}), {distinctAim} distinct aims, " +
+                      $"widest off-axis offset {offAxis:F3} (0 means every round sits on the same " +
+                      "45° line, which is one streak however many rounds it is)");
             }
 
             // is exactly how it went missing from the port in the first place.

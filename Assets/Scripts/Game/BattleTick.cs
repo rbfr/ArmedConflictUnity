@@ -1053,11 +1053,20 @@ namespace ArmedConflict.Game
                     // heavy". CLUSTER widens exactly this: still convergent fire at real targets (a
                     // blind fan is forbidden by the lock), just a wider zone, so more distinct enemies
                     // fall inside it and each round lands lighter.
-                    float jitter = ((float)random.NextDouble() - 0.5f) * 0.25f * ammo.SpreadScale;
+                    //
+                    // TWO INDEPENDENT DRAWS, one per axis (2026-08-12). This used to draw ONE value
+                    // and add it to both Vx and Vy, which is not a spread at all — it displaces every
+                    // round along the same 45° line, so a three-round burst stayed collinear for the
+                    // whole arc and rendered as one thicker streak. Measured on device: a squad of
+                    // machine gunners put 1.83x the tracer of a rifle squad per shooter, so the rounds
+                    // were there and were landing, and you still could not see three of them. The
+                    // magnitude is unchanged — only the direction is now free.
+                    float jitterX = ((float)random.NextDouble() - 0.5f) * 0.25f * ammo.SpreadScale;
+                    float jitterY = ((float)random.NextDouble() - 0.5f) * 0.25f * ammo.SpreadScale;
                     rounds.Add(new ProjectileEntity(
                         Id: 10000 + slot++,
                         X: u.X, Y: u.Y + InfantryMuzzleY, Z: u.Z,
-                        Vx: aimVelocity.x + jitter, Vy: aimVelocity.y + jitter, Vz: 0f,
+                        Vx: aimVelocity.x + jitterX, Vy: aimVelocity.y + jitterY, Vz: 0f,
                         Damage: ammo.UnitDamage(u.Definition != null ? u.Definition.damage : 8),
                         OwnerIsPlayer: true)
                     {
