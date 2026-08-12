@@ -122,6 +122,12 @@ namespace ArmedConflict.Game
             return $"Lost {lost} of {initialCount} — keep {need} alive for {stars + 1} stars";
         }
 
+        /// <summary>
+        /// The banner for a star-milestone chest. Spelled out rather than drawn with U+2605,
+        /// which the default TMP font lacks — see the note on BonusTag below.
+        /// </summary>
+        public static string MilestoneTag(int milestoneStar) => $"{milestoneStar}-Star Chest!";
+
         public class VictoryAward
         {
             public int Stars;
@@ -137,8 +143,16 @@ namespace ArmedConflict.Game
         /// first-clear and first-3-star bonuses. Recording first would make every clear look
         /// like a repeat and silently stop paying them.
         ///
-        /// The daily bonus overwrites the tag rather than appending, matching the Kotlin — only
-        /// one banner is shown, and "Daily Bonus!" is the one the player has not seen before.
+        /// ONE BANNER, AND THE RAREST THING WINS IT. The tag is overwritten rather than appended,
+        /// matching the Kotlin, so the order below is the priority order: a star-milestone chest
+        /// (four of them in the whole campaign) outranks the daily bonus, which outranks a new
+        /// 3-star best, which outranks a first clear. Each is rarer than the one under it.
+        ///
+        /// The MILESTONE used to set no tag at all — `CheckMilestones` added its coins to the
+        /// total and said nothing, so a 150-600 coin chest arrived as a bigger number with no
+        /// explanation. That is exactly what PRODUCT_DIRECTION 0.3 means by "victory screen is a
+        /// feature, not a silent Next modal": the payout the player cannot account for teaches
+        /// them nothing about why replaying pays.
         /// </summary>
         public static VictoryAward AwardVictory(LevelDefinitionSO level, int survivors, int initialCount)
         {
@@ -152,8 +166,13 @@ namespace ArmedConflict.Game
             {
                 Stars = stars,
                 Coins = payout.Coins,
+                // NO STAR GLYPH. This read "New 3★ Best!" until 2026-08-12 and U+2605 is one of
+                // the two symbols LiberationSans SDF does not have — PortSelfTest asserts its
+                // absence to prove the glyph check can fail — so the banner drew a box on the
+                // one screen that congratulates the player. The HUD's stars are sprites for this
+                // reason; a composed string has no such escape and must spell the word.
                 BonusTag = payout.FirstClear ? "First Clear!"
-                         : payout.First3Star ? "New 3★ Best!"
+                         : payout.First3Star ? "New 3-Star Best!"
                          : null,
             };
 
@@ -164,7 +183,11 @@ namespace ArmedConflict.Game
                 award.BonusTag = "Daily Bonus!";
             }
 
-            foreach (var m in EconomyStore.CheckMilestones()) award.Coins += m.Coins;
+            foreach (var m in EconomyStore.CheckMilestones())
+            {
+                award.Coins += m.Coins;
+                award.BonusTag = MilestoneTag(m.MilestoneStar);
+            }
 
             return award;
         }

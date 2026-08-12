@@ -2014,7 +2014,14 @@ public class BattleRunner : MonoBehaviour
         for (int i = 0; i < ammoCatalog.slots.Count; i++)
         {
             var slot = ammoCatalog.slots[i];
-            bool unlocked = ProgressStore.IsAmmoUnlocked(slot.type);
+            // AMMO IS PART OF THE TEST SUPPLY TOO (2026-08-12). Units joined RIGS earlier the
+            // same day and ammo was the last axis still charging real coins — 300/400/500 on a
+            // build that is not debuggable and whose test protocol wipes the balance on every
+            // install. Verifying one incendiary change should not cost a re-earn. Grants ACCESS
+            // and writes nothing: no unlock recorded and no coins moved, so the selection below
+            // is a session choice that dies with the process. Same bargain as the classes,
+            // consumables and camo.
+            bool unlocked = TestSupply || ProgressStore.IsAmmoUnlocked(slot.type);
             bool selected = state.SelectedAmmo == slot.type;
             var r = new Rect(row.x + i * (w + Gap), row.y, w, row.height);
 
@@ -2026,14 +2033,20 @@ public class BattleRunner : MonoBehaviour
                       : new Color(0.75f, 0.75f, 0.8f);
             GUI.enabled = canSwitch && (unlocked || EconomyStore.Balance() >= slot.coinPrice);
 
-            string caption = unlocked ? slot.displayName : $"{slot.displayName}\n{slot.coinPrice}c";
+            string caption = !unlocked ? $"{slot.displayName}\n{slot.coinPrice}c"
+                           : TestSupply && !ProgressStore.IsAmmoUnlocked(slot.type)
+                             ? $"{slot.displayName}\nTEST" : slot.displayName;
             if (GUI.Button(r, caption, label))
             {
                 if (unlocked)
                 {
-                    ProgressStore.SetSelectedAmmo(slot.type);
+                    // Under RIGS the SELECTION is not persisted either: writing it would leave a
+                    // locked type selected after the toggle goes off, which is a corrupt save
+                    // rather than a test.
+                    if (!TestSupply) ProgressStore.SetSelectedAmmo(slot.type);
                     state = state with { SelectedAmmo = slot.type };
-                    Debug.Log($"[Ammo] selected {slot.type}");
+                    Debug.Log($"[Ammo] selected {slot.type}"
+                              + (TestSupply ? " (TEST supply, not persisted)" : ""));
                 }
                 else if (EconomyStore.PurchaseAmmo(new AmmoDefinition
                          { Type = slot.type, CoinPrice = slot.coinPrice }))
