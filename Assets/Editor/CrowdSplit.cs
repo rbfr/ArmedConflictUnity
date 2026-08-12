@@ -109,6 +109,12 @@ public static class CrowdSplit
             crowd.structureDamageMultiplier = parent.structureDamageMultiplier;
             crowd.meleeDamage = parent.meleeDamage;
             crowd.renderScale = parent.renderScale;
+            // Armour is a RATIO, so it carries across a split untouched — halving a body's hp
+            // and its armour would halve its toughness twice. Copied rather than left at the
+            // default because this list is hand-maintained: a field added to UnitDefinitionSO
+            // and not added here vanishes silently from every split class, and the split is the
+            // one place a unit's stats are rewritten wholesale.
+            crowd.damageTakenMultiplier = parent.damageTakenMultiplier;
 
             if (fresh) { AssetDatabase.CreateAsset(crowd, path); made++; }
             else EditorUtility.SetDirty(crowd);

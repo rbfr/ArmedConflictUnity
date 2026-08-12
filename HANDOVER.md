@@ -2,9 +2,10 @@
 
 ## START HERE
 
-- **EVERYTHING IS COMMITTED. ONE COMMIT IS NOT PUSHED** — 2026-08-12's Tier 2.2 crowd split
-  (`b6df86d`) is on local `main` only, because the ask was "commit", not "push". Everything before
-  it is on `origin/main`: the airstrike rework, Tier 2.1 factions and 2.4 camo, Tier 2.2's hero
+- **EVERYTHING IS COMMITTED. THREE COMMITS ARE NOT PUSHED** — 2026-08-12's Tier 2.2 crowd split
+  (`b6df86d`), its docs fix (`f6ce737`) and the Tier 2.3 work (`c5c2beb`) are on local `main`
+  only, because the ask was "commit", not "push". Everything before those is on
+  `origin/main`: the airstrike rework, Tier 2.1 factions and 2.4 camo, Tier 2.2's hero
   work, and the docs pass that closed 2026-08-11.
   **`git status` and `git log --oneline origin/main..HEAD` are the answer, never this bullet** —
   it was wrong three times on 2026-08-11 alone, each time because it was written true and went
@@ -32,22 +33,21 @@
   looked at a build on 2026-08-11 and called it: *"ok, uniforms are fine for now."* That is the
   first of this tier's features to clear the only bar that has ever mattered here. Factions are
   L1's Redguard red and L7's Ironclad Legion steel blue-grey; camo is four sets bought and worn.
-- **TIER 2.2's HERO HALF IS BUILT BUT NOT RE-CONFIRMED BY ROB.** He rejected the first placement
-  on the device — *"heroes are behind the structure... really tough to hit"* — and the fix (rule 8,
-  below) has only been verified by me. **That is the top item on the list.**
-- **TIER 2.2's CROWD HALF IS BUILT TOO (2026-08-12) AND ALSO UNSEEN BY ROB.** Every garrison was
+- **TIER 2.2 IS DONE AND SIGNED OFF BY ROB ON THE DEVICE, 2026-08-12** — both halves in one
+  build. He rejected the first hero placement — *"heroes are behind the structure... really tough
+  to hit"* — and the fix (rule 8, below) cleared his second look.
+- **TIER 2.2's CROWD HALF SHIPPED IN THE SAME BUILD AND CLEARED THE SAME LOOK.** Every garrison was
   split into more, weaker bodies — 155 -> 248 — at **constant HP, damage and structure damage**,
   proved by building all twelve levels on both data sets and by a `BalanceAudit` run that is
   byte-identical across all 61 findings. The wide decks roughly doubled their fill (GarrisonPost
   16% -> 34%, BarracksBlock 22% -> 47%). **Shrinking the STRUCTURES was tried first and the
-  arithmetic killed it** — see "The crowd split" below. Both halves of 2.2 want the same device
-  session.
+  arithmetic killed it** — see "The crowd split" below.
 - **RIGS IS THE TEST SUPPLY FOR BOTH CONSUMABLES AND CAMO** — every item free to equip, every camo
   free to wear, nothing spent and nothing written to the economy or the wardrobe. Use it: the
   release build is not debuggable, `run-as` cannot reach PlayerPrefs, and the test protocol is
   uninstall/reinstall — so without it, verifying one consumable costs a ~250-coin re-earn per
   build and one camo costs up to 400.
-- **625 self-test checks, all passing — run `PortSelfTest.Run` after every change.** It was 281 at
+- **628 self-test checks, all passing — run `PortSelfTest.Run` after every change.** It was 281 at
   the start of 2026-08-06, 411 at the end of it, 444 on 2026-08-07, 539 after the Tier 1.2 and
   glyph-coverage blocks, 559 with the flame and the Auto-ammo pair, 576 with Tier 1.3's
   consumables, 582 with the airstrike's aircraft, 585 with its strafing burst, 587 with the burst's
@@ -55,7 +55,9 @@
   rake-coverage, aim-independence, whole-burst and impact-alignment checks, 599 with Tier 2.1's
   seven faction checks, 606 with Tier 2.4's camo block, and 607/608/609 with Tier 2.2's
   hero-staging, deck-overlap and collision-box checks — the last of those written because Rob
-  found the bug on a device — and **625** after 2026-08-12's crowd split. That last jump is +16 for three new
+  found the bug on a device — **625** after 2026-08-12's crowd split, and **628** with Tier 2.3's
+  burst check, its roster guard and the armour check. Both new behaviour checks were seen RED
+  against the old code before being trusted, with the failing numbers recorded. That last jump is +16 for three new
   checks (crowd-split balance, projectile-pool headroom, crowd frailty) because several existing
   assertions are DATA-DRIVEN and log per body — **this count moves when the level data moves**,
   which is worth knowing before treating a changed number as a lost check. It was measured on
@@ -66,26 +68,36 @@
 
 ### Pick up here
 
-**Nothing is half-built, nothing is uncommitted, 609 checks are green and all 12 levels pass all
-eight composition rules.** This is a clean start; pick an item below.
+**628 checks are green, all 12 levels pass all eight composition rules, and both BalanceAudit and
+RosterAudit report 0 errors.** Pick an item below.
 
 **WIND IS PARKED** — Rob's call, 2026-08-10, and it is the only thing Tier 1.2 still owes. Work
 continues around it rather than waiting on it.
 
-**1. GET ROB'S EYES ON THE HERO FIX (L6, L7, L11, L12).** The cheapest item and the only one
-blocking a feature from being called done. He rejected the first placement on the device; the
-replacement has been verified by me — numerically, and with one shallow drag on L6 — and by nobody
-else. **His judgment in moving play is the only arbiter that has ever settled a unit-readability
-question in this project**, and `UNIT_VARIETY_DESIGN.md` records seven attempts that skipped it and
-were wrong. Build, install, look at those four levels.
+**TIER 2.2 IS CLOSED. Rob signed off both halves on the device on 2026-08-12** — the hero
+placement fix and the crowd split, in one build, which is what the two items that used to head
+this list were asking for. Nothing about either is outstanding.
 
-**2. GET ROB'S EYES ON THE CROWD SPLIT TOO — same build as item 1.** Tier 2.2's crowd half shipped
-2026-08-12 and nobody has looked at it in motion. It is presentation, so `UNIT_VARIETY_DESIGN.md`'s
-"honest limit" applies to it exactly as to the seven silhouette attempts: measurement predicts
-legibility, it does not prove it. **The two things to judge are whether a garrison now reads as a
-CROWD, and whether 34% fill on the widest decks is enough** — doubling again (rifleman x4 at 8hp/2)
-is exact and burn-safe, so "more" is a one-line change to `CrowdSplit.Factors`, but the second rank
-it would add is invisible in the fill number and only the device can settle it.
+**TIER 2.3 IS DONE (2026-08-12).** The machine gunner's burst never reached the player's volley
+and now does; the shield bearer sold a mechanic the build did not have and now has ARMOUR
+instead. Rob took both calls the audit raised. All six pickable classes are mechanically distinct,
+and `RosterAudit.Report` reports 0 errors — see "The Tier 2.3 audit" below.
+
+**1. GET ROB'S EYES ON THE TIER 2.3 CHANGES.** Neither has been seen in motion, and both change
+how a battle FEELS rather than how it reads in a table:
+- **The machine gunner now fires three rounds a volley, each on its own jitter.** The thing to
+  judge is whether a squad of them reads as suppressing fire or as noise — three times the rounds
+  in the air is the biggest change to what a volley looks like since cluster ammo.
+- **The shield bearer now takes half damage.** Nothing on screen says so. Its health bar simply
+  falls slower, and if that is illegible the mechanic is real but invisible — which is the
+  failure mode `UNIT_VARIETY_DESIGN.md`'s "honest limit" is about. **A visible marker was
+  deliberately NOT built**: adding one is a unit-art change and those are decided on a device,
+  never in advance.
+Buy both with RIGS on (free supply), and note it takes 250 and 500 coins to reach them otherwise.
+
+**2. THE CROWD SPLIT'S ONE REMAINING LEVER**, if a later pass wants it: doubling again (rifleman
+x4 at 8hp/2) is exact and burn-safe, so "more" is a one-line change to `CrowdSplit.Factors`. The
+second rank it would add is invisible in the fill number and only the device can settle it.
 
 Also worth knowing before touching it: **the sniper is deliberately not split** (16 hp only halves
 to 8, and the incendiary burn is 8 — it would stop chipping and start one-shotting), and **L12's
@@ -96,15 +108,12 @@ Before any further crowd/art pass, read `UNIT_VARIETY_DESIGN.md`'s "honest limit
 faces and limb fold each cleared "is it correct" and failed "does it survive the frame", and the
 only changes that ever DID read were large-scale layout.
 
-**3. TIER 2.3 — keep the roster mechanic-distinct.** Unclaimed, and likely a short AUDIT rather
-than a build: six pickable classes, the question is only whether any two play the same.
-
-**4. RULE 8 IS CHECKED IN THE WRONG PLACE.** `PortSelfTest.CheckNobodyStandsInAWall` fails the
+**3. RULE 8 IS CHECKED IN THE WRONG PLACE.** `PortSelfTest.CheckNobodyStandsInAWall` fails the
 SUITE, while rules 1-7 render live in `LevelDefinitionInspector` beside the level being edited.
 A small, well-defined job: move it into `LevelComposition.Check` so an author sees it where they
 author. Recorded in `LEVEL_AUTHORING.md` too.
 
-**5. THE TWO BIGGEST OPEN THINGS, both physics/AI asks rather than scheduling jobs:**
+**4. THE TWO BIGGEST OPEN THINGS, both physics/AI asks rather than scheduling jobs:**
 - **Advancing squads + melee are unported** — an EIGHTH dead system, and the one that holds
   Overwatch Flare. `AdvanceRemaining` is written nowhere and `SkirmishEntity` is never created.
   `PROGRESSION_DESIGN`'s whole survival/defend archetype is made of this.
@@ -112,7 +121,7 @@ author. Recorded in `LEVEL_AUTHORING.md` too.
   only, so wind cannot change what a shot hits. A wind schedule would telegraph a change the
   player cannot feel. **Do not author a wind level until someone decides whether collision goes 3D.**
 
-**6. Tier 1.4 (Heli) stays shut.** `HELI_ENABLED=false` is a camera-load decision, not a stale
+**5. Tier 1.4 (Heli) stays shut.** `HELI_ENABLED=false` is a camera-load decision, not a stale
 flag. Do not flip it.
 
 **THE AIRSTRIKE IS DONE AND SIGNED OFF** ("ok this will work"). One small open note: the aircraft
@@ -169,11 +178,90 @@ standing lesson, not because it is current</summary>
 
 ### How the rest of this file is ordered
 
-Everything below "Pick up here" is HISTORY, newest first: the three 2026-08-11 sessions, then
+Everything below "Pick up here" is HISTORY, newest first: the two 2026-08-12 sessions (the Tier
+2.3 audit, then Tier 2.2's crowd half), then the three 2026-08-11 sessions, then
 2026-08-07 to 08-10, then the standing reference sections — **"Where things are", "What works",
 "The workflow", "Traps already paid for"** and **"Open items"/"Things that will bite"**, which are
 the parts that are still TRUE rather than still interesting. The closed 2026-08-05/06 port entries
 are in `HANDOVER_ARCHIVE.md`.
+
+### The Tier 2.3 audit — 2026-08-12. Three of six classes were not what they were sold as, and two are fixed
+
+**Tier 2.3 is "keep the roster mechanic-distinct", and the honest way to read it is not from the
+data sheets.** Six classes differ on paper; the .asset files carry seven distinguishing fields
+between them. The product question is what the player gets when they FIRE, and in this build those
+were three different things: a field only differentiates a class if some live path reads it.
+
+`RosterAudit.Report` is the instrument, and it is the "assert the OUTPUT, not the input" rule
+pointed at the roster — it fields an all-of-one-class squad, fires a REAL volley through
+`BattleTick.FireVolley` (the function the drag calls), and measures what comes out. Run it:
+
+```bash
+DISPLAY=:1 $U -batchmode -quit -projectPath . -executeMethod RosterAudit.Report -logFile -
+```
+
+**WHAT IT FOUND, and none of it was visible in the assets:**
+
+| class | pt | coins | hp | delivered per shooter, per volley |
+|---|---|---|---|---|
+| Rifleman | 1 | 0 | 32 | 1 round x 8 = 8 dmg, 2 masonry |
+| MachineGunner | 2 | 250 | 40 | **was 1 round x 4**, now 3 x 4 = 12 dmg, 3 masonry |
+| Grenadier | 2 | 350 | 24 | 1 x 6 = 6 dmg, 12 masonry, 0.9 splash |
+| Sniper | 2 | 400 | 16 | 1 x 20 = 20 dmg, 10 masonry |
+| ShieldBearer | 2 | 500 | 40 | 1 x 4 = 4 dmg, 1 masonry, **now x2 armour = 80 effective hp** |
+| RocketTrooper | 3 | 700 | 24 | 1 x 4 = 4 dmg, 24 masonry |
+
+- **THE MACHINE GUNNER'S BURST HAD NEVER REACHED THE PLAYER.** `projectilesPerVolley` was read by
+  `AutoFire` and by nothing else, so the class the store sells for 250 coins as *"fires a burst
+  instead of a round"* fired ONE round: a rifleman at half damage for twice the points.
+  **It measured IDENTICALLY to the shield bearer on every axis** — which is precisely the failure
+  Tier 2.3 exists to forbid. **FIXED**, and the jitter moved inside the burst so three rounds land
+  as three (one jitter for all three would be one round doing triple damage, which is not what the
+  copy promises). This is the fourth member of a family the code comments right beside it already
+  describe: `Type`, `SplashRadius` and `StructureDamageMultiplier` went missing from the player's
+  volley the same way and were fixed earlier. **When one field turns out to be read only by the
+  debug driver, audit the whole record — not that field.**
+- **THE SHIELD BEARER SOLD A MECHANIC THIS BUILD DOES NOT HAVE.** `meleeDamage` has no runtime
+  reader at all, `SkirmishEntity` is never constructed, and `LevelBuilder` pins every PLAYER
+  unit's `AdvancePerTurn` to 0 — so the 500-coin class advertised as *"walks forward and fights
+  hand to hand"* could not advance even in principle. It was a rifleman with +8 hp and -4 damage.
+  **FIXED with ARMOUR** (Rob's call): `damageTakenMultiplier` is 0.5 on the player's shield
+  bearer, so it takes half of every round and presents 80 effective hp against a rifleman's 32,
+  while dealing half the damage. That is a real trade rather than a stat tweak — over a long fight
+  it out-damages a rifleman (80/8 = 10 volleys x 4 = 40, against 32/8 = 4 x 8 = 32) and over a
+  short one it loses. **`meleeDamage` is now dead DATA rather than a missing mechanic**, and goes
+  live if advancing squads ever land.
+  Applied in `CollisionSystem.Soaked`, at BOTH damage write sites — the direct hit and the splash.
+  A multiplier on one path only is precisely how the incendiary burn and the structure multiplier
+  each went missing in this port, and the check asserts both plus the FLOOR: a soaked round never
+  rounds to 0, because that is not toughness, it is immortality, and a battle that cannot end is
+  not something a damage assertion would ever catch.
+  **The ENEMY shield bearer is deliberately NOT armoured** — four campaign levels field it (L4,
+  L8, L9, L12) and arming it would make signed-off content harder, the same call Rob made on the
+  enemy burst.
+- **`bulletVariant` is dead data.** A three-value enum (Standard/MachineGun/Sniper) authored on
+  every unit, carried on the projectile record, and read by no runtime code. It distinguishes
+  nothing, mechanically or visually.
+- **Enemy machine gunners fire one round while declaring three.** `FireEnemyVolley` has the
+  player's old bug. Left alone DELIBERATELY: fixing it triples those bodies' output across seven
+  signed-off levels, which is a balance decision, not a bug fix. **DECIDED 2026-08-12: leave the
+  enemy at one round.** The campaign is tuned against what the engine actually throws, and
+  `BalanceAudit` now counts each side by its own fire path rather than by the assets — the player's
+  volley WITH the burst, the enemy's without.
+
+**THE METRIC WAS WRONG BEFORE THE FINDING WAS.** The first domination check rated classes per
+POINT and duly condemned the machine gunner immediately after its burst was restored. That is the
+tell: *a metric that indicts the thing you just fixed is the wrong metric.* Slots cap BODIES and
+points cap QUALITY, and which one binds MOVES THROUGH THE CAMPAIGN — every level has 8 slots while
+the budget climbs 8 -> 16, so L1-L2 run at parity (a premium pick is paid for in bodies, per-point
+is the honest lens) and from L3 the budget outruns the slots (the line is full whatever you pick,
+so per-SLOT is). The audit now reports both and only errors when a class loses on both.
+
+**And the first RUN of the audit was wrong too, in a way worth keeping:** it reported the 4-damage
+machine gunner as doing 5.3. `Loadout.ToPlayerGroups` keeps the level's garrisoned player groups —
+the tank crew — because the loadout is forbidden to touch them, so every class's measured volley
+silently carried the same two riflemen and the average measured the garrison as much as the class.
+**A per-unit average over a squad you did not fully control is measuring the level, not the unit.**
 
 ### What 2026-08-12 changed — Tier 2.2's crowd half, and an approach that died to arithmetic
 

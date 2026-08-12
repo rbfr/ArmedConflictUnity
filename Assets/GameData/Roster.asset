@@ -34,8 +34,8 @@ MonoBehaviour:
   - unit: {fileID: 11400000, guid: cbebae9c5b1c42cf087d9cd15c16352a, type: 2}
     pointCost: 2
     coinPrice: 500
-    oneLiner: Walks forward and fights hand to hand. Soaks the charge so your line
-      does not.
+    oneLiner: Takes half damage from every round. Outlasts two riflemen, and keeps
+      firing while they fall.
   - unit: {fileID: 11400000, guid: 78df349efe93c4808aaf91ecd66e5ee7, type: 2}
     pointCost: 3
     coinPrice: 700

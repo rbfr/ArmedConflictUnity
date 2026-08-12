@@ -108,7 +108,7 @@ namespace ArmedConflict.Game
                         // spot, and rounds arriving after the point man drops hit whoever is
                         // nearest by ordinary collision.
                         r.UnitDamage.TryGetValue(closest.Id, out int had);
-                        r.UnitDamage[closest.Id] = had + p.Damage;
+                        r.UnitDamage[closest.Id] = had + Soaked(closest, p.Damage);
                         r.UnitHitVelocities[closest.Id] = NormalizedVel(p);
                         if (p.Ammo == AmmoType.Incendiary) r.IncendiaryHitUnitIds.Add(closest.Id);
                     }
@@ -179,11 +179,28 @@ namespace ArmedConflict.Game
                 float dx = blastX - t.X, dy = blastY - t.Y;
                 if (dx * dx + dy * dy >= radiusSq) continue;
                 r.UnitDamage.TryGetValue(t.Id, out int had);
-                r.UnitDamage[t.Id] = had + p.Damage;
+                r.UnitDamage[t.Id] = had + Soaked(t, p.Damage);
                 r.UnitHitVelocities[t.Id] = NormalizedVel(p);
                 r.ExplosiveHitUnitIds.Add(t.Id);
                 if (p.Ammo == AmmoType.Incendiary) r.IncendiaryHitUnitIds.Add(t.Id);
             }
+        }
+
+        /// <summary>
+        /// ARMOUR, applied at the only two places unit damage is ever written — a direct hit and
+        /// a splash — so a unit cannot be armoured against one and bare to the other. That split
+        /// is exactly how the incendiary burn and the structure multiplier each went missing from
+        /// one path in this port already.
+        ///
+        /// Floored at 1 for any nonzero round: rounding an 8-damage rifle shot down to 0 would
+        /// not make the shield bearer tough, it would make it IMMORTAL, and a unit that cannot be
+        /// killed ends the battle in a way no test that only checks damage would catch.
+        /// </summary>
+        static int Soaked(UnitEntity t, int damage)
+        {
+            float mult = t.Definition != null ? t.Definition.damageTakenMultiplier : 1f;
+            if (damage <= 0 || Mathf.Approximately(mult, 1f)) return damage;
+            return Mathf.Max(1, Mathf.RoundToInt(damage * mult));
         }
 
         static Vector3 NormalizedVel(ProjectileEntity p)

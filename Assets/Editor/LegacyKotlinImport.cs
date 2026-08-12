@@ -134,6 +134,7 @@ public static class LegacyKotlinImport
         so.splashRadius = flat.F("splashRadius");
         so.structureDamageMultiplier = flat.F("structureDamageMultiplier", 1f);
         so.meleeDamage = flat.Int("meleeDamage");
+        so.damageTakenMultiplier = flat.F("damageTakenMultiplier", 1f);
         so.renderScale = flat.F("renderScale", 1f);
         EditorUtility.SetDirty(so);
         Units[name] = so;
@@ -558,6 +559,7 @@ public static class LegacyKotlinImport
         ["splashRadius"] = (double)u.splashRadius,
         ["structureDamageMultiplier"] = (double)u.structureDamageMultiplier,
         ["meleeDamage"] = (double)u.meleeDamage, ["renderScale"] = (double)u.renderScale,
+        ["damageTakenMultiplier"] = (double)u.damageTakenMultiplier,
     };
 
     /// <summary>

@@ -1038,31 +1038,43 @@ namespace ArmedConflict.Game
             int slot = s.NextBulletSlot;
             foreach (var u in s.PlayerUnits)
             {
-                // A little spread per shooter, so a volley reads as many soldiers firing rather
-                // than one round drawn N times. CLUSTER widens exactly this: still convergent
-                // fire at real targets (a blind fan is forbidden by the lock), just a wider zone,
-                // so more distinct enemies fall inside it and each round lands lighter.
-                float jitter = ((float)random.NextDouble() - 0.5f) * 0.25f * ammo.SpreadScale;
-                rounds.Add(new ProjectileEntity(
-                    Id: 10000 + slot++,
-                    X: u.X, Y: u.Y + InfantryMuzzleY, Z: u.Z,
-                    Vx: aimVelocity.x + jitter, Vy: aimVelocity.y + jitter, Vz: 0f,
-                    Damage: ammo.UnitDamage(u.Definition != null ? u.Definition.damage : 8),
-                    OwnerIsPlayer: true)
+                // BURST FIRE. `projectilesPerVolley` was read by AutoFire and by nothing else, so
+                // the machine gunner — sold in the store as "fires a burst instead of a round" —
+                // fired ONE round in the player's hands and was, measurably, a rifleman at half
+                // damage for twice the points. Same family as the three properties below, and
+                // found the same way: by measuring the volley instead of reading the asset
+                // (`RosterAudit.Report`, Tier 2.3).
+                int shots = u.Definition != null ? Mathf.Max(u.Definition.projectilesPerVolley, 1) : 1;
+                for (int shot = 0; shot < shots; shot++)
                 {
-                    // The PLAYER's volley used to leave all three of these at their defaults, so
-                    // every round the player fired was a plain bullet with no splash and a 1x
-                    // structure multiplier — while AutoFire, three methods down, set them
-                    // correctly. The rocket trooper's 6x against buildings and the grenadier's 2x
-                    // existed only under the debug driver, and a rocket rendered as a tracer.
-                    Type = u.Definition != null ? u.Definition.projectileType : ProjectileType.Bullet,
-                    SplashRadius = u.Definition != null ? u.Definition.splashRadius : 0f,
-                    StructureDamageMultiplier = ammo.StructureMultiplier(
-                        u.Definition != null ? u.Definition.structureDamageMultiplier : 1f),
-                    // What CollisionSystem reads to mark a survivor burning. It has read this
-                    // since the port and nothing ever set it.
-                    Ammo = ammo.Type,
-                });
+                    // A little spread per ROUND, not per shooter, so a burst lands as a burst — three
+                    // rounds drawn with one jitter would be one round drawn three times, which is the
+                    // "more hits, each one lighter" promise delivered as "one hit, three times as
+                    // heavy". CLUSTER widens exactly this: still convergent fire at real targets (a
+                    // blind fan is forbidden by the lock), just a wider zone, so more distinct enemies
+                    // fall inside it and each round lands lighter.
+                    float jitter = ((float)random.NextDouble() - 0.5f) * 0.25f * ammo.SpreadScale;
+                    rounds.Add(new ProjectileEntity(
+                        Id: 10000 + slot++,
+                        X: u.X, Y: u.Y + InfantryMuzzleY, Z: u.Z,
+                        Vx: aimVelocity.x + jitter, Vy: aimVelocity.y + jitter, Vz: 0f,
+                        Damage: ammo.UnitDamage(u.Definition != null ? u.Definition.damage : 8),
+                        OwnerIsPlayer: true)
+                    {
+                        // The PLAYER's volley used to leave all three of these at their defaults, so
+                        // every round the player fired was a plain bullet with no splash and a 1x
+                        // structure multiplier — while AutoFire, three methods down, set them
+                        // correctly. The rocket trooper's 6x against buildings and the grenadier's 2x
+                        // existed only under the debug driver, and a rocket rendered as a tracer.
+                        Type = u.Definition != null ? u.Definition.projectileType : ProjectileType.Bullet,
+                        SplashRadius = u.Definition != null ? u.Definition.splashRadius : 0f,
+                        StructureDamageMultiplier = ammo.StructureMultiplier(
+                            u.Definition != null ? u.Definition.structureDamageMultiplier : 1f),
+                        // What CollisionSystem reads to mark a survivor burning. It has read this
+                        // since the port and nothing ever set it.
+                        Ammo = ammo.Type,
+                    });
+                }
             }
 
             int shellSlot = s.NextShellSlot;

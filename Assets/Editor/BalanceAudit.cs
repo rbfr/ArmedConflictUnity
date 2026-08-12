@@ -263,7 +263,14 @@ public static class BalanceAudit
         }
 
         // --- 2. THE VOLLEY RACE, at equal accuracy -------------------------------------------
-        int playerVolley = state.PlayerUnits.Sum(u => u.Definition != null ? u.Definition.damage : 8);
+        // The PLAYER's per-volley damage counts the burst (2026-08-12): `projectilesPerVolley`
+        // now reaches `FireVolley`, so a machine gunner really does put three rounds downrange
+        // and a squad of them was being rated at a third of its output. The ENEMY's does NOT,
+        // and that is not an oversight — `FireEnemyVolley` fires exactly one round per body
+        // whatever the asset says, so counting the burst there would model a volley the engine
+        // does not throw. Each side is counted as its own fire path actually behaves.
+        int playerVolley = state.PlayerUnits.Sum(
+            u => u.Definition != null ? u.Definition.damage * Mathf.Max(u.Definition.projectilesPerVolley, 1) : 8);
         int enemyVolley = state.EnemyUnits.Sum(u => u.Definition != null ? u.Definition.damage : 8);
         int playerHp = state.PlayerUnits.Sum(u => u.Hp);
         int enemyHp = state.EnemyUnits.Sum(u => u.Hp);

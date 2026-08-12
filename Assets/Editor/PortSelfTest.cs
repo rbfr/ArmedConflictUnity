@@ -1503,6 +1503,49 @@ public static class PortSelfTest
             Check(r1.UnitDamage.ContainsKey(1), "a unit standing inside a wall's box still takes the hit");
             Check(!r1.StructureDamage.ContainsKey(100), "the wall behind it takes NO damage");
 
+            // ARMOUR — the shield bearer's mechanic, Tier 2.3, 2026-08-12.
+            //
+            // The class was sold for 500 coins as "walks forward and fights hand to hand" while
+            // melee was unported, which made it measurably a rifleman with more hp and less
+            // damage — the audit's one true duplicate. `damageTakenMultiplier` is what it has
+            // instead. Asserted against the DAMAGE RESOLVED, never against the field: a
+            // multiplier read correctly and applied on only one of the two damage paths is
+            // exactly how the incendiary burn and the structure multiplier each went missing.
+            //
+            // One check, four facts: the direct path soaks, the SPLASH path soaks too, an
+            // unarmoured unit is untouched by any of it, and the floor holds. The floor is the
+            // one that matters most — rounding a small round down to 0 would not make the class
+            // tough, it would make it IMMORTAL, and a battle that cannot end is not a balance
+            // bug that damage assertions would ever catch.
+            var armouredDef = ScriptableObject.CreateInstance<UnitDefinitionSO>();
+            armouredDef.id = "armoured"; armouredDef.maxHp = 40; armouredDef.damage = 4;
+            armouredDef.damageTakenMultiplier = 0.5f;
+
+            UnitEntity Armoured(int id, float x, float y) => new(id, armouredDef, x, y, 0f, 40, false);
+
+            var direct = CollisionSystem.ResolveHits(
+                new[] { Shot(90, 9f, 3f, 9f, 0.3f, dmg: 8) },
+                new[] { Armoured(90, 9f, 0.3f) }, new List<UnitEntity>(), new StructureEntity[0]);
+            var bare = CollisionSystem.ResolveHits(
+                new[] { Shot(91, 9f, 3f, 9f, 0.3f, dmg: 8) },
+                new[] { Enemy(91, 9f, 0.3f) }, new List<UnitEntity>(), new StructureEntity[0]);
+            var splashed = CollisionSystem.ResolveHits(
+                new[] { Shot(92, 9f, 3f, 9f, 0.3f, splash: 1.5f, dmg: 8) },
+                new[] { Armoured(92, 9f, 0.3f) }, new List<UnitEntity>(), new StructureEntity[0]);
+            var tiny = CollisionSystem.ResolveHits(
+                new[] { Shot(93, 9f, 3f, 9f, 0.3f, dmg: 1) },
+                new[] { Armoured(93, 9f, 0.3f) }, new List<UnitEntity>(), new StructureEntity[0]);
+
+            direct.UnitDamage.TryGetValue(90, out int armouredHit);
+            bare.UnitDamage.TryGetValue(91, out int bareHit);
+            splashed.UnitDamage.TryGetValue(92, out int armouredSplash);
+            tiny.UnitDamage.TryGetValue(93, out int floorHit);
+            Check(bareHit == 8 && armouredHit == 4 && armouredSplash == 4 && floorHit == 1,
+                  $"armour halves the damage RESOLVED, on both damage paths: an 8-damage round " +
+                  $"does {armouredHit} to an armoured body and {bareHit} to a bare one, splash " +
+                  $"does {armouredSplash}, and a 1-damage round still does {floorHit} " +
+                  "(never 0 — that would be immortality, not toughness)");
+
             // A shot that strikes no unit is blocked by the wall.
             var r2 = CollisionSystem.ResolveHits(
                 new[] { Shot(2, 5f, 3f, 5f, 1f) }, new List<UnitEntity>(),
@@ -2957,6 +3000,42 @@ public static class PortSelfTest
 
             // --- THE TANK SHELL. It is off-roster — built from a STRUCTURE, not a unit — so
             // nothing in the unit-facing checks above would notice it had stopped firing, which
+            // THE MACHINE GUNNER'S BURST REACHES THE PLAYER'S VOLLEY — Tier 2.3, 2026-08-12.
+            //
+            // `projectilesPerVolley` was read by `AutoFire` and by nothing else, so the class the
+            // store sells for 250 coins as "fires a burst instead of a round" fired ONE round in
+            // the player's hands: a rifleman at half the damage for twice the points. Identical in
+            // every measurable respect to the shield bearer, which is the exact failure Tier 2.3
+            // names. Same family as the three properties the block above guards, and invisible for
+            // the same reason — the debug driver did it correctly, so reading AutoFire reassured.
+            //
+            // Asserted through `FireVolley`, the function the DRAG calls, never off the asset.
+            // Both facts in one check on purpose: a burst that fires three rounds on one jitter is
+            // one round doing triple damage, which is not the thing that was bought.
+            var burstUnit = AssetDatabase
+                .LoadAssetAtPath<RosterDefinitionSO>("Assets/GameData/Roster.asset")?.slots
+                .Select(s => s.unit)
+                .FirstOrDefault(u => u != null && u.projectilesPerVolley > 1);
+            Check(burstUnit != null, "some pickable class fires a burst at all (else this is untested)");
+            if (burstUnit != null && levels.Count > 0)
+            {
+                var burstLevel = levels.First();
+                var groups = Loadout.ToPlayerGroups(burstLevel, new List<Pick> { new(burstUnit, 3) })
+                    .Where(g => g.definition == burstUnit).ToList();
+                var bs = LevelBuilder.BuildInitialState(burstLevel, 1, levels.Count,
+                             new System.Random(9), playerGroupsOverride: groups)
+                         with { Phase = GamePhase.Playing, TurnPhase = TurnPhase.Aiming };
+                var bf = BattleTick.FireVolley(bs, new Vector3(6f, 6f, 0f), new System.Random(3));
+                var bullets = bf.Projectiles
+                    .Where(p => p.OwnerIsPlayer && p.Type != ProjectileType.Shell).ToList();
+                int want = bs.PlayerUnits.Count * burstUnit.projectilesPerVolley;
+                int distinctAim = bullets.Select(p => $"{p.Vx:F4}/{p.Vy:F4}").Distinct().Count();
+                Check(bs.PlayerUnits.Count > 0 && bullets.Count == want && distinctAim == bullets.Count,
+                      $"{burstUnit.name}'s burst reaches the PLAYER's volley: {bs.PlayerUnits.Count} " +
+                      $"shooters x {burstUnit.projectilesPerVolley} = {bullets.Count} rounds " +
+                      $"(want {want}), each on its own jitter ({distinctAim} distinct aims)");
+            }
+
             // is exactly how it went missing from the port in the first place.
             var withCannon = levels.FirstOrDefault(l => l.playerGroups.Count > 0 &&
                 l.structures.Any(p => p.definition != null && p.definition.isPlayerSide

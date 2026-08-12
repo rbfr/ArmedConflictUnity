@@ -25,3 +25,4 @@ MonoBehaviour:
   structureDamageMultiplier: 0.25
   meleeDamage: 12
   renderScale: 1
+  damageTakenMultiplier: 0.5

@@ -76,6 +76,7 @@ DISPLAY=:1 $U -batchmode -quit -projectPath . -executeMethod SpikeBuild.Android 
 DISPLAY=:1 $U -batchmode -quit -projectPath . -executeMethod RiggedUnits.Verify     -logFile -
 DISPLAY=:1 $U -batchmode -quit -projectPath . -executeMethod BackdropPreview.Shots  -logFile -
 DISPLAY=:1 $U -batchmode -quit -projectPath . -executeMethod BattleUIPreview.Shots  -logFile -
+DISPLAY=:1 $U -batchmode -quit -projectPath . -executeMethod RosterAudit.Report     -logFile -
 
 export PATH=$HOME/Android/Sdk/platform-tools:$PATH
 export ANDROID_SERIAL=57121FDCQ005LC        # USB. The wireless transport drops on long builds.
@@ -92,6 +93,12 @@ wipes the balance every time.
 **Run `PortSelfTest.Run` after every change.** Its checks assert the behaviour the comments
 describe, not that the code compiles — several of them exist because the thing they check silently
 broke once already.
+
+**`RosterAudit.Report` is the Tier 2.3 instrument.** It fires a REAL volley per pickable class
+and reports what each one DELIVERS, so a class whose signature lives in a field nothing reads
+shows up as the reskin it is — that is how the machine gunner's burst was found missing from the
+player's fire path on 2026-08-12. Run it after any change to a unit definition, the roster, or
+the volley.
 
 **A scene rebuild is required** after anything that changes prefabs, materials or serialized
 references. A code-only change does not need one; a new `[SerializeField]` does.
@@ -185,8 +192,11 @@ flat, vertex colours or small shared textures.
   torso → (arm-left, arm-right, head)`. Three constraints bind and only these three — joint names
   and paths exact, model height ~2.70, and the soldier faces glTF **+Z** (so it is built facing
   Blender **-Y**). Kenney's CC0 clips drive it; joint POSITIONS are free.
-- **Roster: 8 unit definitions, 7 models, 6 pickable.** Every survivor is distinct on a MECHANIC,
-  not on stats.
+- **Roster: 8 unit definitions, 7 models, 6 pickable.** Every survivor is meant to be distinct on
+  a MECHANIC, not on stats — and that is an intent to VERIFY, not a fact to assume. As of
+  2026-08-12 all six hold, but two only after that day's audit: the machine gunner's burst had
+  never reached the player's volley, and the shield bearer's melee is unported so it was given
+  ARMOUR instead. `RosterAudit.Report` measures this by firing, never by reading the assets.
 - **Measure before authoring.** `python3 tools/measure_units.py` (band profile — legs/torso/head)
   and `tools/measure_structures.py` (silhouette fill/profile/roofline), both in the old repo.
   Judge the SPREAD ACROSS THE SET, never one class alone: hitting every individual target is what
