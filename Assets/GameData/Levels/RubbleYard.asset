@@ -108,6 +108,6 @@ MonoBehaviour:
     holding the same number for two turns says the clock has stopped. This is the
     first level in the project to fire a ReinforcementWave; its telegraph and announcement
     were imported and displayed nowhere from the port until Phase F. WAVE MOVED 2026-08-12: at anchorX 9 the nearest of the four heavies stood
-    0.09 inside GarrisonPost's box and could not be hit. Moved to 9.4, which clears the box edge
+    0.09 inside GarrisonPost''s box and could not be hit. Moved to 9.4, which clears the box edge
     by 0.31 and keeps the deepest man at dx 20.06 from the back rank, just inside the 20.25 flat
     envelope. Found by extending rule 8 to mid-battle arrivals.'

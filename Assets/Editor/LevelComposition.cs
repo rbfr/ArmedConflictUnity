@@ -192,6 +192,29 @@ public static class LevelComposition
         // ballistic envelope — height is what spends the power budget, and nothing measured it.
         findings.Add(BalanceAudit.ReachRule(state));
 
+        // --- rule 7, FOR THE UNITS THAT ARE NOT ON THE FIELD YET ---
+        //
+        // Victory is every enemy unit dead, INCLUDING the ones that walk on during turn 4 and the
+        // boss that bursts out of a razed keep. Reading turn 0 alone let an arrival be authored
+        // past maximum range with every rule-7 check in the project still green — which is the
+        // same bug rule 7 was written for, one turn later.
+        //
+        // It is not hypothetical: on 2026-08-12 the first fix for L11's rule 8 violation moved
+        // its wave to anchorX 9 and put a heavy at dx 20.40 against a 20.25 envelope. This report
+        // stayed green and it was caught by hand. Hence this.
+        //
+        // Each set is measured ALONE — the arrivals replace the roster rather than joining it —
+        // so the finding names the wave that is out of reach instead of re-reporting whichever
+        // turn-0 body happens to be deepest. `BalanceAudit.ReachRule` is reused rather than
+        // reimplemented, for the same reason rule 8 delegates: one rule, one implementation.
+        foreach (var (label, units, _) in ArrivalSets(level, state))
+        {
+            if (label == Turn0 || units.Count == 0) continue;
+            var f = BalanceAudit.ReachRule(state with { EnemyUnits = units.ToList() });
+            if (f.Level == Severity.Ok) continue;
+            findings.Add(new Finding(f.Level, $"{label} — {f.Text}"));
+        }
+
         // --- rule 8: no ground unit stands inside a structure's collision box ---
         findings.Add(CollisionBoxRule(level, state));
 
@@ -331,7 +354,7 @@ public static class LevelComposition
     {
         var sets = new List<(string, IReadOnlyList<UnitEntity>, HashSet<StructureDefinitionSO>)>
         {
-            ("turn 0", state.EnemyUnits, new HashSet<StructureDefinitionSO>())
+            (Turn0, state.EnemyUnits, new HashSet<StructureDefinitionSO>())
         };
 
         for (int i = 0; i < level.bossPhases.Count; i++)
@@ -363,6 +386,9 @@ public static class LevelComposition
 
         return sets;
     }
+
+    /// <summary>The label ArrivalSets gives the roster already on the field.</summary>
+    const string Turn0 = "turn 0";
 
     // Ids are irrelevant to geometry; these only keep the probe's units from colliding with the
     // turn-0 roster's ids while a set is being measured.

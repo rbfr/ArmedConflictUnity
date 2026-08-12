@@ -105,11 +105,18 @@ every box and takes an ordinary shot.
 **Rule 7 cannot see this and neither can any of 1–6.** Rule 7 asks whether the roster has the
 POWER to reach a point; there is nothing in its model about what is IN THE WAY. **Reach and a clear
 line are different questions**, and rules 1–7 only ask the first.
-**Rule 7 also still measures TURN 0 ONLY**, which rule 8 no longer does — so a wave or boss spawn
-placed out of the ballistic envelope is not caught by anything. That is not theoretical: the first
-attempt at L11's fix moved its wave to anchorX 9 and put a heavy at dx 20.40 against a 20.25 flat
-maximum, and `LevelComposition.Report` stayed green. It was caught by measuring the arrivals
-directly. Extending rule 7 the same way is an open job. All twelve levels passed all
+**Rule 7 covers mid-battle arrivals too, since 2026-08-12.** Victory is every enemy unit dead,
+including the ones that walk on at turn 4 and the boss that bursts out of a razed keep, so each
+boss phase and wave is measured on its own through the same `BalanceAudit.ReachRule` the turn-0
+roster uses. Measured ALONE, so the finding names the wave that cannot be reached rather than
+re-reporting whichever turn-0 body is deepest.
+
+**Ask `ReachRule`; never re-derive reach.** The envelope is
+`v² = g(dy + √(dx²+dy²))` — height spends power, and a target BELOW the muzzle costs less than a
+flat one. A hand-rolled `dx > 20.25` is not an approximation of that, it is a different rule: on
+2026-08-12 one such estimate called L11's wave unreachable at dx 20.40 and moved it to the far
+side of the map, when `ReachRule` puts the same body at 91% power from the front rank and 99%
+from the back. The 20.25 figure is the flat, `dy = 0` case and nothing else. All twelve levels passed all
 seven rules while three of them had heroes embedded in masonry.
 
 **The rule covers TURN 0 AND EVERY MID-BATTLE ARRIVAL** — boss phases and reinforcement waves —

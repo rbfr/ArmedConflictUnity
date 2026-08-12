@@ -87,7 +87,7 @@ MonoBehaviour:
     spawnGroups:
     - definition: {fileID: 11400000, guid: 75e1a253a474334eb8576862998ca8e1, type: 2}
       count: 3
-      anchorX: 0
+      anchorX: 9
       anchorZ: 0
       standingOnStructureId: 
       advancePerTurn: 0
@@ -111,15 +111,4 @@ MonoBehaviour:
     campaign teaches one clock, not two. Ground units at x 8, NOT garrisoned: the
     beach post is already at 288-capacity limits and a wave that had to be shot off
     a deck would spend siege damage the squad does not have. Waves are enemy-side
-    only, so the star math (player-roster based) is untouched. WAVE MOVED 2026-08-12, and this one CHANGED THE BEAT rather than just the
-    geometry: its three heavies used to arrive at anchorX 8, which put the first of them 0.71
-    INSIDE GarrisonPost's collision box - unhittable except by a near-vertical plunge (rule 8,
-    which until that day never looked at mid-battle arrivals). Behind the post there is no room
-    to fix it: the window between the box edge (7.88) and the back rank's flat reach (9.66) is
-    1.78 wide and the three-man group spans 1.65, leaving ~0.1 of margin against formation
-    jitter, which is a coin flip and not a fix. So the wave now lands IN FRONT of the post at
-    anchorX 0. The elite push is still a push and still telegraphed two turns out, but it now
-    arrives between the player and the post rather than behind it - closer, hittable
-    immediately, and killed sooner. If that reads as too soft on a device, the alternatives are
-    a two-man wave behind the post (which fits the window) or accepting a back-rank reach
-    warning of the kind L3 and L5 already carry.'
+    only, so the star math (player-roster based) is untouched. WAVE MOVED 2026-08-12, anchorX 8 -> 9: at 8 the first of its three heavies stood 0.71 INSIDE GarrisonPost''s collision box - unhittable except by a near-vertical plunge (rule 8, which until that day never looked at mid-battle arrivals). At 9 the nearest man clears the box edge (7.88) by 0.28 and the deepest sits at 91% power from the front rank, 99% from the back - in reach, and the beat is unchanged: the elite push still lands BEHIND the post, two turns after its warning. An earlier attempt moved the wave in front of the post at anchorX 0 on the belief that there was no room behind it; that belief came from a hand-rolled reach estimate (x - backRank > 20.25) which ignores dy and the launch envelope, and BalanceAudit.ReachRule - the only implementation that counts - disagreed with it. Do not re-derive reach; ask ReachRule.'
