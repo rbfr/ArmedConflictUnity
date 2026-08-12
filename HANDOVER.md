@@ -52,12 +52,14 @@
   not three) and measured identically to the shield bearer, whose own advertised mechanic — melee
   — is unported. The burst is fixed and the shield bearer has ARMOUR instead. `RosterAudit.Report`
   now reports 0 errors. **Nothing here has been seen in motion**; see item 1 below.
-- **RIGS IS THE TEST SUPPLY FOR BOTH CONSUMABLES AND CAMO** — every item free to equip, every camo
-  free to wear, nothing spent and nothing written to the economy or the wardrobe. Use it: the
-  release build is not debuggable, `run-as` cannot reach PlayerPrefs, and the test protocol is
-  uninstall/reinstall — so without it, verifying one consumable costs a ~250-coin re-earn per
-  build and one camo costs up to 400.
-- **628 self-test checks, all passing — run `PortSelfTest.Run` after every change.** It was 281 at
+- **RIGS IS THE TEST SUPPLY FOR EVERYTHING BUYABLE — consumables, camo, UNIT CLASSES and AMMO.**
+  Every item free to equip, nothing spent, nothing written to the economy, wardrobe or roster.
+  **Classes and ammo were added on 2026-08-12 and had NEVER been covered**, while this file told
+  two sessions to "buy both with RIGS on" — which is how a Tier 2.3 device test spent 250 real
+  coins on a machine gunner and then could not afford the 500 shield bearer. Use it: the release
+  build is not debuggable, `run-as` cannot reach PlayerPrefs, and the test protocol is
+  uninstall/reinstall, so every purchase is re-earned on every install.
+- **637 self-test checks, all passing — run `PortSelfTest.Run` after every change.** It was 281 at
   the start of 2026-08-06, 411 at the end of it, 444 on 2026-08-07, 539 after the Tier 1.2 and
   glyph-coverage blocks, 559 with the flame and the Auto-ammo pair, 576 with Tier 1.3's
   consumables, 582 with the airstrike's aircraft, 585 with its strafing burst, 587 with the burst's
@@ -80,8 +82,171 @@
 
 ### Pick up here
 
-**628 checks are green, all 12 levels pass all eight composition rules, and both BalanceAudit and
-RosterAudit report 0 errors.** Pick an item below.
+**637 checks green, all 12 levels pass all eight composition rules, BalanceAudit and RosterAudit
+both 0 errors, and everything is committed.** Five commits landed on 2026-08-12's third session:
+rule 8 over arrivals + three level fixes, RIGS covering unit classes, rule 7 over arrivals + two
+corrections, the burst fan, and ammo-under-RIGS + the victory banners.
+
+**THE NEXT PIECE OF WORK IS ADVANCING SQUADS + MELEE.** It is the only large thing left and it is
+a fresh start, not a continuation — everything below the next section is either done or is a
+decision waiting on Rob.
+
+### 1. ADVANCING SQUADS + MELEE — the next session's job
+
+**The EIGHTH dead system, and the biggest genuine gap in the codebase.** `AdvanceRemaining` is
+written nowhere, `SkirmishEntity` is never created, and `LevelBuilder` pins every PLAYER unit's
+`AdvancePerTurn` to 0. What it unlocks:
+
+- **Overwatch Flare**, the one Tier 1.3 consumable deliberately not built, because it has nothing
+  to watch for.
+- **`PROGRESSION_DESIGN`'s whole survival/defend archetype**, which is made of this and does not
+  exist in the port.
+- **The shield bearer's 12 melee damage**, which `RosterAudit` currently reports as dead DATA —
+  the class was given ARMOUR on 2026-08-12 precisely because its advertised mechanic was unported.
+  It goes live the day advancing squads do.
+
+Read `PROGRESSION_DESIGN.md` for the spec, and treat its Status table as describing the RETIRED
+ANDROID BUILD, not this one — that trap has cost two sessions. **Check the Unity callers, not the
+status table.**
+
+Enemy-side advancing already half-exists and is worth reading first: `advancePerTurn` is authored
+on L12's boss shield bearers (1.2) and on L9's, and rule 8 exempts advancing units on the grounds
+that they walk out of a wall on their first move. **That exemption is not verified** — see item 5.
+
+### 2. WAITING ON ROB, not on anyone's time
+
+**L12's Sovereign is still in the gate's shadow.** He spawns at x 5.42, static, and the gate
+(`FortressTierSmall`, box `x[1.25,3.75]`, top 2.00) stands 1.67 to his left, so hitting him means
+clearing a 2.0 wall and dropping 2.0 within 1.67 of travel. **Not unwinnable** — a rifleman does
+8 x 0.25 = 2 masonry, so seven of them strip the gate in a few volleys — but the requirement is
+invisible and is discovered only after the tank shells are gone, which is exactly how Rob found
+it.
+
+The fix is ONE FIELD: `triggerStructureIds: [citadel, gate]`, so the Sovereign emerges only once
+both are down and nothing shadows him. Already supported — `ShouldTriggerBossPhase` does
+`triggerStructureIds.All(isDefeated)`. Before taking it: citadel 165 + gate 115 = 280 against a
+stock siege capacity of ~288, so it makes the requirement HONEST rather than roomy. **It changes
+what the finale demands, so it is Rob's call.**
+
+Note this is a SHADOW, not an embedding, and rule 8 does not flag it — correctly. The crude "is it
+behind a taller box" heuristic used to find it fires on plenty of harmless geometry (L10 has
+arrivals 5.94 clear of a 1.40 box). Deciding which shadows are real needs the game's own
+trajectory solver, not a ratio someone invented. **That is a rule 9 and it does not exist.**
+
+**Whether the shield bearer gets a visible armour marker.** Its half-damage is real
+(`CollisionSystem.Soaked`, and `RosterAudit` measures `40hp x2.0 armour = 80`) and completely
+invisible in play — see item 3. A marker is a unit-art change and this project decides those on a
+device, never in advance.
+
+### 3. TIER 2.3 IS MECHANICALLY DONE AND HALF-LEGIBLE — what the device actually showed
+
+Both changes were verified on device on 2026-08-12, and both hit the same wall: **the mechanic is
+real and the player cannot see it.**
+
+- **The burst is live and now FANS.** Confirmed by measurement, not by eye: four machine gunners
+  put 1.83x the tracer area per shooter of a rifle squad, so six shooters out-tracered ten. It was
+  invisible because all three rounds shared one jitter value across Vx and Vy and flew down the
+  same 45 degree line. **Fixed** — two independent draws. **The fan has NOT been looked at on a
+  device**, and that is the one thing this owes: does three rounds now read as suppressing fire?
+- **The armour is live and invisible.** Equal-size squads on L3, four Auto turns each, identical
+  enemy attrition (15 -> 11 both runs): 6 shield bearers + 2 crew lost ONE body, 6 riflemen + 2
+  crew lost NONE. **That is not evidence the armour is broken** — one death against zero over four
+  turns is noise, and Auto changes which enemies survive to shoot back. It is evidence that
+  doubling a unit's effective HP produced nothing a player could perceive.
+
+### 4. SMALL AND WELL-DEFINED, if a session wants a warm-up
+
+- **The advancing exemption never verifies the unit leaves.** Rule 8 waves through any unit with
+  `advancePerTurn > 0` on the grounds that it walks out of the box on its first move. L11's wave,
+  had it been given an advance instead of moved, would have started 0.71 deep and needed THREE
+  turns at 1.2 a turn to clear. "Advancing" is not the same claim as "hittable soon". Worth
+  closing before advancing squads land and make the exemption load-bearing.
+- **`Loadout.GroundAnchorX` averages disjoint groups.** It takes the count-weighted mean of a
+  level's ground groups, so a level authored with two flanking groups gets a squad centred in the
+  GAP between them. Harmless on all twelve campaign levels (one contiguous line each) and wrong on
+  `LevelNaturalParadeTest`, whose two scale-reference groups at -5.6 and +5.6 average to 0.00 —
+  dead centre of `RidgeWatchtower`'s box, so a loadout squad spawns inside the structure. Left
+  deliberately: the rigs are instruments and the fix touches the path all twelve signed-off levels
+  run through.
+- **Wind is still cosmetic and PARKED** (Rob, 2026-08-10). `windAccelZ` drifts the round in Z while
+  collision is X/Y only, so wind cannot change what a shot hits. **Do not author a wind level until
+  someone decides whether collision goes 3D.**
+- **Tier 1.4 (Heli) stays shut.** `HELI_ENABLED=false` is a camera-load decision, not a stale flag.
+
+### 5. WHAT 2026-08-12'S THIRD SESSION TAUGHT, which is one lesson four times
+
+**A check asserts the slice of the world it happens to look at, and nobody notices the rest is
+unexamined.** Four instances in one session:
+
+1. **Rule 8 read turn 0 only** — boss phases and reinforcement waves were invisible, and four
+   embedded units had shipped across L6/L10/L11. Found by Rob playing L12.
+2. **Rule 7 read turn 0 only** — same hole, same fix, now closed. A wave authored past the
+   ballistic envelope passed every check in the project.
+3. **The burst check asserted "each round on its own jitter"** and passed for a day against
+   collinear rounds, because distinct aims was already true of the broken version. An INPUT
+   assertion wearing the costume of an output one.
+4. **The glyph check never covered the victory banners**, and `"New 3★ Best!"` had been drawing a
+   missing-glyph box on the congratulations screen the whole time — carrying the exact codepoint
+   the same check uses two lines earlier to prove it can fail.
+
+**And one lesson about the fixer, not the checks: DO NOT RE-DERIVE WHAT A TOOL ALREADY COMPUTES.**
+While fixing rule 8 this session I hand-rolled a reach estimate — `x - backRank > 20.25` — decided
+L11's wave could not be moved behind its post, and moved the whole wave to the far side of the map,
+changing a signed-off beat. `BalanceAudit.ReachRule` puts that same body at 91% power from the
+front rank and 99% from the back: **it was always in reach.** The estimate ignored `dy` and the
+launch envelope, `v² = g(dy + √(dx²+dy²))`; 20.25 is the flat `dy = 0` case and nothing else. The
+wave is back at anchorX 9 and the beat is intact. **Ask `ReachRule`. It is the only implementation
+that counts**, and this happened in the same session that added a rule whose entire justification
+is not re-deriving placement.
+
+**A YAML footnote that cost a real scare:** appending to a level's `designNotes` inserted
+unescaped apostrophes into a single-quoted scalar, and `Oceanfront.asset` and `RubbleYard.asset`
+stopped parsing. **It hid because a failed import falls back to the Library cache** — the report
+kept showing all twelve levels green off stale data, and a reimport on a clean checkout would have
+loaded those levels with default fields. Double apostrophes inside single-quoted YAML, and treat
+"Unable to parse" in a batch log as a failure even when the run says 0 errors.
+
+### Rule 8 now covers MID-BATTLE ARRIVALS — 2026-08-12, and it found four shipped bugs
+
+Rob, playing L12 on a fresh build: *"there are enemies behind the structure, making them
+impossible to hit unless you destroy it. which you can't do if you don't have any tank rounds
+left."* He was right, and the cause is that **rule 8 only ever read `BuildInitialState`** — every
+boss phase and reinforcement wave was invisible to it. Third instance in one day of the same
+shape: a check that asserts only the slice of the world it happens to look at.
+
+Extended to judge turn 0 plus every arrival, placed through the same `LevelBuilder.BuildUnits`
+call `BattleTick.Spawn` uses. **Seen RED against the shipped data first**, which is how the four
+were found:
+
+| level | arrival | was |
+|---|---|---|
+| L6 boss | 2 of 3 heavy escort | inside MountainBunker `x[0.88,3.13]` — not the phase's trigger, so still standing |
+| L10 wave t4 | 1 of 4 heavies | inside GarrisonPost, by 0.09 |
+| L11 wave t4 | 1 of 3 heavies | inside GarrisonPost, by 0.71 |
+| L12 boss | the Sovereign | **not embedded** — shadowed by the gate. STILL OPEN, item 6 |
+
+**A boss phase's own trigger structures are exempt for that phase.** L12's Sovereign spawns dead
+centre of the citadel it bursts out of, and flagging that would assert a state the game can never
+be in. A wave has no trigger, so it is judged against everything standing.
+
+**The fixes.** L6's escort moved 3 -> 4.5 and its Sovereign 5 -> 6.5 (both now emerge from the
+breached keep's footprint, which is rubble by then). L10's wave 9 -> 9.4. **L11's wave 8 -> 9**,
+which clears the box edge (7.88) by 0.28. All three keep their beats.
+
+**L11 TOOK TWO GOES AND THE FIRST ONE WAS WRONG** — see the "do not re-derive" lesson in the pick-up
+section. It was briefly moved to anchorX 0, in FRONT of the post, on a hand-rolled reach estimate
+that said there was no room behind it. `BalanceAudit.ReachRule` puts that body at 91% power from
+the front rank and 99% from the back: it was always in reach, and the beat did not need to change.
+
+**RULE 7 NOW COVERS ARRIVALS TOO** (same session, second commit) — it had the identical turn-0
+hole. Each boss phase and wave is measured ALONE through `ReachRule`, so a finding names the wave
+rather than re-reporting whichever turn-0 body is deepest. Seen red at anchorX 16: "108% power,
+UNWINNABLE".
+
+**ONE LATENT HOLE DELIBERATELY LEFT**, recorded in `LEVEL_AUTHORING.md`: **the ADVANCING exemption
+does not verify the unit actually leaves.** L11's wave, had it been given an advance instead of
+moved, would have started 0.71 deep and needed three turns at 1.2 a turn to clear the box.
+"Advancing" is not the same claim as "hittable soon".
 
 **WIND IS PARKED** — Rob's call, 2026-08-10, and it is the only thing Tier 1.2 still owes. Work
 continues around it rather than waiting on it.
@@ -98,23 +263,55 @@ how a battle FEELS rather than how it reads in a table:
   never in advance.
 Buy both with RIGS on (free supply), and note it takes 250 and 500 coins to reach them otherwise.
 
-**2. THE CROWD SPLIT'S ONE REMAINING LEVER**, if a later pass wants it: doubling again (rifleman
-x4 at 8hp/2) is exact and burn-safe, so "more" is a one-line change to `CrowdSplit.Factors`. The
-second rank it would add is invisible in the fill number and only the device can settle it.
+**2. THE CROWD SPLIT HAS NO REMAINING LEVER. CLOSED 2026-08-12 — do not re-open it on the old
+note.** This entry used to read *"doubling again (rifleman x4 at 8hp/2) is exact and burn-safe, so
+'more' is a one-line change to `CrowdSplit.Factors`."* **It is exact and it is NOT burn-safe**, and
+the paragraph directly below it said so all along about the sniper — same number, opposite
+conclusion, two paragraphs apart. Rob's call on being shown the arithmetic: leave the split at x2.
 
-Also worth knowing before touching it: **the sniper is deliberately not split** (16 hp only halves
-to 8, and the incendiary burn is 8 — it would stop chipping and start one-shotting), and **L12's
-gate is deliberately not split** (both its garrisons would take the roster to 31, past the locked
-7-30). Both are enforced in `CrowdSplit`, not just remembered.
+- **The rifleman is HARD-CAPPED AT x2 by the burn.** x4 is 8 hp; the incendiary burn is 8;
+  `BattleTick` does `hp = u.Hp - burnDamage; if (hp > 0)`, so 8 - 8 = 0 and the body dies to one
+  tick. `CrowdSplit`'s `maxHp / factor <= BurnDamage` guard already rejects it, and
+  `PortSelfTest`'s `burn < frailest` anchor would go red as the frailest unit fell 12 -> 8. The
+  rifleman carries almost every garrison in the game, so this is most of the lever gone.
+- **The only class that CAN double again is the machine gunner** (x4 = 10 hp / 1 dmg, exact, above
+  the burn) — and the locked 7-30 roster blocks three of its six decks: L10 would go to 31, L4 to
+  35, L6 to 37. Only L5 (24), L9 (30, at the cap) and L11 (22) fit.
+- **And those six decks share ONE `EnemyMachineGunnerCrowd` asset**, so re-splitting three of them
+  means editing the asset the other three read, silently halving HP on levels Rob has signed off.
+  It would need a second `...Crowd2` variant — two machine-gunner bodies in one game — for a
+  change visible on three levels. Not worth it.
+
+**The standing lesson here is the one this file keeps paying for: a number written into prose goes
+stale, and a DERIVED number written into prose is stale the moment either input moves.** The
+burn-safety of a factor is arithmetic over `burnDamage` and `maxHp`; it belongs in `CrowdSplit`'s
+guard, where it already lived and was already correct, not in a sentence.
+
+Also worth knowing: **the sniper is deliberately not split** (16 hp only halves to 8, into the same
+burn problem), and **L12's gate is deliberately not split** (both its garrisons would take the
+roster to 31, past the locked 7-30). Both are enforced in `CrowdSplit`, not just remembered.
 
 Before any further crowd/art pass, read `UNIT_VARIETY_DESIGN.md`'s "honest limit" twice: stance,
 faces and limb fold each cleared "is it correct" and failed "does it survive the frame", and the
 only changes that ever DID read were large-scale layout.
 
-**3. RULE 8 IS CHECKED IN THE WRONG PLACE.** `PortSelfTest.CheckNobodyStandsInAWall` fails the
-SUITE, while rules 1-7 render live in `LevelDefinitionInspector` beside the level being edited.
-A small, well-defined job: move it into `LevelComposition.Check` so an author sees it where they
-author. Recorded in `LEVEL_AUTHORING.md` too.
+**3. RULE 8 NOW REPORTS WHERE THE OTHER SEVEN DO — DONE 2026-08-12.** It lived only in
+`PortSelfTest.CheckNobodyStandsInAWall`, so it failed the SUITE while rules 1-7 rendered live in
+`LevelDefinitionInspector` beside the level being edited; an author saw seven rules where there
+are eight. It is now `LevelComposition.CollisionBoxRule`, called from `LevelComposition.Check`,
+and the suite check DELEGATES to it rather than re-measuring — one rule with two implementations
+is the second-source-of-truth failure this project has already paid for, and is why rule 7 is
+called out of `BalanceAudit` instead of copied.
+
+It reports as an **ERROR**, the only non-roster error in the file, so `LevelComposition.Report`
+now exits 1 on it exactly as the suite always did. Rules 1-6 are framing judgements a level may
+bend for a reason it records in `designNotes`; rule 8 says a unit the player is asked to kill
+cannot be hit.
+
+**Seen RED before being trusted**, per the standing rule: L6's two heavy riflemen moved from
+x -1 to the keep's x 6 put them 1.73 INSIDE the box, and that failed `LevelComposition.Report`
+(exit 1) and `PortSelfTest` together, naming `FortressTier edge 3.88` — the same edge from the
+original bug. Restored, and both are green again at **628 checks**, unchanged by the move.
 
 **4. THE TWO BIGGEST OPEN THINGS, both physics/AI asks rather than scheduling jobs:**
 - **Advancing squads + melee are unported** — an EIGHTH dead system, and the one that holds
@@ -123,6 +320,25 @@ author. Recorded in `LEVEL_AUTHORING.md` too.
 - **Wind is still cosmetic** — `windAccelZ` drifts the round in Z while the collision test is X/Y
   only, so wind cannot change what a shot hits. A wind schedule would telegraph a change the
   player cannot feel. **Do not author a wind level until someone decides whether collision goes 3D.**
+
+**6. L12'S SOVEREIGN IS STILL IN THE GATE'S SHADOW — ROB'S CALL, HELD DELIBERATELY.**
+He spawns at x 5.42, static, and the **gate** (`FortressTierSmall`, box `x[1.25,3.75]`, top 2.00)
+is still standing 1.67 to his left. Hitting him means clearing a 2.0 wall and dropping 2.0 within
+1.67 of travel. It is **not unwinnable** — a rifleman does 8 x 0.25 = 2 masonry, so seven of them
+strip the gate's remaining hp in a few volleys — but the requirement is invisible and is
+discovered only after the tank shells are gone.
+
+The proposed fix is ONE FIELD: `triggerStructureIds: [citadel, gate]`, so the Sovereign emerges
+only once both are down and nothing shadows him. Already supported —
+`ShouldTriggerBossPhase` does `triggerStructureIds.All(isDefeated)`. Worth knowing before taking
+it: citadel 165 + gate 115 = 280 against a stock siege capacity of ~288, so it makes the
+requirement HONEST rather than roomy. **Do not apply it without Rob** — it changes what the
+finale demands.
+
+Note this is a SHADOW, not an embedding, and rule 8 does not flag it: the crude "is it behind a
+taller box" heuristic used to find it fires on plenty of harmless geometry (L10 has arrivals 5.94
+clear of a 1.40 box). Deciding which shadows are real needs the game's own trajectory solver, not
+a ratio someone invented — that is a rule 9, and it does not exist.
 
 **5. Tier 1.4 (Heli) stays shut.** `HELI_ENABLED=false` is a camera-load decision, not a stale
 flag. Do not flip it.
@@ -135,12 +351,11 @@ explicitly closed: *"the aircraft sound is fine for the moment."*
 **THE PLAYER HAS NO HERO ANYWHERE, and that is a decision** (Rob, 2026-08-11: enemy-only for now).
 `HeavyRifleman` is not among the six pickable roster slots. Revisit only with a build in hand.
 
-**Device state at handover:** the installed build is from 2026-08-12 and **predates Tier 2.3** —
-it has the crowd split and the hero fix, not the burst or the armour, so a fresh build is the
-first step of item 1. **0 coins** (the protocol is
-uninstall/reinstall, which wipes the balance every time — use RIGS as the test supply instead),
-RIGS off, nothing written to the wardrobe, DND off, screen timeout 30 minutes, and every dev
-capture cleared off `/sdcard`.
+**Device state at handover:** the installed build is from 2026-08-12 but **PREDATES THE LAST TWO
+COMMITS** — it has Tier 2.3, the level fixes and RIGS-for-classes, but NOT the burst fan, ammo
+under RIGS, or the victory banners. **Build before judging the fan.** L3, **320 coins**, RIGS off,
+nothing written to the wardrobe or roster, every dev capture cleared off `/sdcard`. **DND and
+stay-awake were left ON** — it is Rob's real phone, so turn both back.
 
 <details>
 <summary>The Tier 1.3 briefing as it stood before the work — kept because its reasoning is the
