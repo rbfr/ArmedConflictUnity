@@ -336,7 +336,7 @@ locks and unit measurement.
 | Item | State |
 |------|--------|
 | Direction captured | 2026-08-06 |
-| Sequenced plan for Tier 0 | `_plans/TIER0_PLAN.md`, phases A–F |
+| Sequenced plan for Tier 0 | `_plans/archive/TIER0_PLAN.md`, phases A–F |
 | 0.1 campaign restructure | **DONE 2026-08-06** — 12 levels, one beat each, rigs gated behind RIGS, 0 composition warnings |
 | 0.2 onboarding arc | **DONE 2026-08-06** — L1-3 teach in order, L1 pays visibly, default squad is one tap |
 | 0.3 victory screen | **DONE 2026-08-06**, confirmed on device. Stars, reasons, coin count-up, bonus banner, retry/next |

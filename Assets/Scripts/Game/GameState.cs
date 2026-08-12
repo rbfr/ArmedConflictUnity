@@ -20,7 +20,7 @@ namespace ArmedConflict.Game
         /// bomb used to detonate off-screen, ~0.85s before the volley-follow camera finished
         /// panning (device capture, 2026-08-10). Nothing the player paid 250 coins for was ever
         /// visible. With no rounds in the air yet there is nothing to chase, so the pass can own
-        /// the frame — see `_plans/AIRSTRIKE_PLANE.md`.
+        /// the frame — see `_plans/archive/AIRSTRIKE_PLANE.md`.
         /// </summary>
         AirstrikeRun,
     }

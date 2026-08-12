@@ -1389,7 +1389,7 @@ namespace ArmedConflict.Game
         /// It used to be 5.0 with the round appearing in clear sky at that height, and an earlier
         /// version of this comment claimed that read as "off the top of the frame". It did not: a
         /// soldier is ~1.30 world units, so 5.0 is under four soldier-heights, comfortably inside
-        /// the picture. That gap is what `_plans/AIRSTRIKE_PLANE.md` closes — the bomb no longer
+        /// the picture. That gap is what `_plans/archive/AIRSTRIKE_PLANE.md` closes — the bomb no longer
         /// appears from nothing at any height, because something visibly drops it.
         /// </summary>
         public const float AirstrikeOriginY = PlaneY;

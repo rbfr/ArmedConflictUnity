@@ -22,6 +22,22 @@ Sits outside `Assets/`, so Unity never imports it.
 
 | Plan | Covers | State |
 |---|---|---|
-| `TIER0_PLAN.md` | `PRODUCT_DIRECTION.md` Tier 0 — the product spine (0.1–0.6) | Phases A–F DONE; balance audit run, retune partly verified |
-| `TIER1_3_CONSUMABLES.md` | Tier 1.3 — the four base/tactical consumables | **DONE 2026-08-10**, device-confirmed. Overwatch Flare deliberately held |
 | `BACKLOG.md` | Asked for, not yet scheduled — one section per idea, with why | Not sequenced; pick one and give it its own plan file |
+
+## Archived — `archive/`
+
+Shipped work. Their conclusions live in the design docs and `HANDOVER.md`; these are kept for the
+phase-by-phase record of what actually shipped and where it differed from the plan. **Nothing here
+is a statement about the current state of the code** — that is what made archiving them necessary.
+
+| Plan | Covers | Shipped |
+|---|---|---|
+| `archive/TIER0_PLAN.md` | `PRODUCT_DIRECTION.md` Tier 0 — the product spine (0.1–0.6) | Phases A–F, 2026-08-06; Tier 0 closed 2026-08-07 |
+| `archive/TIER1_3_CONSUMABLES.md` | Tier 1.3 — the four base/tactical consumables | 2026-08-10, device-confirmed. Overwatch Flare deliberately held |
+| `archive/AIRSTRIKE_PLANE.md` | The airstrike's aircraft and its own beat | 2026-08-10, reworked 2026-08-11, signed off "ok this will work" |
+
+**Archived on 2026-08-11**, and the trigger is worth recording: `TIER0_PLAN.md` still said the
+balance audit's device half was "still owed" four days after it had been run and signed off. That
+is exactly the failure the paragraph at the top of this file warns about — **a stale plan read as
+current is worse than no plan** — and it went unnoticed because a finished plan sitting beside a
+live one looks live.

@@ -1,4 +1,4 @@
-# LEVEL_AUTHORING.md — the seven composition rules
+# LEVEL_AUTHORING.md — the eight composition rules
 
 **Read this before authoring or editing a level.** These are the constraints that actually govern
 whether a level can be framed and read; they are derived, not taste, and each one was paid for.
@@ -10,9 +10,14 @@ rules at the top of the campaign block" — they mean this file now.
 `LevelDefinitionInspector` checks rules 1, 2, 3, 5, 6 and 7 live in the inspector. Rule 4 is rule 6's
 measure. A warning there is a warning about the level, not about the tool.
 
+**Rule 8 is checked by `PortSelfTest.CheckNobodyStandsInAWall`, NOT by the inspector or by
+`LevelComposition.Report`** — so it fails the suite rather than showing up beside the level you are
+editing. That asymmetry is worth closing when someone is next in `LevelComposition`; it is recorded
+here rather than quietly tolerated.
+
 ---
 
-## The seven rules
+## The eight rules
 
 **1. Aiming zoom is set by the PLAYER LINE alone.**
 `camZ = (playerHalfWidth + 1.2) / 0.45`, and the visible half-width at that distance is exactly
@@ -75,6 +80,40 @@ unit at one velocity:
 
 L3 and L5 carry accepted warnings; both beats are explicitly about height, and the reason is in
 their `designNotes`, which is where a bent rule belongs.
+
+**8. Every GROUND unit must stand CLEAR of every enemy structure's collision box.**
+Added 2026-08-11, after rules 1–7 passed four levels whose heroes had been placed inside a wall.
+
+A structure blocks projectiles as an axis-aligned box **`hitWidth` wide** (falling back to `size`
+when unset), rising from its base to `deckY`. **`hitWidth` is not the width of the building you
+see, and a structure's ANCHOR is not its EDGE.** L6's keep is drawn around x 6 and blocks from
+**x 3.88**; heroes placed at 4.3 — "in front of the keep" — were inside it. L12's were 1.71 deep.
+
+A unit inside that box can only be hit by clearing the box top and then reaching the ground within
+the same fraction of a unit. L6 wanted a **2.0 drop in 0.02 of travel**: a near-vertical plunge, at
+a level whose whole geometry is built around a flat arc. Perversely, moving a defender OFF a roof
+and onto the ground beside it can make it harder to hit, because a garrison on a deck stands above
+every box and takes an ordinary shot.
+
+**Rule 7 cannot see this and neither can any of 1–6.** Rule 7 asks whether the roster has the
+POWER to reach a point; there is nothing in its model about what is IN THE WAY. **Reach and a clear
+line are different questions**, and rules 1–7 only ask the first. All twelve levels passed all
+seven rules while three of them had heroes embedded in masonry.
+
+Two exemptions, both semantic rather than tolerances:
+
+- **Garrisoned units**, which stand on a deck above every box and are meant to.
+- **ADVANCING units** (`advancePerTurn > 0`), which walk out of the box on their first move. L9's
+  shield bearers start 0.01 inside the bunker purely on formation jitter and are hittable from
+  turn one. A STATIC unit gets no such reprieve.
+
+Only a box at **lower x** than the target can shadow it, since the shot travels left to right — so
+the practical rule when placing a ground group is: pick the leading EDGE of the foremost structure
+and stay in front of it.
+
+This was not only the hero pass's bug. The check found **four static riflemen the campaign had
+already shipped** — two on L9 inside the mountain bunker (0.46 and 0.74 deep) and two on L10 inside
+the outpost (0.13 and 0.45) — every one a unit the player could not hit without the same plunge.
 
 ---
 

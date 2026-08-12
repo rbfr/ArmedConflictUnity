@@ -2,6 +2,12 @@
 
 Written 2026-08-06. Sequenced plan for the product spine (0.1–0.6).
 
+> **ARCHIVED 2026-08-11 — this plan is CLOSED and the paragraph below is out of date.** The
+> balance audit's device half, which it calls "still owed", was run on 2026-08-07 in both halves;
+> Rob then played the campaign and reported the levels feel fine, which closed Tier 0 entirely.
+> Kept for the phase-by-phase record of what shipped and where it differed from the plan.
+> Current state lives in `HANDOVER.md`.
+
 **ALL SIX PHASES ARE DONE** (2026-08-06), all confirmed on device. One item is PARTLY owed: the
 Phase E BALANCE AUDIT. Its **arithmetic half is done** — `BalanceAudit.Report` checks reach, the
 volley race and the melee clock headless over both ends of the legal loadout space, and it found

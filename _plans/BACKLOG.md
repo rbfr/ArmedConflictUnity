@@ -77,7 +77,7 @@ Worth knowing before anyone spends time on it:
 **Fixed the same day it was raised.** Rob's second decision settled it: *"plane should fly first
 before the player volley."* A straight-wing attack aircraft now crosses from the player's side,
 releases the bomb, and exits — and only then does the infantry volley launch. Full write-up and the
-two device-only bugs in `_plans/AIRSTRIKE_PLANE.md`.
+two device-only bugs in `_plans/archive/AIRSTRIKE_PLANE.md`.
 
 The measurement below is kept because it is WHY the fix took the shape it did: the problem was
 never only that the bomb was ugly, it was that it detonated off-screen, and no amount of art fixes

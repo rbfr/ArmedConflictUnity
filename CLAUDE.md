@@ -25,6 +25,8 @@ being unmerged is deliberate.
 
 **READ `HANDOVER.md` FIRST.** It carries the full trap list, every one of which cost a build or a
 device session to find. This file is the standing rules; that file is the accumulated scar tissue.
+Its closed 2026-08-05/06 port entries live in `HANDOVER_ARCHIVE.md` (split 2026-08-11) — history,
+never a statement about current behaviour.
 
 ## Where things are
 
@@ -42,7 +44,7 @@ anywhere:
 
 | | |
 |---|---|
-| `LEVEL_AUTHORING.md` | the SEVEN COMPOSITION RULES. Read before authoring or editing any level; checked by `LevelComposition.Report` |
+| `LEVEL_AUTHORING.md` | the EIGHT COMPOSITION RULES. Read before authoring or editing any level; 1–7 checked by `LevelComposition.Report`, 8 by `PortSelfTest` |
 | `PRODUCT_DIRECTION.md` | **what to build next** — retention, dopamine model, campaign packaging, priority stack. Plan product work against this |
 | `GAME_DESIGN_LOCKS.md` | decisions that are CLOSED — turn structure, win/loss, physics, scope |
 | `PROGRESSION_DESIGN.md` | coins, loadout, unlocks, consumables — phased spec + build status |
@@ -99,7 +101,7 @@ references. A code-only change does not need one; a new `[SerializeField]` does.
 **The ScriptableObjects in `Assets/GameData/` ARE the source of truth.** Edit them directly. The
 Kotlin export pipeline is retired; the old repo is reference only.
 
-**Read `LEVEL_AUTHORING.md` before authoring or editing a level** — the seven composition rules,
+**Read `LEVEL_AUTHORING.md` before authoring or editing a level** — the eight composition rules,
 moved here from the Kotlin. They are checked, not merely documented:
 
 ```bash
@@ -207,14 +209,17 @@ BEAT from `PRODUCT_DIRECTION.md`'s chart, and its `designNotes` says which and w
 
 Two stages of six (`ValleyFront` 1-6, `EnemyStronghold` 7-12), bosses on 6 and 12.
 
-The seven composition rules live in **`LEVEL_AUTHORING.md`** (moved out of the Kotlin 2026-08-06)
-and are checked by `LevelComposition.Report`. Shortest form: the Aiming camera frames the
+The eight composition rules live in **`LEVEL_AUTHORING.md`** (moved out of the Kotlin 2026-08-06)
+and rules 1-7 are checked by `LevelComposition.Report`. Shortest form: the Aiming camera frames the
 PLAYER LINE ONLY (~6 wide), scout/resolve framing is set by the enemy cluster INCLUDING structure
 edges (under ~11), one dominant structure plus at most two small supports, 14-18 units of
-separation TANK→DOMINANT STRUCTURE, garrison the MAJORITY of the enemy roster on structures, and
+separation TANK→DOMINANT STRUCTURE, garrison the MAJORITY of the enemy roster on structures,
 (rule 7, added 2026-08-06) every enemy UNIT must be physically REACHABLE — max range is 20.25 flat
 and HEIGHT spends it twice, so a garrison on a tall structure at full separation can be unwinnable
-while passing all of rules 1-6.
+while passing all of rules 1-6 — and **(rule 8, added 2026-08-11) every GROUND unit must stand
+clear of every structure's COLLISION BOX**, which is `hitWidth` wide and nothing like the width of
+the building you see. A structure's ANCHOR is not its EDGE. Rule 8 is checked by
+`PortSelfTest.CheckNobodyStandsInAWall`, not by the inspector.
 
 **Test rigs no longer need renumbering when the campaign changes size** (2026-08-06). The scene
 builder orders CAMPAIGN-then-RIGS, so the campaign block leads and is indexed by position while a
