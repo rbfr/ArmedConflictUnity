@@ -1415,7 +1415,11 @@ public static class PortSelfTest
                 var st = LevelBuilder.BuildInitialState(l1, battleId: 1, totalLevels: 29,
                                                         random: new System.Random(7));
                 Check(st.PlayerUnits.Count == 10, $"L1 builds 10 player units (2 on tank + 8 line)");
-                Check(st.EnemyUnits.Count == 9, "L1 builds 9 enemy units (6 line + 3 garrison)");
+                // 14 since the crowd split (Tier 2.2 part four): the outpost's five riflemen
+                // became ten crowd bodies at half HP and half damage each, so this number moved
+                // while L1's enemy HP and damage per volley did not. The old message said
+                // "6 line + 3 garrison", which did not even agree with the garrison check below.
+                Check(st.EnemyUnits.Count == 14, "L1 builds 14 enemy units (4 line + 10 garrison)");
                 Check(st.Structures.Count == 2, "L1 builds 2 structures");
                 Check(st.Phase == GamePhase.Preview, "a new battle starts in Preview");
 
@@ -1429,8 +1433,9 @@ public static class PortSelfTest
                 var outpost = st.Structures.First(s2 => s2.Definition.id == "outpost");
                 var garrison = st.EnemyUnits.Where(u => u.StandingOnStructureId != null).ToList();
                 // 5 since the Phase D authoring pass — composition rule 5 wants the
-                // majority of the roster on the structure, even on the teaching level.
-                Check(garrison.Count == 5, "5 enemies are garrisoned on the outpost");
+                // majority of the roster on the structure, even on the teaching level — and 10
+                // since the crowd split doubled the BODIES without moving the HP or the damage.
+                Check(garrison.Count == 10, "10 enemies are garrisoned on the outpost");
                 float deck = 0.560f * 2.5f;   // deckY already scaled at import
                 foreach (var g in garrison)
                     Near(g.Y, deck, 1e-3f, "garrison stands on the measured deckY, not on size");
@@ -3086,6 +3091,7 @@ public static class PortSelfTest
         CheckHeroStaging();
         CheckNobodyOverlaps();
         CheckNobodyStandsInAWall();
+        CheckCrowdSplitKeptTheBalance();
 
         Debug.Log($"[PortSelfTest] {(failed == 0 ? "ALL PASS" : $"{failed} FAILURES")}\n{Log}");
         if (failed > 0 && Application.isBatchMode) EditorApplication.Exit(1);
@@ -3185,6 +3191,102 @@ public static class PortSelfTest
     /// had landed, because a back rank legitimately spans the same x as the front one. The
     /// detector was wrong, not the code.
     /// </summary>
+    /// <summary>
+    /// The crowd split (Tier 2.2 part four) doubled the BODIES on every garrison and must have
+    /// moved nothing else. These are ABSOLUTES, measured off the pre-split data and pasted here,
+    /// not re-derived from the crowd definitions — deriving them would assert the split against
+    /// itself and pass however wrong the factors were. Every one of these twelve rows was read
+    /// off a build of the ORIGINAL level data, and the split build reproduced all three columns
+    /// exactly.
+    ///
+    /// So this goes red if anyone edits a crowd variant's stats, changes a garrison count, or
+    /// adds a class to CrowdSplit.Factors whose HP or damage does not divide exactly.
+    ///
+    /// It also pins the frailest crowd body ABOVE the incendiary burn, which is the constraint
+    /// that picked the factors: the first version of the table split the sniper x2 and the
+    /// grenadier x3, landing both on exactly 8 hp, and the burn stopped chipping and started
+    /// one-shotting. That was caught by the roster-frailty check, and this makes it explicit
+    /// rather than incidental.
+    /// </summary>
+    static void CheckCrowdSplitKeptTheBalance()
+    {
+        // level -> units before, hp, volley damage, structure damage
+        var expected = new (int level, int unitsBefore, int hp, int volleyDmg, float structDmg)[]
+        {
+            (1,   9, 288,  72, 18f), (2,  11, 352,  88, 22f), (3,  11, 304, 124, 46f),
+            (4,  17, 616, 132, 33f), (5,  11, 376, 100, 25f), (6,  16, 616, 148, 37f),
+            (7,  11, 392,  82, 52f), (8,  13, 400, 124, 46f), (9,  15, 536, 116, 29f),
+            (10, 13, 448, 120, 30f), (11, 10, 352,  80, 89f), (12, 18, 680, 164, 41f),
+        };
+
+        var levels = AssetDatabase.FindAssets("t:LevelDefinitionSO")
+            .Select(AssetDatabase.GUIDToAssetPath)
+            .Select(AssetDatabase.LoadAssetAtPath<LevelDefinitionSO>)
+            .Where(l => l != null && !l.isTestLevel)
+            .ToDictionary(l => l.levelNumber);
+
+        int checkedLevels = 0, bodiesBefore = 0, bodiesAfter = 0;
+        string worst = null;
+        foreach (var e in expected)
+        {
+            if (!levels.TryGetValue(e.level, out var lv)) continue;
+            var st = LevelBuilder.BuildInitialState(lv, 1, 1, new System.Random(12345));
+            int hp = st.EnemyUnits.Sum(u => u.Hp);
+            int dmg = st.EnemyUnits.Sum(u => u.Definition.damage * u.Definition.projectilesPerVolley);
+            float sdmg = st.EnemyUnits.Sum(u => u.Definition.damage
+                                              * u.Definition.projectilesPerVolley
+                                              * u.Definition.structureDamageMultiplier);
+            checkedLevels++;
+            bodiesBefore += e.unitsBefore;
+            bodiesAfter += st.EnemyUnits.Count;
+            if (worst == null && (hp != e.hp || dmg != e.volleyDmg
+                                  || Mathf.Abs(sdmg - e.structDmg) > 0.01f))
+                worst = $"L{e.level} hp {hp} (was {e.hp}), volley {dmg} (was {e.volleyDmg}), " +
+                        $"structure {sdmg:F1} (was {e.structDmg:F1})";
+        }
+
+        Check(checkedLevels == expected.Length && worst == null,
+              $"the crowd split moved BODIES and nothing else — {checkedLevels}/{expected.Length} " +
+              $"levels, {bodiesBefore} bodies -> {bodiesAfter}, every level's HP, volley damage " +
+              $"and structure damage unchanged" + (worst == null ? "" : $" [{worst}]"));
+
+        // THE PROJECTILE POOL IS SHARED PER TYPE AND OVERFLOWS SILENTLY — BattleRunner's draw
+        // loop skips any round past the end of the pool, so it flies and damages while drawing
+        // nothing. The crowd split more than doubled the enemy's rounds in the air (L12: ~23 ->
+        // 51), so this measures the real peak across the campaign against the real constant
+        // rather than against a copy of it.
+        {
+            int worstCount = 0;
+            string worstWhere = "none";
+            foreach (var lv in AssetDatabase.FindAssets("t:LevelDefinitionSO")
+                         .Select(AssetDatabase.GUIDToAssetPath)
+                         .Select(AssetDatabase.LoadAssetAtPath<LevelDefinitionSO>)
+                         .Where(l => l != null && !l.isTestLevel))
+            {
+                var st = LevelBuilder.BuildInitialState(lv, 1, 1, new System.Random(12345));
+                foreach (var g in st.EnemyUnits.GroupBy(u => u.Definition.projectileType))
+                {
+                    int n = g.Sum(u => u.Definition.projectilesPerVolley);
+                    if (n > worstCount) { worstCount = n; worstWhere = $"L{lv.levelNumber} {g.Key}"; }
+                }
+            }
+            Check(worstCount < BattleRunner.ProjectilePoolSize,
+                  $"no volley can outrun the projectile pool — worst is {worstWhere} at " +
+                  $"{worstCount} rounds against a pool of {BattleRunner.ProjectilePoolSize}");
+        }
+
+        // Every crowd body must survive an incendiary tick, or the burn is a wipe.
+        const int burn = 8;
+        var frailest = AssetDatabase.FindAssets("t:UnitDefinitionSO")
+            .Select(AssetDatabase.GUIDToAssetPath)
+            .Select(AssetDatabase.LoadAssetAtPath<UnitDefinitionSO>)
+            .Where(u => u != null && u.name.EndsWith("Crowd"))
+            .OrderBy(u => u.maxHp).FirstOrDefault();
+        Check(frailest != null && frailest.maxHp > burn,
+              $"the frailest crowd body outlives one incendiary tick — " +
+              $"{(frailest == null ? "no crowd variants found" : $"{frailest.name} {frailest.maxHp} hp vs burn {burn}")}");
+    }
+
     static void CheckNobodyOverlaps()
     {
         // A body is ~0.21 wide in legacy units. Half of that is the floor: closer than half a

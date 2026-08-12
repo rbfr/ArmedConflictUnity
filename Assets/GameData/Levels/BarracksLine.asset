@@ -29,14 +29,14 @@ MonoBehaviour:
     anchorZ: 0.4
     standingOnStructureId: 
     advancePerTurn: 0
-  - definition: {fileID: 11400000, guid: b51688fb293b69e5cab2885bcaa975b8, type: 2}
-    count: 3
+  - definition: {fileID: 11400000, guid: 83aeca5cec8486eaf95c85703d65c4e7, type: 2}
+    count: 6
     anchorX: 4.8
     anchorZ: 0.12
     standingOnStructureId: barracks
     advancePerTurn: 0
-  - definition: {fileID: 11400000, guid: c7126b62e544121fe916bb99493e2264, type: 2}
-    count: 3
+  - definition: {fileID: 11400000, guid: 4322cf73032452a0796c7d5fc72887e6, type: 2}
+    count: 6
     anchorX: 7.8
     anchorZ: 0.12
     standingOnStructureId: platform
@@ -77,8 +77,8 @@ MonoBehaviour:
     x: 7.8
     y: 0
     z: 0
-    collapseWith:
-    restsOn:
+    collapseWith: 
+    restsOn: 
     standWidth: -1
     hasStandWidth: 0
     hpScale: 1

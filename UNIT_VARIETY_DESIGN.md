@@ -786,17 +786,156 @@ against the old builder and the current level data:
 
 ### Deck FILL is measured, and it is the open question
 
-Garrisons occupy **12-56% of their deck, most of them 12-25%** — L2, L6, L8, L10, L11 and L12's
-main tier all sit at 12%. This is the "small clump on a wide deck" this document already names,
-and it is NOT a spacing bug: pitch was derived against the reference in the 2026-08-02 pass and
-measures correctly. The cause is that the body shrank 0.77 -> 0.48 while `standWidth` is real
-structure geometry and did not, so the same deck now holds a smaller clump.
+Garrisons occupy **15-69% of their deck, most of them 16-34%** — L2, L8, L10, L11's GarrisonPost
+and L12's wide tier are the worst, at 15-16%. This is the "small clump on a wide deck" this
+document already names, and it is NOT a spacing bug: pitch was derived against the reference in
+the 2026-08-02 pass and measures correctly. The body shrank 0.77 -> 0.48 while `standWidth` is
+real structure geometry and did not, so the same deck now holds a smaller clump.
 
 **Do not fix it by spreading the row** — that is the 2026-07-25 mistake, and this document already
 records it. The reference runs ~15 per rank; ours run 3-8. Filling a tier is a ROSTER-SIZE
 question and therefore a balance question, which is why it is written down here rather than
 applied: it needs Rob's call, not a constant.
 
+*(The percentages above were re-measured on 2026-08-12 with `DeckFillReport` and are a little
+different from the 12-56% first written here by hand. The instrument is the number now.)*
+
+### Shrinking the STRUCTURES cannot fix it — measured and closed, 2026-08-12
+
+The obvious mirror fix — the body shrank and the buildings did not, so shrink the buildings —
+was measured before it was applied, and **the arithmetic kills it.** `DeckFillReport` sweeps a
+hypothetical scale factor over every garrisoned deck in the campaign.
+
+**A single global factor cannot work, because the decks are already 4.6x inconsistent with their
+own garrisons**: L6's MountainBunker is at 69% while L12's FortressTierWide is at 15%. Any one
+factor overflows the tight decks before it fills the loose ones — at x0.62 the campaign spans
+25% to 111%, and past 100% the garrison no longer fits and `Formation.Mounted` starts compressing
+it.
+
+**And per-structure factors are worse, because of how small they have to be.** What each deck
+would have to shrink to for its CURRENT garrison to fill it to 75%:
+
+| | deck now | needs | factor |
+|---|---|---|---|
+| L2/L8/L10/L11 GarrisonPost | 3.13 | 0.67 | **x0.22** |
+| L12 FortressTierWide | 4.50 | 0.92 | **x0.21** |
+| L4/L7/L9 BarracksBlock | 2.25 | 0.67 | x0.30 |
+| L6 FortressTier | 3.00 | 0.92 | x0.31 |
+| L3/L5 CommandBunker | 2.13 | 0.92 | x0.43 |
+
+**The scale is uniform, so that is a height cut too.** Every enemy structure is drawn
+`Vector3.one * worldScale` in `LevelScenery` — there is no per-axis squash — so GarrisonPost at
+x0.22 is 0.55 units TALL, against a soldier's 0.48. The building would be the height and the width
+of the men standing on it. That is not a dominant structure, and rule 3 is built on there being
+one.
+
+**The reason it fails is worth keeping, because it inverts the framing.** Our decks are already
+sized like the reference's: a 3.13 deck seats **17 per rank** at the derived pitch, and the
+reference runs ~15. **The geometry is right and the roster is a third of the size.** Shrinking
+the building would make it un-reference-like in order to hide a roster gap, which is the
+2026-07-25 mistake pointing the other way.
+
+So the option list is back to two, and both are roster calls: more bodies at full strength (a real
+difficulty change on twelve signed-off levels), or more bodies at split strength (constant damage
+and HP, ~250 entities instead of 99, and a crowd stat variant per garrisoned class).
+
+`DeckFillReport.Run` is the instrument and it only measures — it never edits an asset:
+
+```bash
+DISPLAY=:1 $U -batchmode -quit -projectPath . -executeMethod DeckFillReport.Run -logFile -
+```
+
+
+## Tier 2.2, part four — the crowd split, 2026-08-12
+
+**Every garrisoned group became MORE, WEAKER bodies, and nothing else moved.** A rifleman's 32 hp /
+8 damage becomes two crowd bodies at 16/4; a machine gunner's 40/4 becomes two at 20/2; a
+grenadier's 24/6 becomes two at 12/3. 155 garrisoned bodies became 248. `CrowdSplit.Apply` is the
+authoring step, idempotent and re-runnable.
+
+**The invariant is CONSTANT OUTPUT and it was proved, not asserted.** Every level was built twice —
+once on the original data and once on the split — and all three totals came back identical on all
+twelve levels:
+
+```
+              BEFORE                          AFTER
+L1   units= 9 hp=288 dmg= 72 struct=18   units=14 hp=288 dmg= 72 struct=18
+L12  units=18 hp=680 dmg=164 struct=41   units=26 hp=680 dmg=164 struct=41
+```
+
+`BalanceAudit.Report` is **byte-identical across all 61 findings** — every race ratio, every siege
+verdict, every reach rule. That is the control shot for "no level Rob has signed off gets harder".
+
+### What the split actually bought
+
+The wide decks — the ones this document has complained about since 2026-08-02 — roughly doubled:
+
+| | before | after |
+|---|---|---|
+| L2/L8/L10/L11 GarrisonPost | 16% | **34%** |
+| L12 FortressTierWide | 15% | **32%** |
+| L4/L9 BarracksBlock | 22% | **47%** |
+| L6 FortressTier | 23% | **42%** |
+| L1 Outpost | 34% | **59%** |
+
+**On the NARROW decks the split buys a second RANK instead of width, and the fill number cannot
+see it.** A 3-man row and a 6-man double row have the same span, so L3's WatchTower still reads
+34% while now standing two deep. That is the reference's tier shape, not a failure — but it is why
+the percentages understate the change, and why the device is the arbiter.
+
+### Three constraints picked the factors, and each cost a run to find
+
+- **The factor must divide HP and damage EXACTLY.** A remainder silently retunes the level the
+  split was supposed to leave alone.
+- **No crowd body may fall to the incendiary burn's 8 damage.** The first table split the sniper
+  x2 and the grenadier x3, landing both on exactly 8 hp — and `PortSelfTest`'s roster-frailty
+  check went red immediately, because the burn stopped CHIPPING and started one-shotting. **The
+  sniper is therefore not split at all** (16 only halves to 8) and loses nothing: both its
+  garrisons sit on 1.50 decks where the split bought a rank, not width. The grenadier took x2.
+- **The 7-30 roster scale is a LOCK.** Splitting both of L12's garrisons took it to 31.
+  `CrowdSplit` now takes groups worst-clump-first and skips any split that would breach the lock,
+  so L12 splits its citadel — the dominant structure and the campaign's worst fill — and leaves
+  its gate alone.
+
+### The one thing that is NOT neutral, measured
+
+Aggregate HP is preserved exactly, but **kills happen per BODY, and the last round into each body
+wastes its overkill.** A 40 hp machine gunner takes exactly 5 rifle rounds; two 20 hp ones take
+3 + 3 = 6. Riflemen are unaffected (16 and 32 are both multiples of 8), which is why the bulk of
+the campaign does not move:
+
+```
+rounds to clear the roster, at 8 damage a round
+L1 36->36   L2 44->44   L3 38->38   L4 77->81   L5 47->50   L6 77->82
+L7 49->52   L8 50->50   L9 67->70   L10 56->60  L11 44->47  L12 85->85
+campaign 670 -> 695  (+3.7%)
+```
+
+So seven levels want **3-5 more rounds**, a third to a half of one player volley, and five are
+untouched. It is one-directional and small, and there is no factor that removes it: 40 has no
+divisor that is both burn-safe and a multiple of 8. **`BalanceAudit` models HP in aggregate and
+cannot see this at all** — it is recorded here because a measured 3.7% is a fact and an unmeasured
+one is a surprise.
+
+### Two traps this did not fall into, both because the shapes were already here
+
+- **The crowd variants share their parent's `modelAsset`**, which is what `BattleRunner
+  .UnitClassKey` keys on — so they reuse the same prefab and the same data-sized slot pool, and
+  **no scene rebuild is needed.** A new class key would have fallen through to the generic enemy
+  prefab and quietly re-skinned every garrison.
+- **They are separate definitions rather than a per-entity stat override.** `UnitEntity` reads its
+  stats off `Definition` in eight places, and "grep for EVERY READER" is a trap this repo has paid
+  for twice already (`flagMount.scale`, `standingYFor`).
+
+**The projectile pool had to grow, and its overflow is SILENT.** The draw loop skips any round past
+the end of the pool while it still flies and still damages. L12's enemy volley went from ~23
+bullets to 51 against a pool of 64, so `ProjectilePoolSize` is **96** and `PortSelfTest` now
+measures the real campaign peak against the real constant. Negative run at 48:
+`worst is L12 Bullet at 51 rounds against a pool of 48`.
+
+**Rob has not seen this on a device.** Deck fill is a presentation change and this document's own
+"honest limit" applies to it exactly as it does to the seven silhouette attempts: measurement
+predicts legibility, it does not prove it.
 
 ## Tier 2.2, part three — a structure's ANCHOR is not its EDGE, 2026-08-11
 

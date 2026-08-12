@@ -23,14 +23,14 @@ MonoBehaviour:
     anchorZ: 0
     standingOnStructureId: 
     advancePerTurn: 0
-  - definition: {fileID: 11400000, guid: 0cc2a054cb1b0b38086ae4f985d09207, type: 2}
-    count: 4
+  - definition: {fileID: 11400000, guid: 036d9a98cc0865381abf17644193b6cd, type: 2}
+    count: 8
     anchorX: 2.5
     anchorZ: 0.12
     standingOnStructureId: shell
     advancePerTurn: 0
-  - definition: {fileID: 11400000, guid: b51688fb293b69e5cab2885bcaa975b8, type: 2}
-    count: 6
+  - definition: {fileID: 11400000, guid: 83aeca5cec8486eaf95c85703d65c4e7, type: 2}
+    count: 12
     anchorX: 6
     anchorZ: 0.12
     standingOnStructureId: depot
@@ -100,11 +100,11 @@ MonoBehaviour:
     telegraphLeadTurns: 2
   staticCamera: 0
   isTestLevel: 0
-  designNotes: 'Beat 10: a clock, and the beat chart names its length - "armor in 2
-    turns". The lead is 2 rather than 1 for that reason: one turn is a heads-up you
-    can only brace for, two is long enough to change what you are shooting at and
-    still have a volley left to do it with, which is the whole "kill priority vs clock"
-    beat. The strip counts down live (2 turns, then 1 turn) because a warning holding
-    the same number for two turns says the clock has stopped. This is the first level
-    in the project to fire a ReinforcementWave; its telegraph and announcement were
-    imported and displayed nowhere from the port until Phase F.'
+  designNotes: 'Beat 10: a clock, and the beat chart names its length - "armor in
+    2 turns". The lead is 2 rather than 1 for that reason: one turn is a heads-up
+    you can only brace for, two is long enough to change what you are shooting at
+    and still have a volley left to do it with, which is the whole "kill priority
+    vs clock" beat. The strip counts down live (2 turns, then 1 turn) because a warning
+    holding the same number for two turns says the clock has stopped. This is the
+    first level in the project to fire a ReinforcementWave; its telegraph and announcement
+    were imported and displayed nowhere from the port until Phase F.'

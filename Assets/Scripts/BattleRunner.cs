@@ -84,7 +84,18 @@ public class BattleRunner : MonoBehaviour
     [SerializeField] Material playerGearMaterial;
 
     const int UnitPoolSize = 48;
-    const int ProjectilePoolSize = 64;
+
+    /// <summary>
+    /// Per TYPE, and it is slack rather than a bound — a round past the end of the pool is
+    /// SILENTLY DROPPED FROM RENDER by the draw loop while it still flies and still does damage,
+    /// which is the worst failure shape available here.
+    ///
+    /// 96 since the crowd split (Tier 2.2 part four) doubled every garrison: L12's enemy volley
+    /// puts 51 bullets in the air where it used to put ~23, and 64 left 13 of headroom on a
+    /// number that grows with any future garrison. PortSelfTest measures the real peak across the
+    /// campaign against this constant, so the two cannot drift.
+    /// </summary>
+    public const int ProjectilePoolSize = 96;
 
     GameState state;
     System.Random random;

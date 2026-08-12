@@ -29,14 +29,14 @@ MonoBehaviour:
     anchorZ: 0
     standingOnStructureId: 
     advancePerTurn: 0
-  - definition: {fileID: 11400000, guid: 0cc2a054cb1b0b38086ae4f985d09207, type: 2}
-    count: 3
+  - definition: {fileID: 11400000, guid: 036d9a98cc0865381abf17644193b6cd, type: 2}
+    count: 6
     anchorX: 2.5
     anchorZ: 0.12
     standingOnStructureId: bunker
     advancePerTurn: 0
-  - definition: {fileID: 11400000, guid: b51688fb293b69e5cab2885bcaa975b8, type: 2}
-    count: 6
+  - definition: {fileID: 11400000, guid: 83aeca5cec8486eaf95c85703d65c4e7, type: 2}
+    count: 12
     anchorX: 5.5
     anchorZ: 0.12
     standingOnStructureId: barracks
@@ -111,16 +111,16 @@ MonoBehaviour:
     so for the first time the player is losing on arithmetic and has to win on concentration.
     Win condition is unchanged (roster), which is the point \u2014 it FEELS like
     a defence without being a different game. Two wire props, both slowing, because
-    at this count an unslowed charge arrives before the third volley.
-    Structure hp RETUNED 2026-08-07: bunker and barracks both hpScale 0.7 (180 -> 126, 150
-    -> 105), garrisoned total 330 -> 229. Measured on device at 330: THREE runs, three
+    at this count an unslowed charge arrives before the third volley. Structure hp
+    RETUNED 2026-08-07: bunker and barracks both hpScale 0.7 (180 -> 126, 150 ->
+    105), garrisoned total 330 -> 229. Measured on device at 330: THREE runs, three
     total defeats - once the three tank shells were spent the squad did about 8 structure
     damage a volley while losing about one unit a volley, so the 13 garrisoned enemies
-    could never be reached.
-    Enemy roster CUT 22 -> 15 on 2026-08-07 (shields 6->4, forward rifles 3->2, bunker
-    gunners 5->3, barracks rifles 8->6). Two reasons. It fielded 22 against the player's
-    10, the widest body ratio in the campaign, and a 22-body line out-shoots a 10-body
-    line every turn however the walls are tuned - the volley race flagged this level worst
-    at 4.1x. And the garrisons were over the decks they stand on: LEVEL_AUTHORING's
-    capacity table rates a MountainBunker at ~2 and a BarracksBlock at ~4, and this level
-    had 5 and 8 on them. Garrison stays the majority at 9 of 15."
+    could never be reached. Enemy roster CUT 22 -> 15 on 2026-08-07 (shields 6->4,
+    forward rifles 3->2, bunker gunners 5->3, barracks rifles 8->6). Two reasons.
+    It fielded 22 against the player's 10, the widest body ratio in the campaign,
+    and a 22-body line out-shoots a 10-body line every turn however the walls are
+    tuned - the volley race flagged this level worst at 4.1x. And the garrisons were
+    over the decks they stand on: LEVEL_AUTHORING's capacity table rates a MountainBunker
+    at ~2 and a BarracksBlock at ~4, and this level had 5 and 8 on them. Garrison
+    stays the majority at 9 of 15."

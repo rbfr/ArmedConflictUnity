@@ -23,8 +23,8 @@ MonoBehaviour:
     anchorZ: 0
     standingOnStructureId: 
     advancePerTurn: 0
-  - definition: {fileID: 11400000, guid: b51688fb293b69e5cab2885bcaa975b8, type: 2}
-    count: 4
+  - definition: {fileID: 11400000, guid: 83aeca5cec8486eaf95c85703d65c4e7, type: 2}
+    count: 8
     anchorX: 2
     anchorZ: 0.12
     standingOnStructureId: bunker
@@ -35,14 +35,14 @@ MonoBehaviour:
     anchorZ: 0.4
     standingOnStructureId: 
     advancePerTurn: 0
-  - definition: {fileID: 11400000, guid: b51688fb293b69e5cab2885bcaa975b8, type: 2}
-    count: 2
+  - definition: {fileID: 11400000, guid: 83aeca5cec8486eaf95c85703d65c4e7, type: 2}
+    count: 4
     anchorX: 6
     anchorZ: 0.12
     standingOnStructureId: keep
     advancePerTurn: 0
-  - definition: {fileID: 11400000, guid: 0cc2a054cb1b0b38086ae4f985d09207, type: 2}
-    count: 5
+  - definition: {fileID: 11400000, guid: 036d9a98cc0865381abf17644193b6cd, type: 2}
+    count: 10
     anchorX: 6
     anchorZ: 0.12
     standingOnStructureId: keep
@@ -121,8 +121,7 @@ MonoBehaviour:
     fired \u2014 the keep falling spawns the Citadel Sovereign (260 hp) and a heavy
     escort, so the level does not end when the structure does. Biome reuses Mountains
     from beat 1 on purpose: same ground, a fortress instead of a hut, which is the
-    clearest possible read on how far the player has come.
-    Structure hp RETUNED 2026-08-07: bunker and keep both hpScale 0.66 (180 -> 118, 212 ->
-    139), garrisoned total 392 -> 257. Scaled TOGETHER so the keep stays the dominant
-    structure; 257 leaves a stage boss less slack than the levels before it, which is the
-    point."
+    clearest possible read on how far the player has come. Structure hp RETUNED 2026-08-07:
+    bunker and keep both hpScale 0.66 (180 -> 118, 212 -> 139), garrisoned total
+    392 -> 257. Scaled TOGETHER so the keep stays the dominant structure; 257 leaves
+    a stage boss less slack than the levels before it, which is the point."

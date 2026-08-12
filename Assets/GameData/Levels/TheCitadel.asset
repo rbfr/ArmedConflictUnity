@@ -35,8 +35,8 @@ MonoBehaviour:
     anchorZ: 0.4
     standingOnStructureId: 
     advancePerTurn: 0
-  - definition: {fileID: 11400000, guid: b51688fb293b69e5cab2885bcaa975b8, type: 2}
-    count: 8
+  - definition: {fileID: 11400000, guid: 83aeca5cec8486eaf95c85703d65c4e7, type: 2}
+    count: 16
     anchorX: 6
     anchorZ: 0.12
     standingOnStructureId: citadel
@@ -116,10 +116,10 @@ MonoBehaviour:
     The wide fortress tier is the largest structure in the game (6.0 wide, 250 hp)
     and its fall is the loudest moment the campaign has; the Sovereign and a shield
     escort walk out of the rubble, so the last volley of the arc is fired at something
-    that was not on the field when it started.
-    Structure hp RETUNED 2026-08-07: gate and citadel both hpScale 0.66 (175 -> 115, 250
-    -> 165; the 250 quoted above is the DEFINITION, not this placement), garrisoned total
-    425 -> 280. The tightest margin in the campaign against the 288 a stock squad can do,
-    which is correct for the finale: it demands all three shells on target. Measured on
-    device at 425: defeat, with 9 enemies still up and 231 structure hp left when the
-    squad was gone."
+    that was not on the field when it started. Structure hp RETUNED 2026-08-07: gate
+    and citadel both hpScale 0.66 (175 -> 115, 250 -> 165; the 250 quoted above is
+    the DEFINITION, not this placement), garrisoned total 425 -> 280. The tightest
+    margin in the campaign against the 288 a stock squad can do, which is correct
+    for the finale: it demands all three shells on target. Measured on device at
+    425: defeat, with 9 enemies still up and 231 structure hp left when the squad
+    was gone."

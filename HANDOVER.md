@@ -1,4 +1,4 @@
-# Handover — Unity, as of the close of 2026-08-11 (THIRD session that day)
+# Handover — Unity, as of 2026-08-12
 
 ## START HERE
 
@@ -34,12 +34,19 @@
 - **TIER 2.2's HERO HALF IS BUILT BUT NOT RE-CONFIRMED BY ROB.** He rejected the first placement
   on the device — *"heroes are behind the structure... really tough to hit"* — and the fix (rule 8,
   below) has only been verified by me. **That is the top item on the list.**
+- **TIER 2.2's CROWD HALF IS BUILT TOO (2026-08-12) AND ALSO UNSEEN BY ROB.** Every garrison was
+  split into more, weaker bodies — 155 -> 248 — at **constant HP, damage and structure damage**,
+  proved by building all twelve levels on both data sets and by a `BalanceAudit` run that is
+  byte-identical across all 61 findings. The wide decks roughly doubled their fill (GarrisonPost
+  16% -> 34%, BarracksBlock 22% -> 47%). **Shrinking the STRUCTURES was tried first and the
+  arithmetic killed it** — see "The crowd split" below. Both halves of 2.2 want the same device
+  session.
 - **RIGS IS THE TEST SUPPLY FOR BOTH CONSUMABLES AND CAMO** — every item free to equip, every camo
   free to wear, nothing spent and nothing written to the economy or the wardrobe. Use it: the
   release build is not debuggable, `run-as` cannot reach PlayerPrefs, and the test protocol is
   uninstall/reinstall — so without it, verifying one consumable costs a ~250-coin re-earn per
   build and one camo costs up to 400.
-- **609 self-test checks, all passing — run `PortSelfTest.Run` after every change.** It was 281 at
+- **625 self-test checks, all passing — run `PortSelfTest.Run` after every change.** It was 281 at
   the start of 2026-08-06, 411 at the end of it, 444 on 2026-08-07, 539 after the Tier 1.2 and
   glyph-coverage blocks, 559 with the flame and the Auto-ammo pair, 576 with Tier 1.3's
   consumables, 582 with the airstrike's aircraft, 585 with its strafing burst, 587 with the burst's
@@ -47,7 +54,11 @@
   rake-coverage, aim-independence, whole-burst and impact-alignment checks, 599 with Tier 2.1's
   seven faction checks, 606 with Tier 2.4's camo block, and 607/608/609 with Tier 2.2's
   hero-staging, deck-overlap and collision-box checks — the last of those written because Rob
-  found the bug on a device. **Assert related facts TOGETHER** —
+  found the bug on a device — and **625** after 2026-08-12's crowd split. That last jump is +16 for three new
+  checks (crowd-split balance, projectile-pool headroom, crowd frailty) because several existing
+  assertions are DATA-DRIVEN and log per body — **this count moves when the level data moves**,
+  which is worth knowing before treating a changed number as a lost check. It was measured on
+  both sides of the change, not extrapolated. **Assert related facts TOGETHER** —
   Tier 1.3's block was first written as 50 assertions over 307 lines and is 18 over 232, with the
   same nine breakages still caught. A failure message naming three properties is as diagnostic as
   three checks, and this file is read by people.
@@ -67,17 +78,22 @@ else. **His judgment in moving play is the only arbiter that has ever settled a 
 question in this project**, and `UNIT_VARIETY_DESIGN.md` records seven attempts that skipped it and
 were wrong. Build, install, look at those four levels.
 
-**2. TIER 2.2 STILL OWES THE CROWD HALF, and it needs a DECISION from Rob before any code.**
-Garrisons occupy **12-56% of their deck, most of them 12-25%** — measured. This is not a spacing
-bug: pitch was derived against the reference game in the 2026-08-02 pass and measures correctly.
-The body shrank 0.77 -> 0.48 while `standWidth` is real structure geometry and did not.
-**Filling a tier is a ROSTER-SIZE question and therefore a balance question**, on levels Rob has
-already signed off. The reference runs ~15 per rank; ours run 3-8. **Do NOT fix it by spreading the
-row** — that is the 2026-07-25 mistake and `UNIT_VARIETY_DESIGN.md` records it. Ask first.
+**2. GET ROB'S EYES ON THE CROWD SPLIT TOO — same build as item 1.** Tier 2.2's crowd half shipped
+2026-08-12 and nobody has looked at it in motion. It is presentation, so `UNIT_VARIETY_DESIGN.md`'s
+"honest limit" applies to it exactly as to the seven silhouette attempts: measurement predicts
+legibility, it does not prove it. **The two things to judge are whether a garrison now reads as a
+CROWD, and whether 34% fill on the widest decks is enough** — doubling again (rifleman x4 at 8hp/2)
+is exact and burn-safe, so "more" is a one-line change to `CrowdSplit.Factors`, but the second rank
+it would add is invisible in the fill number and only the device can settle it.
 
-Before any crowd/art pass, read `UNIT_VARIETY_DESIGN.md`'s "honest limit" twice: stance, faces and
-limb fold each cleared "is it correct" and failed "does it survive the frame", and the only changes
-that ever DID read were large-scale layout.
+Also worth knowing before touching it: **the sniper is deliberately not split** (16 hp only halves
+to 8, and the incendiary burn is 8 — it would stop chipping and start one-shotting), and **L12's
+gate is deliberately not split** (both its garrisons would take the roster to 31, past the locked
+7-30). Both are enforced in `CrowdSplit`, not just remembered.
+
+Before any further crowd/art pass, read `UNIT_VARIETY_DESIGN.md`'s "honest limit" twice: stance,
+faces and limb fold each cleared "is it correct" and failed "does it survive the frame", and the
+only changes that ever DID read were large-scale layout.
 
 **3. TIER 2.3 — keep the roster mechanic-distinct.** Unclaimed, and likely a short AUDIT rather
 than a build: six pickable classes, the question is only whether any two play the same.
@@ -157,6 +173,72 @@ Everything below "Pick up here" is HISTORY, newest first: the three 2026-08-11 s
 "The workflow", "Traps already paid for"** and **"Open items"/"Things that will bite"**, which are
 the parts that are still TRUE rather than still interesting. The closed 2026-08-05/06 port entries
 are in `HANDOVER_ARCHIVE.md`.
+
+### What 2026-08-12 changed — Tier 2.2's crowd half, and an approach that died to arithmetic
+
+**The measurement came before the edit, and it is what saved the session.** The obvious fix for
+"a small clump on a wide deck" is the mirror of the cause — the body shrank 0.77 -> 0.48 and the
+buildings did not, so shrink the buildings. Rob picked that option. **`DeckFillReport` then killed
+it in one run**, and the numbers are worth carrying because the reasoning generalises:
+
+- **No single factor works**: the decks are already 4.6x inconsistent with their own garrisons
+  (L6's MountainBunker 69%, L12's FortressTierWide 15%), so any global shrink overflows the tight
+  decks before it fills the loose ones.
+- **Per-structure factors are worse.** For each deck's CURRENT garrison to fill it, GarrisonPost
+  needs **x0.22** and FortressTierWide **x0.21**.
+- **And the scale is uniform** — `LevelScenery` draws every enemy structure as
+  `Vector3.one * worldScale`, there is no per-axis squash — so GarrisonPost at x0.22 stands **0.55
+  units tall against a soldier's 0.48**. The building would be the size of the men on it, and
+  rule 3 is built on there being one dominant structure.
+
+**The inversion is the part to keep: our decks are already sized like the reference's.** A 3.13
+deck seats 17 per rank at the derived pitch and the reference runs ~15. The geometry was never
+wrong; the roster is a third of the size. Shrinking the building would have made it un-reference-
+like in order to hide a roster gap.
+
+**So the crowd split is what shipped**: every garrisoned group becomes more, weaker bodies at
+constant HP, damage and structure damage. 155 garrisoned bodies -> 248. Full write-up, tables and
+traps in `UNIT_VARIETY_DESIGN.md` "Tier 2.2, part four". What belongs here:
+
+**THE INVARIANT WAS PROVED, NOT ASSERTED.** Every level was built on both data sets and all three
+totals matched on all twelve; `BalanceAudit.Report` came back **byte-identical across all 61
+findings**. That is the control shot for "no level Rob has signed off gets harder", and it is the
+only reason this was safe to apply to signed-off content at all.
+
+**THREE CONSTRAINTS PICKED THE FACTORS, AND TWO OF THEM WERE FOUND BY A CHECK GOING RED:**
+
+- The factor must divide HP and damage EXACTLY, or the split silently retunes the level.
+- **No crowd body may fall to the incendiary burn's 8 damage.** The first table split the sniper
+  x2 and the grenadier x3 — both land on exactly 8 hp — and the roster-frailty check went red
+  immediately: the burn stops CHIPPING and starts one-shotting. That check exists because
+  HANDOVER's own open item asked for it to be anchored to the live roster so it could not expire
+  silently. It earned its keep today. The sniper is now not split at all.
+- **The 7-30 roster scale is a LOCK**, and `LevelComposition` caught L12 at 31. `CrowdSplit` takes
+  groups worst-clump-first and refuses any split that would breach it, so L12 splits its citadel
+  and leaves its gate.
+
+**ONE THING IS NOT NEUTRAL AND IT IS MEASURED RATHER THAN GLOSSED.** Aggregate HP is preserved, but
+kills happen per BODY and the last round into each body wastes its overkill: a 40 hp machine gunner
+takes 5 rifle rounds, two 20 hp ones take 6. Riflemen are unaffected (16 and 32 are both multiples
+of 8). Campaign rounds-to-clear **670 -> 695, +3.7%**, concentrated on seven levels at 3-5 rounds
+each — a third to a half of one player volley. Five levels including L12 are untouched. **There is
+no factor that removes it**: 40 has no divisor that is both burn-safe and a multiple of 8. And
+`BalanceAudit` models HP in aggregate, so it cannot see this at all.
+
+**THE PROJECTILE POOL OVERFLOWS SILENTLY, and this change walked up to it.** The draw loop skips
+any round past the end of the pool while it still flies and still damages. L12's enemy volley went
+~23 -> 51 bullets against a pool of 64. `ProjectilePoolSize` is **96** now and `PortSelfTest`
+measures the campaign's real peak against the real constant rather than a copy of it. Negative run
+at 48: `worst is L12 Bullet at 51 rounds against a pool of 48`.
+
+**NO SCENE REBUILD IS NEEDED**, and that is a property of how it was built rather than luck: the
+crowd variants share their parent's `modelAsset`, which is what `BattleRunner.UnitClassKey` keys
+on, so they reuse the same prefab and the same data-sized slot pool. They are separate definitions
+rather than a per-entity stat override because `UnitEntity` reads its stats off `Definition` in
+eight places — "grep for EVERY READER" is a trap this repo has paid for twice.
+
+**`DeckFillReport.Run` is the new instrument** and it only measures; `CrowdSplit.Apply` is the
+authoring step and is idempotent.
 
 ### What the SECOND 2026-08-11 session changed — Tier 2.1 and 2.4, the two repaint features
 

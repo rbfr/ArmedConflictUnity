@@ -29,14 +29,14 @@ MonoBehaviour:
     anchorZ: 0
     standingOnStructureId: 
     advancePerTurn: 0
-  - definition: {fileID: 11400000, guid: b51688fb293b69e5cab2885bcaa975b8, type: 2}
-    count: 6
+  - definition: {fileID: 11400000, guid: 83aeca5cec8486eaf95c85703d65c4e7, type: 2}
+    count: 12
     anchorX: 4.8
     anchorZ: 0.12
     standingOnStructureId: block
     advancePerTurn: 0
-  - definition: {fileID: 11400000, guid: 0cc2a054cb1b0b38086ae4f985d09207, type: 2}
-    count: 4
+  - definition: {fileID: 11400000, guid: 036d9a98cc0865381abf17644193b6cd, type: 2}
+    count: 8
     anchorX: 7.2
     anchorZ: 0.12
     standingOnStructureId: checkpoint

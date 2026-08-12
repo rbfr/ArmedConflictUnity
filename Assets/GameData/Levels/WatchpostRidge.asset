@@ -23,8 +23,8 @@ MonoBehaviour:
     anchorZ: 0
     standingOnStructureId: 
     advancePerTurn: 0
-  - definition: {fileID: 11400000, guid: b51688fb293b69e5cab2885bcaa975b8, type: 2}
-    count: 4
+  - definition: {fileID: 11400000, guid: 83aeca5cec8486eaf95c85703d65c4e7, type: 2}
+    count: 8
     anchorX: 5.5
     anchorZ: 0.12
     standingOnStructureId: bunker
@@ -106,10 +106,10 @@ MonoBehaviour:
     \u2014 the player must choose between the near bunker and the real threat. Bunker
     moved 3.8 -> 5.5 to bring tank->dominant separation from 13.3 into range. Rule
     7 warns and is ACCEPTED: the back rank (the tank crew) needs 103% power to reach
-    the snipers, so its 2 rounds fall short while the front rank reaches at 92%. The
-    snipers being the furthest AND highest target is the beat; pulling them in to
-    silence the warning is pulling the level's teeth.
-    Structure hp RETUNED 2026-08-07: bunker hpScale 0.5 (250 -> 125), garrisoned total 340
-    -> 215. A stock squad can only ever do 288 structure damage in a battle (3 tank shells
-    x 96; a rifleman does 2), so a garrison behind more than that cannot be dug out at
-    stock. The bunker takes the cut because the TOWER snipers are the beat."
+    the snipers, so its 2 rounds fall short while the front rank reaches at 92%.
+    The snipers being the furthest AND highest target is the beat; pulling them in
+    to silence the warning is pulling the level's teeth. Structure hp RETUNED 2026-08-07:
+    bunker hpScale 0.5 (250 -> 125), garrisoned total 340 -> 215. A stock squad can
+    only ever do 288 structure damage in a battle (3 tank shells x 96; a rifleman
+    does 2), so a garrison behind more than that cannot be dug out at stock. The
+    bunker takes the cut because the TOWER snipers are the beat."

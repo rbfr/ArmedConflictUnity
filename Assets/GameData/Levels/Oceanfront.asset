@@ -29,14 +29,14 @@ MonoBehaviour:
     anchorZ: 0.4
     standingOnStructureId: 
     advancePerTurn: 0
-  - definition: {fileID: 11400000, guid: b51688fb293b69e5cab2885bcaa975b8, type: 2}
-    count: 3
+  - definition: {fileID: 11400000, guid: 83aeca5cec8486eaf95c85703d65c4e7, type: 2}
+    count: 6
     anchorX: 6
     anchorZ: 0.12
     standingOnStructureId: beach_post
     advancePerTurn: 0
-  - definition: {fileID: 11400000, guid: 0cc2a054cb1b0b38086ae4f985d09207, type: 2}
-    count: 3
+  - definition: {fileID: 11400000, guid: 036d9a98cc0865381abf17644193b6cd, type: 2}
+    count: 6
     anchorX: 6
     anchorZ: 0.12
     standingOnStructureId: beach_post
@@ -89,7 +89,7 @@ MonoBehaviour:
       count: 3
       anchorX: 8
       anchorZ: 0
-      standingOnStructureId:
+      standingOnStructureId: 
       advancePerTurn: 0
     announcement: Their best are on the beach!
     telegraphLabel: Elite squad inbound
@@ -101,15 +101,14 @@ MonoBehaviour:
     than a stale flag, so this is the skill version. Rocket troopers and heavies
     on one post: everything is either fragile-and-dangerous or tough-and-slow, and
     the player has to sort them under a turn limit of their own patience. Was a 6v6
-    stub with no payout that broke the locked 7-30 roster scale.
-    Wave added 2026-08-07 (Tier 1.2 schedule). This was the only stage-2 level the
-    audit called NO MECHANIC, and the beat chart names its own fallback - "else elite
-    push" - so the push is delivered as a TELEGRAPHED wave rather than as three more
-    bodies in the opening formation. Three heavies on turn 4, warned from turn 2, is
-    what turns the focus-fire exam into a timed one: sort the rockets from the heavies
-    BEFORE the reinforcement lands, or sort a bigger problem afterwards. The lead is
-    2 to match L10, so the campaign teaches one clock, not two.
-    Ground units at x 8, NOT garrisoned: the beach post is already at 288-capacity
-    limits and a wave that had to be shot off a deck would spend siege damage the
-    squad does not have. Waves are enemy-side only, so the star math (player-roster
-    based) is untouched.'
+    stub with no payout that broke the locked 7-30 roster scale. Wave added 2026-08-07
+    (Tier 1.2 schedule). This was the only stage-2 level the audit called NO MECHANIC,
+    and the beat chart names its own fallback - "else elite push" - so the push is
+    delivered as a TELEGRAPHED wave rather than as three more bodies in the opening
+    formation. Three heavies on turn 4, warned from turn 2, is what turns the focus-fire
+    exam into a timed one: sort the rockets from the heavies BEFORE the reinforcement
+    lands, or sort a bigger problem afterwards. The lead is 2 to match L10, so the
+    campaign teaches one clock, not two. Ground units at x 8, NOT garrisoned: the
+    beach post is already at 288-capacity limits and a wave that had to be shot off
+    a deck would spend siege damage the squad does not have. Waves are enemy-side
+    only, so the star math (player-roster based) is untouched.'
