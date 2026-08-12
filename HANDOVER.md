@@ -2,14 +2,20 @@
 
 ## START HERE
 
-- **EVERYTHING IS COMMITTED. THREE COMMITS ARE NOT PUSHED** — 2026-08-12's Tier 2.2 crowd split
-  (`b6df86d`), its docs fix (`f6ce737`) and the Tier 2.3 work (`c5c2beb`) are on local `main`
-  only, because the ask was "commit", not "push". Everything before those is on
-  `origin/main`: the airstrike rework, Tier 2.1 factions and 2.4 camo, Tier 2.2's hero
-  work, and the docs pass that closed 2026-08-11.
-  **`git status` and `git log --oneline origin/main..HEAD` are the answer, never this bullet** —
-  it was wrong three times on 2026-08-11 alone, each time because it was written true and went
-  stale within the hour. Rob commits and pushes on an explicit ask.
+- **THIS FILE NO LONGER RECORDS WHAT IS COMMITTED OR PUSHED. ASK GIT.**
+
+  ```bash
+  git status --short --branch
+  git log --oneline origin/main..HEAD     # empty means everything is pushed
+  ```
+
+  A sentence naming the unpushed commits was here for four days and was **wrong four times** —
+  on 2026-08-11 three times in one day, and again on 2026-08-12 within minutes of a push. Every
+  time it was written TRUE and went stale on the next command, which is what a snapshot of
+  mutable state does in a document nobody re-reads before editing. It has been deleted rather
+  than corrected a fifth time. **Do not restore it.** What is durable, and all that is worth
+  saying: **Rob commits and pushes on an explicit ask**, so unpushed work is normal and is not a
+  loose end to tidy up unprompted.
   The Android repo's `projectile-refinement` is never being merged; **the Android build is
   RETIRED**, reference only.
 - **THREE SESSIONS RAN ON 2026-08-11 and this file distinguishes them by subject, not by date.**
