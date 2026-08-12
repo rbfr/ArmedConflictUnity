@@ -7,13 +7,20 @@ Moved here from the retired Android repo's `LevelDefinition.kt` on 2026-08-06, w
 authoring moved into Unity. Dozens of comments in that Kotlin still point at "the composition
 rules at the top of the campaign block" — they mean this file now.
 
-`LevelDefinitionInspector` checks rules 1, 2, 3, 5, 6 and 7 live in the inspector. Rule 4 is rule 6's
-measure. A warning there is a warning about the level, not about the tool.
+`LevelDefinitionInspector` checks rules 1, 2, 3, 5, 6, 7 and 8 live in the inspector. Rule 4 is
+rule 6's measure. A warning there is a warning about the level, not about the tool.
 
-**Rule 8 is checked by `PortSelfTest.CheckNobodyStandsInAWall`, NOT by the inspector or by
-`LevelComposition.Report`** — so it fails the suite rather than showing up beside the level you are
-editing. That asymmetry is worth closing when someone is next in `LevelComposition`; it is recorded
-here rather than quietly tolerated.
+**Rule 8 moved into `LevelComposition.CollisionBoxRule` on 2026-08-12**, so all eight rules now
+report in the same place. It used to live only in `PortSelfTest.CheckNobodyStandsInAWall`, which
+meant it failed the SUITE rather than showing up beside the level you were editing — an author saw
+seven rules where there are eight. The suite still asserts it and now DELEGATES to the same
+function, because one rule with two implementations is the second-source-of-truth failure this
+project has already paid for.
+
+**Rule 8 reports as an ERROR, and is the only non-roster error here.** Rules 1-6 are framing
+judgements a level may bend for a reason it records in `designNotes`; rule 8 says a unit the
+player is asked to kill cannot be hit, which is not a thing to bend. `LevelComposition.Report`
+exits 1 on it, as the suite always did.
 
 ---
 
@@ -97,15 +104,39 @@ every box and takes an ordinary shot.
 
 **Rule 7 cannot see this and neither can any of 1–6.** Rule 7 asks whether the roster has the
 POWER to reach a point; there is nothing in its model about what is IN THE WAY. **Reach and a clear
-line are different questions**, and rules 1–7 only ask the first. All twelve levels passed all
+line are different questions**, and rules 1–7 only ask the first.
+**Rule 7 also still measures TURN 0 ONLY**, which rule 8 no longer does — so a wave or boss spawn
+placed out of the ballistic envelope is not caught by anything. That is not theoretical: the first
+attempt at L11's fix moved its wave to anchorX 9 and put a heavy at dx 20.40 against a 20.25 flat
+maximum, and `LevelComposition.Report` stayed green. It was caught by measuring the arrivals
+directly. Extending rule 7 the same way is an open job. All twelve levels passed all
 seven rules while three of them had heroes embedded in masonry.
 
-Two exemptions, both semantic rather than tolerances:
+**The rule covers TURN 0 AND EVERY MID-BATTLE ARRIVAL** — boss phases and reinforcement waves —
+since 2026-08-12. It used to read the initial state alone, and that hole shipped four embedded
+units across three levels plus a shadowed boss: **L6**'s heavy escort had two of three men inside
+the Mountain Bunker, **L10** and **L11**'s turn-4 waves each landed a heavy inside a Garrison Post,
+and **L12**'s Sovereign spawned in the gate's shadow, which is how Rob found it — a finale that
+demands a near-vertical plunge after your tank shells are gone. Arrivals are placed through the
+same `LevelBuilder.BuildUnits` call `BattleTick.Spawn` makes, so the check measures the positions
+the game will actually produce.
+
+**A boss phase's own trigger structures are exempt for that phase**, because they are provably
+rubble by the time it fires. L12's Sovereign spawns dead centre of the citadel it bursts out of;
+flagging that would assert a state the game can never be in. A reinforcement wave has no trigger,
+so it is judged against every structure standing — the worst case, and the one a wave can land
+into.
+
+Two further exemptions, both semantic rather than tolerances:
 
 - **Garrisoned units**, which stand on a deck above every box and are meant to.
 - **ADVANCING units** (`advancePerTurn > 0`), which walk out of the box on their first move. L9's
   shield bearers start 0.01 inside the bunker purely on formation jitter and are hittable from
   turn one. A STATIC unit gets no such reprieve.
+  **This exemption does not verify that the unit actually leaves promptly**, and it is worth
+  knowing before leaning on it: L11's wave, had it been given an advance rather than moved, would
+  have started 0.71 deep and needed THREE turns at 1.2 a turn to clear the box. "Advancing" is not
+  the same claim as "hittable soon", and the check does not currently tell them apart.
 
 Only a box at **lower x** than the target can shadow it, since the shot travels left to right — so
 the practical rule when placing a ground group is: pick the leading EDGE of the foremost structure

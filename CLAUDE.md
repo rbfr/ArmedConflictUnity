@@ -44,7 +44,7 @@ anywhere:
 
 | | |
 |---|---|
-| `LEVEL_AUTHORING.md` | the EIGHT COMPOSITION RULES. Read before authoring or editing any level; 1–7 checked by `LevelComposition.Report`, 8 by `PortSelfTest` |
+| `LEVEL_AUTHORING.md` | the EIGHT COMPOSITION RULES. Read before authoring or editing any level; all eight checked by `LevelComposition.Report` |
 | `PRODUCT_DIRECTION.md` | **what to build next** — retention, dopamine model, campaign packaging, priority stack. Plan product work against this |
 | `GAME_DESIGN_LOCKS.md` | decisions that are CLOSED — turn structure, win/loss, physics, scope |
 | `PROGRESSION_DESIGN.md` | coins, loadout, unlocks, consumables — phased spec + build status |
@@ -119,7 +119,8 @@ DISPLAY=:1 $U -batchmode -quit -projectPath . -executeMethod SandboxLevels.Gener
 `LevelComposition.Report` measures every campaign level by BUILDING it and reading the same
 half-widths the camera uses, so it cannot disagree with the game. The same checks render live in
 the level's inspector. Warnings are advisory — a level may bend a rule for a reason, and that
-reason belongs in its `designNotes`. Errors are the locked 7–30 roster scale.
+reason belongs in its `designNotes`. Errors are the locked 7–30 roster scale and rule 8 — a
+ground unit inside a structure's collision box cannot be hit at all, which is not bendable.
 
 `SandboxLevels.Generate` rebuilds the eight roster/grouping rigs, which are the only GENERATED
 levels. It used to run as a side effect of every import, which is why the level list came from two
@@ -220,7 +221,7 @@ BEAT from `PRODUCT_DIRECTION.md`'s chart, and its `designNotes` says which and w
 Two stages of six (`ValleyFront` 1-6, `EnemyStronghold` 7-12), bosses on 6 and 12.
 
 The eight composition rules live in **`LEVEL_AUTHORING.md`** (moved out of the Kotlin 2026-08-06)
-and rules 1-7 are checked by `LevelComposition.Report`. Shortest form: the Aiming camera frames the
+and all eight are checked by `LevelComposition.Report`. Shortest form: the Aiming camera frames the
 PLAYER LINE ONLY (~6 wide), scout/resolve framing is set by the enemy cluster INCLUDING structure
 edges (under ~11), one dominant structure plus at most two small supports, 14-18 units of
 separation TANK→DOMINANT STRUCTURE, garrison the MAJORITY of the enemy roster on structures,
@@ -229,7 +230,12 @@ and HEIGHT spends it twice, so a garrison on a tall structure at full separation
 while passing all of rules 1-6 — and **(rule 8, added 2026-08-11) every GROUND unit must stand
 clear of every structure's COLLISION BOX**, which is `hitWidth` wide and nothing like the width of
 the building you see. A structure's ANCHOR is not its EDGE. Rule 8 is checked by
-`PortSelfTest.CheckNobodyStandsInAWall`, not by the inspector.
+`LevelComposition.CollisionBoxRule` alongside the other seven (moved there 2026-08-12), so it
+renders in the inspector AND fails `PortSelfTest`, which delegates to it. It is an ERROR, not a
+warning — a unit that cannot be hit is not a rule a level may bend. **It judges turn 0 AND every
+boss/wave arrival**; reading the initial state alone hid four embedded units across L6/L10/L11.
+**Rule 7 still reads turn 0 only** — an arrival placed out of the ballistic envelope is caught by
+nothing.
 
 **Test rigs no longer need renumbering when the campaign changes size** (2026-08-06). The scene
 builder orders CAMPAIGN-then-RIGS, so the campaign block leads and is indexed by position while a

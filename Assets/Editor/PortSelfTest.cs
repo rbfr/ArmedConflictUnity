@@ -3413,30 +3413,18 @@ public static class PortSelfTest
 
 
     /// <summary>
-    /// NO GROUND UNIT STANDS INSIDE A STRUCTURE'S COLLISION BOX. Rob, on L6 after the hero pass:
-    /// "heroes are behind the structure which makes them really tough to hit without firing at a
-    /// steep angle." He was right, and the cause is geometric.
+    /// RULE 8 — no ground unit stands inside a structure's collision box.
     ///
-    /// A structure blocks as a box `hitWidth` wide — which is NOT the width of the building you
-    /// see, and is what makes this invisible to the eye. L6's keep is drawn around x 6 and blocks
-    /// from x 3.88; the heroes were placed at 4.3 "in front of the keep" and landed INSIDE it. To
-    /// reach a unit standing in a box you must clear the box top and then fall to the ground
-    /// within the same fraction of a unit, which is the near-vertical plunge Rob describes.
+    /// THE RULE ITSELF LIVES IN `LevelComposition.CollisionBoxRule`, with the full write-up of
+    /// why it exists. It was implemented here first, which was the wrong place: rules 1-7 render
+    /// live in `LevelDefinitionInspector` beside the level being edited, and rule 8 alone could
+    /// only be found by failing this suite — an author saw seven rules where there are eight.
+    /// Moved 2026-08-12 so the author meets it where they author.
     ///
-    /// **A structure's ANCHOR is not its EDGE.** That was the whole mistake, and the same one is
-    /// available to anyone authoring a ground group near a building.
-    ///
-    /// Rule 7 cannot see this: it measures the distance and height to a unit and asks whether the
-    /// roster has the power, with nothing in the model about what is IN THE WAY. All four levels
-    /// passed all seven rules while three of them had heroes inside a wall.
-    ///
-    /// This is NOT only the hero pass's bug. Written to defend the hero fix, the check
-    /// immediately indicted FOUR static riflemen the campaign already shipped — two on L9 inside
-    /// the mountain bunker (by 0.46 and 0.74) and two on L10 inside the outpost (by 0.13 and
-    /// 0.45), every one of them a unit the player could not hit without the same plunge. They
-    /// were moved out with the heroes. The usual warning is to be suspicious when a new check
-    /// indicts long-standing content; the answer there is to go and measure whether the content
-    /// or the check is wrong, and here it was the content.
+    /// The suite still asserts it, because a level that ships a unit nobody can hit is a bug and
+    /// not a style note. It DELEGATES rather than re-measuring: two implementations of one rule
+    /// is the "second source of truth" failure this project has already paid for, and it is why
+    /// rule 7 is called out of `BalanceAudit` rather than copied into both.
     /// </summary>
     static void CheckNobodyStandsInAWall()
     {
@@ -3447,51 +3435,27 @@ public static class PortSelfTest
             .OrderBy(l => l.levelNumber)
             .ToList();
 
-        int inside = 0, ground = 0;
-        float tightest = float.MaxValue;
-        string worst = "none", worstWho = "";
+        int measured = 0;
+        var offenders = new List<string>();
 
         foreach (var level in levels)
         {
             GameState state;
             try { state = LevelBuilder.BuildInitialState(level, 1, 1, new System.Random(12345)); }
-            catch { continue; }
+            catch { continue; }   // a level that does not build is LevelComposition's finding
+            measured++;
 
-            foreach (var u in state.EnemyUnits)
-            {
-                // A garrison stands ON its deck, above every box, and is meant to.
-                if (u.StandingOnStructureId != null) continue;
-                // An ADVANCING unit walks out of the box on its first move, so starting inside
-                // one costs it nothing. L9's shield bearers start 0.01 inside the bunker purely
-                // on formation jitter and are hittable from turn one. This is a semantic
-                // exemption, not a tolerance — a static unit gets no such reprieve.
-                if (u.AdvancePerTurn > 0f) continue;
-                ground++;
-                foreach (var st in state.Structures)
-                {
-                    if (st.Definition == null || st.Definition.isPlayerSide) continue;
-                    // EXACTLY CollisionSystem's box: hitWidth when set, else size. No worldScale
-                    // — reading that in cost a wrong diagnosis before the numbers came out right.
-                    float halfW = (st.Definition.hasHitWidth ? st.Definition.hitWidth
-                                                             : st.Definition.size) / 2f;
-                    float baseY = st.Y - st.Definition.size / 2f;
-                    float top = st.Definition.hasDeckY ? st.Definition.deckY : st.Definition.size;
-                    if (u.Y < baseY || u.Y > baseY + top) continue;   // above the box is fine
-                    float clear = Mathf.Abs(u.X - st.X) - halfW;
-                    if (clear < tightest)
-                    {
-                        tightest = clear; worst = $"L{level.levelNumber}";
-                        worstWho = $"{u.Definition.name} at x {u.X:F2} vs {st.Definition.name} " +
-                                   $"edge {st.X - halfW:F2}";
-                    }
-                    if (clear <= 0f) inside++;
-                }
-            }
+            var f = LevelComposition.CollisionBoxRule(level, state);
+            if (f.Level != LevelComposition.Severity.Ok)
+                offenders.Add($"L{level.levelNumber} {f.Text}");
         }
 
-        Check(ground > 0 && inside == 0,
-              $"no ground unit stands inside a structure's collision box — {inside} of {ground} " +
-              $"ground units embedded, tightest clearance {tightest:F2} on {worst} ({worstWho})");
+        // measured > 0 is part of the condition: over an empty campaign this is vacuously true,
+        // which is the empty-purse trap.
+        Check(measured > 0 && offenders.Count == 0,
+              $"no ground unit stands inside a structure's collision box — {measured} campaign " +
+              $"level(s) measured, {offenders.Count} offending" +
+              (offenders.Count == 0 ? "" : $": {string.Join("; ", offenders)}"));
     }
 
 }

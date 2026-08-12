@@ -102,13 +102,13 @@ MonoBehaviour:
     spawnGroups:
     - definition: {fileID: 11400000, guid: e2f345bdab5634c49a5e289daed390f3, type: 2}
       count: 1
-      anchorX: 5
+      anchorX: 6.5
       anchorZ: 0
       standingOnStructureId: 
       advancePerTurn: 0
     - definition: {fileID: 11400000, guid: 75e1a253a474334eb8576862998ca8e1, type: 2}
       count: 3
-      anchorX: 3
+      anchorX: 4.5
       anchorZ: 0
       standingOnStructureId: 
       advancePerTurn: 0
@@ -124,4 +124,11 @@ MonoBehaviour:
     clearest possible read on how far the player has come. Structure hp RETUNED 2026-08-07:
     bunker and keep both hpScale 0.66 (180 -> 118, 212 -> 139), garrisoned total
     392 -> 257. Scaled TOGETHER so the keep stays the dominant structure; 257 leaves
-    a stage boss less slack than the levels before it, which is the point."
+    a stage boss less slack than the levels before it, which is the point. BOSS SPAWN MOVED 2026-08-12: the heavy escort was at anchorX 3 and TWO of its
+    three men stood inside MountainBunker's box (x[0.88,3.13]) - the bunker is NOT this phase's
+    trigger, so it is still standing when they arrive and they could not be hit. Escort moved to
+    4.5 and the Sovereign from 5 to 6.5 so the two groups do not stand on each other. Both now
+    land in the KEEP's footprint, which is rubble by definition at that moment - the keep is
+    what triggers the phase - so they emerge from the breach, which is what the beat wanted
+    anyway. Found because rule 8 was extended to mid-battle arrivals; it had only ever measured
+    turn 0."

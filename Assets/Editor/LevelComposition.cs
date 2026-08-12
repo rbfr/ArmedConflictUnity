@@ -6,7 +6,7 @@ using ArmedConflict.Data;
 using ArmedConflict.Game;
 
 /// <summary>
-/// Checks levels against the seven composition rules in LEVEL_AUTHORING.md.
+/// Checks levels against the eight composition rules in LEVEL_AUTHORING.md.
 ///
 /// Run over the whole campaign, headless — which is how it will actually be used, because the
 /// editor GUI here runs over VNC on llvmpipe and nobody opens it:
@@ -74,7 +74,7 @@ public static class LevelComposition
 
             if (bad.Count == 0)
             {
-                Debug.Log($"[Composition] L{level.levelNumber} {level.displayName}: all seven rules ok");
+                Debug.Log($"[Composition] L{level.levelNumber} {level.displayName}: all eight rules ok");
                 continue;
             }
             foreach (var f in bad)
@@ -87,12 +87,13 @@ public static class LevelComposition
 
         // Warnings do NOT fail the run. A level may bend a rule for a reason, and that reason
         // belongs in its designNotes; an author who cannot ship a deliberate exception will stop
-        // running the check at all. Errors are the locked roster scale, which is not negotiable.
+        // running the check at all. Errors are the locked roster scale and rule 8 — a unit that
+        // cannot be hit at all — neither of which is negotiable.
         if (errors > 0 && Application.isBatchMode) EditorApplication.Exit(1);
     }
 
     /// <summary>
-    /// The seven rules. A half-authored level legitimately fails to build (no background, a null
+    /// The eight rules. A half-authored level legitimately fails to build (no background, a null
     /// unit reference) — that comes back as buildError, and must not read as a rule violation.
     /// </summary>
     public static List<Finding> Check(LevelDefinitionSO level, out string buildError)
@@ -191,6 +192,9 @@ public static class LevelComposition
         // ballistic envelope — height is what spends the power budget, and nothing measured it.
         findings.Add(BalanceAudit.ReachRule(state));
 
+        // --- rule 8: no ground unit stands inside a structure's collision box ---
+        findings.Add(CollisionBoxRule(level, state));
+
         // --- the locked roster scale: not a composition rule, but it bounds every level ---
         int playerTotal = level.playerGroups.Sum(g => g.count);
         foreach (var (side, n) in new[] { ("player", playerTotal), ("enemy", enemyTotal) })
@@ -201,6 +205,169 @@ public static class LevelComposition
 
         return findings;
     }
+
+    /// <summary>
+    /// RULE 8: no ground unit stands inside a structure's collision box. Rob, on L6 after the
+    /// hero pass: "heroes are behind the structure which makes them really tough to hit without
+    /// firing at a steep angle." He was right, and the cause is geometric.
+    ///
+    /// A structure blocks as a box `hitWidth` wide — which is NOT the width of the building you
+    /// see, and is what makes this invisible to the eye. L6's keep is drawn around x 6 and blocks
+    /// from x 3.88; the heroes were placed at 4.3 "in front of the keep" and landed INSIDE it. To
+    /// reach a unit standing in a box you must clear the box top and then fall to the ground
+    /// within the same fraction of a unit, which is the near-vertical plunge Rob describes.
+    ///
+    /// **A structure's ANCHOR is not its EDGE.** That was the whole mistake, and the same one is
+    /// available to anyone authoring a ground group near a building.
+    ///
+    /// Rule 7 cannot see this: it measures the distance and height to a unit and asks whether the
+    /// roster has the power, with nothing in the model about what is IN THE WAY. All four levels
+    /// passed all seven rules while three of them had heroes inside a wall.
+    ///
+    /// This is NOT only the hero pass's bug. Written to defend the hero fix, the check
+    /// immediately indicted FOUR static riflemen the campaign already shipped — two on L9 inside
+    /// the mountain bunker (by 0.46 and 0.74) and two on L10 inside the outpost (by 0.13 and
+    /// 0.45), every one of them a unit the player could not hit without the same plunge. They
+    /// were moved out with the heroes. The usual warning is to be suspicious when a new check
+    /// indicts long-standing content; the answer there is to go and measure whether the content
+    /// or the check is wrong, and here it was the content.
+    ///
+    /// ERROR, not Warn, and it is the only non-roster Error here. Rules 1-6 are framing
+    /// judgements a level may bend for a reason it records in `designNotes`; this one says a unit
+    /// the player is asked to kill cannot be hit, which is not a thing to bend. It failed the
+    /// self-test suite hard before it moved here (2026-08-12) and it keeps failing hard.
+    /// </summary>
+    public static Finding CollisionBoxRule(LevelDefinitionSO level, GameState state)
+    {
+        int inside = 0, ground = 0;
+        float tightest = float.MaxValue;
+        string worstWho = "", firstOffender = null;
+
+        // The units on the field at turn 0, and then EVERY MID-BATTLE ARRIVAL. The first version
+        // of this read `state.EnemyUnits` alone and so measured only turn 0 — boss phases and
+        // reinforcement waves were invisible to it, and four levels shipped a static arrival
+        // embedded in masonry because of it (L6 x2, L10, L11), plus L12's Sovereign in the gate's
+        // shadow, which is how Rob found this on 2026-08-12. Arrivals are placed through the same
+        // `LevelBuilder.BuildUnits` call `BattleTick.Spawn` uses, so the positions are the game's.
+        foreach (var (label, units, deadByTrigger) in ArrivalSets(level, state))
+        foreach (var u in units)
+        {
+            // A garrison stands ON its deck, above every box, and is meant to.
+            if (u.StandingOnStructureId != null) continue;
+            // An ADVANCING unit walks out of the box on its first move, so starting inside one
+            // costs it nothing. L9's shield bearers start 0.01 inside the bunker purely on
+            // formation jitter and are hittable from turn one. This is a semantic exemption, not
+            // a tolerance — a static unit gets no such reprieve.
+            if (u.AdvancePerTurn > 0f) continue;
+            ground++;
+            foreach (var st in state.Structures)
+            {
+                if (st.Definition == null || st.Definition.isPlayerSide) continue;
+                // A boss phase triggers ON a structure's destruction, so that structure is
+                // provably rubble by the time the phase spawns and cannot shadow anything. L12's
+                // Sovereign spawns dead centre of the citadel it bursts out of; flagging that
+                // would be asserting a state the game can never be in.
+                if (deadByTrigger.Contains(st.Definition)) continue;
+                // EXACTLY CollisionSystem's box: hitWidth when set, else size. No worldScale —
+                // reading that in cost a wrong diagnosis before the numbers came out right.
+                float halfW = (st.Definition.hasHitWidth ? st.Definition.hitWidth
+                                                         : st.Definition.size) / 2f;
+                float baseY = st.Y - st.Definition.size / 2f;
+                float top = st.Definition.hasDeckY ? st.Definition.deckY : st.Definition.size;
+                if (u.Y < baseY || u.Y > baseY + top) continue;   // above the box is fine
+                float clear = Mathf.Abs(u.X - st.X) - halfW;
+                if (clear < tightest)
+                {
+                    tightest = clear;
+                    worstWho = $"{u.Definition.name} at x {u.X:F2} vs {st.Definition.name} " +
+                               $"edge {st.X - halfW:F2}";
+                }
+                if (clear <= 0f)
+                {
+                    inside++;
+                    if (firstOffender == null)
+                        firstOffender = $"{label} {u.Definition.name} at x {u.X:F2} inside " +
+                                        $"{st.Definition.name} x[{st.X - halfW:F2}," +
+                                        $"{st.X + halfW:F2}]";
+                }
+            }
+        }
+
+        // ground > 0 is part of the condition: over a fully garrisoned level this is vacuously
+        // true, which is the empty-purse trap. A level with no ground units reports Ok and says
+        // it measured none, rather than claiming a clean result it never looked for.
+        if (ground == 0)
+            return new Finding(Severity.Ok, "rule 8: no ground units to place — nothing measured");
+
+        return new Finding(inside == 0 ? Severity.Ok : Severity.Error,
+            $"rule 8: {inside} of {ground} ground unit(s) inside a structure's collision box " +
+            $"(turn 0 + every boss/wave arrival), tightest clearance {tightest:F2} ({worstWho})" +
+            (firstOffender == null ? "" : $" — first offender: {firstOffender}") +
+            (inside == 0 ? ""
+                : ". A structure's ANCHOR is not its EDGE — the box is hitWidth wide, not the "
+                + "width of the building you see, and a unit inside it can only be hit by a "
+                + "near-vertical plunge."));
+    }
+
+    /// <summary>
+    /// Every set of enemy units rule 8 must judge: the turn-0 roster, then each boss phase's and
+    /// each reinforcement wave's arrivals.
+    ///
+    /// Arrivals are built with the SAME call `BattleTick.Spawn` makes, so their positions are the
+    /// ones the game will produce, not a re-derivation from anchors — a group's real spread comes
+    /// from Formation, and re-deriving it here would make this a second source of truth about
+    /// placement. The seed is the fixed one the rest of this file uses; formation jitter is small
+    /// but nonzero, so a unit sitting a hair outside a box under this seed could be a hair inside
+    /// under another. That is a property of the whole file, not of this rule.
+    ///
+    /// The third element is the set of structure DEFINITIONS a boss phase's trigger guarantees
+    /// are already destroyed when it fires. A wave has no trigger, so it gets an empty set: the
+    /// worst case for the player is every structure still standing, which is exactly the state a
+    /// wave can land into.
+    /// </summary>
+    static List<(string Label, IReadOnlyList<UnitEntity> Units,
+                 HashSet<StructureDefinitionSO> DeadByTrigger)>
+        ArrivalSets(LevelDefinitionSO level, GameState state)
+    {
+        var sets = new List<(string, IReadOnlyList<UnitEntity>, HashSet<StructureDefinitionSO>)>
+        {
+            ("turn 0", state.EnemyUnits, new HashSet<StructureDefinitionSO>())
+        };
+
+        for (int i = 0; i < level.bossPhases.Count; i++)
+        {
+            var phase = level.bossPhases[i];
+            if (phase.spawnGroups == null || phase.spawnGroups.Count == 0) continue;
+
+            var dead = new HashSet<StructureDefinitionSO>();
+            if (phase.triggerStructureIds != null)
+                foreach (var id in phase.triggerStructureIds)
+                    foreach (var ls in level.structures)
+                        if (ls.id == id && ls.definition != null) dead.Add(ls.definition);
+
+            sets.Add(($"boss phase {i + 1}",
+                      LevelBuilder.BuildUnits(level, phase.spawnGroups, false,
+                                              BossProbeIdBase + i * 100, new System.Random(12345)),
+                      dead));
+        }
+
+        for (int i = 0; i < level.reinforcementWaves.Count; i++)
+        {
+            var wave = level.reinforcementWaves[i];
+            if (wave.spawnGroups == null || wave.spawnGroups.Count == 0) continue;
+            sets.Add(($"wave turn {wave.arrivesOnTurn}",
+                      LevelBuilder.BuildUnits(level, wave.spawnGroups, false,
+                                              WaveProbeIdBase + i * 100, new System.Random(12345)),
+                      new HashSet<StructureDefinitionSO>()));
+        }
+
+        return sets;
+    }
+
+    // Ids are irrelevant to geometry; these only keep the probe's units from colliding with the
+    // turn-0 roster's ids while a set is being measured.
+    const int BossProbeIdBase = 900000;
+    const int WaveProbeIdBase = 950000;
 
     static float Width(StructureDefinitionSO d)
         => d.hasHitWidth ? d.hitWidth : d.size;
