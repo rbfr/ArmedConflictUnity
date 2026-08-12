@@ -1,22 +1,19 @@
-# Handover — Unity, as of 2026-08-11 (second session that day)
+# Handover — Unity, as of the close of 2026-08-11 (THIRD session that day)
 
 ## START HERE
 
-- **EVERYTHING IS COMMITTED AND PUSHED**, as of the close of 2026-08-11's THIRD session — Tier
-  2.2's hero staging, the deck-overlap fix, and the collision-box replacement Rob's L6 report
-  produced. **This bullet has now been wrong three times in one session**; it is a courtesy, and
-  the line below it is the instruction. The SECOND session's twenty
-  commits (2026-08-10's airstrike arc, 2026-08-11's airstrike rework, Tier 2.1 factions and Tier
-  2.4 camo) went up before it.
+- **EVERYTHING IS COMMITTED AND PUSHED.** Three sessions ran on 2026-08-11 and all of it is on
+  `origin/main` — the airstrike rework, Tier 2.1 factions and 2.4 camo, Tier 2.2's hero work, and
+  the docs pass that closed the day.
   **`git status` and `git log --oneline origin/main..HEAD` are the answer, never this bullet** —
-  it has been wrong before and the previous version of it claimed the opposite for a day.
-  Rob commits and pushes on an explicit ask.
+  it was wrong three times on 2026-08-11 alone, each time because it was written true and went
+  stale within the hour. Rob commits and pushes on an explicit ask.
   The Android repo's `projectile-refinement` is never being merged; **the Android build is
   RETIRED**, reference only.
-- **TWO SESSIONS RAN ON 2026-08-11 and this file distinguishes them by subject, not by date.**
-  The first rebuilt the airstrike ("What 2026-08-11 changed", below) and Rob signed it off. The
-  second built Tier 2.1 and 2.4. Anything dated 2026-08-12 in an older revision of these docs was
-  mislabelled and has been corrected.
+- **THREE SESSIONS RAN ON 2026-08-11 and this file distinguishes them by subject, not by date.**
+  The first rebuilt the airstrike and Rob signed it off. The second built Tier 2.1 and 2.4. The
+  third did Tier 2.2's hero work and the docs pass. Anything dated 2026-08-12 in an older revision
+  of these docs was mislabelled and has been corrected.
 - **ALL OF TIER 0 IS DONE AND SIGNED OFF.** The Phase E balance audit — the last thing it owed —
   was run on 2026-08-07 in both halves, and Rob played the campaign afterwards and reported the
   levels feel fine. That closed it.
@@ -30,12 +27,13 @@
   the camera to the strike, enters across the LEFT EDGE, rakes the WHOLE ENEMY POSITION with
   tracer streaks, and its bomb LANDS WITH the player's volley rather than before it.
   **Rob signed it off: "ok this will work."** See "What 2026-08-11 changed".
-- **TIER 2.1 (ENEMY FACTIONS) AND TIER 2.4 (PLAYER CAMO) ARE BOTH BUILT** and both
-  device-confirmed. Factions: L1's Redguard red, L7's Ironclad Legion steel blue-grey, and L1 red
-  AGAIN after stepping back — the third of those is the evidence, not the second. Camo: Arctic
-  White on the infantry and the tank crew with the tank itself unchanged, and Olive back the moment
-  RIGS was switched off. See both sections below. **NEITHER HAS BEEN SEEN BY ROB** — every device
-  confirmation in them is mine, not his.
+- **TIER 2.1 (ENEMY FACTIONS) AND TIER 2.4 (PLAYER CAMO) ARE BUILT AND ACCEPTED BY ROB.** He
+  looked at a build on 2026-08-11 and called it: *"ok, uniforms are fine for now."* That is the
+  first of this tier's features to clear the only bar that has ever mattered here. Factions are
+  L1's Redguard red and L7's Ironclad Legion steel blue-grey; camo is four sets bought and worn.
+- **TIER 2.2's HERO HALF IS BUILT BUT NOT RE-CONFIRMED BY ROB.** He rejected the first placement
+  on the device — *"heroes are behind the structure... really tough to hit"* — and the fix (rule 8,
+  below) has only been verified by me. **That is the top item on the list.**
 - **RIGS IS THE TEST SUPPLY FOR BOTH CONSUMABLES AND CAMO** — every item free to equip, every camo
   free to wear, nothing spent and nothing written to the economy or the wardrobe. Use it: the
   release build is not debuggable, `run-as` cannot reach PlayerPrefs, and the test protocol is
@@ -47,10 +45,118 @@
   consumables, 582 with the airstrike's aircraft, 585 with its strafing burst, 587 with the burst's
   absolute count-and-budget check and the aircraft's left-edge entry, 592 with 2026-08-11's
   rake-coverage, aim-independence, whole-burst and impact-alignment checks, 599 with Tier 2.1's
-  seven faction checks, 606 with Tier 2.4's camo block, 607 with Tier 2.2's hero-staging check, 608 with its deck-overlap check, and 609 with the collision-box check Rob's L6 report produced. **Assert related facts TOGETHER** —
+  seven faction checks, 606 with Tier 2.4's camo block, and 607/608/609 with Tier 2.2's
+  hero-staging, deck-overlap and collision-box checks — the last of those written because Rob
+  found the bug on a device. **Assert related facts TOGETHER** —
   Tier 1.3's block was first written as 50 assertions over 307 lines and is 18 over 232, with the
   same nine breakages still caught. A failure message naming three properties is as diagnostic as
   three checks, and this file is read by people.
+
+### Pick up here
+
+**Nothing is half-built, nothing is uncommitted, 609 checks are green and all 12 levels pass all
+eight composition rules.** This is a clean start; pick an item below.
+
+**WIND IS PARKED** — Rob's call, 2026-08-10, and it is the only thing Tier 1.2 still owes. Work
+continues around it rather than waiting on it.
+
+**1. GET ROB'S EYES ON THE HERO FIX (L6, L7, L11, L12).** The cheapest item and the only one
+blocking a feature from being called done. He rejected the first placement on the device; the
+replacement has been verified by me — numerically, and with one shallow drag on L6 — and by nobody
+else. **His judgment in moving play is the only arbiter that has ever settled a unit-readability
+question in this project**, and `UNIT_VARIETY_DESIGN.md` records seven attempts that skipped it and
+were wrong. Build, install, look at those four levels.
+
+**2. TIER 2.2 STILL OWES THE CROWD HALF, and it needs a DECISION from Rob before any code.**
+Garrisons occupy **12-56% of their deck, most of them 12-25%** — measured. This is not a spacing
+bug: pitch was derived against the reference game in the 2026-08-02 pass and measures correctly.
+The body shrank 0.77 -> 0.48 while `standWidth` is real structure geometry and did not.
+**Filling a tier is a ROSTER-SIZE question and therefore a balance question**, on levels Rob has
+already signed off. The reference runs ~15 per rank; ours run 3-8. **Do NOT fix it by spreading the
+row** — that is the 2026-07-25 mistake and `UNIT_VARIETY_DESIGN.md` records it. Ask first.
+
+Before any crowd/art pass, read `UNIT_VARIETY_DESIGN.md`'s "honest limit" twice: stance, faces and
+limb fold each cleared "is it correct" and failed "does it survive the frame", and the only changes
+that ever DID read were large-scale layout.
+
+**3. TIER 2.3 — keep the roster mechanic-distinct.** Unclaimed, and likely a short AUDIT rather
+than a build: six pickable classes, the question is only whether any two play the same.
+
+**4. RULE 8 IS CHECKED IN THE WRONG PLACE.** `PortSelfTest.CheckNobodyStandsInAWall` fails the
+SUITE, while rules 1-7 render live in `LevelDefinitionInspector` beside the level being edited.
+A small, well-defined job: move it into `LevelComposition.Check` so an author sees it where they
+author. Recorded in `LEVEL_AUTHORING.md` too.
+
+**5. THE TWO BIGGEST OPEN THINGS, both physics/AI asks rather than scheduling jobs:**
+- **Advancing squads + melee are unported** — an EIGHTH dead system, and the one that holds
+  Overwatch Flare. `AdvanceRemaining` is written nowhere and `SkirmishEntity` is never created.
+  `PROGRESSION_DESIGN`'s whole survival/defend archetype is made of this.
+- **Wind is still cosmetic** — `windAccelZ` drifts the round in Z while the collision test is X/Y
+  only, so wind cannot change what a shot hits. A wind schedule would telegraph a change the
+  player cannot feel. **Do not author a wind level until someone decides whether collision goes 3D.**
+
+**6. Tier 1.4 (Heli) stays shut.** `HELI_ENABLED=false` is a camera-load decision, not a stale
+flag. Do not flip it.
+
+**THE AIRSTRIKE IS DONE AND SIGNED OFF** ("ok this will work"). One small open note: the aircraft
+*"gets fairly large as it passes nearest the camera"* — `BattleTick.PlaneY` is a one-constant fix
+if it reads as too much, judged at full speed rather than on a contact sheet. The pass-by sound is
+explicitly closed: *"the aircraft sound is fine for the moment."*
+
+**THE PLAYER HAS NO HERO ANYWHERE, and that is a decision** (Rob, 2026-08-11: enemy-only for now).
+`HeavyRifleman` is not among the six pickable roster slots. Revisit only with a build in hand.
+
+**Device state at handover:** app installed and current, **0 coins** (the protocol is
+uninstall/reinstall, which wipes the balance every time — use RIGS as the test supply instead),
+RIGS off, nothing written to the wardrobe, DND off, screen timeout 30 minutes, and every dev
+capture cleared off `/sdcard`.
+
+<details>
+<summary>The Tier 1.3 briefing as it stood before the work — kept because its reasoning is the
+standing lesson, not because it is current</summary>
+
+1. **TIER 1.3 IS THE NEXT TIER ITEM, AND ITS FIRST HALF IS NOT WHAT THE TABLE SAYS.**
+   `PRODUCT_DIRECTION.md` calls 1.3 "tactical consumable expansion — Smoke / Overwatch", gated on
+   *"when base consumables already feel good"*. **In this port there are no base consumables at
+   all.** `ConsumableType`, `ProgressStore.OwnedConsumables/AddConsumable/SpendConsumable`,
+   `EconomyStore.PurchaseConsumable` and `GameState.LoadedConsumables` are all ported — and a grep
+   for callers outside those files returns **NOTHING**. No UI, no arming, no spend, no effect.
+
+   **This is the SIXTH dead system** (see "assume NOTHING is wired"). The design docs say
+   "shipped" because their Status tables record the **RETIRED ANDROID BUILD** — `PROGRESSION_DESIGN`
+   Phase 2 and `DYNAMISM_DESIGN` Phase C both shipped there on 2026-07-20. **Check the Unity
+   callers, not the status table**, and treat those docs as the SPEC for what to build here rather
+   than as a record of what exists here.
+
+   So 1.3 is really: **wire the three base consumables (Airstrike / Early Reinforcements / Trauma
+   Kit) first**, then Smoke / Overwatch on top. The specs are `PROGRESSION_DESIGN.md` Phase 2 and
+   `DYNAMISM_DESIGN.md` Phase C, including the cap-2-per-battle rule and the arm-vs-spend
+   distinction (Airstrike's toggle pattern, not Trauma Kit's).
+
+</details>
+
+### Also standing, and not on the list above because none of it is a next task
+
+- **Tier 1.1 is CLOSED except for two UNRESOLVED items**, both in `_plans/BACKLOG.md`: **is
+  Cluster's 3.2x spread too wide to connect?** (needs Rob at the controls — a scripted drag cannot
+  settle it), and **flames outlive their bodies by a frame or two** at the moment the burn kills.
+- ~~A per-frame NullReferenceException on the LOADOUT screen.~~ **FIXED 2026-08-10** — the tick
+  running with no battle to tick. That screen is clean, which matters because the consumable UI is
+  built on it.
+- **`_plans/BACKLOG.md` is the only LIVE plan**, and holds what Rob has parked: a **nuclear
+  reactor structure** (the open question is what MECHANIC it owns — a blast on destruction would
+  make it the first structure with one), **dead units sinking** into the ground instead of
+  vanishing, the **ragdoll / structure report** (PARTLY fixed, deliberately open), and a
+  **crowd-runner bonus level**. The three finished plans moved to `_plans/archive/` on 2026-08-11;
+  nothing there describes current behaviour.
+
+### How the rest of this file is ordered
+
+Everything below "Pick up here" is HISTORY, newest first: the three 2026-08-11 sessions, then
+2026-08-07 to 08-10, then the standing reference sections — **"Where things are", "What works",
+"The workflow", "Traps already paid for"** and **"Open items"/"Things that will bite"**, which are
+the parts that are still TRUE rather than still interesting. The closed 2026-08-05/06 port entries
+are in `HANDOVER_ARCHIVE.md`.
 
 ### What the SECOND 2026-08-11 session changed — Tier 2.1 and 2.4, the two repaint features
 
@@ -172,7 +278,7 @@ deleted; the reasoning in this project is the valuable part. **"Traps already pa
 items"/"Things will bite" deliberately STAYED**, because they are the two sections that are still
 true rather than still interesting.
 
-### What THIS session changed — Tier 2.2, part one
+### What the THIRD 2026-08-11 session changed — Tier 2.2, part one
 
 **The heroes were never composed.** Every hero group in the campaign was authored ONTO a
 structure in counts of 4-5 (L6 x4, L7 x5, L11 x4, L12 x5), so `FormationFor`'s garrison branch
@@ -257,99 +363,6 @@ start 0.01 inside on jitter and walk out on their first move.
 
 Negative run: `10 of 43 ground units embedded, tightest -1.71 on L12`. Device-confirmed on L6 with
 a deliberately SHALLOW drag (~241px per axis against L1's 331) that killed three, 16 -> 13.
-
-### Pick up here
-
-**WIND IS PARKED** — Rob's call, 2026-08-10. It is the only thing Tier 1.2 still owes and it is
-blocked on a physics decision (below), so tier work continues around it rather than waiting on it.
-
-0. **NOTHING IS HALF-BUILT AND NOTHING IS UNCOMMITTED.** The session closed on a clean tree, a
-   pushed `main`, 606 green checks and two features Rob has not yet looked at. **The first thing
-   worth doing is putting the build in his hands** — factions read on the stage change, camo reads
-   on the loadout screen, and both are the kind of change only he can accept.
-
-   **TIER 2.1 (FACTIONS), 2.4 (PLAYER CAMO) AND THE HERO HALF OF 2.2 ARE DONE** (2026-08-11).
-   **2.2 still owes the CROWD half** — this session fixed which units are staged as heroes and
-   where they stand, which is not what 2.2's entry in `PRODUCT_DIRECTION.md` names. Before
-   spending a pass on crowd readability, read `UNIT_VARIETY_DESIGN.md`'s "honest limit" twice:
-   three attempts (stance, faces, limb fold) each cleared "is it correct" and failed "does it
-   survive the frame", and the only two changes that ever DID read were large-scale layout.
-   **2.3 keep the roster mechanic-distinct** is still unclaimed and is likely a short audit
-   rather than a build.
-
-   **The player has no hero anywhere, and that is now a decision** (Rob, 2026-08-11:
-   enemy-only for now). `HeavyRifleman` is not among the six pickable roster slots and no
-   campaign level puts one in `playerGroups`. Revisit only with the build in hand.
-
-   **The two biggest OPEN things in the port are named and costed, and both are physics/AI asks
-   rather than scheduling jobs:**
-   - **Advancing squads + melee are unported** — an EIGHTH dead system, and the one that holds
-     Overwatch Flare. `AdvanceRemaining` is written nowhere and `SkirmishEntity` is never created.
-     `PROGRESSION_DESIGN`'s whole survival/defend archetype is made of this.
-   - **Wind is still cosmetic** — `windAccelZ` drifts the round in Z while the collision test is
-     X/Y only, so wind cannot change what a shot hits.
-
-   **THE AIRSTRIKE IS DONE AND SIGNED OFF** (2026-08-11, "ok this will work"). Read "What the
-   FIRST 2026-08-11 session changed" before touching it — six rejections in one session, none of
-   which a green suite could see.
-
-   **One SMALL open note, and one now CLOSED:**
-   - The aircraft *"gets fairly large as it passes nearest the camera"* — brief and arguably the
-     point, but `BattleTick.PlaneY` is a one-constant fix if it reads as too much. Judge it at full
-     speed, not on a contact sheet.
-   - ~~The pass-by sound's offset has never been checked by ear.~~ **Rob's call, later on
-     2026-08-11: "the aircraft sound is fine for the moment."** Do not spend a session on it.
-
-   **The device was left with the app installed and 230 coins earned by Auto**, RIGS off, nothing
-   written to the wardrobe, and the screen timeout raised to 30 minutes. The coins are a test
-   install's, not a save worth protecting — the protocol is uninstall/reinstall anyway.
-
-<details>
-<summary>The Tier 1.3 briefing as it stood before the work — kept because its reasoning is the
-standing lesson, not because it is current</summary>
-
-1. **TIER 1.3 IS THE NEXT TIER ITEM, AND ITS FIRST HALF IS NOT WHAT THE TABLE SAYS.**
-   `PRODUCT_DIRECTION.md` calls 1.3 "tactical consumable expansion — Smoke / Overwatch", gated on
-   *"when base consumables already feel good"*. **In this port there are no base consumables at
-   all.** `ConsumableType`, `ProgressStore.OwnedConsumables/AddConsumable/SpendConsumable`,
-   `EconomyStore.PurchaseConsumable` and `GameState.LoadedConsumables` are all ported — and a grep
-   for callers outside those files returns **NOTHING**. No UI, no arming, no spend, no effect.
-
-   **This is the SIXTH dead system** (see "assume NOTHING is wired"). The design docs say
-   "shipped" because their Status tables record the **RETIRED ANDROID BUILD** — `PROGRESSION_DESIGN`
-   Phase 2 and `DYNAMISM_DESIGN` Phase C both shipped there on 2026-07-20. **Check the Unity
-   callers, not the status table**, and treat those docs as the SPEC for what to build here rather
-   than as a record of what exists here.
-
-   So 1.3 is really: **wire the three base consumables (Airstrike / Early Reinforcements / Trauma
-   Kit) first**, then Smoke / Overwatch on top. The specs are `PROGRESSION_DESIGN.md` Phase 2 and
-   `DYNAMISM_DESIGN.md` Phase C, including the cap-2-per-battle rule and the arm-vs-spend
-   distinction (Airstrike's toggle pattern, not Trauma Kit's).
-
-</details>
-
-2. **Tier 1.4 (Heli) stays shut.** `HELI_ENABLED=false` is a camera-load decision, not a stale
-   flag, and `PRODUCT_DIRECTION` gates it on "camera choreography is boring-stable". Do not flip it.
-
-3. **Tier 1.1 is CLOSED except for two UNRESOLVED items**, both tracked in `_plans/BACKLOG.md`:
-   **is Cluster's 3.2x spread too wide to connect?** (needs Rob at the controls — a scripted drag
-   cannot settle it), and **flames outlive their bodies by a frame or two** at the moment the burn
-   kills. The flame Tier 1.1 owed shipped and was confirmed on device on 2026-08-10.
-
-4. **Wind, when it is picked back up**, is a physics ask, not a scheduling job. `windAccelZ` drifts
-   the round in Z while the collision test is X/Y only, so wind cannot change what a shot hits. A
-   wind schedule would telegraph a change the player cannot feel, which is worse than no wind.
-   **Do not author a wind level or a wind schedule until someone decides whether the collision test
-   becomes 3D.**
-
-5. ~~A per-frame NullReferenceException on the LOADOUT screen.~~ **FIXED 2026-08-10** — it was the
-   tick running with no battle to tick. See its own section below. That screen is now clean, which
-   matters because the consumable UI 1.3 needs will be built on it.
-
-6. **`_plans/BACKLOG.md`** holds what Rob has parked: a **nuclear reactor structure** (open
-   question is what MECHANIC it owns — a blast on destruction would make it the first structure
-   with one), **dead units sinking** into the ground instead of vanishing, and the **ragdoll /
-   structure report**, which is PARTLY fixed and deliberately left open.
 
 ## Enemy factions — Tier 2.1, built 2026-08-11
 
