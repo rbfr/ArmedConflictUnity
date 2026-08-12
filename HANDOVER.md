@@ -2,9 +2,10 @@
 
 ## START HERE
 
-- **EVERYTHING IS COMMITTED AND PUSHED.** Three sessions ran on 2026-08-11 and all of it is on
-  `origin/main` — the airstrike rework, Tier 2.1 factions and 2.4 camo, Tier 2.2's hero work, and
-  the docs pass that closed the day.
+- **EVERYTHING IS COMMITTED. ONE COMMIT IS NOT PUSHED** — 2026-08-12's Tier 2.2 crowd split
+  (`b6df86d`) is on local `main` only, because the ask was "commit", not "push". Everything before
+  it is on `origin/main`: the airstrike rework, Tier 2.1 factions and 2.4 camo, Tier 2.2's hero
+  work, and the docs pass that closed 2026-08-11.
   **`git status` and `git log --oneline origin/main..HEAD` are the answer, never this bullet** —
   it was wrong three times on 2026-08-11 alone, each time because it was written true and went
   stale within the hour. Rob commits and pushes on an explicit ask.
