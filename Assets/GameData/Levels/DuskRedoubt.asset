@@ -25,7 +25,7 @@ MonoBehaviour:
     advancePerTurn: 1
   - definition: {fileID: 11400000, guid: b51688fb293b69e5cab2885bcaa975b8, type: 2}
     count: 2
-    anchorX: 2
+    anchorX: 0.2
     anchorZ: 0
     standingOnStructureId: 
     advancePerTurn: 0

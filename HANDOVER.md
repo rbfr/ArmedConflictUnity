@@ -2,8 +2,8 @@
 
 ## START HERE
 
-- **EVERYTHING IS COMMITTED AND PUSHED**, as of the close of 2026-08-11's THIRD session — Tier
-  2.2's hero staging and deck-overlap fix went up as one commit. The SECOND session's twenty
+- **UNCOMMITTED: the hero REPLACEMENT fix** (collision boxes, below) is in the tree. Tier 2.2's
+  hero staging and deck-overlap fix were pushed earlier in the THIRD session. The SECOND session's twenty
   commits (2026-08-10's airstrike arc, 2026-08-11's airstrike rework, Tier 2.1 factions and Tier
   2.4 camo) went up before it.
   **`git status` and `git log --oneline origin/main..HEAD` are the answer, never this bullet** —
@@ -39,13 +39,13 @@
   release build is not debuggable, `run-as` cannot reach PlayerPrefs, and the test protocol is
   uninstall/reinstall — so without it, verifying one consumable costs a ~250-coin re-earn per
   build and one camo costs up to 400.
-- **608 self-test checks, all passing — run `PortSelfTest.Run` after every change.** It was 281 at
+- **609 self-test checks, all passing — run `PortSelfTest.Run` after every change.** It was 281 at
   the start of 2026-08-06, 411 at the end of it, 444 on 2026-08-07, 539 after the Tier 1.2 and
   glyph-coverage blocks, 559 with the flame and the Auto-ammo pair, 576 with Tier 1.3's
   consumables, 582 with the airstrike's aircraft, 585 with its strafing burst, 587 with the burst's
   absolute count-and-budget check and the aircraft's left-edge entry, 592 with 2026-08-11's
   rake-coverage, aim-independence, whole-burst and impact-alignment checks, 599 with Tier 2.1's
-  seven faction checks, 606 with Tier 2.4's camo block, 607 with Tier 2.2's hero-staging check, and 608 with its deck-overlap check. **Assert related facts TOGETHER** —
+  seven faction checks, 606 with Tier 2.4's camo block, 607 with Tier 2.2's hero-staging check, 608 with its deck-overlap check, and 609 with the collision-box check Rob's L6 report produced. **Assert related facts TOGETHER** —
   Tier 1.3's block was first written as 50 assertions over 307 lines and is 18 over 232, with the
   same nine breakages still caught. A failure message naming three properties is as diagnostic as
   three checks, and this file is read by people.
@@ -201,6 +201,37 @@ citadel's rifle row.
 Before: four oversized red figures crowding the keep roofline as one lump, taller than its own
 crenellations. After: two greatcoated heroes alone at the base, small crowd on the roof.
 **Rob has not seen it.**
+
+### The hero placement was WRONG and Rob caught it on the device
+
+*"heroes are behind the structure which makes them really tough to hit without firing at a steep
+angle."* Correct, and geometric. **A structure blocks as a box `hitWidth` wide, which is not the
+width of the building you see** — L6's keep is drawn around x 6 and blocks from **x 3.88**. The
+heroes were placed at 4.3, "in front of the keep", measured off its ANCHOR, and landed inside it.
+L12's were **1.71 deep** in the citadel's box.
+
+To hit a unit inside a box you must clear the box top and reach the ground within the same
+fraction of a unit — L6 wanted a 2.0 drop in 0.02 of travel. **The hero pass had made them harder
+to hit than when they stood on the roof**, because a garrison on a deck is above every box and
+takes an ordinary arc.
+
+Placement rule now: **clear of every enemy structure's box, with nothing between the hero and the
+player** — only a box at LOWER x can shadow a left-to-right shot. L6 -1.0, L7 2.7, L11 3.2,
+L12 0.6.
+
+**Rule 7 cannot see this and no rule can.** It measures distance and height and asks whether the
+roster has the POWER; there is nothing in its model about what is IN THE WAY. All twelve levels
+passed all seven rules the whole time. **Reach and a clear line are different questions.**
+
+**The new check indicted SHIPPED content and the content was wrong.** `CheckNobodyStandsInAWall`
+found four riflemen the campaign already had — two on L9 inside the mountain bunker, two on L10
+inside the outpost, none of them hittable without the same plunge. Moved out with the heroes. The
+standing warning about a new check indicting old content is not "assume the check is wrong", it is
+**go and measure which one is wrong**. ADVANCING units are exempt semantically: L9's shield bearers
+start 0.01 inside on jitter and walk out on their first move.
+
+Negative run: `10 of 43 ground units embedded, tightest -1.71 on L12`. Device-confirmed on L6 with
+a deliberately SHALLOW drag (~241px per axis against L1's 331) that killed three, 16 -> 13.
 
 ### Pick up here
 

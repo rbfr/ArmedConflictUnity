@@ -684,8 +684,9 @@ satisfied — a hero is a legal garrison member. The rules measure geometry, not
 
 ### What changed
 
-Heroes moved to the GROUND in front of their structure, cut to 1-2, at z 0.4 (forward of the
-crowd line, and free: `SweptCollision` is x/y only, so a forward hero is exactly as hittable).
+Heroes moved to the GROUND, cut to 1-2, at z 0.4 (forward of the crowd line, and free:
+`SweptCollision` is x/y only, so a forward hero is exactly as hittable). **The first version of
+this placed them "in front of THEIR structure" and that rule was wrong — see part three.**
 Surplus heavies were swapped 1:1 for enemy riflemen IN the garrison they left, which is why every
 level's roster total is unchanged and enemy DAMAGE OUTPUT is identical — `EnemyHeavyRifleman` is
 `EnemyRifleman` with 2x HP and 1.9x scale and the same damage 8. The only balance movement is
@@ -795,3 +796,71 @@ structure geometry and did not, so the same deck now holds a smaller clump.
 records it. The reference runs ~15 per rank; ours run 3-8. Filling a tier is a ROSTER-SIZE
 question and therefore a balance question, which is why it is written down here rather than
 applied: it needs Rob's call, not a constant.
+
+
+## Tier 2.2, part three — a structure's ANCHOR is not its EDGE, 2026-08-11
+
+Rob, on the L6 build: *"heroes are behind the structure which makes them really tough to hit
+without firing at a steep angle."* He was right, and the cause is geometric rather than perceptual.
+
+**A structure blocks as a box `hitWidth` wide, and `hitWidth` is not the width of the building you
+see.** L6's keep is drawn around x 6 and blocks from **x 3.88**. Part one placed the heroes at 4.3
+— "in front of the keep", measured off its ANCHOR — and put them *inside* it. Measured against the
+formula `CollisionSystem` actually uses:
+
+| | hero span | box that swallowed them | depth |
+|---|---|---|---|
+| L6 | 3.90..4.71 | keep blocks 3.88..8.13, top 2.0 | inside |
+| L11 | 4.18 | post blocks 4.13..7.88, top 2.5 | inside |
+| L12 | 3.90..4.71 | citadel blocks 3.00..9.00, top 2.0 | **1.71 deep** |
+| L7 | 2.87..3.56 | barracks blocks 3.55..6.05 | 0.01 inside |
+
+To hit a unit standing in a box you must clear the box top and reach the ground within the same
+fraction of a unit — L6 needed a 2.0 drop in 0.02 of travel. That is the near-vertical plunge Rob
+describes, and it is why the hero pass made them HARDER to hit than when they stood on the roof:
+a garrison on a deck is above every box and takes an ordinary arc.
+
+**The placement rule is now: clear of every enemy structure's box, with nothing between the hero
+and the player.** Only a box at LOWER x than the target can shadow it, since the shot travels
+left to right. Heroes sit at L6 -1.0, L7 2.7, L11 3.2, L12 0.6 (with L12's ground riflemen moved
+to -1.0 to leave them the room).
+
+### Rule 7 cannot see this, and that is the general point
+
+`LevelComposition` passed all twelve levels throughout. Rule 7 measures the distance and height to
+a unit and asks whether the roster has the POWER to get there — there is nothing in its model
+about what is IN THE WAY. **Reach and a clear line are different questions**, and the seven rules
+only ask the first.
+
+### The check indicted shipped content, and this time the content was wrong
+
+`PortSelfTest.CheckNobodyStandsInAWall` asserts it over every static ground unit. Written to
+defend the hero fix, it immediately found **four riflemen the campaign already shipped**: two on
+L9 inside the mountain bunker (0.46 and 0.74 deep) and two on L10 inside the outpost (0.13 and
+0.45). Every one a unit the player could not hit without the same plunge. They were moved out
+with the heroes.
+
+This document's standing warning is to be suspicious when a brand-new check indicts long-standing
+content — the "ASCII only" glyph check flagged 23 strings that rendered perfectly. The warning is
+not "assume the check is wrong"; it is **go and measure which of the two is wrong.** Here it was
+the content, and the measurement said so unambiguously.
+
+**ADVANCING units are exempt, semantically rather than as a tolerance.** L9's shield bearers start
+0.01 inside the bunker on formation jitter and walk out on their first move, so starting in a box
+costs them nothing. A static unit gets no such reprieve.
+
+Negative run against the committed state:
+
+```
+[FAIL] no ground unit stands inside a structure's collision box — 10 of 43 ground units
+       embedded, tightest clearance -1.71 on L12
+       (EnemyHeavyRifleman at x 4.71 vs FortressTierWide edge 3.00)
+```
+
+### Device
+
+L6, real drag, deliberately SHALLOW — ~241px per axis against L1's 331, the flat arc that could
+not have reached the old position at all. It landed among the heroes and killed three (16 -> 13),
+and the enemy-turn camera then framed the pair standing alone in open ground ahead of the bunker,
+plainly larger than the crowd on its roof. **609 checks green, 12 levels still pass all seven
+composition rules.**
