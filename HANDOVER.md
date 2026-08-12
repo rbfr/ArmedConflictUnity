@@ -18,10 +18,10 @@
   loose end to tidy up unprompted.
   The Android repo's `projectile-refinement` is never being merged; **the Android build is
   RETIRED**, reference only.
-- **THREE SESSIONS RAN ON 2026-08-11 and this file distinguishes them by subject, not by date.**
-  The first rebuilt the airstrike and Rob signed it off. The second built Tier 2.1 and 2.4. The
-  third did Tier 2.2's hero work and the docs pass. Anything dated 2026-08-12 in an older revision
-  of these docs was mislabelled and has been corrected.
+- **SEVERAL SESSIONS RAN PER DAY AND THIS FILE DISTINGUISHES THEM BY SUBJECT, NOT BY DATE.**
+  2026-08-11 ran three: the airstrike rebuild (signed off), Tier 2.1 + 2.4, then Tier 2.2's hero
+  work and a docs pass. 2026-08-12 ran two: Tier 2.2's crowd half, then the Tier 2.3 audit.
+  A date alone will not tell you which piece of work a section belongs to — read the heading.
 - **ALL OF TIER 0 IS DONE AND SIGNED OFF.** The Phase E balance audit — the last thing it owed —
   was run on 2026-08-07 in both halves, and Rob played the campaign afterwards and reported the
   levels feel fine. That closed it.
@@ -41,13 +41,17 @@
   L1's Redguard red and L7's Ironclad Legion steel blue-grey; camo is four sets bought and worn.
 - **TIER 2.2 IS DONE AND SIGNED OFF BY ROB ON THE DEVICE, 2026-08-12** — both halves in one
   build. He rejected the first hero placement — *"heroes are behind the structure... really tough
-  to hit"* — and the fix (rule 8, below) cleared his second look.
-- **TIER 2.2's CROWD HALF SHIPPED IN THE SAME BUILD AND CLEARED THE SAME LOOK.** Every garrison was
-  split into more, weaker bodies — 155 -> 248 — at **constant HP, damage and structure damage**,
-  proved by building all twelve levels on both data sets and by a `BalanceAudit` run that is
+  to hit"* — and the fix (rule 8, below) cleared his second look. The crowd half split every
+  garrison into more, weaker bodies — 155 -> 248 — at **constant HP, damage and structure
+  damage**, proved by building all twelve levels on both data sets and by a `BalanceAudit` run
   byte-identical across all 61 findings. The wide decks roughly doubled their fill (GarrisonPost
   16% -> 34%, BarracksBlock 22% -> 47%). **Shrinking the STRUCTURES was tried first and the
   arithmetic killed it** — see "The crowd split" below.
+- **TIER 2.3 IS BUILT AND HAS NOT BEEN ON A DEVICE.** The audit found the roster was NOT
+  mechanic-distinct: the machine gunner's burst had never reached the player's volley (one round,
+  not three) and measured identically to the shield bearer, whose own advertised mechanic — melee
+  — is unported. The burst is fixed and the shield bearer has ARMOUR instead. `RosterAudit.Report`
+  now reports 0 errors. **Nothing here has been seen in motion**; see item 1 below.
 - **RIGS IS THE TEST SUPPLY FOR BOTH CONSUMABLES AND CAMO** — every item free to equip, every camo
   free to wear, nothing spent and nothing written to the economy or the wardrobe. Use it: the
   release build is not debuggable, `run-as` cannot reach PlayerPrefs, and the test protocol is
@@ -62,12 +66,14 @@
   seven faction checks, 606 with Tier 2.4's camo block, and 607/608/609 with Tier 2.2's
   hero-staging, deck-overlap and collision-box checks — the last of those written because Rob
   found the bug on a device — **625** after 2026-08-12's crowd split, and **628** with Tier 2.3's
-  burst check, its roster guard and the armour check. Both new behaviour checks were seen RED
-  against the old code before being trusted, with the failing numbers recorded. That last jump is +16 for three new
-  checks (crowd-split balance, projectile-pool headroom, crowd frailty) because several existing
-  assertions are DATA-DRIVEN and log per body — **this count moves when the level data moves**,
-  which is worth knowing before treating a changed number as a lost check. It was measured on
-  both sides of the change, not extrapolated. **Assert related facts TOGETHER** —
+  burst check, its roster guard and the armour check.
+  Two things about that history are worth knowing before reading a changed number as a lost check.
+  **The crowd split's jump was +16 for three new checks** (crowd-split balance, projectile-pool
+  headroom, crowd frailty), because several existing assertions are DATA-DRIVEN and log per body —
+  **this count moves when the level data moves**, and it was measured on both sides of that change
+  rather than extrapolated. And **both of Tier 2.3's behaviour checks were seen RED against the
+  old code before being trusted**, with the failing numbers recorded — a check never seen to fail
+  is not evidence. **Assert related facts TOGETHER** —
   Tier 1.3's block was first written as 50 assertions over 307 lines and is 18 over 232, with the
   same nine breakages still caught. A failure message naming three properties is as diagnostic as
   three checks, and this file is read by people.
@@ -79,15 +85,6 @@ RosterAudit report 0 errors.** Pick an item below.
 
 **WIND IS PARKED** — Rob's call, 2026-08-10, and it is the only thing Tier 1.2 still owes. Work
 continues around it rather than waiting on it.
-
-**TIER 2.2 IS CLOSED. Rob signed off both halves on the device on 2026-08-12** — the hero
-placement fix and the crowd split, in one build, which is what the two items that used to head
-this list were asking for. Nothing about either is outstanding.
-
-**TIER 2.3 IS DONE (2026-08-12).** The machine gunner's burst never reached the player's volley
-and now does; the shield bearer sold a mechanic the build did not have and now has ARMOUR
-instead. Rob took both calls the audit raised. All six pickable classes are mechanically distinct,
-and `RosterAudit.Report` reports 0 errors — see "The Tier 2.3 audit" below.
 
 **1. GET ROB'S EYES ON THE TIER 2.3 CHANGES.** Neither has been seen in motion, and both change
 how a battle FEELS rather than how it reads in a table:
@@ -138,7 +135,9 @@ explicitly closed: *"the aircraft sound is fine for the moment."*
 **THE PLAYER HAS NO HERO ANYWHERE, and that is a decision** (Rob, 2026-08-11: enemy-only for now).
 `HeavyRifleman` is not among the six pickable roster slots. Revisit only with a build in hand.
 
-**Device state at handover:** app installed and current, **0 coins** (the protocol is
+**Device state at handover:** the installed build is from 2026-08-12 and **predates Tier 2.3** —
+it has the crowd split and the hero fix, not the burst or the armour, so a fresh build is the
+first step of item 1. **0 coins** (the protocol is
 uninstall/reinstall, which wipes the balance every time — use RIGS as the test supply instead),
 RIGS off, nothing written to the wardrobe, DND off, screen timeout 30 minutes, and every dev
 capture cleared off `/sdcard`.
