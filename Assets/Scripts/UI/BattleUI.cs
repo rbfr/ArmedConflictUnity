@@ -87,10 +87,25 @@ namespace ArmedConflict.UI
         readonly Dictionary<ConsumableType, int> loadoutConsumables = new();
 
         /// <summary>
-        /// RIGS is on, so consumables are free to equip and nothing is ever bought or spent. See
-        /// BattleRunner.TestSupply for why this exists and why it writes nothing.
+        /// RIGS is on, so consumables, camo AND UNIT CLASSES are free to equip and nothing is
+        /// ever bought or spent. See BattleRunner.TestSupply for why this exists and why it
+        /// writes nothing.
         /// </summary>
         bool testSupply;
+
+        /// <summary>
+        /// Whether a class may be fielded. UNITS WERE NOT COVERED BY RIGS UNTIL 2026-08-12 — only
+        /// consumables and camo were — so verifying one roster change cost a real 250-700 coin
+        /// purchase on a build whose test protocol (uninstall/reinstall) wipes the balance every
+        /// time. HANDOVER told two sessions to "buy both with RIGS on" and RIGS had never done
+        /// that. Rob's call: make the code match the documented protocol.
+        ///
+        /// It grants ACCESS and writes NOTHING — no unlock is recorded, no coins move, and the
+        /// buy button is never shown, so a test session cannot leave the wardrobe or the balance
+        /// changed behind it. Same contract as the cosmetic and consumable paths beside it.
+        /// </summary>
+        bool UnitUnlocked(string unitId)
+            => testSupply || ProgressStore.IsUnitUnlocked(unitId);
         Action<List<Pick>, IReadOnlyDictionary<ConsumableType, int>> onLoadoutBegin;
 
         /// <summary>
@@ -222,6 +237,35 @@ namespace ArmedConflict.UI
             ShowLoadout(level, roster, picks, testSupply, (_, __) => { }, faction);
             if (carrying is ConsumableType type) TapConsumable(type);
             if (wearing is CosmeticSet set) TapCamo(set);
+        }
+
+        /// <summary>
+        /// Whether the picker is OFFERING this class: its + stepper is on screen and a pick of
+        /// one would be accepted. Preview/self-test surface only.
+        ///
+        /// Both halves are asked because the unlock state is read in two independent places — the
+        /// row build decides whether to draw steppers or a buy button, and `Loadout.IsLegal`
+        /// decides whether an edit is allowed. A change that fixes one and misses the other gives
+        /// a class you can see but cannot field, or one you can field but cannot see.
+        ///
+        /// The legality half is asked with a pick of EXACTLY ONE of this class and nothing else,
+        /// so the answer is about the LOCK and not about the level's point budget. Asking it
+        /// against the standing 8/8 squad measured the budget instead and reported a locked class
+        /// as blocked when it was merely unaffordable — which is what the first version of this
+        /// did.
+        /// </summary>
+        public bool PreviewOffersClass(UnitDefinitionSO unit)
+        {
+            if (loadoutRoster == null || unit == null) return false;
+            for (int i = 0; i < loadoutRows.Length && i < loadoutRoster.slots.Count; i++)
+            {
+                if (loadoutRoster.slots[i].unit != unit) continue;
+                bool stepperShown = loadoutRows[i].Plus.activeSelf;
+                bool oneIsLegal = Loadout.IsLegal(new List<Pick> { new Pick(unit, 1) },
+                                                  loadoutLevel, loadoutRoster, UnitUnlocked);
+                return stepperShown && oneIsLegal;
+            }
+            return false;
         }
 
         public void PreviewEndCard(bool victory, int stars, int coins, string bonusTag,
@@ -898,7 +942,7 @@ namespace ArmedConflict.UI
         void OnBeginPressed()
         {
             if (!Loadout.IsLegal(loadoutPicks, loadoutLevel, loadoutRoster,
-                                 ProgressStore.IsUnitUnlocked)) return;
+                                 UnitUnlocked)) return;
             HideLoadout();
             onLoadoutBegin?.Invoke(loadoutPicks, ConsumableActions.Equip(loadoutConsumables));
         }
@@ -968,7 +1012,8 @@ namespace ArmedConflict.UI
                 loadoutFaction.text = $"Enemy: {loadoutFactionDef.displayName}";
                 loadoutFaction.color = loadoutFactionDef.bannerColor;
             }
-            loadoutSummary.text = $"{used}/{slots} troops     {points}/{budget} points";
+            loadoutSummary.text = $"{used}/{slots} troops     {points}/{budget} points"
+                + (testSupply ? "   [TEST SUPPLY — RIGS]" : "");
             loadoutBalance.SetText("{0}", ProgressStore.Coins());
 
             for (int i = 0; i < loadoutRows.Length; i++)
@@ -978,7 +1023,7 @@ namespace ArmedConflict.UI
                 row.Root.SetActive(true);
 
                 var entry = loadoutRoster.slots[i];
-                bool unlocked = ProgressStore.IsUnitUnlocked(entry.unit.id);
+                bool unlocked = UnitUnlocked(entry.unit.id);
                 int count = loadoutPicks.FirstOrDefault(p => p.Unit == entry.unit).Count;
 
                 row.Name.text = $"{entry.unit.displayName}  ({entry.pointCost}p)";
@@ -999,7 +1044,7 @@ namespace ArmedConflict.UI
             RefreshCamo();
 
             bool legal = Loadout.IsLegal(loadoutPicks, loadoutLevel, loadoutRoster,
-                                         ProgressStore.IsUnitUnlocked);
+                                         UnitUnlocked);
             beginButton.GetComponent<Image>().color = legal
                 ? new Color(0.16f, 0.42f, 0.24f) : new Color(0.22f, 0.22f, 0.24f);
         }
@@ -1014,7 +1059,7 @@ namespace ArmedConflict.UI
             // Refuse the edit rather than clamping it: silently dropping somebody else's trooper
             // to make room reads as the game taking a decision away.
             if (delta > 0 && !Loadout.IsLegal(next, loadoutLevel, loadoutRoster,
-                                              ProgressStore.IsUnitUnlocked)) return;
+                                              UnitUnlocked)) return;
             if (delta < 0 && Loadout.UnitsUsed(next) == 0) return;
 
             loadoutPicks = next;
@@ -1023,6 +1068,9 @@ namespace ArmedConflict.UI
 
         void Buy(RosterSlot entry)
         {
+            // Unreachable under RIGS — the row shows no buy button — but the contract is that a
+            // test session writes NOTHING, and that is worth a guard rather than an inference.
+            if (testSupply) return;
             if (!EconomyStore.PurchaseUnit(new RosterEntry
             {
                 Unit = entry.unit, CoinPrice = entry.coinPrice,

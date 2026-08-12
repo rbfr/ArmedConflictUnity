@@ -26,6 +26,10 @@ using ArmedConflict.Data;
 /// </summary>
 public static class BattleUIPreview
 {
+    /// <summary>Whether the last LoadoutShot's picker OFFERED the probed class. See the unit
+    /// test-supply assertion in Shots().</summary>
+    static bool lastClassOffered;
+
     const string OutDir = "Builds/ui";
     static readonly Color Backdrop = new(0.16f, 0.20f, 0.26f);
 
@@ -105,8 +109,44 @@ public static class BattleUIPreview
             var spyCamo = CosmeticSet.Arctic;
             var wardrobeBefore = ProgressStore.UnlockedCosmetics().Count;
             var wornBefore = ProgressStore.SelectedCosmetic();
+            // UNITS ride the same shot for the same reason (2026-08-12). Until that day RIGS
+            // freed consumables and camo but NOT classes, while HANDOVER told two sessions to
+            // "buy both with RIGS on" — so verifying one roster change cost a real 250-700 coin
+            // purchase on a build whose test protocol wipes the balance every time.
+            //
+            // The spy is the most expensive LOCKED class, because the property is "access
+            // without purchase" and an already-owned class proves nothing. If everything happens
+            // to be unlocked in this editor's prefs the check says so rather than passing —
+            // the empty-purse trap, the same one the staged coins above exist for.
+            var spyUnit = roster.slots
+                .Where(sl => sl.unit != null && !ProgressStore.IsUnitUnlocked(sl.unit.id))
+                .OrderByDescending(sl => sl.coinPrice).FirstOrDefault();
+            int unitStake = spyUnit != null ? spyUnit.coinPrice * 2 : 0;
+            ProgressStore.AddCoins(unitStake);
+            int unitCoinsBefore = ProgressStore.Coins();
+
             LoadoutShot("loadout-testsupply", level, roster, spySupply, testSupply: true,
-                        wearing: spyCamo);
+                        wearing: spyCamo, probeClass: spyUnit?.unit);
+
+            if (spyUnit == null)
+                Debug.LogError("[BattleUIPreview] every class is already unlocked in this "
+                             + "editor's PlayerPrefs, so the unit test-supply check is testing "
+                             + "NOTHING. Clear them and re-run.");
+            else if (!lastClassOffered)
+                Debug.LogError($"[BattleUIPreview] TEST SUPPLY DID NOT OFFER {spyUnit.unit.id} — "
+                             + $"its + stepper was missing, or a pick of one was refused, so "
+                             + $"RIGS is not covering unit classes.");
+            else if (ProgressStore.IsUnitUnlocked(spyUnit.unit.id)
+                     || ProgressStore.Coins() != unitCoinsBefore)
+                Debug.LogError($"[BattleUIPreview] TEST SUPPLY WROTE TO THE REAL ROSTER — "
+                             + $"{spyUnit.unit.id} unlocked={ProgressStore.IsUnitUnlocked(spyUnit.unit.id)}, "
+                             + $"coins {unitCoinsBefore}->{ProgressStore.Coins()}. It must field "
+                             + $"without buying.");
+            else
+                Debug.Log($"[BattleUIPreview] test supply OFFERED LOCKED {spyUnit.unit.id} "
+                        + $"({spyUnit.coinPrice}c) and wrote nothing — still locked, coins "
+                        + $"{unitCoinsBefore} (enough to have bought it)");
+            ProgressStore.AddCoins(-unitStake);
             int ownedAfter = ProgressStore.OwnedConsumables(spySupply);
             int coinsAfter = ProgressStore.Coins();
             if (ProgressStore.UnlockedCosmetics().Count != wardrobeBefore
@@ -137,7 +177,8 @@ public static class BattleUIPreview
 
     static void LoadoutShot(string name, ArmedConflict.Data.LevelDefinitionSO level,
                             ArmedConflict.Data.RosterDefinitionSO roster, ConsumableType? carrying,
-                            bool testSupply = false, CosmeticSet? wearing = null)
+                            bool testSupply = false, CosmeticSet? wearing = null,
+                            UnitDefinitionSO probeClass = null)
     {
         const int W = 1080, H = 2400;
         var camGo = new GameObject("PreviewCam", typeof(Camera));
@@ -155,6 +196,7 @@ public static class BattleUIPreview
                 AssetDatabase.GUIDToAssetPath(g)))
             .Where(s => s != null).ToArray();
         ui.PreviewLoadout(level, roster, carrying, testSupply, Factions.For(level, stages), wearing);
+        lastClassOffered = probeClass != null && ui.PreviewOffersClass(probeClass);
 
         var canvas = ui.GetComponent<Canvas>();
         canvas.renderMode = RenderMode.ScreenSpaceCamera;
