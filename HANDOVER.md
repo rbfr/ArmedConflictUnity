@@ -2,8 +2,10 @@
 
 ## START HERE
 
-- **UNCOMMITTED: the hero REPLACEMENT fix** (collision boxes, below) is in the tree. Tier 2.2's
-  hero staging and deck-overlap fix were pushed earlier in the THIRD session. The SECOND session's twenty
+- **EVERYTHING IS COMMITTED AND PUSHED**, as of the close of 2026-08-11's THIRD session — Tier
+  2.2's hero staging, the deck-overlap fix, and the collision-box replacement Rob's L6 report
+  produced. **This bullet has now been wrong three times in one session**; it is a courtesy, and
+  the line below it is the instruction. The SECOND session's twenty
   commits (2026-08-10's airstrike arc, 2026-08-11's airstrike rework, Tier 2.1 factions and Tier
   2.4 camo) went up before it.
   **`git status` and `git log --oneline origin/main..HEAD` are the answer, never this bullet** —
