@@ -15,6 +15,7 @@ MonoBehaviour:
   id: garrison_post
   displayName: Garrison Post
   modelAsset: models/garrison_post.glb
+  wreckModelAsset: models/garrison_post_collapse.glb
   maxHp: 135
   size: 2.5
   isPlayerSide: 0

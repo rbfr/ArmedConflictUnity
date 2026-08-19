@@ -74,8 +74,20 @@ MonoBehaviour:
     standingOnStructureId: player_tank
     advancePerTurn: 0
   - definition: {fileID: 11400000, guid: 42221a45b5be3eb57b1b2bd28b9aaac0, type: 2}
-    count: 8
-    anchorX: -7
+    count: 5
+    anchorX: -7.4
+    anchorZ: 0
+    standingOnStructureId: 
+    advancePerTurn: 0
+  - definition: {fileID: 11400000, guid: 5cd89868ef7ce0884a623d1199a379f2, type: 2}
+    count: 2
+    anchorX: -5.9
+    anchorZ: 0
+    standingOnStructureId: 
+    advancePerTurn: 0
+  - definition: {fileID: 11400000, guid: bc720e3a7e2e4fd75aa060dbb24b72c8, type: 2}
+    count: 1
+    anchorX: -4.6
     anchorZ: 0
     standingOnStructureId: 
     advancePerTurn: 0
@@ -88,6 +100,20 @@ MonoBehaviour:
     scale: 0.9
     slowsAdvance: 1
     halfWidth: 1
+  - modelAsset: models/prop_wreck_car.glb
+    x: -5.2
+    z: -8.0
+    scale: 3.1
+    slowsAdvance: 0
+    halfWidth: 1.2
+    keepColors: 1
+  - modelAsset: models/prop_dead_tree.glb
+    x: -8.7
+    z: -9.9
+    scale: 2.8
+    slowsAdvance: 0
+    halfWidth: 0.6
+    keepColors: 1
   levelBase: 130
   deployBudget: 13
   bossPhases: []
@@ -95,7 +121,8 @@ MonoBehaviour:
   reinforcementWaves: []
   staticCamera: 0
   isTestLevel: 0
-  designNotes: 'Beat 8: combine, no new verb. Elevation (beat 5) and the charge (beat
+  designNotes: 'Beat 8: combine, no new verb. Default is L5''s mix (5 rifle + 2 grenadier
+    + 1 sniper) so the lofted shot and the packed charge are both in the line. Elevation (beat 5) and the charge (beat
     4) at the same time, on beat 2''s biome so nothing about the setting is new either.
     The player already has every skill this needs; the question is whether they can
     choose an order under pressure. Wire slows the advance for whoever notices it.'

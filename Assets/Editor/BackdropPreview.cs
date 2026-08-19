@@ -73,9 +73,38 @@ public static class BackdropPreview
         var root = new GameObject("Backdrop").transform;
         // The preview's aspect, not the design one: the shot is 540x1202 and a backdrop sized for
         // a different frustum would be the wrong picture to judge.
-        BackdropRuntime.Build(bg, (float)Width / Height, root, unlitSource, fadeSource, owned);
+        var stripModels = new Dictionary<string, GameObject>();
+        foreach (var style in (SilhouetteStyle[])System.Enum.GetValues(typeof(SilhouetteStyle)))
+        {
+            string far = BackdropRuntime.StripFar(style);
+            string near = BackdropRuntime.StripNear(style);
+            string mid = BackdropRuntime.StripMid(style);
+            if (far == null) continue;
+            var fg = AssetDatabase.LoadAssetAtPath<GameObject>($"Assets/Models/{far}.glb");
+            var ng = AssetDatabase.LoadAssetAtPath<GameObject>($"Assets/Models/{near}.glb");
+            if (fg != null) stripModels[far] = fg;
+            if (ng != null) stripModels[near] = ng;
+            // The preview must register the optional mid too, or it renders a picture the
+            // device will not — which is the one thing this tool exists to avoid.
+            if (mid != null)
+            {
+                var mg = AssetDatabase.LoadAssetAtPath<GameObject>($"Assets/Models/{mid}.glb");
+                if (mg != null) stripModels[mid] = mg;
+            }
+            string fore = BackdropRuntime.StripFore(style);
+            if (fore != null)
+            {
+                var qg = AssetDatabase.LoadAssetAtPath<GameObject>($"Assets/Models/{fore}.glb");
+                if (qg != null) stripModels[fore] = qg;
+            }
+        }
+        BackdropRuntime.Build(bg, (float)Width / Height, root, unlitSource, fadeSource, owned,
+                              stripModels);
         if (root.childCount == 0)
             Debug.LogError($"[BackdropPreview] {bg.style} built NO layers — the shot will be blank");
+        // Pose the ruin fire/smoke at a mid-flicker so the still is not the t=0 rest pose.
+        foreach (var fx in root.GetComponentsInChildren<RuinFxDriver>())
+            if (fx.Session != null) fx.Session.Tick(0.41f);
 
         var camGo = new GameObject("Cam");
         var cam = camGo.AddComponent<Camera>();

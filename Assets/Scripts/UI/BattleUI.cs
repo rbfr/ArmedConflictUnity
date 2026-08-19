@@ -48,7 +48,7 @@ namespace ArmedConflict.UI
         /// throws away the spectacle the whole turn was building toward. The award is granted
         /// immediately either way; only the presentation waits.
         /// </summary>
-        const float VictoryHold = 1.1f;
+        const float VictoryHold = CameraDirector.VictoryCamHoldSeconds;
         /// <summary>Shorter: a defeat has no collapse to watch, and waiting reads as the game
         /// hesitating rather than as a beat.</summary>
         const float DefeatHold = 0.6f;
@@ -233,7 +233,8 @@ namespace ArmedConflict.UI
                                    ConsumableType? carrying = null, bool testSupply = false,
                                    FactionDefinitionSO faction = null, CosmeticSet? wearing = null)
         {
-            var picks = Loadout.Default(level, roster, ProgressStore.IsUnitUnlocked);
+            // Preview shows the authored mix, not the substitution a locked save would field.
+            var picks = Loadout.Default(level, roster, _ => true);
             ShowLoadout(level, roster, picks, testSupply, (_, __) => { }, faction);
             if (carrying is ConsumableType type) TapConsumable(type);
             if (wearing is CosmeticSet set) TapCamo(set);

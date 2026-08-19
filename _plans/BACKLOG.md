@@ -16,6 +16,40 @@ Nothing here overrides `GAME_DESIGN_LOCKS.md` or `CAMERA_ARCHITECTURE.md`.
 
 ---
 
+## Asked for: a look pass via the Blender MCP — opened 2026-08-14
+
+Rob parked the tier stack for a sitting so the game can look better, now
+that the addon is actually talking. Rifleman, tank, opening arrive, and
+CityRuins (ashen strip, flames in the openings, rubble, scorch) all
+shipped; Rob called the city *"ok, looks good."* He has not named the
+next biome or unit. Do not sequence one here — ask.
+
+`UNIT_VARIETY_DESIGN.md` still applies to every unit: the rifleman stays
+the skinny baseline, height is not an axis, spend width in X. Structures
+keep origin / facing / muzzle contracts. Never `read_factory_settings` in
+a live MCP Blender (it kills the addon).
+
+---
+
+## Asked for: more mid-ground scenery variety — parked 2026-08-18
+
+All twelve campaign levels have two keepColors plants at z ≤ −6
+(car / blasted tree / cactus). Depth and the L1 car are signed.
+Rob: *"ok. seems repetitive but we can address later."* The
+fix is a wider per-biome set, not moving or rescaling the three
+we have. Do not reopen those as a taste pass.
+
+---
+
+## RESOLVED 2026-08-18: Cluster's 3.2x spread is fine
+
+Rob: *"ok cluster is fine."* `spreadScale` 3.2 and `unitDamageScale` 0.65 stay. Tier 1.1
+owes nothing else. The original entry is kept below so the question does not get re-opened
+from a scripted drag that cannot settle it.
+
+<details>
+<summary>The original entry, as raised</summary>
+
 ## UNRESOLVED: is Cluster's 3.2x spread too wide to connect? — open since 2026-08-07
 
 **A balance question, and only a human playing it can answer.** It has been open since Tier 1.1
@@ -40,6 +74,8 @@ garrison, and compare against the same levels with Standard. The number to watch
 dealt — it is whether ANY single enemy dies to one volley. If Cluster only ever wounds, the spread
 is too wide and the honest fix is to lower `spreadScale`, not to raise the damage.
 
+</details>
+
 ---
 
 ## UNRESOLVED: flames outlive their bodies by a frame or two — found 2026-08-10
@@ -48,11 +84,25 @@ At the moment the incendiary burn KILLS a garrison, a contact sheet shows one sa
 which two flames stand on the bunker deck **with no bodies under them**, before the corpses appear
 in flight with their flames still attached.
 
-**The current explanation is a hypothesis, not a diagnosis.** Best reading is the already-recorded
-"a unit's slot is not stable across frames" corpse handover: the unit leaves `EnemyUnits` and
-becomes a `DyingUnitEntity` in the same tick, and the renderer may take a frame to place the
-ragdoll while the flame — which is driven from the ENTITY and follows `DyingUnits` by design — is
-already drawn at the death position. That would make the flame correct and the BODY late.
+**Read from the code on 2026-08-13, still not chased on a device.** Flame and ragdoll are
+handed the same `DyingUnitEntity` xyz on the same `Render()` call (`SyncUnits` living, then
+dying `Take`, then `SyncFlames`). There is no second flame position and no one-frame lag
+between the two writers.
+
+What that leaves, if the contact sheet is real:
+
+- **`Take` returned null** for the ragdoll. Living units warn; dying ones used to `continue`
+  silently. A miss draws the flame (own pool) and no body. Now warned. Pool is
+  `ClassCounts + 2`; living + still-airborne ragdolls of one class can exceed that when a
+  wave lands on top of an unfinished throw.
+- **The body is drawn inside the bunker.** Kenney's `die` drives the root downward on a
+  garrison whose feet are already on a deck; for a few frames the mesh is in the masonry
+  and the flame (a quad at entity y) is not. Then the impulse lifts both. That is the
+  open ragdoll / structure report, not a flame bug.
+
+The slot-handover hypothesis does not survive the read: the dying unit takes a pool slot
+on the death frame, after the living have compacted, and `Set(Die)` runs before
+`SyncFlames`.
 
 **It was seen on one recording sampled at 12 fps**, so even "a frame or two" is an estimate. It
 could be a single frame.
@@ -267,6 +317,8 @@ measured with `tools/measure_structures.py` BEFORE authoring a level around it.
 ---
 
 ## Dead units should SINK into the ground — asked 2026-08-07
+## BUILT 2026-08-14 — `RagdollSinkY`, dirt only, last 0.9s
+## Rob 2026-08-16: "the sink into the ground looks good."
 
 Today a corpse ragdolls, lies there, and then **disappears** when its TTL expires. Rob wants it to
 sink into the ground instead.
@@ -294,7 +346,16 @@ What it touches:
 ---
 
 ## Dead units interact with structures in physically impossible ways — reported 2026-08-07
-## PARTLY FIXED 2026-08-07 — see "Corpses levitating onto roofs" in HANDOVER.md
+## SIGNED 2026-08-18/19 — mid-air rest after a structure throw
+## see "Pick up here" in HANDOVER.md — do not reopen as a taste pass
+
+Levitation up a wall face was fixed 2026-08-07 (`fromY` / roof vs base).
+Falling through a wreck (no lid) was fixed 2026-08-18 (0.32 mound on the
+visual base). The hang-in-mid-air after a garrison is blown off was
+`RagdollRestY(spin)` at ±90 (a 0.5 phantom floor) plus wreck.Y stored as
+the standing centre. Rob: *"think that will work fine."*
+
+The original notes follow so the earlier mechanisms are not re-derived.
 
 One reproducible mechanism is fixed: bodies were rested on a roof whenever they were horizontally
 inside the footprint and above the box's BASE, so a corpse flung at a wall was snapped up the face

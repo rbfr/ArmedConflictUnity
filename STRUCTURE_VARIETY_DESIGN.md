@@ -217,7 +217,8 @@ Two things were learned building these, both on device:
   occluded parade is not a conservative test, it is a broken one. Seven per level keeps real gaps
   between subjects.
 
-Framing: during Aiming the camera is `(playerHalfWidth + 1.2) / 0.45` and reads the **player line
+Framing: during Aiming the camera is `(playerHalfWidth + FramePad) / 0.45` (`FramePad` 0.6)
+and reads the **player line
 only** — enemy structures do not affect it at all. The player line is spread to match the
 structure rows. Erring wide is the safe direction (legibility fails as things get smaller), but
 not so wide that subjects overlap. The spectator riflemen sit at z +2.8 so they stay in frame as

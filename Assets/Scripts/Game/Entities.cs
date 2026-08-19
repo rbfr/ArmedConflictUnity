@@ -230,8 +230,33 @@ namespace ArmedConflict.Game
         public float Rotation { get; init; }
         public float SettleTilt { get; init; }
         public float Yaw { get; init; }
+        public float YawSpeed { get; init; }
+        public float TiltSpeed { get; init; }
+
+        /// <summary>
+        /// True when this body fell off a deck. Dirt deaths tip over and do not
+        /// tumble or flail against masonry.
+        /// </summary>
+        public bool Tumble { get; init; }
         public float Age { get; init; }
         public bool Asleep { get; init; }
+
+        /// <summary>
+        /// Y of the surface this body is sitting on this tick (ground rest or a roof).
+        /// Negative means airborne. The renderer keys the flail off THIS, not off
+        /// <see cref="CosmeticSystems.RagdollRestY"/> — that is dirt, so a garrison
+        /// on a deck at y=2.5 read as airborne for the whole 5s they exist and
+        /// thrashed on the roof. Rob, 2026-08-14.
+        /// </summary>
+        public float SupportY { get; init; } = -1f;
+
+        /// <summary>
+        /// Fold toward this sign in GAME x when the body is against masonry.
+        /// +1 = toward +X (into a wall approached from the left, or off the right lip),
+        /// -1 = toward -X, 0 = no contact. Carried so a slump at the base of a wall
+        /// survives the tick they leave the box.
+        /// </summary>
+        public float Bend { get; init; }
     }
 
     /// <summary>

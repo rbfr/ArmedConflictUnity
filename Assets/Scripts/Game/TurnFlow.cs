@@ -17,6 +17,97 @@ namespace ArmedConflict.Game
         public const float EnemyWindupSeconds = 1.5f;
 
         /// <summary>
+        /// How long the camera holds on the enemy cluster after BEGIN, before the first aim.
+        ///
+        /// The Kotlin preview showed the field before you shot. LoadLevel used to jump straight
+        /// to Aiming, so the player never saw the layout — Rob, 2026-08-13. PlayerScout already
+        /// framed that cluster; nothing ever entered the phase. First battle only; later turns
+        /// have already seen the enemy windup.
+        /// </summary>
+        public const float PlayerScoutSeconds = 2.2f;
+
+        /// <summary>
+        /// How long the tank takes to roll from off the left edge into its authored slot.
+        /// Crew ride it; the signed-off scout starts when the vehicle parks.
+        /// </summary>
+        public const float TankArriveSeconds = 2.0f;
+
+        /// <summary>
+        /// How far left of its park the tank (and its crew) start, in game units.
+        /// About one vehicle length — long enough to read as an entrance, short
+        /// enough that the camera does not have to pull back to a parade shot.
+        /// </summary>
+        public const float TankArriveDistance = 3.6f;
+
+        /// <summary>
+        /// First beat after BEGIN. The tank rolls and the ground line jogs in from the
+        /// same left edge, on camera. A level with neither a cannon nor a ground squad
+        /// keeps the signed-off scout.
+        /// </summary>
+        public static GameState StartBattle(GameState s)
+        {
+            var tanks = new List<StructureEntity>();
+            foreach (var st in s.Structures)
+                if (st.Definition != null && st.Definition.isPlayerSide && st.Definition.hasCannon)
+                    tanks.Add(st);
+
+            bool anyGround = false;
+            foreach (var u in s.PlayerUnits)
+                if (u.StandingOnStructureId == null) { anyGround = true; break; }
+
+            if (tanks.Count == 0 && !anyGround)
+            {
+                return s with
+                {
+                    Phase = GamePhase.Playing,
+                    TurnPhase = TurnPhase.PlayerScout,
+                    ScoutTimer = PlayerScoutSeconds,
+                };
+            }
+
+            float d = TankArriveDistance;
+            var tankIds = new HashSet<int>();
+            foreach (var t in tanks) tankIds.Add(t.Id);
+            float park = tanks.Count > 0 ? tanks[0].X : 0f;
+
+            var shifted = new List<StructureEntity>(s.Structures.Count);
+            foreach (var st in s.Structures)
+                shifted.Add(tankIds.Contains(st.Id) ? st with { X = st.X - d } : st);
+
+            var arriving = new List<UnitEntity>(s.PlayerUnits.Count);
+            foreach (var u in s.PlayerUnits)
+            {
+                bool rides = u.StandingOnStructureId is int id && tankIds.Contains(id);
+                if (rides)
+                    arriving.Add(u with { X = u.X - d });
+                else if (u.StandingOnStructureId == null)
+                    arriving.Add(u with { X = u.X - d, MarchTargetX = u.X });
+                else
+                    arriving.Add(u);
+            }
+
+            return s with
+            {
+                Phase = GamePhase.Playing,
+                TurnPhase = TurnPhase.TankArrive,
+                TankArriveTimer = TankArriveSeconds,
+                TankParkX = park,
+                Structures = shifted,
+                PlayerUnits = arriving,
+                ScoutTimer = PlayerScoutSeconds,
+            };
+        }
+
+        /// <summary>Cubic ease, 0 at the start and 1 at the park. Not Mathf.SmoothStep.</summary>
+        public static float TankArriveEase(float timer)
+        {
+            if (timer <= 0f) return 1f;
+            if (timer >= TankArriveSeconds) return 0f;
+            float t = 1f - timer / TankArriveSeconds;
+            return t * t * (3f - 2f * t);
+        }
+
+        /// <summary>
         /// A beat after the last round lands, before the turn changes hands. Without it the
         /// handover treads on the impact the player is still reading.
         /// </summary>
@@ -188,6 +279,8 @@ namespace ArmedConflict.Game
                 award.Coins += m.Coins;
                 award.BonusTag = MilestoneTag(m.MilestoneStar);
             }
+
+            EncounterUnlocks.GrantAmmoAfterClear(level);
 
             return award;
         }

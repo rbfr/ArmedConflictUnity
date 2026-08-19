@@ -15,6 +15,7 @@ MonoBehaviour:
   id: mountain_bunker
   displayName: Mountain Bunker
   modelAsset: models/mountain_bunker.glb
+  wreckModelAsset: models/mountain_bunker_collapse.glb
   maxHp: 180
   size: 1.5
   isPlayerSide: 0

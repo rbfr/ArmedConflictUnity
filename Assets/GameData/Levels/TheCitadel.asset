@@ -80,14 +80,34 @@ MonoBehaviour:
     standingOnStructureId: player_tank
     advancePerTurn: 0
   - definition: {fileID: 11400000, guid: 42221a45b5be3eb57b1b2bd28b9aaac0, type: 2}
-    count: 8
-    anchorX: -7
+    count: 6
+    anchorX: -7.2
+    anchorZ: 0
+    standingOnStructureId: 
+    advancePerTurn: 0
+  - definition: {fileID: 11400000, guid: 78df349efe93c4808aaf91ecd66e5ee7, type: 2}
+    count: 2
+    anchorX: -5.6
     anchorZ: 0
     standingOnStructureId: 
     advancePerTurn: 0
   background: {fileID: 11400000, guid: e189402158fef8374aba4dab97d743b2, type: 2}
   heliChance: 0
-  props: []
+  props:
+  - modelAsset: models/prop_cactus.glb
+    x: -5.1
+    z: -8.2
+    scale: 2.8
+    slowsAdvance: 0
+    halfWidth: 0.5
+    keepColors: 1
+  - modelAsset: models/prop_cactus.glb
+    x: -8.6
+    z: -10.3
+    scale: 2.2
+    slowsAdvance: 0
+    halfWidth: 0.5
+    keepColors: 1
   levelBase: 260
   deployBudget: 16
   bossPhases:
@@ -111,7 +131,8 @@ MonoBehaviour:
   reinforcementWaves: []
   staticCamera: 0
   isTestLevel: 0
-  designNotes: "Beat 12: finale. Combines beat 6's boss phase with beat 4's charge,
+  designNotes: "Beat 12: finale. Default is 6 rifle + 2 rocket \u2014 last masonry
+    in the campaign, same tool L6 introduced. Combines beat 6's boss phase with beat 4's charge,
     on beat 5's biome \u2014 three things the player already knows, arriving together.
     The wide fortress tier is the largest structure in the game (6.0 wide, 250 hp)
     and its fall is the loudest moment the campaign has; the Sovereign and a shield

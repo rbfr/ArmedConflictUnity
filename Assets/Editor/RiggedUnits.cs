@@ -226,7 +226,9 @@ public static class RiggedUnits
     const string ClipPrefix = "character-m/root";
 
     // Only the clips the game actually uses. The pack ships 27, including a wheelchair set.
-    static readonly string[] Wanted = { UnitAnim.Idle, UnitAnim.Hold, UnitAnim.Shoot, UnitAnim.Die };
+    static readonly string[] Wanted =
+        { UnitAnim.Idle, UnitAnim.Hold, UnitAnim.Shoot, UnitAnim.Die, UnitAnim.Walk,
+          UnitAnim.Melee };
 
     const string GunModel = "Assets/Models/placeholder_gun.glb";
 
@@ -246,12 +248,19 @@ public static class RiggedUnits
         var gun = (GameObject)PrefabUtility.InstantiatePrefab(src);
         gun.name = "gun";
         gun.transform.SetParent(hand, false);
-        // Down the arm to the hand, then forward. The arm hangs along -Y from the shoulder in
-        // model space and the soldier faces +Z, so "at the hands, pointing where he looks" is
-        // -Y for the length of the arm and +Z for the muzzle.
+        // placeholder_gun is authored barrel-along-+X, magazine-along-−Z, grip at the origin
+        // (build_rifleman.py). Kenney's holding-both pitches both arms −90° about X so the
+        // arm's −Y (down the bone) becomes model +Z (downfield after the facing yaw). Identity
+        // parenting left +X along the arm's +X — toward the camera — which is the "handing
+        // the rifle over" read. Align barrel with the bone and magazine with arm +Z; after
+        // the hold that is downfield and hanging down.
         float armLen = SHOULDER_Z - HIP_Z;
-        gun.transform.localPosition = new Vector3(0f, -armLen * 0.92f, 0.34f);
-        gun.transform.localRotation = Quaternion.identity;
+        gun.transform.localPosition = new Vector3(0.10f, -armLen * 0.88f, 0.04f);
+        // LookRotation(forward, right) put local +X (the barrel) down the bone
+        // toward the shoulder — 180° off the hands. The phone showed every
+        // muzzle at the tank. This is the opposite roll so the barrel continues
+        // past the hands, the way the soldier faces.
+        gun.transform.localRotation = Quaternion.LookRotation(Vector3.forward, Vector3.left);
         gun.transform.localScale = Vector3.one * 1.35f;
         foreach (var r in gun.GetComponentsInChildren<MeshRenderer>()) r.sharedMaterial = gunMat;
     }
@@ -327,8 +336,6 @@ public static class RiggedUnits
         // idle entirely leaves a line of statues, which is the tell that they are instanced
         // copies; the Desync exists for the same reason. Only `idle` is touched: the recoil and
         // the death are one-shots the player is meant to notice.
-        float amp = src.name == UnitAnim.Idle ? IdleAmplitude : 1f;
-
         string path = $"Assets/Animations/{src.name}.anim";
         System.IO.Directory.CreateDirectory("Assets/Animations");
 
@@ -337,11 +344,20 @@ public static class RiggedUnits
         foreach (var b in AnimationUtility.GetCurveBindings(src))
         {
             var curve = AnimationUtility.GetEditorCurve(src, b);
-            if (amp < 1f) curve = Damp(curve, amp);
             string p = b.path;
             if (p == ClipPrefix) p = "";                                   // the root itself
             else if (p.StartsWith(ClipPrefix + "/")) p = p.Substring(ClipPrefix.Length + 1);
             else { dropped++; continue; }
+            // Idle damp is per joint. The 2026-08-05 rocking was the TORSO; damping
+            // the whole clip to 0.4 also killed the head, which is the motion that
+            // reads as "alive" once the hold has frozen the arms. Head keeps more of
+            // Kenney's look-around; torso stays quieter than the old blanket 0.4.
+            float amp = 1f;
+            if (src.name == UnitAnim.Idle)
+                amp = p == "torso/head" ? 0.75f
+                    : p == "torso" ? 0.28f
+                    : IdleAmplitude;
+            if (amp < 1f) curve = Damp(curve, amp);
             dst.SetCurve(p, b.type, b.propertyName, curve);
             bound++;
         }

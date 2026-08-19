@@ -15,6 +15,7 @@ MonoBehaviour:
   id: tower_base
   displayName: Tower Base
   modelAsset: models/tower_base.glb
+  wreckModelAsset: models/tower_base_collapse.glb
   maxHp: 135
   size: 2
   isPlayerSide: 0

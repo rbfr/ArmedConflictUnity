@@ -15,6 +15,7 @@ MonoBehaviour:
   id: fortress_tier_wide
   displayName: Fortress Tier
   modelAsset: models/fortress_tier_wide.glb
+  wreckModelAsset: models/fortress_tier_wide_collapse.glb
   maxHp: 250
   size: 2
   isPlayerSide: 0

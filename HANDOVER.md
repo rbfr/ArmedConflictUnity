@@ -1,4 +1,4 @@
-# Handover — Unity, as of 2026-08-12
+# Handover — Unity, as of 2026-08-19
 
 ## START HERE
 
@@ -21,6 +21,18 @@
 - **SEVERAL SESSIONS RAN PER DAY AND THIS FILE DISTINGUISHES THEM BY SUBJECT, NOT BY DATE.**
   2026-08-11 ran three: the airstrike rebuild (signed off), Tier 2.1 + 2.4, then Tier 2.2's hero
   work and a docs pass. 2026-08-12 ran two: Tier 2.2's crowd half, then the Tier 2.3 audit.
+  2026-08-13 ran four: melee refine + opening scout (signed off), the warm-up that
+  closed GroundAnchorX, then the armour zoom and the APK that is on the phone.
+  2026-08-14 ran the Blender MCP art (rifleman, tank, opening arrive) and
+  the CityRuins strip (Rob: *"ok, looks good."*).
+  2026-08-14/16 ran deaths: ragdoll contact, dirt sink, quieter flail.
+  Rob: contact *"ok looks better."* Sink *"looks good."* Flail *"ok looks
+  better."* Do not reopen as a taste pass.
+  2026-08-18 ran the look sitting (Cluster / Forest Kenney / L1
+  Mountains / L7 Winter signed), unit hold + emptiness (hold
+  signed, mid-ground scenery planted, variety parked), authored
+  defaults + encounter ammo, then ragdoll tumble / collapse
+  follow / mid-air rest (signed). Read "Pick up here".
   A date alone will not tell you which piece of work a section belongs to — read the heading.
 - **ALL OF TIER 0 IS DONE AND SIGNED OFF.** The Phase E balance audit — the last thing it owed —
   was run on 2026-08-07 in both halves, and Rob played the campaign afterwards and reported the
@@ -31,10 +43,12 @@
   schedule covers two levels. **Wind is the other half and is still blocked** — see below.
 - **TIER 1.3 IS BUILT** — four consumables, bought, carried and fired, confirmed on device
   2026-08-10. **Overwatch Flare is deliberately not among them**; see its section.
-- **THE AIRSTRIKE HAS AN AIRCRAFT** (2026-08-10), rebuilt almost entirely on 2026-08-11. It cuts
-  the camera to the strike, enters across the LEFT EDGE, rakes the WHOLE ENEMY POSITION with
-  tracer streaks, and its bomb LANDS WITH the player's volley rather than before it.
-  **Rob signed it off: "ok this will work."** See "What 2026-08-11 changed".
+- **THE AIRSTRIKE HAS AN AIRCRAFT.** 2026-08-11 cut-and-hold was signed
+  (*"ok this will work"*). 2026-08-17 **withdrew the cut**: plane enters
+  from the player LEFT, camera rides it to the enemy then HOLDS, plane
+  leaves the right edge, camera home, THEN the volley. Pass-by on the
+  armed-fall (FireVolley mints the plane — DriveAudio never sees a
+  null→plane edge). Rob: *"yes. looking good."* Do not restore the cut.
 - **TIER 2.1 (ENEMY FACTIONS) AND TIER 2.4 (PLAYER CAMO) ARE BUILT AND ACCEPTED BY ROB.** He
   looked at a build on 2026-08-11 and called it: *"ok, uniforms are fine for now."* That is the
   first of this tier's features to clear the only bar that has ever mattered here. Factions are
@@ -47,11 +61,14 @@
   byte-identical across all 61 findings. The wide decks roughly doubled their fill (GarrisonPost
   16% -> 34%, BarracksBlock 22% -> 47%). **Shrinking the STRUCTURES was tried first and the
   arithmetic killed it** — see "The crowd split" below.
-- **TIER 2.3 IS BUILT AND HAS NOT BEEN ON A DEVICE.** The audit found the roster was NOT
-  mechanic-distinct: the machine gunner's burst had never reached the player's volley (one round,
-  not three) and measured identically to the shield bearer, whose own advertised mechanic — melee
-  — is unported. The burst is fixed and the shield bearer has ARMOUR instead. `RosterAudit.Report`
-  now reports 0 errors. **Nothing here has been seen in motion**; see item 1 below.
+- **TIER 2.3 IS BUILT.** Burst is three independent jitters; Rob signed the fan off 2026-08-13
+  (*"yeah, think this looks fine"*). The shield bearer has ARMOUR (`damageTakenMultiplier` 0.5).
+  The closer frames that make the riot shield readable are on the phone and have **not
+  been signed off**. `RosterAudit.Report` is 0 errors.
+- **ADVANCING SQUADS + MELEE ARE SIGNED OFF, 2026-08-13.** Four campaign levels (L4, L8, L9,
+  L12). Swing is bound. Constants stay: `PostMeleeHoldSeconds` 1.5, `AdvanceSpeed` 2.4,
+  `GrappleGap` 0.75. Rob on L4: march and hold *"are fine"*; Grapple 0.75 *"ok that looks
+  better"*. Do not reopen as a tuning pass.
 - **RIGS IS THE TEST SUPPLY FOR EVERYTHING BUYABLE — consumables, camo, UNIT CLASSES and AMMO.**
   Every item free to equip, nothing spent, nothing written to the economy, wardrobe or roster.
   **Classes and ammo were added on 2026-08-12 and had NEVER been covered**, while this file told
@@ -59,7 +76,7 @@
   coins on a machine gunner and then could not afford the 500 shield bearer. Use it: the release
   build is not debuggable, `run-as` cannot reach PlayerPrefs, and the test protocol is
   uninstall/reinstall, so every purchase is re-earned on every install.
-- **637 self-test checks, all passing — run `PortSelfTest.Run` after every change.** It was 281 at
+- **Self-test checks last ran ALL PASS — run `PortSelfTest.Run` after every change.** It was 281 at
   the start of 2026-08-06, 411 at the end of it, 444 on 2026-08-07, 539 after the Tier 1.2 and
   glyph-coverage blocks, 559 with the flame and the Auto-ammo pair, 576 with Tier 1.3's
   consumables, 582 with the airstrike's aircraft, 585 with its strafing burst, 587 with the burst's
@@ -67,8 +84,30 @@
   rake-coverage, aim-independence, whole-burst and impact-alignment checks, 599 with Tier 2.1's
   seven faction checks, 606 with Tier 2.4's camo block, and 607/608/609 with Tier 2.2's
   hero-staging, deck-overlap and collision-box checks — the last of those written because Rob
-  found the bug on a device — **625** after 2026-08-12's crowd split, and **628** with Tier 2.3's
-  burst check, its roster guard and the armour check.
+  found the bug on a device — **625** after 2026-08-12's crowd split, **628** with Tier 2.3's
+  burst check, its roster guard and the armour check, **654** with advancing squads and the five
+  camera/reach fixes, **656** with the melee swing's travel check and its per-prefab guard,
+  and **three more** with GroundAnchorX (campaign-mean unchanged, parade on the left flank,
+  nobody in RidgeWatchtower), and **six more** with the armour zoom: distant march on the
+  chargers (`cam 3.50 ±4.00`, tank out), contact still the union, L12 leftover
+  `5.15 -> 3.38`, arrival `1.50`, a casualty does not recapture. L12's leftover
+  number is what the old capture would have kept. Then **eight more** with the
+  city strip (both GLBs imported, span the frustum at their own depth, near is
+  the taller skyline, sits on y=0). Then **the ragdoll contact block** —
+  roof-is-not-airborne, a lip falls, a centre-roof body keeps its vx
+  (seen red at `vx 0.00` against the dipped-fromY bug), a wall sets
+  Bend into it, a slump folds the torso 45° and leaves the arm still.
+  The existing "falls from above, stays on the roof" check went red at
+  `y 0.05 vs roof 4.0` against the same bug before the second
+  `BlockOnStructures` was handed the surface, not the dip. Then
+  **sink** (dirt only, last 0.9s, fully under at expiry; roof does not)
+  and **sliding on dirt is not airborne** (seen as the ground twitch:
+  leftover `vx` kept the sine wave on). Flail is 10°/5° at ~1–2 Hz.
+  Then **the optional-strip block** (2026-08-17): every style's mid and
+  fore references wired, only Forest declaring either, `MidZ` between far
+  and near, and `ForeZ` in front of the play plane but inside
+  `CameraDirector.ZMin`. **Seen RED** against a deliberately broken
+  `ForestMidModel` before being trusted.
   Two things about that history are worth knowing before reading a changed number as a lost check.
   **The crowd split's jump was +16 for three new checks** (crowd-split balance, projectile-pool
   headroom, crowd frailty), because several existing assertions are DATA-DRIVEN and log per body —
@@ -82,61 +121,828 @@
 
 ### Pick up here
 
-**637 checks green, all 12 levels pass all eight composition rules, BalanceAudit and RosterAudit
-both 0 errors, and everything is committed.** Five commits landed on 2026-08-12's third session:
-rule 8 over arrivals + three level fixes, RIGS covering unit classes, rule 7 over arrivals + two
-corrections, the burst fan, and ammo-under-RIGS + the victory banners.
+**A new session starts here.** Ask which beat to take.
 
-**THE NEXT PIECE OF WORK IS ADVANCING SQUADS + MELEE.** It is the only large thing left and it is
-a fresh start, not a continuation — everything below the next section is either done or is a
-decision waiting on Rob.
+**2026-08-18/19 sitting is closed.** Ragdoll tumble, collapse
+follow, and the mid-air hang are signed. Do not reopen as a
+taste pass. The look sitting, hold, and mid-ground plant from
+earlier the same day stay signed too.
 
-### 1. ADVANCING SQUADS + MELEE — the next session's job
+**Signed this sitting (on the phone):**
 
-**The EIGHTH dead system, and the biggest genuine gap in the codebase.** `AdvanceRemaining` is
-written nowhere, `SkirmishEntity` is never created, and `LevelBuilder` pins every PLAYER unit's
-`AdvancePerTurn` to 0. What it unlocks:
+- **Collapse camera.** Two-beat hold (2.1s). First 1.25s rides
+  the falling garrison; then the spring pans back to the live
+  enemy line. Windup stays frozen for the whole hold.
+  Rob: *"ok that's good."* Explicit ask against the camera lock.
+- **Ragdoll tumble.** Do **not** play Kenney `die` in the air
+  (that is the sit-down). GO is a 3-axis tumble; landing flops
+  to ±90 (side-lie). Dirt deaths tip over, they do not tumble.
+  Flail only tumble, first 0.35s. Wreck lid is a 0.32 mound on
+  the visual BASE (`st.Y - size/2`), standWidth not hitWidth.
+- **Mid-air rest.** First-pass dirt is `RagdollRestY(0)`, never
+  the live spin — at ±90 that formula is 0.5 and they hung
+  there with `SupportY=-1`. Rob: *"think that will work fine."*
+- **Hold, Forest, Mountains, Winter, Cluster 3.2x, L1 car /
+  mid-ground depth.** All signed earlier 08-18. Variety of the
+  three props is parked in `_plans/BACKLOG.md`. Do not widen
+  the aim frame; do not reopen those biomes or the three props.
 
-- **Overwatch Flare**, the one Tier 1.3 consumable deliberately not built, because it has nothing
-  to watch for.
-- **`PROGRESSION_DESIGN`'s whole survival/defend archetype**, which is made of this and does not
-  exist in the port.
-- **The shield bearer's 12 melee damage**, which `RosterAudit` currently reports as dead DATA —
-  the class was given ARMOUR on 2026-08-12 precisely because its advertised mechanic was unported.
-  It goes live the day advancing squads do.
+**Shipped, not a playthrough sign-off:**
 
-Read `PROGRESSION_DESIGN.md` for the spec, and treat its Status table as describing the RETIRED
-ANDROID BUILD, not this one — that trap has cost two sessions. **Check the Unity callers, not the
-status table.**
+- **Authored defaults + encounter ammo.** `Loadout.Default` is
+  the authored ground mix; reaching a level unlocks its
+  specialists; AP after L2, Incendiary after L4 (pre-select
+  only until the player taps an ammo chip). L1–L2 stay rifle;
+  L6/L8–L12 now author a specialist. Play L1→L7 on a **fresh
+  install**, Begin every time, before calling the funnel signed.
+- **Enemy aim raise.** Windup prepares the launch and rifles
+  raise over 1.5s, then fire that arc. On the phone with the
+  ragdoll sitting; never separately signed.
 
-Enemy-side advancing already half-exists and is worth reading first: `advancePerTurn` is authored
-on L12's boss shield bearers (1.2) and on L9's, and rule 8 exempts advancing units on the grounds
-that they walk out of a wall on their first move. **That exemption is not verified** — see item 5.
+`PortSelfTest.Run` last ran ALL PASS. **Ask git what is committed.**
+
+**Device.** APK on the phone is this sitting (collapse follow +
+mid-air rest), installed `-r`. **RIGS is the test supply.**
+
+**Open — ask, do not sequence:**
+
+- Authored-default funnel playtest (fresh L1→L7).
+- Mid-ground scenery variety (wider per-biome set).
+- Look pass: next biome or unit. He has not named one.
+- Wind still blocked. Overwatch Flare still not sold.
+
+**Traps this sitting paid for — do not re-learn:**
+
+1. **Kenney Nature Kit GLBs have no atlas.** `leafsDark` is aqua
+   `(0.17, 0.65, 0.67)`, `woodBarkDark` is peach `(0.80, 0.46,
+   0.37)`. That is the kit. We left those colours on once as a
+   control shot; Rob: *"now the trees are like an aqua color.
+   what is this."* `PlaceStripLayer` paints `leaf*` with the
+   layer's silhouette green and `wood*`/`Bark*` brown. **Do not
+   restore the kit colours.**
+2. **Do not copy the kit into `Assets/Models`.** The scene builder
+   wires every GLB there. Source lives in
+   `tools/blender/kenney_nature/` (CC0, builder input only).
+3. **Forest foreground stays off.** `StripFore` returns null.
+   The 2026-08-17 shrubs were magnified ~7x and were never the
+   ask. `ForeZ` / `build_fore` stay so a later biome can opt in.
+   Do not re-wire Forest. The unused `backdrop_forest_fore.glb`
+   can sit.
+4. **A snow solid at 6° is a white object**, not snow. L7's cap
+   mesh read as icebergs, then a mesa, then a chimney. Winter
+   already has a white ground and `snowfall`. `snow_from=2` so
+   `make_snow_mesh` emits nothing. Do not put a cap mesh back
+   on Winter or Mountains.
+5. **Isolated cones / high-octave ridge = a picket.** L1 far was
+   `cycles=10, octaves=4` with a white triangle on every horn.
+   Far mountains use `kind=range` (broad massifs, 2 octaves),
+   `far_foothill`, snow only on wide crests (and Winter none).
+   Do not go back to isolated cones.
+6. **Do not flip Kenney's hold 180°.** The body already faces
+   Unity −X (screen-right / the enemy). Flipping the arms made
+   them reach backward — Rob: *"now they're facing the wrong
+   direction."* The first "opposite gun" was the mesh vs the
+   imported root's +X, not the clip.
+7. **Assert the rendered rifle, not `TransformPoint(+X)`.**
+   glTFast wraps a root. Span-along-X was GREEN while every
+   muzzle pointed at the tank. Mesh bounds-centre along
+   `facing.forward` is the check. `LookRotation(forward, left)`.
+8. **Mid-ground is z ≈ −8, not the play plane.** z −0.75 sat
+   on the squad. Scale 4.1 there was two office towers.
+   Backdrop NearZ is −30 and cannot fill the tan.
+9. **`keepColors` on wreck / cactus / tree.** Default Tone
+   paints every prop player-olive. Sandbags and wire stay
+   painted.
+10. **Do not play `die` in the air.** It is a sit-down pose.
+    The GO tumbles; landing flops to ±90.
+11. **Dirt rest is `RagdollRestY(0)`.** `RagdollRestY(spin)` at
+    ±90 is a 0.5-unit phantom floor. Roofs and wreck lids raise
+    the surface; the live spin does not.
+12. **Wreck.Y is the visual BASE** (`st.Y - size/2`), same as
+    the wreck GO. The standing centre plus 0.32 sat bodies at
+    ~1.6 after the hut had collapsed to the dirt.
+
+**Do not widen the aim frame.** That analysis still stands.
+The collapse follow was a separate, explicit ask and is signed.
+
+**2026-08-17 — WINTER/MOUNTAINS AND FOREST REWORKED.** History.
+The 08-18 sitting superseded the forest cones and the mountain
+horn/snow-cap look; those three biomes are now signed. Three
+findings from this day, all defects rather than taste, all
+fixed in `tools/blender/`:
+
+1. **Winter WAS Mountains.** `build_one` called
+   `build_mountains(0.62,"Mountains")` and `build_mountains(0.42,"Winter")`
+   — same widths, same cycles, **same hardcoded seeds** (401/523).
+   "Backgrounds still look the same" was literally true. Seeds and
+   cycles are arguments now; Winter seeds stay 911/947. Verified by
+   bucketing crest heights out of the two exported GLBs: mean
+   difference **3.83** on a 17-unit range. Snow line 0.42 -> 0.60
+   still made L7 a field of white objects; **08-18 set `snow_from=2`
+   and `kind=range`**. Do not restore 0.60 or `cycles=7.5`.
+2. **`face_dress` could never be seen.** It built rock slabs "so the 6°
+   view is not a flat card" and then joined them into the body object,
+   which takes ONE flat unlit body colour — the slabs were the exact
+   colour of the surface behind them. Splitting them out as `trim_`
+   made them visible and WORSE: flat unlit has no lighting, so a slab
+   on a face reads as a dark rectangle stuck to a hill. **Depth here is
+   bought with OVERLAPPING SILHOUETTES at different values, never with
+   surface detail.** Replaced with a third range: a darker foothill
+   ridge standing in front of the near one.
+3. **Forest: the pine was trunk + ONE cone**, and every crown, bush and
+   hill went into one flat green. Now three overlapping skirts (notched
+   outline), ~1 in 4 broadleaf, and a third of the stand built in the
+   TRIM material so the canopy carries two greens. `ridge()` built the
+   land mass out of **boxes** — the pale crates and the "bucket on a
+   pole" seen through gaps in the stand were those, not trees; it is a
+   continuous noise profile now. Far stand tightened (spacing 2.05 ->
+   ~1.38, pines only) so it reads as a mass. `Forest.asset`
+   `silhouetteFar` **(0.576,0.737,0.627) -> (0.42,0.565,0.455)** —
+   luminance 0.68 against near's 0.35 made every gap read as a bright
+   hole rather than distance. Measured on the preview render: far body
+   is `(107,144,116)`, was `(147,188,160)`.
+
+4. **Forest detail pass** (same day, after Rob: *"i feel like we could add
+   details to the trees/background"*). Emergents at ~1.4x height in both
+   layers so the canopy top is not one band; **dead snags** (bare leaning
+   trunk + two stub branches) — the only silhouette in a stand that reads
+   as a gap, without which a treeline is a hedge; **birch** with the trunk
+   in `accent_`, the third value slot the forest had never used, which
+   gives a pale vertical and is the single most legible piece of detail at
+   6°; ferns at the base; near spacing 2.15 -> 1.85.
+   **The far HILL in `accent_` was tried and REVERTED** — the runtime's
+   accent is body lerped **78% to WHITE**, which is right for snow on a
+   peak and reads as bright holes punched through a dark wood. There is no
+   mid-tone slot per layer, so the far hill and far canopy share a value
+   and separate on silhouette alone. The comment in `build_far` says so;
+   do not re-try it.
+
+5. **THE BACKDROP STRIP HAS A THIRD PLANE** (Rob: *"a little better, but
+   more would be preferred"*). Two strips capped the wood at four depth
+   steps and six material slots, and no amount of detail on either plane
+   fixed it reading as two cut-outs — that ceiling, not the tree models,
+   was what "more" was blocked on. `BackdropRuntime.StripMid(style)` sits
+   at the existing `Backdrop.MidZ` (-38, previously used only by the
+   procedural fallback) and is **OPTIONAL**: only Forest declares one, and
+   a style without one keeps drawing its two. A missing mid deliberately
+   does NOT drop the strip back to the profile — it logs and carries on —
+   so the reference being wired is asserted in `PortSelfTest` instead.
+   **Its colour is `Lerp(silhouetteFar, silhouetteNear, 0.5)`**, so a biome
+   opts in by adding one GLB and nothing else; no `BackgroundDefinition`
+   grows a field. The scene builder already wires EVERY glb in
+   `Assets/Models`, so a new layer needs a scene rebuild and no editor
+   change. `BackdropPreview` had to learn to register the mid too, or it
+   renders a picture the device will not — which is the one thing that
+   tool exists to prevent.
+   **The new check was seen RED** against a deliberately broken
+   `ForestMidModel` (`[FAIL] Forest declares mid strip
+   backdrop_forest_mid_MISSING and Battle.unity wires it`) and restored.
+
+6. **FOREGROUND STRIP + the measurement that reframed this whole job.**
+   After a third *"still feels meh"* I stopped tuning trees and measured
+   **Archery Bastions on the device** instead (it is installed —
+   `com.bastion.archers`). Its backdrop is FLATTER than ours: two plain
+   mountain silhouettes and a couple of torii. What fills its screen is
+   the **objective** — a fortress spanning ~68% of the width and ~25% of
+   the height, carpeted in massed units, plus one sky object and framing
+   gates at the edges. Ours: treeline is a ~10% band, ~34% empty sky above
+   it, ~27% empty ground below, six small units, and the enemy structure
+   **off-screen entirely** during Aiming. **The backdrop was being asked
+   to carry a frame it occupies a tenth of** — which is why three passes
+   of genuinely better trees each moved it a little and then stalled.
+   Edge-pixel density, the fairer of the two proxies: **ours 0.60% ->
+   1.65% with the foreground; the reference is 6.08%.** Still ~3.7x short,
+   and the rest of that gap is composition, not backdrop.
+   `Backdrop.ForeZ = 3` — the only layer at POSITIVE z, in front of the
+   play plane. It must stay inside `CameraDirector.ZMin` (5.5) or a tight
+   frame puts the camera behind it; asserted in `PortSelfTest`.
+   **Two things this layer CANNOT do, both learned on device:**
+   - **No trunks, and no framing at the screen EDGES.** A world-fixed strip
+     does not move with the camera, and the camera pans the length of the
+     battlefield, so "a trunk at the left and right edges" is not
+     expressible here. Built anyway to test it: one trunk is ~110px wide,
+     runs the FULL height of the screen, and cut the frame in half through
+     the band the shells arc through. Anything tall belongs in the near
+     strip, behind the units.
+   - **Scale cannot be reasoned about, only measured.** This layer is
+     magnified ~**7x** against the play plane — far more than the naive
+     `(camZ - ForeZ)` ratio predicts, because the projection is tilted and
+     off-centre. Fronds authored at 0.42-0.80 filled the bottom third as
+     dark pyramids; at 0.16-0.32 they were still a row of little tents with
+     legible gaps. The numbers that work (**0.03-0.10**, overlapping at
+     0.07-0.14 spacing, with per-frond width and lean jitter) were read
+     back off device screenshots, and a frond finishes about a third of a
+     soldier's height.
+   Watch the vert budget: an ico-sphere bush is ~240 exported verts against
+   a frond's ~30, and at this density the bushes alone were 60k. Forest is
+   **64k verts over four layers** (fore 34k) in 8 draw calls, 60 fps held.
+
+### Unit hold + emptiness — 2026-08-18
+
+Two jobs in one sitting. Both on the phone. Ask git.
+
+**Hold.** Identity attach pointed `placeholder_gun` (+X barrel) at
+the camera. Aligning the bone then flipping the hold 180° pointed
+the mesh downfield and turned the silhouette around. Reverted the
+hold. Final attach is `LookRotation(forward, left)`. Checks: player
+`facing.forward.x < −0.7`, mesh centre on that forward. Ready-drop
+16° + 2.4° breathe; idle damp is per-joint. Rob: *"ok good. that
+works."*
+
+**Emptiness.** Measured on device, L1, play-area crop (HUD and ammo
+out). Same classifier on every phase:
+
+| phase   | content | edges | ground |
+|---------|---------|-------|--------|
+| Arrive  | 10.2%   | 1.16% | 10.8%  |
+| Scout   | 20.0%   | 1.65% |  8.6%  |
+| Aiming  |  6.5%   | 0.64% | 14.9%  |
+
+Aiming is the empty beat. Scout is fuller because the outpost is
+tall. **Do not widen the camera** (see below). Lever (1) is
+play-space mass behind the player line.
+
+Block berms (`prop_flank`) were a stand-in — too tall, then too
+close. Rob asked for real things. `prop_wreck_car` (two-box
+hatchback, 28° yaw, charcoal) + `prop_dead_tree` on L1 at z ≈ −8.
+Car: *"yeah think that's good."* Then all twelve campaign levels
+got two `keepColors` plants. Rob: *"ok. seems repetitive but we
+can address later."* Parked in `_plans/BACKLOG.md`.
+
+Builder: `tools/blender/build_prop_scenery.py`. Placement is
+`LevelDefinitionSO.props` with `keepColors`. `LevelScenery` skips
+`Tone` when that is set.
+
+### Widening the aim frame — ASKED 2026-08-17, ANALYSED, NOT RULED ON
+
+Rob, after the foreground: *"if you were to modify camera architecture,
+what would you do? do you have a clear understanding?"* Read
+`CAMERA_ARCHITECTURE.md` (still LOCKED) and `CameraDirector` before
+re-opening this. **The recommendation is DO NOT WIDEN IT**, for three
+reasons, and none of them is reluctance to touch a locked file:
+
+- **It does not fit, and it makes everything smaller.** `camZ =
+  (halfWidth + FramePad) / ZHalfFovTan`, so `GameplayZ` 22 caps half-width
+  at `22 * 0.45 - 0.6 = 9.3` — about 18.6 units of framable width.
+  Composition rule 4 puts tank -> dominant structure at **14-18** units,
+  the player line is ~6 wide and the enemy cluster up to ~11, so the union
+  is **20-28 units**. It does not fit under the current Z ceiling at the
+  far end, and where it does, the units shrink. **The reference's frame
+  is not full because it is WIDE — it is full because its fortress is TALL
+  and CLOSE and carpeted in units.** Zooming out is the wrong direction.
+- **It is a MECHANIC change.** Seeing the player line and the enemy in one
+  frame during the drag hands the player a direct visual read of range —
+  the guess-angle/power mechanic a landing marker and an aim-pan were both
+  built and REVERTED for. `PlayerScout` already shows the enemy before the
+  aim; the tight frame is what stops it being measured during the drag.
+  This needs a difficulty re-tune, not a camera tweak.
+- **There is a documented bug waiting.** Widening the half-width without
+  moving the camera X anchor reproduces the L12 `staticCamera` failure
+  already written up in that doc: *a half-width only frames its subject
+  about the centre the camera actually uses.*
+
+**The diagnosis instead: the emptiness is VERTICAL and structural.**
+Framing by WIDTH on a 1080x2404 portrait screen means ~6 units of framed
+width buys ~13 units of visible HEIGHT. The content is a flat line of
+2.7-unit figures on flat ground, so most of the frame is empty whatever
+the camera does. Levers, cheapest first: **(1) vertical content on the
+player side** — flanking trees in the near strip, a tall player-side
+structure, terrain; no camera change, no gameplay change, NOT locked, and
+this is the recommended next move. **(2) horizon placement**, redistributing
+the 34% sky / 27% ground split — moves emptiness rather than removing it.
+**(3) widen**, only with the mechanic change accepted and `GameplayZ` raised.
+
+**CAVEAT THAT MUST BE CHECKED BEFORE ANY OF THIS.** Every number quoted
+here and in item 6 was measured on the **Aiming** frame, which is the
+tightest and emptiest moment in the game BY DESIGN. The whole job has been
+judged on its worst frame. Resolving, PlayerScout, TankArrive and a march
+are all wider and were never measured. **Measure those first** — if the
+game is only empty during the aim beat, this is a much smaller problem
+than the session treated it as, and lever (1) covers it.
+
+**`BackdropPreview.Shots` is the fast loop for this work** — it loads
+the GLBs BY PATH, so it re-renders in ~1 minute against a Blender
+re-export with no scene rebuild and no APK. Use it to iterate, then
+confirm on the device. It cannot catch a broken scene reference (that
+is the point of the city trap below), so the device run is still
+required before believing anything.
+
+**GUARD EVERY adb INPUT WITH A FOCUS CHECK — `install -r` KILLS THE
+RUNNING APP.** On 2026-08-17 a reinstall tore the app down, the relaunch
+had not settled, and a dozen queued taps went into the LAUNCHER and opened
+Rob's browser. Nothing was typed or navigated, but it is his real phone.
+The fix is one line in front of every step, and it has since aborted a run
+cleanly instead of repeating the mistake:
+
+```bash
+chk(){ adb shell dumpsys window | grep -q "mCurrentFocus.*$PKG" \
+       || { echo "FOCUS LOST — aborting"; exit 1; }; }
+```
+
+Also: a **fresh install lands on the LOADOUT screen, not the battle** —
+press BEGIN before any ◀ ▶ / RIGS navigation, or the taps hit nothing. And
+the `UnityApplication::DestroyInstance` crash in `logcat -b crash` after a
+reinstall is that teardown, **not** a gameplay fault.
+
+**Sampling pixels beat eyeballing twice this sitting.** A preview
+thumbnail is small enough that a real colour change looked like no
+change at all; `PIL` on the PNG settled it in one command. And an
+ffmpeg `blend=difference` of two device frames proved a change had
+NOT reached the screen when the two shots looked different to me.
+
+Builders in **this** repo (`tools/blender/`):
+- `build_backdrop_city.py` — signed
+- `build_backdrop_forest.py` — far/mid/near Kenney Nature Kit
+  (CC0, `tools/blender/kenney_nature/`). Foreground unwired.
+  Runtime retints leaf* / wood* — do not ship kit aqua/peach.
+- `build_backdrop_land.py` — mountains / winter / desert.
+  Mountains and Winter: `kind=range`, far foothill. Winter
+  `snow_from=2` (no cap mesh). Desert still a smooth dune.
+- `build_prop_scenery.py` — `prop_wreck_car` (signed),
+  `prop_dead_tree`, `prop_cactus`. `keepColors` on the
+  placement. `prop_flank.glb` is the unused box-berm
+  stand-in — do not plant it.
+Re-export changes GLB root fileIDs. After every export:
+`SpikeSceneBattle.Build` then the APK. Never `Normalize` a strip.
+Never `bpy.ops.wm.read_factory_settings` in a live MCP Blender.
+
+**What this sitting signed — do not reopen as taste:**
+
+- Player ground line MARCHES (`MarchStride` 0.5 / `MarchAnimSpeed`
+  0.7). Enemy charge still full walk.
+- Outpost collapse + fire/smoke; rest of destroyable wrecks shipped
+  from it.
+- L8 flyover. Rob: *"ok saw it in action, looks good."*
+- Deaths glass pane. Lip / sink / flail knobs stay.
+- Garrison wreck fire nestled in the pile. Rob: *"looks good."*
+- L8 leftover rubble grid + flying chunks (cap 0.14, TTL 8s).
+  Rob: *"yes. this looks good."*
+- **Airstrike ride** (not the 08-11 cut). Rob: *"yes. looking good."*
+  UI ticks on RIGS / CAM / ◀ ▶ press and release.
+- **Forest backdrop** (Kenney meshes, biome green, brown bark,
+  no foreground). Rob: *"much better. let's keep that."*
+- **L1 Mountains** far range (broad massifs, no tooth-snow).
+  Rob: *"looks good."*
+- **L7 Winter** (same range on a snow field, no cap mesh).
+  Rob: *"ok looks good."*
+- **Unit hold** (guns downfield). Rob: *"ok good. that works."*
+- **L1 wrecked car** (two-box hatchback, mid-ground). Rob:
+  *"yeah think that's good."*
+
+**Parked — ask before starting any of these:**
+
+1. **Biome strips.** City, Forest, L1 Mountains, L7 Winter are
+   signed. **Desert and Ocean were deliberately NOT touched**:
+   Desert is still a smooth dune ridge and shares
+   `build_backdrop_land.py`, so it inherits the seed/cycle
+   argument but has had no pass; Ocean is still the unpainted
+   sun/surf plan. MountainsDusk was not judged on its own (L1
+   mesh, dusk tints). Before dressing another biome, read the
+   camera section — a fourth biome pass may be the wrong spend.
+
+2. **L11 elite wave — on the phone, not called.** Lands IN FRONT
+   of the post (`anchorX` 3, box left edge 4.13) and walks
+   (`advancePerTurn` 1.2). Heavies have no melee — they hold as
+   a firing line. Was x 9 in the post's shadow. Rule 8 green.
+   Confirm on Oceanfront turn 4 ("Elite squad inbound").
+
+3. **Procedural wrecks in general.** Outpost is the only
+   hand-keyed clip. Everything else is loose-part fold + XYZ
+   (glTF import is QUATERNION — Euler keys without
+   `rotation_mode = "XYZ"` export location only). Watch is a
+   pile (28%); garrison leftover was the hut, now a rubble
+   grid. Tank is not a wreck.
+
+4. **Armour zoom** (L4 first enemy march / L12 leftover),
+   2026-08-13, **never signed off.** `FramePad` 0.6. Closer
+   only if he says so.
+
+5. **L1 rifleman v2 at Aiming distance** — look, do not remodel.
+   If it still reads as the old box man, stop adding pouches.
+
+6. **Mid-ground scenery variety** — parked. All 12 campaign
+   levels have two `keepColors` plants at z ≤ −6. Depth and
+   the L1 car are signed. Rob: *"seems repetitive but we
+   can address later."* Wider per-biome set, not a pass on
+   the three we have. See `_plans/BACKLOG.md`.
+
+**If a sitting starts with the phone:**
+
+1. **L11 Oceanfront turn 4** — elites in front, walking.
+2. **L1 after BEGIN** — rifleman v2. Then L4/L12 armour zoom.
+3. Emptiness on Aiming vs Scout/Arrive is measured (table above).
+   Variety of the mid-ground set is parked — do not start it
+   unless he asks.
+
+**Already signed off, do not reopen as tuning:**
+
+- **Melee** — L4. Hold 1.5s, march 2.4, GrappleGap 0.75. Swing is bound.
+- **MG burst fan** — *"yeah, think this looks fine."*
+- **Opening scout** — `TurnPhase.PlayerScout` after the arrive, first
+  battle only. Arrive sits *in front*; do not fold them together.
+- **L12 Sovereign stays in the gate's shadow.** *"sovereign is fine on l12."*
+  Do not set `triggerStructureIds: [citadel, gate]`.
+- **Tank mesh / CityRuins / Forest (Kenney + green/brown) / L1
+  Mountains / L7 Winter / deaths (including L8 flyover) / wreck
+  fire / leftover rubble / flying-chunk size / airstrike ride** —
+  see above. Do not reopen lip / sink / flail, the glass-pane
+  numbers, the wreck-fire nestle, the leftover grid, the
+  airstrike cut, Kenney aqua, Forest foreground, or a snow-cap
+  mesh.
+
+**City strip — traps that cost a device session:**
+
+- **Re-exporting `backdrop_city_*.glb` changes the GLB root fileID.**
+  The scene keeps the *name* and the prefab slot goes missing. The
+  phone then draws `Backdrop.City()` — the old orange-window picket
+  fence — with no error. `BackdropPreview` loads by path and will
+  still look right. After every city export: `SpikeSceneBattle.Build`,
+  then the APK. `PortSelfTest` now asserts both scene refs are live.
+  `BackdropRuntime` requires **both** far and near, and logs if either
+  is missing.
+- **Flame z.** Positive z at ground = orange squares in the street.
+  Deep negative z = inside the wall, invisible. Window mouth: marker
+  `fx_fire_*` x/y, z just proud of the facade (`−0.05..+0.18`).
+  `RuinFx.CollectMarks` plants tongues there; glow stays deeper.
+- **Never `Normalize` the city GLBs.** Width is the span.
+- Builder: `tools/blender/build_backdrop_city.py` in **this** repo.
+  Facades face Blender −Y (Unity +Z). Mass goes +Y / Unity −Z.
+
+**Blender MCP — how this sitting worked, and what kills it:**
+
+- Blender is `DISPLAY=:1 ~/blender/blender-5.1.2-linux-x64/blender`.
+- The addon auto-starts on **localhost:9876**. Grok's `blender-mcp` server
+  stays up even when Blender dies. If tools say connection refused, do
+  **not** re-add the MCP — relaunch Blender:
+  `DISPLAY=:1 …/blender --python /tmp/start_blendermcp.py`
+  (`/tmp/start_blendermcp.py` enables `blender_mcp_addon`).
+- **Never `bpy.ops.wm.read_factory_settings`.** It unregisters the addon
+  and drops the socket. Clear objects by hand.
+- Viewport screenshots come back black. Render Eevee to a `/tmp` PNG and
+  read that.
+- Colour still binds to **mesh name prefix** (`skin` / `trim` / `accent`).
+  Animation binds to joint paths. Normalize scales by the **longest
+  axis** — a short helmet is how the rifle went over their heads.
+- Rifleman stays the skinny baseline (`UNIT_VARIETY_DESIGN.md`). Tank
+  keeps origin at the base-center, **+X toward the enemy**,
+  `accent_pivot_TankGun` at the trunnion, `accent_wheel*` as separate
+  nodes, X-span ~1.27 so `Normalize(1.5)` and muzzle `1.08 / 0.72` still
+  land.
+- Builders: rifleman is `build_units_rigged.py` `build_rifleman()` plus
+  `tools/blender/build_rifleman_v2.py` in the retired repo. Tank is
+  `tools/blender/build_tank_v2.py` (same place);
+  `build_early_structures.build_tank` delegates to it. City is
+  `tools/blender/build_backdrop_city.py` in **this** repo. Live GLBs
+  are here: `Assets/Models/unit_rifleman_rigged.glb`,
+  `placeholder_tank.glb`, `backdrop_city_far.glb`,
+  `backdrop_city_near.glb`.
+
+**What the zoom sitting built** (detail in `CAMERA_ARCHITECTURE.md` and §2):
+
+- Aiming frames the GROUND LINE, not the tank crew.
+- Enemy frame recaptures when a structure falls or a boss/wave lands, never on a
+  casualty.
+- Announcement push-in on the arrived group, 2.5s.
+- March sits on the chargers until they are inside 5 of the player line;
+  contact keeps the signed-off union.
+- **TankArrive** (2026-08-14) is a new phase *before* the scout. Camera
+  holds the union of tank + crew + ground line while they enter. Not a
+  cut. See `CAMERA_ARCHITECTURE.md` item 0.
+
+**THE TIER STACK IS PARKED FOR THIS SITTING, not unfinished.** Tiers 0,
+1.1, 1.3, 2.1–2.4 are built; 1.2 is waves only (wind parked); 1.4 heli
+is shut. C / D / E below are still true and still waiting — they are
+not what to open a new session with unless Rob asks.
+
+#### C. DECISIONS WAITING ON ROB — no work starts until he calls them
+
+- **Did the closer shot make the riot shield readable?** On the phone now. If no,
+  a marker is a unit-art call on that build.
+- **Overwatch Flare.** Charge is a signed-off threat. Catalog entry +
+  `EnemyAI.AdvanceBudget(..., halved)`.
+- ~~**Is Cluster's 3.2x spread too wide to connect?**~~ **CLOSED 2026-08-18.**
+  Rob: *"ok cluster is fine."* `spreadScale` 3.2 stays.
+
+Still open as a **fairness read**, not a constant: does losing the tank crew to a
+charge feel fair, or cheap?
+
+#### D. WARM-UPS, if a session wants one — small, bounded, and none of them urgent
+
+- ~~**`Loadout.GroundAnchorX` averages disjoint groups**~~ **CLOSED 2026-08-13.** If the
+  count-weighted mean sits inside an enemy collision box (or closer to an enemy structure
+  than to any ground group) it is the gap trap, and the largest authored flank is the
+  line. Do not also filter those flanks by the same box — the parade's scale-reference
+  groups brush CliffOutcrop and MountainBunker, so both get thrown away and the mean
+  comes back. Campaign centres are unchanged (asserted). Seen red: `GroundAnchorX 0.00`,
+  4 bodies in RidgeWatchtower; then green at `-5.60`, in-ridge 0. Test rigs still skip
+  the picker in play (`EnterLevel`); this is the function BalanceAudit / a future
+  rig-loadout would have called.
+- **Flames outlive their bodies by a frame or two** (`_plans/BACKLOG.md`). Diagnosed from
+  the code 2026-08-13: flame and ragdoll share the dying entity's xyz on the same frame.
+  A missing body with a flame present is either a silent ragdoll `Take` miss (now warned)
+  or the die clip folding a garrison into the bunker until the impulse lifts it. The
+  ragdoll / structure second mechanism (stuck on the lip) was fixed and seen on
+  device 2026-08-16. Optional; not a pickup.
+- ~~**Incendiary's `burnDamage = 6`**~~ **STALE, already 8.** The asset and `AmmoSetup`
+  both say 8. The 6-vs-8hp-Sniper note was resolved when the burn was re-derived against
+  the live roster (frailest crowd body is 12 hp; `PortSelfTest` anchors to that). Do not
+  re-raise it as a warm-up.
+
+#### E. PARKED BY DECISION — do not reopen these as stale flags
+
+- **Wind** — `windAccelZ` drifts the round in Z while collision is X/Y only, so wind cannot change
+  what a shot hits. Rob parked it 2026-08-10. Making it real is a PHYSICS change and needs an ask.
+- **The heli (Tier 1.4)** — `HELI_ENABLED=false` is a camera-load decision.
+- **Tier 3 habit glue** — chests and the daily bonus shipped as stubs; real ads/IAP is gated behind
+  "≥5 fun sessions exist" in `PRODUCT_DIRECTION.md`.
+- **The crowd split's second doubling** — CLOSED 2026-08-12 on arithmetic, not on taste. Read
+  "THE CROWD SPLIT HAS NO REMAINING LEVER" below before re-deriving it: x4 is 8 hp and the
+  incendiary burn is 8, so the rifleman one-shots to a single tick.
+
+### Art sitting — 2026-08-14, Blender MCP
+
+Rob: park the tiers briefly and improve how the game looks. This sitting did
+three things. Detail is in the pickup and in `UNIT_VARIETY_DESIGN.md` /
+`CAMERA_ARCHITECTURE.md`.
+
+- **Rifleman v2** — ACH pot, plate + mag row, neck/hands/boots. Same Kenney
+  joints, still the skinny class. First helmet 2.64 put the hold-pose rifles
+  over their heads (`Normalize` × `AttachGun` in model units). Helmet now
+  2.93. `PortSelfTest` samples the hold on the built prefab.
+- **Tank v2** — glacis, visible road wheels, round barrel, bustle. Rob:
+  *"looks good."* `accent_pivot_TankGun` and `accent_wheel*` kept.
+- **Opening arrive** — `TurnFlow.StartBattle` / `TurnPhase.TankArrive`.
+  Tank rolls 3.6, crew ride, ground line jogs the same distance on
+  `MarchTargetX` + the walk clip, 2.0s, then the signed-off scout. Rob:
+  *"cool!"*
+- **CityRuins strip** — Rob: *"ok, looks good."* Two world-scale
+  GLBs on FarZ / NearZ. Ashen charcoal (`CityRuins.asset`), not the
+  imported warm brown. Facade dress (floor bands, soot, recessed
+  windows), scorch stains, rubble piles on the camera side of the
+  facade. Tongues on `fx_fire_*` markers in the window mouths;
+  interior glow deeper; smoke from the rubble. `Backdrop.City` is
+  the fallback / test contract only. Builder:
+  `tools/blender/build_backdrop_city.py`. Worn by L4 and L10.
+  Traps are in the pickup — re-export needs a scene rebuild.
+
+Do not start the next biome until he names one.
+
+### Ragdoll contact + sink — 2026-08-14/16, ON THE PHONE
+
+Rob: twitching on death, and bodies near a structure lip hanging instead
+of falling. He wanted them to **bend against** masonry. Then sink into
+the dirt, then the ground twitch was still too much.
+
+Not a new clip and not Unity `Rigidbody`s (locked: cosmetic, tick-owned).
+
+1. **Twitch (first).** `ApplyFlail` is a sine on the limbs. The renderer
+   compared Y to `RagdollRestY` (dirt, ~0.05). A garrison on a deck at
+   y=2.5 was airborne for the whole 5s TTL. `SupportY` is the surface
+   they landed on.
+2. **Stuck on the lip.** Gravity dips a roof-sitter a hair below `topY`.
+   The face test saw "spawned inside" and killed `vx`; the roof test
+   snapped them back up. Roof and face are mutually exclusive. Within
+   `RagdollLipMargin` (0.55) of a face they are pushed off and fall.
+   `Bend` folds the torso toward the contact.
+3. **Sink.** Render-only `RagdollSinkY` on the last 0.9s of the TTL,
+   dirt only (`SupportY` ≤ body height). Roofs and the tank deck do not
+   sink. Rob: *"the sink into the ground looks good."*
+4. **Twitch (second), on the dirt.** Leftover `vx` still counted as
+   airborne, so the sine ran while they slid. Airborne is height / `vy`
+   only. Flail cut to 10°/5° at ~1–2 Hz. Rob: *"ok looks better."*
+
+Contact first look: *"ok looks better."* Do not reopen as a taste pass.
+
+### 0. WARM-UPS — 2026-08-13, NO DEVICE
+
+GroundAnchorX and a code read of the flame artefact. No APK. Details in D; the only
+lesson worth keeping out of the pickup: **a flank authored against scenery will fail
+the same box test that caught the mean.** Filtering both "clear" flanks returned the
+rejected average. The authored groups are the answer.
+
+### 1. ADVANCING SQUADS + MELEE — BUILT 2026-08-12, SEEN ON A DEVICE THREE TIMES SINCE
+
+**The eighth dead system is alive.** `AdvanceSystems.cs` ports the mechanic from the retired
+Kotlin, which is the only implementation it has ever had. Enemy assault squads bank a budget on
+the edge into EnemyWindup, walk at the player's line during the windup, hold just short of it, and
+a fighter that arrives claims a soldier and trades itself for him.
+
+**It activates SHIPPED DATA on FOUR campaign levels — L4, L8, L9 and L12** — not the two this file
+said. Every one of them has authored `advancePerTurn` since the port and has been fielding a class
+that stood still.
+
+What is in the build:
+
+- **`AdvanceSystems.BankBudget / March / Claim / StepSkirmishes`**, engine-independent, called from
+  `BattleTick` in a new section 7b. The budget is banked ONCE on the handover edge, the same shape
+  as the incendiary burn two blocks below it, for the same reason: one legible step per turn.
+- **The windup countdown is FROZEN while anyone is still walking** (`BattleRunner`), so the march
+  owns its own beat instead of racing the volley for the same 1.5 seconds.
+- **A skirmish HOLDS the turn open.** `TurnFlow.EvaluateVolley` has taken a skirmish count since
+  the port and had never once been passed a non-zero one.
+- **The bodies WALK.** Kenney's `walk` is bound as a fifth clip (the melee swing is the sixth,
+  2026-08-13) and plays on layer 0 in place of the idle, with the two-handed hold left on the
+  arms — legs march, rifle stays carried.
+  **This needed a scene rebuild**, being a prefab change.
+
+**THE SHIELD BEARER'S 12 MELEE DAMAGE IS STILL DEAD, and this file predicted otherwise.** It said
+the number "goes live the day advancing squads do". It does not, and the reason is worth keeping:
+**`meleeDamage` is only ever read as a FLAG** — "does this class fight hand-to-hand" — in the
+reference build as well as this one, and **a skirmish is a MUTUAL KILL rather than a damage roll**,
+so no melee number is arithmetic on either side. It also only reaches the ENEMY copy, because
+skirmishes are claimed by ADVANCING attackers and `LevelBuilder` pins every PLAYER unit's
+`AdvancePerTurn` to 0 — which the locked turn structure requires. The player's shield bearer keeps
+ARMOUR as its distinctness, exactly as Tier 2.3 gave it. `RosterAudit`'s warning has been rewritten
+to say this; it used to promise the opposite.
+
+**644 checks, and five were seen RED against the unwired tick first**, with the numbers recorded:
+budget `0.00`, the marcher's x `0.03 -> 0.03` (it never moved), `0 fight(s)`. The first draft of
+that check THREW instead of failing when no fight started, which aborted every check after it — a
+check that explodes is not a check that failed, and it now reports red and returns.
+
+**TWO THINGS THE FIRST DEVICE BUILD FOUND, both fixed the same session.** Rob played it and
+reported exactly two problems, and each was a system that had been PORTED and never CONNECTED —
+the same shape as the mechanic itself:
+
+1. **"We need to see the melee/assault force attacking the line. That happens off camera and it's
+   weird."** `CameraDirector.PhaseHalfWidth` has had a marcher branch since the port and
+   `BattleTick` fed it **`0f, false` from a literal**, while the windup anchor was the level's
+   fixed ENEMY-side value. So the camera watched the shooters standing still while the assault
+   walked into the player's line off the left edge. Fixed by feeding it the real march and
+   skirmish sets and porting `EnemyWindupAnchorX` — **three beats**: ride the march, then HOLD on
+   the skirmish line until every fight resolves (an engaged attacker is no longer a marcher, so a
+   target built from marchers alone snaps away ~1s before the mutual-kill payoff), then pan back
+   to the RANGED shooters, who are the ones about to fire. Seen red: camera pinned at the enemy
+   anchor `4.53` with the marchers at `-0.72`.
+2. **"The player standing on the tank never gets touched by the assault force."** True, and it
+   made the whole mechanic toothless: the reference build exempts anyone standing on a structure,
+   which is right for the ENEMY side (every garrison is on a wall or tower) and wrong for the
+   player's, whose only garrison is the TANK CREW at **0.60** up on a vehicle. Kill the ground
+   line and the chargers had nobody left they were allowed to touch, so melee could never lose the
+   battle. **Reach is now a HEIGHT, not a flag** — `AdvanceSystems.MeleeReachHeight = 1.0`, read
+   off the unit's own Y so it cannot disagree with what is drawn. The measured gap is wide: the
+   tank deck is 0.60 and every enemy structure is 1.40, 1.63, 2.50 or 3.75. The hold line moved to
+   "front-most REACHABLE body" for the same reason. Seen red with every ground unit removed: the
+   crew survived 900 ticks untouched, `2 -> 2`.
+
+**AND A THIRD, from the build that fixed the first two:** *"when the actual melee attack takes
+place, the camera should stay on that until it's complete."* Holding the fight inside the WINDUP
+branch was not enough — **a skirmish spans phases** (the handover gate waits for it by design), so
+a fight still running when the windup ended handed the frame to the volley chase, which is by
+definition somewhere else on the field. The fight now owns the camera — anchor AND framing — in
+any phase, outranking the volley chase rather than averaging with it, and **the windup countdown is
+frozen while a fight runs** as well as while a march does. That second half is not optional: with
+the volley free to fire over a running scuffle, the camera is locked on the melee exactly as a
+dozen rounds leave the far side of the field and the player sees neither. The sequence now always
+reads **march -> fight -> volley**, one at a time.
+
+**AND A FOURTH:** *"we need to focus the camera on the whole attack so the player can see what's
+happening to their force."* Holding on the fight framed the fight and nothing else — on L4 that put
+the camera at x -5.1 with a half-width of 4.0, covering -9.1 to -1.1: **half the picture is empty
+ground to the RIGHT and the TANK CREW at -9.59 is cropped out**, which is precisely the force the
+player wants to watch being attacked. Contact still frames that UNION. The MARCH no
+longer does: sitting back for the whole field made L12's escort a speck (Rob,
+2026-08-13, on the armour). Far chargers own the frame; the threatened front enters
+inside 5; contact takes the union. Seen red at `cam -5.24 ±4.00` against a rear rank
+at -9.59.
+
+**AND A FIFTH:** *"we still are in a hurry to zoom back to the main force. we need to show the
+melee assault the whole time and pause so it registers with the player."* The camera was released
+on the TICK the skirmish list emptied — so the payoff, the two bodies actually falling, played
+while the camera was already leaving. Measured: half a second after the last pair fell the camera
+had travelled from **-7.52 to +3.53**, eleven units away.
+
+`GameState.MeleeHold` is a post-melee dwell of **1.5s**, the same family as `TurnHandoverDelay`
+(which exists because the handover used to tread on an impact the player was still reading) and
+sized against `PostVolleyPauseSeconds`' 1.6s. Three things about it are load-bearing:
+
+- **The frame is CARRIED, not recomputed.** Once the fight is over its participants are gone from
+  the unit lists, so a recomputed frame snaps to whatever is left on the tick the hold begins —
+  the exact lurch the hold exists to prevent. The anchor and half-width are captured on the last
+  fighting tick.
+- **It decays on EVERY tick path, including the cosmetic one.** A melee mutual kill can be the blow
+  that ENDS the battle, and a hold left frozen on the victory screen is a value that never decays
+  again — the standing rule in CLAUDE.md, and this is the first thing to hit it since the flame.
+- **The volley is held off for the duration.** Otherwise the shooting starts while the camera is
+  parked on two bodies falling — the same mistake the windup freeze was added to prevent, one beat
+  later.
+
+**654 checks.** All five fixes were seen red against the build Rob played, with the numbers above.
+The framing check asserts **CONTAINMENT, not proximity** — the camera deliberately does not sit on
+the fight, so a distance test would fail the correct behaviour; and the half-width it measures is
+recovered from `CameraFollowZ` through `TargetZ`'s own inverse rather than re-derived, so it cannot
+drift from the camera the game actually uses.
+
+**AND ONE CHECK THAT PASSED AGAINST THE BUG IT WAS WRITTEN FOR**, which is the standing lesson
+turning up again in a new costume. The camera check first seeded the camera ON the fight and
+stepped ONE tick — a spring that has not had time to move is not evidence of a spring that stayed,
+and it went green against the reverted code. Stepping 40 ticks (two thirds of a second, short of
+`SkirmishDuration`) made it real: **cam 3.92 against a fight at -5.12**, nine units away. `PUT A
+CHECK IN A STATE WHERE IT COULD FAIL` is in CLAUDE.md and it still took a revert run to catch.
+
+**ROB'S VERDICT AFTER THE FIFTH BUILD: "ok, better. we'll refine in another session."** That
+session ran 2026-08-13. **The mechanic is signed off.** The three constants and the swing stay.
+What that refining session looked at:
+
+1. **`AdvanceSystems.PostMeleeHoldSeconds` (1.5s)** — the dwell was judged once, at one value. It
+   is one constant and the most likely thing to be wrong.
+2. ~~The fight has no ANIMATION.~~ **THE SWING SHIPPED 2026-08-13 and was confirmed on device** —
+   see "The melee swing" below. Still no blood: the Kotlin's blood debris takes its colour from a
+   STRUCTURE definition and does not port cleanly.
+3. ~~**The march's own pacing**~~ **SIGNED OFF 2026-08-13.** `AdvanceSpeed` 2.4 and the frozen
+   windup stay. Rob, L4: the march is fine.
+4. **Overwatch Flare**, which this unblocks. The advance is now a signed-off threat, so a
+   counter is a real product call rather than a guess.
+
+**THE SECOND DEVICE PASS RAN ON 2026-08-13**, alongside the melee swing — see "The melee swing"
+below. The third pass the same day signed the three constants. The questions:
+- ~~is the fight legible now that the camera holds on it?~~ **Yes** (2026-08-13).
+- ~~does it hold for the right length?~~ **Yes** — 1.5s stays (2026-08-13).
+- **does losing the tank crew to a charge feel fair, or cheap?** Still open. Melee can END the
+  battle; the crew is the last thing standing on most levels. Not a constant — a fairness read.
+- ~~does a squad walking at the line read as PRESSURE, or as men wandering forward?~~ **The
+  march is fine** (2026-08-13).
+- ~~is the frozen windup a beat, or a stall?~~ **Fine** with the march (2026-08-13).
+- ~~does a mutual kill read as a fight, or as two bodies falling over at once?~~ **A fight.**
+  Both ends swing. Still no blood.
+
+**OVERWATCH FLARE IS NOW UNBLOCKED** — the one Tier 1.3 consumable deliberately not built, because
+it had nothing to watch for. `EnemyAI.AdvanceBudget(basePerTurn, halved)` is called with `halved:
+false` from one place; the consumable is a catalog entry plus that one bool. **Judge whether the
+advance is threatening BEFORE building its counter** — a counter to a mechanic nobody fears is
+worse than no counter.
+
+### THE MELEE SWING — shipped and CONFIRMED ON DEVICE, 2026-08-13
+
+The first item on the refinement list above, and the one it called "the biggest remaining gap
+between the mechanic is real and the mechanic reads". `attack-melee-right` is bound as a SIXTH
+clip and both ends of every skirmish now swing.
+
+**What it took, in case a seventh clip is ever wanted: `UnitAnim.Melee` + one entry in
+`RiggedUnits.Wanted` + a `Layer()` line + a scene rebuild.** That is the whole cost, and it is the
+same shape `walk` paid the day before.
+
+- **Layer 2, WrapMode.Loop, SHARING the layer with `shoot`.** They are alternatives rather than a
+  stack — a man swinging a rifle butt is not also firing it — and Legacy resolves same-layer clips
+  by whoever played last. They never compete in practice anyway: the volley is held off for the
+  duration of a fight.
+- **`SetFighting` fades OUT rather than stopping**, and that is not tidiness. **A fight does not
+  always end in a death**: kill the attacker mid-scuffle and his victim is spared, which is the
+  mechanic's whole counter-play, so a SURVIVOR has to put his arms down. A hard Stop on a looping
+  clip drops him into the hold in one frame.
+- **BOTH ENDS SWING.** `BattleRunner` tests `AttackerId == u.Id || VictimId == u.Id`, which covers
+  the enemy charger and his claimed victim from one call without knowing which side it is drawing
+  — ids are unique across the two sides, `LevelBuilder` gives the enemy its own base. The victim
+  fighting back is the point: a skirmish is a MUTUAL kill, and a man standing at ease while
+  someone kills him reads as a bug rather than as a trade.
+- **THE AIM IS SUPPRESSED WHILE FIGHTING.** `SyncUnits` hands the player's whole line one aim pose
+  and does not know a man is busy, so without this his victim holds the live drag elevation
+  through the entire scuffle.
+- **`attack-melee-right` DRIVES THE ROOT** — a ±0.10 lunge in local Z, the step into the strike.
+  Third clip to do it after `die` and `walk`, so it takes the same exemption from `LateUpdate`'s
+  root clamp; clamping it deletes the step and leaves a man swinging from the waist.
+- **A locked fighter no longer counts as WALKING.** That was the best available answer while the
+  swing was unbound. The melee clip drives the legs itself and outranks the walk from layer 2, so
+  the march now means only the march.
+
+**656 checks.** Two new ones, and the swing check **failed its own control on the first run**,
+which is the whole reason it carries one: it measures the right arm's travel and compares it
+against `holding-both`, a STATIC two-handed pose that must read ~0 by the same ruler. The first
+draft pooled the quaternion's x/y/z/w into one range — which measures the POSE, not the motion —
+and read the constant hold as a **90.0 degree swing**. Per component it is 0.0 against the melee's
+59.4. A travel measurement that cannot report zero is not a measurement.
+
+**CONFIRMED ON DEVICE, L4 Ash Boulevard, 2026-08-13.** Five turns of real drags to contact, then
+the assault reached the line: engaged bodies are unmistakably in a different pose from the rank
+behind them — legs split wide, weapon up over the head — against a squad still holding the static
+firing stance four units away. The battle ended **DEFEAT — "Your line was overrun"** on turn 9,
+which is the melee killing the player outright, so the reach fix from the previous session holds
+under real play as well as in a check.
+
+**WHAT THE BUILD SHOWED THAT IS STILL OPEN**, and both are Rob's calls rather than bugs:
+- **The fight cluster INTERPENETRATES.** `GrappleGap` was 0.30 and the bodies visibly overlapped
+  at contact — a scrum rather than pairs. Trial is 0.75 (Rob, 2026-08-13). The march still holds
+  at 0.55; only a lunge to a deeper victim uses the new gap.
+- **Still no blood.** The Kotlin's blood debris takes its colour from a STRUCTURE definition, so it
+  does not port cleanly; nothing marks the moment of the kill except the two ragdolls.
 
 ### 2. WAITING ON ROB, not on anyone's time
 
-**L12's Sovereign is still in the gate's shadow.** He spawns at x 5.42, static, and the gate
-(`FortressTierSmall`, box `x[1.25,3.75]`, top 2.00) stands 1.67 to his left, so hitting him means
-clearing a 2.0 wall and dropping 2.0 within 1.67 of travel. **Not unwinnable** — a rifleman does
-8 x 0.25 = 2 masonry, so seven of them strip the gate in a few volleys — but the requirement is
-invisible and is discovered only after the tank shells are gone, which is exactly how Rob found
-it.
-
-The fix is ONE FIELD: `triggerStructureIds: [citadel, gate]`, so the Sovereign emerges only once
-both are down and nothing shadows him. Already supported — `ShouldTriggerBossPhase` does
-`triggerStructureIds.All(isDefeated)`. Before taking it: citadel 165 + gate 115 = 280 against a
-stock siege capacity of ~288, so it makes the requirement HONEST rather than roomy. **It changes
-what the finale demands, so it is Rob's call.**
+**L12's Sovereign stays in the gate's shadow.** Rob, 2026-08-13: *"sovereign is fine on
+l12."* The one-field fix (`triggerStructureIds: [citadel, gate]`) is still supported and
+still changes what the finale demands (~280 masonry vs ~288 stock siege). Do not apply
+it. He spawns at x 5.42; the gate box is `x[1.25,3.75]`, top 2.00.
 
 Note this is a SHADOW, not an embedding, and rule 8 does not flag it — correctly. The crude "is it
 behind a taller box" heuristic used to find it fires on plenty of harmless geometry (L10 has
 arrivals 5.94 clear of a 1.40 box). Deciding which shadows are real needs the game's own
 trajectory solver, not a ratio someone invented. **That is a rule 9 and it does not exist.**
 
-**Whether the shield bearer gets a visible armour marker.** Its half-damage is real
-(`CollisionSystem.Soaked`, and `RosterAudit` measures `40hp x2.0 armour = 80`) and completely
-invisible in play — see item 3. A marker is a unit-art change and this project decides those on a
-device, never in advance.
+**The shield bearer's armour is a CAMERA problem, not a missing decal.** Rob, looking
+at it: *"it's zoomed so far out i can't see it. we need to do better about zooming in
+in that scenario."* Half-damage is still real and still has no icon
+(`CollisionSystem.Soaked`, `40hp x2.0 armour = 80`). The closer frames are what this
+sitting built; a marker is still a unit-art call if those are not enough.
 
 ### 3. TIER 2.3 IS MECHANICALLY DONE AND HALF-LEGIBLE — what the device actually showed
 
@@ -156,18 +962,15 @@ real and the player cannot see it.**
 
 ### 4. SMALL AND WELL-DEFINED, if a session wants a warm-up
 
-- **The advancing exemption never verifies the unit leaves.** Rule 8 waves through any unit with
-  `advancePerTurn > 0` on the grounds that it walks out of the box on its first move. L11's wave,
-  had it been given an advance instead of moved, would have started 0.71 deep and needed THREE
-  turns at 1.2 a turn to clear. "Advancing" is not the same claim as "hittable soon". Worth
-  closing before advancing squads land and make the exemption load-bearing.
-- **`Loadout.GroundAnchorX` averages disjoint groups.** It takes the count-weighted mean of a
-  level's ground groups, so a level authored with two flanking groups gets a squad centred in the
-  GAP between them. Harmless on all twelve campaign levels (one contiguous line each) and wrong on
-  `LevelNaturalParadeTest`, whose two scale-reference groups at -5.6 and +5.6 average to 0.00 —
-  dead centre of `RidgeWatchtower`'s box, so a loadout squad spawns inside the structure. Left
-  deliberately: the rigs are instruments and the fix touches the path all twelve signed-off levels
-  run through.
+- ~~The advancing exemption never verifies the unit leaves.~~ **CLOSED 2026-08-12**, alongside the
+  squads that made it load-bearing. Rule 8 now exempts an advancer only if it clears the box on its
+  FIRST march; one that clears eventually is a **WARNING**, and one that never clears is the Error
+  it always was. The severities mean different things and the blanket exemption conflated them.
+  **It found one case immediately: L12's boss shield escort** starts 1.91 inside the gate's box at
+  1.20/turn, so it takes two marches to become hittable. Left as a warning rather than fixed —
+  it is the same gate as item 6 and the same beat Rob signed off, so it is his call, not a
+  data edit to make quietly. `PortSelfTest` fails on Errors only now and LOGS the advisory.
+- ~~**`Loadout.GroundAnchorX` averages disjoint groups.**~~ **CLOSED 2026-08-13.** See D.
 - **Wind is still cosmetic and PARKED** (Rob, 2026-08-10). `windAccelZ` drifts the round in Z while
   collision is X/Y only, so wind cannot change what a shot hits. **Do not author a wind level until
   someone decides whether collision goes 3D.**
@@ -251,8 +1054,10 @@ moved, would have started 0.71 deep and needed three turns at 1.2 a turn to clea
 **WIND IS PARKED** — Rob's call, 2026-08-10, and it is the only thing Tier 1.2 still owes. Work
 continues around it rather than waiting on it.
 
-**1. GET ROB'S EYES ON THE TIER 2.3 CHANGES.** Neither has been seen in motion, and both change
-how a battle FEELS rather than how it reads in a table:
+**1. GET ROB'S EYES ON THE TIER 2.3 CHANGES.** *(Half done — the armour was measured on device
+2026-08-12 and the burst's FAN still has not been seen in motion. The live version of this item is
+B in "Pick up here"; what follows is the reasoning behind it.)* Both change how a battle FEELS
+rather than how it reads in a table:
 - **The machine gunner now fires three rounds a volley, each on its own jitter.** The thing to
   judge is whether a squad of them reads as suppressing fire or as noise — three times the rounds
   in the air is the biggest change to what a volley looks like since cluster ammo.
@@ -261,6 +1066,9 @@ how a battle FEELS rather than how it reads in a table:
   failure mode `UNIT_VARIETY_DESIGN.md`'s "honest limit" is about. **A visible marker was
   deliberately NOT built**: adding one is a unit-art change and those are decided on a device,
   never in advance.
+  **And armour is now the class's PERMANENT mechanic, not a stand-in.** Melee shipped on
+  2026-08-12 and did NOT give the player's shield bearer anything: `meleeDamage` is read as a flag
+  and only on the enemy copy — see item 1.
 Buy both with RIGS on (free supply), and note it takes 250 and 500 coins to reach them otherwise.
 
 **2. THE CROWD SPLIT HAS NO REMAINING LEVER. CLOSED 2026-08-12 — do not re-open it on the old
@@ -351,11 +1159,11 @@ explicitly closed: *"the aircraft sound is fine for the moment."*
 **THE PLAYER HAS NO HERO ANYWHERE, and that is a decision** (Rob, 2026-08-11: enemy-only for now).
 `HeavyRifleman` is not among the six pickable roster slots. Revisit only with a build in hand.
 
-**Device state at handover:** the installed build is from 2026-08-12 but **PREDATES THE LAST TWO
-COMMITS** — it has Tier 2.3, the level fixes and RIGS-for-classes, but NOT the burst fan, ammo
-under RIGS, or the victory banners. **Build before judging the fan.** L3, **320 coins**, RIGS off,
-nothing written to the wardrobe or roster, every dev capture cleared off `/sdcard`. **DND and
-stay-awake were left ON** — it is Rob's real phone, so turn both back.
+**Device state at handover:** the installed build is **CURRENT** — advancing squads, melee, and all
+five camera/reach fixes from the 2026-08-12 assault session. Installed by uninstall/reinstall, so
+the economy is at a **fresh zero** and RIGS is the way to reach anything buyable. Checked and left
+CLEAN: stay-awake off, DND off, auto-rotate on, no captures on `/sdcard`. **Nothing is committed** —
+the whole assault session is in the working tree.
 
 <details>
 <summary>The Tier 1.3 briefing as it stood before the work — kept because its reasoning is the
@@ -383,27 +1191,30 @@ standing lesson, not because it is current</summary>
 
 ### Also standing, and not on the list above because none of it is a next task
 
-- **Tier 1.1 is CLOSED except for two UNRESOLVED items**, both in `_plans/BACKLOG.md`: **is
-  Cluster's 3.2x spread too wide to connect?** (needs Rob at the controls — a scripted drag cannot
-  settle it), and **flames outlive their bodies by a frame or two** at the moment the burn kills.
+- **Tier 1.1 is CLOSED.** Cluster's 3.2x spread is fine (Rob, 2026-08-18). The last
+  leftover is cosmetic and parked in `_plans/BACKLOG.md`: **flames outlive their
+  bodies by a frame or two** at the moment the burn kills (diagnosed 2026-08-13 as
+  ragdoll/structure or a silent `Take`, not a second flame position).
 - ~~A per-frame NullReferenceException on the LOADOUT screen.~~ **FIXED 2026-08-10** — the tick
   running with no battle to tick. That screen is clean, which matters because the consumable UI is
   built on it.
 - **`_plans/BACKLOG.md` is the only LIVE plan**, and holds what Rob has parked: a **nuclear
   reactor structure** (the open question is what MECHANIC it owns — a blast on destruction would
-  make it the first structure with one), **dead units sinking** into the ground instead of
-  vanishing, the **ragdoll / structure report** (PARTLY fixed, deliberately open), and a
-  **crowd-runner bonus level**. The three finished plans moved to `_plans/archive/` on 2026-08-11;
-  nothing there describes current behaviour.
+  make it the first structure with one), a **crowd-runner bonus level**, **mid-ground scenery
+  variety**, and the **look-pass** (next biome/unit unnamed). Sink is signed (08-16). The
+  ragdoll / structure / mid-air hang is signed (08-18/19). The three finished plans moved to
+  `_plans/archive/` on 2026-08-11; nothing there describes current behaviour.
 
 ### How the rest of this file is ordered
 
-Everything below "Pick up here" is HISTORY, newest first: the two 2026-08-12 sessions (the Tier
-2.3 audit, then Tier 2.2's crowd half), then the three 2026-08-11 sessions, then
-2026-08-07 to 08-10, then the standing reference sections — **"Where things are", "What works",
-"The workflow", "Traps already paid for"** and **"Open items"/"Things that will bite"**, which are
-the parts that are still TRUE rather than still interesting. The closed 2026-08-05/06 port entries
-are in `HANDOVER_ARCHIVE.md`.
+Everything below "Pick up here" is HISTORY, newest first: the 2026-08-17 winter/forest
+rework, then the 2026-08-13 warm-up sitting, then melee / opening scout, then the two
+2026-08-12 sessions (the Tier 2.3 audit, then Tier 2.2's crowd half), then the three
+2026-08-11 sessions, then 2026-08-07 to 08-10,
+then the standing reference sections — **"Where things are", "What works", "The workflow",
+"Traps already paid for"** and **"Open items"/"Things that will bite"**, which are the
+parts that are still TRUE rather than still interesting. The closed 2026-08-05/06 port
+entries are in `HANDOVER_ARCHIVE.md`.
 
 ### The Tier 2.3 audit — 2026-08-12. Three of six classes were not what they were sold as, and two are fixed
 
@@ -2073,11 +2884,11 @@ the instrument was wrong, not the engine.
 is still the record of why each thing was worth doing. Current state:
 
 1. ~~Unit art: every class renders as the same rifleman.~~ **DONE 2026-08-06.**
-2. **A decision, not a task: re-tune incendiary, or leave it.** STILL OPEN. `burnDamage = 6` was
-   calibrated to finish the 8hp Sniper in one tick and that unit no longer exists (the roster cut
-   gave the Sniper the Marksman's 16hp). Deliberately NOT raised — doubling a 300-coin consumable
-   is a balance call, not a side effect of deleting a class — so a tick is now a ~37% chip rather
-   than a kill. `AmmoTest` anchors to the roster's frailest unit, so it will not silently expire.
+2. ~~**A decision, not a task: re-tune incendiary, or leave it.**~~ **The number is 8**,
+   re-derived against the live roster (frailest crowd body 12 hp). The old "still 6,
+   calibrated to an 8hp Sniper" sentence was stale prose — the asset, `AmmoSetup` and
+   the later "Verified on device" section already agreed. A further raise is still a
+   balance call, not a warm-up.
 3. ~~Loadout screen.~~ **DONE 2026-08-06** — see "Loadout" in `HANDOVER_ARCHIVE.md`.
 4. **`snowfall` is imported and ignored** — Winter's falling flakes are not ported. STILL OPEN,
    and still low value: Winter is one campaign level.

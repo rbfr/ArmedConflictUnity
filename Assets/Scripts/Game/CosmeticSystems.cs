@@ -179,18 +179,280 @@ namespace ArmedConflict.Game
         public const float RagdollLeanMaxDegrees = 38f;
 
         /// <summary>
+        /// How close to a roof edge a body must be to drape off instead of sitting.
+        /// About half a standing width: end-of-row garrisons sit ~0.1–0.3 inside
+        /// <c>hitWidth</c> (Barracks 0.125, GarrisonPost 0.31) and those are the
+        /// ones that read as "stuck on the lip". A centre-deck body on a wide
+        /// post stays. A comms mast (hitWidth 0.9) is all lip, which is right.
+        /// </summary>
+        public const float RagdollLipMargin = 0.55f;
+
+        /// <summary>
+        /// Slack, and leftover speed, at which a supported body still counts as
+        /// airborne for the flail. Same numbers the renderer used to hard-code
+        /// against ground rest — now they compare to <see cref="DyingUnitEntity.SupportY"/>.
+        /// </summary>
+        public const float RagdollAirborneSlack = 0.12f;
+        public const float RagdollAirborneVy = 0.4f;
+
+        /// <summary>
+        /// Per-body launch. The tick used to throw every corpse with the same plank
+        /// (<c>Vx = ±1.5, Vy = 2.5, spin = 220</c>), so a volley fell as one chorus line at one
+        /// angle — Rob, 2026-08-13. These ranges keep that throw as the MIDPOINT and fan around
+        /// it. Keyed on the unit id, same family as <see cref="FlamePhase"/>: consecutive ids
+        /// (a rank dying together) must not share a path, and a replay of the same body is
+        /// stable.
+        /// </summary>
+        public const float RagdollVxMin = 0.90f;
+        public const float RagdollVxMax = 2.10f;
+        public const float RagdollVyMin = 1.60f;
+        public const float RagdollVyMax = 3.40f;
+        /// <summary>
+        /// Depth fan on launch. Was 0.70 — a rank still shared one plane
+        /// and then stacked on the same face. Wider so they leave as a
+        /// cloud, not a chorus line.
+        /// </summary>
+        public const float RagdollVzHalf = 1.20f;
+
+        /// <summary>
+        /// Fraction of inbound speed dumped into Z when a body hits a
+        /// wall. Kills the "glass pane" stack: leftover travel becomes
+        /// a slide along the face while they fall.
+        /// </summary>
+        public const float RagdollWallDeflect = 0.55f;
+        /// <summary>
+        /// Airborne tumble. The die clip is NOT applied in the air (that was
+        /// the sitting-with-legs-out pose), so the GO can actually spin.
+        /// 120–200 deg/s crosses 90–160° in a typical throw — a flip, not a tip.
+        /// </summary>
+        public const float RagdollSpinMin = 120f;
+        public const float RagdollSpinMax = 200f;
+        public const float RagdollYawSpinHalf = 90f;
+        public const float RagdollTiltSpinHalf = 70f;
+        /// <summary>
+        /// Kept for the old lean-cap checks. Airborne draw no longer uses it —
+        /// they are allowed to go past horizontal.
+        /// </summary>
+        public const float RagdollAirborneTiltMax = 55f;
+        public const float RagdollTiltHalf = 15f;
+
+        public readonly struct RagdollImpulse
+        {
+            public readonly float Vx, Vy, Vz, Rotation, RotationSpeed;
+            public readonly float YawSpeed, TiltSpeed;
+            public RagdollImpulse(float vx, float vy, float vz, float rotation, float rotationSpeed,
+                                  float yawSpeed, float tiltSpeed)
+            {
+                Vx = vx; Vy = vy; Vz = vz; Rotation = rotation; RotationSpeed = rotationSpeed;
+                YawSpeed = yawSpeed; TiltSpeed = tiltSpeed;
+            }
+        }
+
+        /// <summary>
+        /// A deck fall gets the full tumble. Dirt deaths do not — they tip over
+        /// where they stood. Tank deck is 0.60; anything at or above that came
+        /// off a structure.
+        /// </summary>
+        public const float RagdollTumbleMinY = 0.40f;
+        /// <summary>Kick the limbs only on the throw, not while they sit in the wreck.</summary>
+        public const float RagdollFlailSeconds = 0.35f;
+        /// <summary>Collapsed ruin is a low mound, not the standing box.</summary>
+        public const float WreckRestY = 0.32f;
+
+        /// <summary>
+        /// Where a corpse sits on a wreck. Wreck.Y is the visual BASE
+        /// (same as the wreck GO: structure centre minus size/2). Adding
+        /// the standing centre left bodies parked at ~1.3 while the
+        /// collapse mesh sat on the dirt — Rob, 2026-08-18: a body can
+        /// stop in midair after being blown off the structure.
+        /// </summary>
+        public static float WreckLidY(WreckEntity w)
+            => w.Y + WreckRestY;
+
+        public static bool DiesInATumble(float y, int? standingOnStructureId)
+            => standingOnStructureId != null || y > RagdollTumbleMinY;
+
+        /// <summary>Throw for this body. Player is flung -X, enemy +X — still "backwards".</summary>
+        public static RagdollImpulse ImpulseFor(int unitId, bool isPlayerSide)
+            => ImpulseFor(unitId, isPlayerSide, tumble: true);
+
+        public static RagdollImpulse ImpulseFor(int unitId, bool isPlayerSide, bool tumble)
+        {
+            float sign = isPlayerSide ? -1f : 1f;
+            if (!tumble)
+            {
+                // Tip-over, not a launch. Shove them OFF the building
+                // (enemy −X, into no-man's-land) so they do not flop into
+                // the wall and flail against the wreck.
+                return new RagdollImpulse(
+                    vx: -sign * Mathf.Lerp(0.35f, 0.80f, Hash01(unitId, 1u)),
+                    vy: Mathf.Lerp(0.05f, 0.20f, Hash01(unitId, 2u)),
+                    vz: Mathf.Lerp(-0.15f, 0.15f, Hash01(unitId, 3u)),
+                    rotation: -sign * Mathf.Lerp(18f, 32f, Hash01(unitId, 4u)),
+                    rotationSpeed: -sign * Mathf.Lerp(70f, 110f, Hash01(unitId, 5u)),
+                    yawSpeed: 0f,
+                    tiltSpeed: 0f);
+            }
+            float yawSign = Hash01(unitId, 6u) < 0.5f ? -1f : 1f;
+            float tiltSign = Hash01(unitId, 7u) < 0.5f ? -1f : 1f;
+            return new RagdollImpulse(
+                vx: sign * Mathf.Lerp(RagdollVxMin, RagdollVxMax, Hash01(unitId, 1u)),
+                vy: Mathf.Lerp(RagdollVyMin, RagdollVyMax, Hash01(unitId, 2u)),
+                vz: Mathf.Lerp(-RagdollVzHalf, RagdollVzHalf, Hash01(unitId, 3u)),
+                rotation: Mathf.Lerp(-RagdollTiltHalf, RagdollTiltHalf, Hash01(unitId, 4u)),
+                rotationSpeed: sign * Mathf.Lerp(RagdollSpinMin, RagdollSpinMax, Hash01(unitId, 5u)),
+                yawSpeed: yawSign * Mathf.Lerp(20f, RagdollYawSpinHalf, Hash01(unitId, 8u)),
+                tiltSpeed: tiltSign * Mathf.Lerp(15f, RagdollTiltSpinHalf, Hash01(unitId, 9u)));
+        }
+
+        /// <summary>
+        /// Unit-id hash in <c>[0, 1)</c>. Consecutive ids (a dying rank) must not walk a
+        /// ramp — a linear map is a travelling wave, which is the chorus line this exists to
+        /// break. Same mixer as <see cref="FlamePhase"/>, salted so each channel is independent.
+        /// </summary>
+        static float Hash01(int unitId, uint salt)
+        {
+            unchecked
+            {
+                uint h = (uint)unitId * 2654435761u ^ salt * 2246822519u;
+                h ^= h >> 15;
+                return (h & 0xFFFFu) / 65536f;
+            }
+        }
+
+        /// <summary>
         /// The lean to draw for an animated corpse. Signed by the side, because a body tips the
         /// way it is thrown and the two sides are thrown in opposite directions.
+        ///
+        /// Measured from the nearest LYING pose (0 or 180), not from abs(rotation). Flop settles
+        /// at either; abs(180)*0.32 is the 38° cap, so every body that fell the long way sat
+        /// propped off the horizon forever. Rob, 2026-08-13: "they don't always come to rest
+        /// on the horizon" — the "always" is which way they flop, which is the launch hash.
         /// </summary>
         public static float RagdollLeanDegrees(float rotation, bool isPlayerSide)
         {
-            float lean = Mathf.Min(Mathf.Abs(rotation) * RagdollLeanFraction, RagdollLeanMaxDegrees);
+            float toFlat = Mathf.Abs(Mathf.DeltaAngle(rotation, 0f));
+            if (toFlat > 90f) toFlat = 180f - toFlat;
+            float lean = Mathf.Min(toFlat * RagdollLeanFraction, RagdollLeanMaxDegrees);
             return isPlayerSide ? -lean : lean;
+        }
+
+        /// <summary>
+        /// Clamp airborne tumble so a long throw cannot roll them past vertical
+        /// before they land.
+        /// </summary>
+        public static float ClampAirborneTilt(float rotation)
+        {
+            float tip = Mathf.DeltaAngle(0f, rotation);
+            return Mathf.Clamp(tip, -RagdollAirborneTiltMax, RagdollAirborneTiltMax);
+        }
+
+        /// <summary>
+        /// What the renderer pitches/yaws/rolls the corpse by.
+        ///
+        /// Airborne: the live 3-axis tumble. Grounded: the nearest side-lie
+        /// (±90° on Z — horizontal at this camera) plus leftover twist. The
+        /// die clip is not in this path; it is a sit-down pose and is what
+        /// made them look seated in the air.
+        /// </summary>
+        public static Vector3 RagdollVisualEuler(DyingUnitEntity d)
+            => new Vector3(d.SettleTilt, d.Yaw, -d.Rotation);
+
+        /// <summary>
+        /// Spring toward the nearest side-lie (±90). 0 and 180 are standing /
+        /// upside-down in the renderer; those were the sit-up on landing.
+        /// </summary>
+        public static void StepFlopToSide(float rotation, float rotationSpeed, float dt,
+                                          out float newRotation, out float newRotationSpeed)
+        {
+            float r = Mathf.DeltaAngle(0f, rotation);
+            float nearest = Mathf.Abs(Mathf.DeltaAngle(r, 90f)) <= Mathf.Abs(Mathf.DeltaAngle(r, -90f))
+                ? 90f : -90f;
+            float error = Mathf.DeltaAngle(r, nearest);
+            float accel = error * FlopSpring - rotationSpeed * FlopDamping;
+            newRotationSpeed = rotationSpeed + accel * dt;
+            newRotation = r + newRotationSpeed * dt;
+        }
+
+        /// <summary>
+        /// Speed to run Kenney's <c>die</c> at. The clip is 0.33s and ends lying
+        /// down — at speed 1 they finish the fold in the air. Frozen at a
+        /// mid-crumple until contact, then play through. Hold at 0 is a standing
+        /// statue (seen on device); hold at 1 is already horizontal in the air.
+        /// </summary>
+        public const float DieAirborneHold = 0.38f;
+
+        public static float DieClipSpeed(bool airborne, float normalizedTime)
+        {
+            return airborne ? 0f : 1f;
+        }
+
+        /// <summary>
+        /// True while the body is still in the air — flail on, slump off. A roof
+        /// counts as the ground. Comparing to <see cref="RagdollRestY"/> here is
+        /// what left every garrison twitching on its deck.
+        /// </summary>
+        public static bool RagdollAirborne(DyingUnitEntity d)
+        {
+            if (d.SupportY < 0f) return true;
+            // Vx is not airborne. A body sliding on dirt is ON the dirt, and
+            // keying the flail off leftover speed was the twitch Rob saw
+            // after the sink landed (2026-08-16).
+            return d.Y > d.SupportY + RagdollAirborneSlack
+                || Mathf.Abs(d.Vy) > RagdollAirborneVy;
+        }
+
+        /// <summary>
+        /// Inside the footprint and within <see cref="RagdollLipMargin"/> of a
+        /// face. A box narrower than two margins is all lip.
+        /// </summary>
+        public static bool RagdollOnLip(float x, float minX, float maxX)
+        {
+            if (x <= minX || x >= maxX) return false;
+            return (x - minX) <= RagdollLipMargin || (maxX - x) <= RagdollLipMargin;
+        }
+
+        /// <summary>
+        /// Depth kick when a body hits a face. Sign is hashed so two
+        /// soldiers who reach the same wall peel opposite ways.
+        /// </summary>
+        public static float RagdollWallScatterVz(int unitId, float inboundSpeed)
+        {
+            float side = Hash01(unitId, 11u) < 0.5f ? -1f : 1f;
+            return side * inboundSpeed * RagdollWallDeflect;
         }
 
         public const float RagdollMaxAgeSeconds = 5f;
         public const float RagdollBodyHeight = 0.5f;
         public const float RagdollBodyHalfWidth = 0.05f;
+
+        /// <summary>
+        /// Last stretch of the TTL: a body on the DIRT eases under the ground
+        /// instead of vanishing in one frame. Same family as the health-bar fade.
+        /// Render-only — the tick must not move, or rest no longer agrees with
+        /// where they fell. Roofs do not sink (that is into masonry). Depth is
+        /// enough to bury a lying mesh at this camera's ~6°, so a recycled slot
+        /// cannot pop a half-buried body back to standing.
+        /// </summary>
+        public const float RagdollSinkSeconds = 0.9f;
+        public const float RagdollSinkDepth = 0.80f;
+
+        /// <summary>
+        /// Downward render offset at this age. Zero while airborne, on a roof,
+        /// or before the last stretch. Smoothstep so it eases, not a linear drop.
+        /// </summary>
+        public static float RagdollSinkY(float age, float supportY)
+        {
+            if (supportY < 0f) return 0f;
+            // Dirt rest is at most the upright-box height. A tank deck is 0.60
+            // and every building is taller — those must not sink.
+            if (supportY > RagdollBodyHeight + 0.02f) return 0f;
+            float remaining = RagdollMaxAgeSeconds - age;
+            if (remaining >= RagdollSinkSeconds) return 0f;
+            float t = 1f - Mathf.Clamp01(remaining / RagdollSinkSeconds);
+            t = t * t * (3f - 2f * t);
+            return -RagdollSinkDepth * t;
+        }
         public const float RollMinSpeed = 0.30f;
         public const float RollFrictionPerTick = 0.962f;   // per tick at 60Hz — see DecayPerTick60
         public const float RollDegPerUnit = 150f;
@@ -198,23 +460,16 @@ namespace ArmedConflict.Game
         public const float FlopDamping = 23f;
 
         /// <summary>
-        /// Resting height for a body at this rotation — the lift needed so no corner of the
-        /// body box sinks below the ground. A body lying flat rests lower than one propped at an
-        /// angle, which is what stops a tumbling corpse from clipping through the floor
-        /// mid-roll.
+        /// Resting height for a body at this rotation. 0 and 180 are both lying flat — the
+        /// origin-at-the-feet box used to report 0.5 at 180 (the top of the box had flipped
+        /// below the origin), so a flop that settled the long way left the hips half a unit
+        /// off the ground. Lift is the sine of the angle: max at 90, none on either flat.
         /// </summary>
         public static float RagdollRestY(float rotationDegrees)
         {
             float r = rotationDegrees * Mathf.Deg2Rad;
-            float sin = Mathf.Sin(r), cos = Mathf.Cos(r);
-            float lowest = 0f;
-            foreach (float cx in new[] { -RagdollBodyHalfWidth, RagdollBodyHalfWidth })
-            foreach (float cy in new[] { 0f, RagdollBodyHeight })
-            {
-                float rotatedY = cx * sin + cy * cos;
-                if (rotatedY < lowest) lowest = rotatedY;
-            }
-            return -lowest;
+            return Mathf.Abs(Mathf.Sin(r)) * RagdollBodyHeight
+                 + Mathf.Abs(Mathf.Cos(r)) * RagdollBodyHalfWidth;
         }
 
         /// <summary>
@@ -253,7 +508,9 @@ namespace ArmedConflict.Game
 
         // ---- debris ---------------------------------------------------------------------
 
-        public const float DebrisTtlSeconds = 2.6f;
+        /// <summary>Long enough to still be on the dirt when the next
+        /// aim starts. 2.6s vanished during the volley follow.</summary>
+        public const float DebrisTtlSeconds = 8.0f;
         /// <summary>Structure rubble persists for the WHOLE level rather than ageing out.</summary>
         public const float DebrisRubbleTtl = float.MaxValue;
 

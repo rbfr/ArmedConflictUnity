@@ -111,6 +111,7 @@ public class BattleRunner : MonoBehaviour
     readonly List<GameObject> scorchSlots = new();
     readonly List<GameObject> debrisSlots = new();
     readonly List<(int Id, GameObject Go)> structureObjects = new();
+    float? lastTankX;
 
     LevelDefinitionSO level;
     int levelIndex;
@@ -384,6 +385,8 @@ public class BattleRunner : MonoBehaviour
         }
 
         ui.Hide();
+        EncounterUnlocks.GrantUnits(target);
+        EncounterUnlocks.GrantAmmoForLevel(target);
         var picks = Loadout.Default(target, roster, ProgressStore.IsUnitUnlocked);
         ui.ShowLoadout(target, roster, picks, TestSupply, (chosen, consumables) =>
         {
@@ -406,17 +409,16 @@ public class BattleRunner : MonoBehaviour
         // Read through ProgressStore, which downgrades a selection the player no longer owns to
         // Standard — a reset wipes unlocks, and a state pointing at a locked type would fire an
         // ammo that is not owned.
-        state = state with
+        state = TurnFlow.StartBattle(state with
         {
-            Phase = GamePhase.Playing,
-            TurnPhase = TurnPhase.Aiming,
             SelectedAmmo = ProgressStore.SelectedAmmo(),
             // The carry is per-battle: a RESTART re-runs the picker and re-equips, and the ◀ ▶
             // stepper (which skips the picker) carries nothing, which is right — a debug sweep
             // should not spend the player's inventory.
             LoadedConsumables = EquippedFromInventory(),
-        };
+        });
 
+        lastTankX = null;
         scenery.Build(level, state.Structures);
         structureObjects.Clear();
         foreach (var st in state.Structures)
@@ -442,6 +444,9 @@ public class BattleRunner : MonoBehaviour
         ui.Hide();
         ui.SetCoins(ProgressStore.Coins());
         enemyWindup = 0f;
+        turnBanner = state.TurnPhase == TurnPhase.TankArrive
+            ? "Your forces arrive"
+            : string.IsNullOrEmpty(level.levelGoal) ? "Survey the field" : level.levelGoal;
         dragging = false;
         aimVel = Vector3.zero;
         aimPoseDegrees = 0f;
@@ -937,7 +942,9 @@ public class BattleRunner : MonoBehaviour
         // falls with him.
         foreach (var d in state.DyingUnits)
             if (!d.IsPlayerSide && flameOut.ContainsKey(d.Id))
-                used = Burn(d.Id, d.X, d.Y, d.Z, d.Definition, false, used);
+                used = Burn(d.Id, d.X,
+                            d.Y + CosmeticSystems.RagdollSinkY(d.Age, d.SupportY),
+                            d.Z, d.Definition, false, used);
 
         for (int i = used; i < flameSlots.Count; i++)
             if (flameSlots[i].Root.activeSelf) flameSlots[i].Root.SetActive(false);
@@ -1222,7 +1229,26 @@ public class BattleRunner : MonoBehaviour
         // The enemy turn runs itself: a windup beat, then its volley.
         if (state.Phase == GamePhase.Playing && state.TurnPhase == TurnPhase.EnemyWindup)
         {
-            enemyWindup += dt;
+            // THE WINDUP IS FROZEN WHILE AN ADVANCE IS STILL WALKING — OR STILL FIGHTING. The
+            // countdown only starts once both are done, which gives the march and the melee their
+            // own beat instead of making them race the volley for the same 1.5 seconds, and gives
+            // the camera time to pan back from the fight to the shooter line before they fire.
+            //
+            // The SKIRMISH half was added on the second device build. It is the necessary other
+            // half of the camera holding on the fight (BattleTick section 8): with the volley
+            // free to fire over the top of a running scuffle, the camera is locked on the melee
+            // exactly when a dozen rounds leave the far side of the field, and the player sees
+            // neither. Freezing here means the sequence always reads march -> fight -> volley,
+            // one at a time.
+            // THE HOLD COUNTS AS BUSY TOO. Without it the volley fires into the pause that
+            // exists so the melee registers — the camera is parked on two bodies falling while
+            // the shooting starts somewhere the player cannot see, which is the same mistake the
+            // freeze was added to prevent, one beat later.
+            bool busyDown = AdvanceSystems.Marching(state.EnemyUnits)
+                            || state.Skirmishes.Count > 0
+                            || state.MeleeHold > 0f
+                            || state.CollapseHold > 0f;
+            if (!busyDown) enemyWindup += dt;
             if (enemyWindup >= TurnFlow.EnemyWindupSeconds)
             {
                 enemyWindup = 0f;
@@ -1256,6 +1282,8 @@ public class BattleRunner : MonoBehaviour
 
         if (before.TurnPhase != TurnPhase.EnemyWindup && state.TurnPhase == TurnPhase.EnemyWindup)
             turnBanner = ThreatLine(state);
+        else if (before.TurnPhase != TurnPhase.PlayerScout && state.TurnPhase == TurnPhase.PlayerScout)
+            turnBanner = string.IsNullOrEmpty(level.levelGoal) ? "Survey the field" : level.levelGoal;
         else if (state.TurnPhase == TurnPhase.Aiming) turnBanner = null;
 
         ui.SetEvents(state.BossAnnouncement ?? turnBanner, state.TelegraphText);
@@ -1316,7 +1344,10 @@ public class BattleRunner : MonoBehaviour
         var beforeVolley = state;
         state = BattleTick.FireVolley(state, aimVel, random, ammoCatalog);
         SettleArmedSpend(beforeVolley, state);
-        if (audioFx != null) audioFx.PlayVolleyFire();
+        // The infantry volley is HELD for an airstrike. Playing the
+        // fire cue here announced rifles that have not shot yet.
+        if (audioFx != null && !state.PendingVolleyAim.HasValue)
+            audioFx.PlayVolleyFire();
         VolleyAnim(playerSide: true);
         // REPORT WHAT ACTUALLY HAPPENED. This line has been wrong three times, each time because
         // the beat changed under it: it said "volley: 0 rounds" when the volley had not been built
@@ -1403,6 +1434,14 @@ public class BattleRunner : MonoBehaviour
     /// stays engine-independent that way, and a replayed or rewound state produces the same
     /// audio as a live one.
     /// </summary>
+    static int CountInfantryVolley(GameState s)
+    {
+        int n = 0;
+        foreach (var p in s.Projectiles)
+            if (p.OwnerIsPlayer && !p.IsStrafe && !p.IsAirstrike) n++;
+        return n;
+    }
+
     void DriveAudio(GameState before, GameState after)
     {
         if (audioFx == null) return;
@@ -1441,9 +1480,11 @@ public class BattleRunner : MonoBehaviour
         // Watched as a true->false edge on the delay, with an aircraft present on the far side —
         // the same shape as the armed-flag watch, and for the same reason: the transition is the
         // event, and nothing else clears this field.
-        if (before.AirstrikeSpawnDelay > 0f && after.AirstrikeSpawnDelay <= 0f
-            && after.AirstrikePlane != null)
-            audioFx.PlayPlanePassby();
+        // Infantry volley that was held for the airstrike: it launches
+        // on a later tick, so Release never heard it.
+        int volleyBefore = CountInfantryVolley(before);
+        int volleyAfter = CountInfantryVolley(after);
+        if (volleyAfter > volleyBefore) audioFx.PlayVolleyFire();
     }
 
     void Render()
@@ -1461,26 +1502,36 @@ public class BattleRunner : MonoBehaviour
             var slots = d.IsPlayerSide ? playerUnits : enemyUnits;
             string key = UnitClassKey(d.Definition);
             var go = slots.Take(key);
-            if (go == null) continue;
+            if (go == null)
+            {
+                Debug.LogWarning($"[Battle] no ragdoll slot for {d.Definition?.id} ({key})");
+                continue;
+            }
             go.SetActive(true);
             float dScale = slots.BaseScale(key) *
                            (d.Definition != null ? d.Definition.renderScale : 1f);
             if (!Mathf.Approximately(go.transform.localScale.x, dScale))
                 go.transform.localScale = Vector3.one * dScale;
-            go.transform.position = GameSpace.ToUnity(d.X, d.Y, d.Z);
+            // Sink is RENDER-ONLY, on this GO, never on the tick and never on
+            // the clip root. Stand() restores the root; SyncUnits overwrites
+            // this position when the slot is a living soldier again.
+            go.transform.position = GameSpace.ToUnity(
+                d.X, d.Y + CosmeticSystems.RagdollSinkY(d.Age, d.SupportY), d.Z);
             // An animated unit FALLS OVER in its own clip, so the ragdoll's topple rotation is
             // the no-animation workaround for exactly this and must not be applied on top —
             // a body folding to the ground while also spinning flat reads as a glitch, not a death.
+            // Rigid tumble. Kenney's `die` is a sit-down pose — it is what made
+            // them look seated with legs out. The clip stays off; the GO spins.
+            var euler = CosmeticSystems.RagdollVisualEuler(d);
+            go.transform.rotation = Quaternion.Euler(euler.x, euler.y, euler.z);
             if (go.TryGetComponent<UnitAnim>(out var dyingAnim))
             {
-                // A FRACTION of the tumble, capped — not identity and not the whole spin. Full
-                // identity flew the body backwards perfectly upright, like a statue on rails;
-                // the full 220 deg/s made it fold AND cartwheel. See RagdollLeanDegrees.
-                go.transform.rotation = Quaternion.Euler(0f, 0f,
-                    -CosmeticSystems.RagdollLeanDegrees(d.Rotation, d.IsPlayerSide));
                 dyingAnim.Set(UnitAnim.Die);
+                bool flail = d.Tumble && CosmeticSystems.RagdollAirborne(d)
+                             && d.Age < CosmeticSystems.RagdollFlailSeconds;
+                float slump = d.Tumble ? d.Bend * (d.IsPlayerSide ? 1f : -1f) : 0f;
+                dyingAnim.SetRagdoll(d.Id, d.Age, flail, slump);
             }
-            else go.transform.rotation = Quaternion.Euler(0f, 0f, -d.Rotation);
         }
         playerUnits.HideRest();
         enemyUnits.HideRest();
@@ -1589,13 +1640,39 @@ public class BattleRunner : MonoBehaviour
             else debrisSlots[i].SetActive(false);
         }
 
-        // Structures are static for the battle's life — one object each, hidden on destruction.
+        // Structures are one object each, hidden on destruction. Position is re-applied
+        // every frame because the player tank ROLLS IN — a bake-once pose would leave
+        // the mesh at the start slot while the sim (and the crew) drove off without it.
         var liveIds = new HashSet<int>(state.Structures.Select(s2 => s2.Id));
+        float? tankX = null;
         foreach (var (id, go) in structureObjects)
         {
             bool live = liveIds.Contains(id);
             if (go.activeSelf != live) go.SetActive(live);
+            var wreck = scenery.Wreck(id);
+            if (wreck != null)
+            {
+                if (!live && !wreck.activeSelf)
+                {
+                    wreck.SetActive(true);
+                    if (wreck.TryGetComponent<WreckAnim>(out var wa)) wa.Play();
+                }
+                else if (live && wreck.activeSelf)
+                    wreck.SetActive(false);
+            }
+            var st = default(StructureEntity);
+            for (int i = 0; i < state.Structures.Count; i++)
+                if (state.Structures[i].Id == id) { st = state.Structures[i]; break; }
+            if (st == null || st.Definition == null) continue;
+            go.transform.localPosition =
+                GameSpace.ToUnity(st.X, st.Y - st.Definition.size / 2f, st.Z);
+            if (st.Definition.isPlayerSide && st.Definition.hasCannon)
+            {
+                tankX = st.X;
+                SpinTankWheels(go, st.X);
+            }
         }
+        lastTankX = tankX;
 
         // A damaged structure LOSES the geometry it just shed. The count comes from the tick's
         // own ShedChunks rather than being recomputed here — the two used to derive it separately
@@ -1629,6 +1706,26 @@ public class BattleRunner : MonoBehaviour
         // enumerated first, which would fire some soldiers twice and leave others still.
         foreach (var go in (playerSide ? playerUnits : enemyUnits).Live)
             if (go.TryGetComponent<UnitAnim>(out var a)) a.Fire();
+    }
+
+    /// <summary>
+    /// Road wheels spin with the hull's travel. Each `accent_wheel*` node is authored with
+    /// its origin on the axle; rolling about world Z (the axle after the facing flip) is
+    /// what a wheel on a +X-facing hull does. Distance is game-X so a rightward roll
+    /// turns the bottoms backward.
+    /// </summary>
+    void SpinTankWheels(GameObject tank, float gameX)
+    {
+        if (lastTankX == null) return;
+        float dx = gameX - lastTankX.Value;
+        if (Mathf.Abs(dx) < 1e-5f) return;
+        const float WheelRadius = 0.07f;
+        float deg = dx / WheelRadius * Mathf.Rad2Deg;
+        foreach (var t in tank.GetComponentsInChildren<Transform>())
+        {
+            if (!t.name.StartsWith("accent_wheel")) continue;
+            t.Rotate(0f, 0f, -deg, Space.World);
+        }
     }
 
     /// <summary>Which rigged silhouette a unit renders as. The DATA still names the old
@@ -1693,9 +1790,47 @@ public class BattleRunner : MonoBehaviour
             {
                 if (wasHidden) anim.Desync(u.Id);
                 else anim.Set(UnitAnim.Idle);
-                anim.AimDegrees = aimingRight
-                    ? aimPose
-                    : state.EnemyAimDegrees.TryGetValue(u.Id, out var ea) ? ea : 0f;
+                // ADVANCING SQUADS WALK. Without this the body slides across the field in its
+                // breathing pose, which is what a marching mechanic looks like when only its
+                // arithmetic is ported. A locked fighter USED to count as walking, which was the
+                // best available answer while the swing was unbound; the melee clip drives the
+                // legs itself and outranks the walk, so the march now means only the march.
+                //
+                // BOTH ENDS OF A SKIRMISH SWING. Ids are unique across the two sides
+                // (LevelBuilder gives the enemy its own base), so one test covers the attacker on
+                // the enemy line and his claimed victim on the player's without knowing which
+                // side this call is drawing. The victim fighting back is the point: a skirmish is
+                // a MUTUAL kill, and a man standing at ease while someone kills him reads as a
+                // bug rather than as a trade.
+                bool fighting = state.Skirmishes.Any(
+                    sk => sk.AttackerId == u.Id || sk.VictimId == u.Id);
+                // Charge keeps Kenney's full jog (signed-off melee beat). The
+                // player's arrive / relief is the same clip at march stride —
+                // 60° hips on a slow 3.6-unit roll read as a cartoon run.
+                bool charging = u.AdvanceRemaining > 0f;
+                bool arriving = u.MarchTargetX != null;
+                if (arriving && !charging)
+                    anim.SetWalking(true, UnitAnim.MarchStride, UnitAnim.MarchAnimSpeed);
+                else
+                    anim.SetWalking(charging);
+                anim.SetFighting(fighting);
+                if (aimingRight)
+                    anim.AimDegrees = aimPose;
+                else if (state.EnemyAimDegrees.TryGetValue(u.Id, out var ea))
+                {
+                    // Raise over the windup, then hold the pose through the volley.
+                    // AimDegrees of 0 is the ready-drop, so a zero ramp would sit
+                    // there until the last frames and then jump — lerp from ready.
+                    float raised = ea;
+                    if (state.TurnPhase == TurnPhase.EnemyWindup)
+                    {
+                        float t = Mathf.Clamp01(enemyWindup / TurnFlow.EnemyWindupSeconds);
+                        t = t * t * (3f - 2f * t);
+                        raised = Mathf.Lerp(-UnitAnim.ReadyDrop, ea, t);
+                    }
+                    anim.AimDegrees = raised;
+                }
+                else anim.AimDegrees = 0f;
             }
 
             // A rigged unit carries its weapon on its own arm, so the pooled gun would be a
@@ -1906,7 +2041,10 @@ public class BattleRunner : MonoBehaviour
             GamePhase.Victory => "VICTORY",
             GamePhase.Defeat => "DEFEAT",
             _ => state.TurnSide == TurnSide.Player
-                 ? (state.TurnPhase == TurnPhase.Aiming ? "Your turn" : "Firing...")
+                 ? state.TurnPhase == TurnPhase.Aiming ? "Your turn"
+                 : state.TurnPhase == TurnPhase.TankArrive ? "Your forces arrive"
+                 : state.TurnPhase == TurnPhase.PlayerScout ? "Look over the field"
+                 : "Firing..."
                  : "Enemy turn",
         };
         var turnStyle = new GUIStyle(big)
@@ -2043,7 +2181,11 @@ public class BattleRunner : MonoBehaviour
                     // Under RIGS the SELECTION is not persisted either: writing it would leave a
                     // locked type selected after the toggle goes off, which is a corrupt save
                     // rather than a test.
-                    if (!TestSupply) ProgressStore.SetSelectedAmmo(slot.type);
+                    if (!TestSupply)
+                    {
+                        ProgressStore.SetSelectedAmmo(slot.type);
+                        ProgressStore.MarkAmmoPickedByPlayer();
+                    }
                     state = state with { SelectedAmmo = slot.type };
                     Debug.Log($"[Ammo] selected {slot.type}"
                               + (TestSupply ? " (TEST supply, not persisted)" : ""));
@@ -2054,6 +2196,7 @@ public class BattleRunner : MonoBehaviour
                     // Bought AND selected in one tap. Buying a thing and then having to pick it
                     // is a second step with no decision in it.
                     ProgressStore.SetSelectedAmmo(slot.type);
+                    ProgressStore.MarkAmmoPickedByPlayer();
                     state = state with { SelectedAmmo = slot.type };
                     if (ui != null) ui.SetCoins(EconomyStore.Balance());
                     Debug.Log($"[Ammo] purchased {slot.type} for {slot.coinPrice}");
@@ -2182,6 +2325,12 @@ public class BattleRunner : MonoBehaviour
         {
             if (!TestSupply) ProgressStore.SpendConsumable(ConsumableType.Airstrike);
             Debug.Log("[Consumable] Airstrike fired" + (TestSupply ? " (TEST supply)" : ""));
+            // The plane is minted HERE, in FireVolley, not on a later tick.
+            // DriveAudio never sees a null→plane edge, so the cue has to
+            // fire on this same transition. The delay-edge it used to
+            // watch is always 0 now that the run starts immediately.
+            if (audioFx != null && after.AirstrikePlane != null)
+                audioFx.PlayPlanePassby();
         }
         if (before.SmokeScreenArmed && !after.SmokeScreenArmed)
         {
@@ -2207,6 +2356,18 @@ public class BattleRunner : MonoBehaviour
     /// end of the campaign straight into the unit parade, which is fine for a developer and not
     /// something a player should ever be one tap from.
     /// </summary>
+    bool NavButton(Rect r, string label, GUIStyle style)
+    {
+        if (Event.current.type == EventType.MouseDown
+            && Event.current.button == 0
+            && r.Contains(Event.current.mousePosition)
+            && audioFx != null)
+            audioFx.PlayUiDown();
+        if (!GUI.Button(r, label, style)) return false;
+        if (audioFx != null) audioFx.PlayUiUp();
+        return true;
+    }
+
     void DrawLevelNav()
     {
         // BELOW THE STATUS BAR. At y=24 these sat inside the display cutout inset (161px on this
@@ -2216,9 +2377,9 @@ public class BattleRunner : MonoBehaviour
         // clear of the insets.
         const float NavTop = 190f;
         var nav = new GUIStyle(GUI.skin.button) { fontSize = 34 };
-        if (GUI.Button(new Rect(Screen.width - 250f, NavTop, 100f, 90f), "◀", nav))
+        if (NavButton(new Rect(Screen.width - 250f, NavTop, 100f, 90f), "◀", nav))
             LoadLevel(levelIndex - 1);
-        if (GUI.Button(new Rect(Screen.width - 130f, NavTop, 100f, 90f), "▶", nav))
+        if (NavButton(new Rect(Screen.width - 130f, NavTop, 100f, 90f), "▶", nav))
             LoadLevel(levelIndex + 1);
         // The readout counts within whatever block is reachable, so "3/7" means three of seven
         // CAMPAIGN levels rather than three of twenty-four assorted scenes.
@@ -2231,8 +2392,8 @@ public class BattleRunner : MonoBehaviour
         // rigs stay one tap away in a RELEASE build, because sweeping them from adb is how
         // missing geometry gets found and a development build cannot be trusted for anything else.
         var rigStyle = new GUIStyle(nav) { fontSize = 26 };
-        if (GUI.Button(new Rect(Screen.width - 490f, NavTop, 100f, 90f),
-                       showRigs ? "RIGS\nON" : "RIGS", rigStyle))
+        if (NavButton(new Rect(Screen.width - 490f, NavTop, 100f, 90f),
+                      showRigs ? "RIGS\nON" : "RIGS", rigStyle))
         {
             showRigs = !showRigs;
             // Locking them again while standing on one would leave the session out of bounds.
@@ -2262,7 +2423,7 @@ public class BattleRunner : MonoBehaviour
         }
 
         // CAM sits beside the stepper, matching the shipping build's placement.
-        if (GUI.Button(new Rect(Screen.width - 370f, NavTop, 100f, 90f), "CAM", nav))
+        if (NavButton(new Rect(Screen.width - 370f, NavTop, 100f, 90f), "CAM", nav))
         {
             freeCamOn = !freeCamOn;
             // The end card yields to the free camera. Inspecting a FINISHED battle is most of

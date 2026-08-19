@@ -100,6 +100,20 @@ MonoBehaviour:
     scale: 1
     slowsAdvance: 1
     halfWidth: 1.2
+  - modelAsset: models/prop_wreck_car.glb
+    x: -5.1
+    z: -8.2
+    scale: 3.2
+    slowsAdvance: 0
+    halfWidth: 1.2
+    keepColors: 1
+  - modelAsset: models/prop_dead_tree.glb
+    x: -8.8
+    z: -10.0
+    scale: 2.4
+    slowsAdvance: 0
+    halfWidth: 0.6
+    keepColors: 1
   levelBase: 160
   deployBudget: 14
   bossPhases: []

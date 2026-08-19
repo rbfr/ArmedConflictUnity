@@ -1003,3 +1003,34 @@ not have reached the old position at all. It landed among the heroes and killed 
 and the enemy-turn camera then framed the pair standing alone in open ground ahead of the bunker,
 plainly larger than the crowd on its roof. **609 checks green, 12 levels still pass all seven
 composition rules.**
+
+## Rifleman v2 — same skinny class, not a new silhouette, 2026-08-13
+
+Rob rejected the current rifleman as a model, not as a role. The body was a vest slab, four
+green boxes and a floating skin sphere. It is also the DEFAULT crowd, so that shape is most of
+what a player sees.
+
+**The band-profile rule still holds: this class stays the narrow baseline.** Width went
+1.17 → 0.99 in model space. The new read is infantry gear on the same reserved silhouette —
+ACH helmet (not a boonie, not a peak), an upper plate with a three-pouch mag row hanging below
+it, belt, knee pads, boots with toes, a neck. Same Kenney joints, same 2.70-scale skeleton,
+same four-tone prefixes. `build_units_rigged.py` `build_rifleman()` is the builder.
+
+This is Attempt 2's lesson applied to the class that had almost no props: small high-contrast
+gear, not a wider body.
+
+**First device look, 2026-08-13: rifles over their heads.** The ACH came out 2.64 tall
+against the old stacked helmet's 2.97. `RiggedUnits.Normalize` scales by the tallest
+point and `AttachGun` is in model units, so a shorter figure lifts the hold-pose rifle
+to the crown. Headgear overshoots again (2.93). `PortSelfTest` now samples the hold on
+the built prefab and requires the gun below the helmet — the 2.64 body is the number
+that would have failed it. Still awaiting Rob's second look.
+
+**2026-08-18: hold signed off.** Rob: *"ok good. that works."* Identity
+attach pointed the mesh at the viewer. Flipping the hold 180° pointed
+the mesh downfield and turned the silhouette around — the body already
+faced the enemy; the arms reaching backward read as facing the tank.
+Reverted. Assert the rendered bounds centre vs the grip along
+`facing.forward`, not local +X of the imported gun root. Attach is
+`LookRotation(forward, left)`. One-bone arms cannot shoulder; rest is a
+16° low-ready. Do not reopen as a taste pass.

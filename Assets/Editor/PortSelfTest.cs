@@ -677,56 +677,79 @@ public static class PortSelfTest
                                      0f);
             var volleyTarget = TrajectoryPhysics.LandingPoint(muzzle, aim);
 
-            // AN ARMED RELEASE FLIES THE PLANE FIRST AND THROWS NOTHING YET. This is the whole
-            // behaviour Rob asked for on 2026-08-10, and the reason is measured, not aesthetic: the
-            // bomb used to land ~0.85s before the volley-follow camera finished panning, off-screen
-            // every time. The item is spent the moment the aircraft is committed.
+            // AN ARMED RELEASE FLIES THE PLANE NOW AND HOLDS THE VOLLEY.
+            // Enter over the player line; the infantry fire after it leaves.
+            float playerLeft = fresh.PlayerUnits.Min(u => u.X);
             Check(struck.TurnPhase == TurnPhase.AirstrikeRun
-                  && struck.Projectiles.Count > fresh.Projectiles.Count
-                  && struck.AirstrikeSpawnDelay > 0f
+                  && struck.Projectiles.Count(p => !p.IsStrafe && !p.IsAirstrike) == 0
+                  && struck.AirstrikeSpawnDelay <= 0f
                   && struck.AirstrikePlane != null
                   && !struck.AirstrikePlane.HasDropped
-                  // The spawn is DERIVED now (far enough back to exist before the rake's first
-                  // firing point AND before the release), so it is no longer a fixed offset from
-                  // the aim. Asserted as the property that matters — never NEARER than the old
-                  // fixed distance — with the entry itself checked against the real frame below.
-                  && struck.AirstrikePlane.X
-                       <= volleyTarget.x - BattleTick.PlaneRunHalfLength + 0.01f
+                  && struck.AirstrikePlane.X < playerLeft
                   && !struck.AirstrikeArmed
                   && Consumables.Equipped(struck, ConsumableType.Airstrike) == 0,
-                  "an armed release fires the volley AT ONCE and holds the AIRCRAFT back — the "
-                  + "volley's flight is the longer of the two halves at any usable power, so it "
-                  + "is the one that starts first, and the item is spent either way");
+                  $"an armed release flies the plane from the PLAYER LEFT and holds the volley "
+                  + $"(spawn {struck.AirstrikePlane?.X:F2} vs line {playerLeft:F2})");
+            float cap = BattleTick.AirstrikeCameraCap(struck.AirstrikePlane);
+            float right = cap + CameraDirector.AirstrikeRunHalfWidth
+                              + CameraDirector.FramePad
+                              + BattleTick.PlaneExitOvershoot;
+            Check(struck.AirstrikePlane.ExitX <= right + 0.05f
+                  && struck.AirstrikePlane.ExitX > cap,
+                  $"the plane leaves off the RIGHT of the held enemy frame "
+                  + $"(exit {struck.AirstrikePlane.ExitX:F2}, cap {cap:F2}, right {right:F2})");
 
-            // ...AND THE AIRCRAFT MUST ENTER ACROSS THE LEFT EDGE, which the check above used to
-            // CLAIM in its message ("spawned off-frame") while asserting only its own spawn
-            // constant. It shipped, and Rob found on a device that the plane simply materialises
-            // mid-frame. Both halves are the reason, and neither is visible from the spawn X
-            // alone: the frame has to be the RUN's frame (the camera cuts to it, so there is no
-            // sweep past the aircraft), and the spawn has to sit outside its left edge.
+            // Camera SPRINGS with the plane. A cut to the enemy is the
+            // old beat — the plane then appeared mid-frame. Start on
+            // the player line (a real battle's pose) and demand the
+            // camera is still there after one tick, then riding the
+            // aircraft a third of a second later.
             {
-                // THE CAMERA MUST START WHERE IT REALLY STARTS. `fresh` has never ticked, so its
-                // CameraFollowX is NULL — and a null one makes the spring begin AT the anchor,
-                // with nothing to travel and nothing to sweep past. Written that way this check
-                // passed against the sweeping code it was written to catch. In a real battle the
-                // camera has been live all turn and is sitting over the player's own line, which
-                // is the entire ~17 units the aircraft used to get overtaken across.
                 var aimed = struck with { CameraFollowX = fresh.PlayerCamXAnchor };
                 var flying = BattleTick.Step(aimed, 1f / 60f, null, new System.Random(3));
-                // Asked of the RUN'S OWN framing rather than rebuilt from constants here. The
-                // anchor is no longer `target - bias`: the frame has to hold the whole rake AND
-                // the bomb, which are different places now, so a check that recomputed the old
-                // formula would be testing a formula the game no longer uses.
-                float runCamX = flying.CameraFollowX ?? 0f;
-                float runHalf = BattleTick.AirstrikeRunHalfWidth(flying);
-                float spawnX = struck.AirstrikePlane.X;
+                float cam0 = flying.CameraFollowX ?? 0f;
+                Check(Mathf.Abs(cam0 - fresh.PlayerCamXAnchor) < 1.5f
+                      && flying.AirstrikePlane != null
+                      && flying.AirstrikePlane.X < cam0,
+                      $"the plane ENTERS from the left of the player frame "
+                      + $"(cam {cam0:F2}, spawn {flying.AirstrikePlane?.X:F2}, "
+                      + $"player {fresh.PlayerCamXAnchor:F2}) — a cut to the enemy "
+                      + "is how it used to appear mid-frame");
 
-                Check(flying.CameraFollowX.HasValue
-                      && Mathf.Abs(runCamX - BattleTick.AirstrikeCameraAnchorFor(flying)) < 0.01f
-                      && spawnX < runCamX - runHalf,
-                      $"the run CUTS to its own framing and the aircraft enters across the LEFT "
-                      + $"EDGE — camera {flying.CameraFollowX?.ToString("F2") ?? "null"} (anchor "
-                      + $"{runCamX:F2}, edge {runCamX - runHalf:F2}), spawn {spawnX:F2}");
+                // Wait until the plane has crossed the player line —
+                // the first third of a second it is still LEFT of the
+                // camera, so a "moved right" check would fail the
+                // correct approach.
+                var rode = flying;
+                for (int i = 0; i < 90 && rode.AirstrikePlane != null
+                     && rode.AirstrikePlane.X < fresh.PlayerCamXAnchor; i++)
+                    rode = BattleTick.Step(rode, 1f / 60f, null, new System.Random(3));
+                for (int i = 0; i < 20; i++)
+                    rode = BattleTick.Step(rode, 1f / 60f, null, new System.Random(3));
+                float cam1 = rode.CameraFollowX ?? 0f;
+                float planeX = rode.AirstrikePlane?.X ?? 0f;
+                Check(rode.AirstrikePlane != null
+                      && cam1 > fresh.PlayerCamXAnchor + 0.4f
+                      && Mathf.Abs(cam1 - (planeX + BattleTick.PlaneCameraBias)) < 2.5f,
+                      $"the camera RIDES the plane ({cam0:F2} -> {cam1:F2}, plane {planeX:F2})");
+
+                // Once the plane is past the enemy the camera HOLDS —
+                // it does not chase it into empty ground.
+                var held = rode;
+                for (int i = 0; i < 180 && held.AirstrikePlane != null
+                     && held.AirstrikePlane.X < BattleTick.AirstrikeCameraCap(held.AirstrikePlane) + 2f; i++)
+                    held = BattleTick.Step(held, 1f / 60f, null, new System.Random(3));
+                for (int i = 0; i < 20 && held.AirstrikePlane != null; i++)
+                    held = BattleTick.Step(held, 1f / 60f, null, new System.Random(3));
+                float camHold = held.CameraFollowX ?? 0f;
+                float capNow = held.AirstrikePlane != null
+                    ? BattleTick.AirstrikeCameraCap(held.AirstrikePlane)
+                    : BattleTick.AirstrikeCameraCap(struck.AirstrikePlane);
+                float planeHold = held.AirstrikePlane?.X ?? 0f;
+                Check(camHold < capNow + 1.2f
+                      && (held.AirstrikePlane == null || planeHold > capNow + 0.4f),
+                      $"the camera STOPS at the enemy ({camHold:F2} vs cap {capNow:F2}, "
+                      + $"plane {planeHold:F2}) — it does not chase off the right");
             }
 
             // ...and an UNARMED release is untouched by any of it. Without this the check above
@@ -783,9 +806,9 @@ public static class PortSelfTest
             // That is exactly what happened on the negative run, so this clause exists because the
             // check it strengthens was caught passing against broken code.
             Check(bomb != null && run.TurnPhase == TurnPhase.Resolving && guard < 2000
-                  && run.AirstrikePlane != null,
-                  "the run hands over THE MOMENT ITS BOMB LANDS, with the aircraft still in the "
-                  + "air and exiting over the volley");
+                  && run.AirstrikePlane == null
+                  && run.Projectiles.Any(p => !p.IsStrafe && !p.IsAirstrike && p.OwnerIsPlayer),
+                  "the volley fires AFTER the plane has left, from the player's turn");
 
             if (bomb != null)
             {
@@ -816,14 +839,12 @@ public static class PortSelfTest
                       $"the fall takes its own fixed time ({BattleTick.BombFallTime:F2}s, measured "
                       + $"{fall:F2}s) and legible means SECONDS, not frames");
 
-                // And the RELEASE has to be on screen, which is the entire point of the beat. The
-                // frame is ~4.94 units of half-width at camZ 11; the camera bias is what buys the
-                // margin. Asserted against the framing, not against the constants that set it.
-                float cameraX = volleyTarget.x - BattleTick.PlaneCameraBias;
-                Check(Mathf.Abs(bombReleaseX - cameraX) < 4.94f
-                      && Mathf.Abs(volleyTarget.x - cameraX) < 4.94f,
-                      "both the RELEASE and the IMPACT sit inside the frame at resolve framing — "
-                      + "the off-screen detonation measured on device is what this beat fixes");
+                // The camera rides the plane, so the drop happens in
+                // front of it — not in a held frame over the aim.
+                Check(Mathf.Abs(bombReleaseX
+                                - (volleyTarget.x - BattleTick.PlaneSpeed * BattleTick.BombFallTime))
+                      < 0.25f,
+                      "the drop still happens at the lead that puts the bomb on the aim");
             }
 
             // THE STRAFING BURST. Asserted as a WALK OF LANDING POINTS ending on the bomb's own
@@ -982,27 +1003,16 @@ public static class PortSelfTest
                       + "tracer streak and a rifle round out of one pooled prefab");
             }
 
-            // THE AIRCRAFT MUST KEEP FLYING AFTER IT HANDS THE TURN OVER, and must eventually go.
-            // Its motion used to live inside the run's own step, which stops being called the
-            // instant the phase changes — so it froze in mid-air and hung there for the rest of the
-            // battle, ballooning as the camera zoomed past it. Found on device, by a contact sheet,
-            // with every check green. Asserted as MOVEMENT and then ABSENCE, which is what the
-            // player sees, not as "the step is called from the right place".
+            // THE AIRCRAFT MUST LEAVE. Motion lives on the always-run
+            // path so a phase change cannot freeze it mid-air.
             {
-                var afterHandover = run;
-                float xAtHandover = afterHandover.AirstrikePlane?.X ?? float.NaN;
-                var later = BattleTick.Step(afterHandover, 1f / 60f, null, new System.Random(3));
-                float xLater = later.AirstrikePlane?.X ?? float.NaN;
-
-                var far = later;
+                var gone = struck;
                 int flyGuard = 0;
-                while (far.AirstrikePlane != null && flyGuard++ < 2000)
-                    far = BattleTick.Step(far, 1f / 60f, null, new System.Random(3));
-
-                Check(!float.IsNaN(xAtHandover) && xLater > xAtHandover
-                      && far.AirstrikePlane == null && flyGuard < 2000,
-                      $"the aircraft keeps flying after the handover ({xAtHandover:F2} -> "
-                      + $"{xLater:F2}) and eventually leaves, rather than hanging in the sky");
+                float x0 = gone.AirstrikePlane?.X ?? float.NaN;
+                while (gone.AirstrikePlane != null && flyGuard++ < 2000)
+                    gone = BattleTick.Step(gone, 1f / 60f, null, new System.Random(3));
+                Check(!float.IsNaN(x0) && gone.AirstrikePlane == null && flyGuard < 2000,
+                      $"the aircraft leaves the field ({x0:F2} -> gone in {flyGuard} ticks)");
             }
 
             // THE RUN MUST BE FRAMED WIDER THAN THE AIM. This is a regression guard on a bug the
@@ -1014,17 +1024,23 @@ public static class PortSelfTest
             {
                 float aimingZ = CameraDirector.TargetZ(
                     CameraDirector.PhaseHalfWidth(TurnPhase.Aiming, TurnSide.Player,
-                                                  3f, 3f, 3f, 0f, false, 3f, false) + 1.2f,
+                                                  3f, 3f, 3f, 0f, false, 3f, false)
+                    + CameraDirector.FramePad,
                     false, 0f);
                 float runZ = CameraDirector.TargetZ(
                     CameraDirector.PhaseHalfWidth(TurnPhase.AirstrikeRun, TurnSide.Player,
-                                                  3f, 3f, 3f, 0f, false, 3f, false) + 1.2f,
+                                                  3f, 3f, 3f, 0f, false, 3f, false)
+                    + CameraDirector.FramePad,
                     false, 0f);
                 float wideRunZ = CameraDirector.TargetZ(
                     CameraDirector.PhaseHalfWidth(TurnPhase.AirstrikeRun, TurnSide.Player,
-                                                  3f, 9f, 3f, 0f, false, 3f, false) + 1.2f,
+                                                  3f, 9f, 3f, 0f, false, 3f, false)
+                    + CameraDirector.FramePad,
                     false, 0f);
-                Check(runZ > aimingZ + 2f && runZ >= 13f && wideRunZ >= runZ,
+                // 11 is the camZ PlanePreview judged the aircraft fits. The old
+                // `>= 13` was 5.1+1.2 through TargetZ; FramePad shrank, the
+                // relationship (run wider than aim, still clears 11) is the bar.
+                Check(runZ > aimingZ + 2f && runZ > 11f && wideRunZ >= runZ,
                       $"the airstrike run is framed WIDER than the aim (camZ {runZ:F1} vs "
                       + $"{aimingZ:F1}), and a wide enemy cluster only pulls it further back — "
                       + "the tight framing clipped the aircraft off the top of the frame on device");
@@ -1041,35 +1057,31 @@ public static class PortSelfTest
             Check(run.PendingVolleyAim == null && run.PendingVolleyDelay <= 0f,
                   "no aim and no volley are left held once the run is over");
 
-            // THE TWO HALVES LAND TOGETHER. This is the contract the whole realignment exists for
-            // — Rob: "i wonder if we can sync the player projectile volley with the plane. right
-            // now it's a little awkward" — and it is asserted as MEASURED IMPACT TIMES, stepped
-            // out of a real flight, not as the arithmetic that schedules them. The old beat was
-            // the two ADDED: 4.53s on an ordinary 86% shot, a third of it spent watching an
-            // aircraft with none of the player's rounds in the air.
+            // THE VOLLEY WAITS. Plane gone, camera home, then they fire.
+            // Asked as times, not as the delay constant.
             {
-                var t = struck;
-                float bombAt = -1f, volleyAt = -1f;
-                bool bombSeen = false, volleySeen = false;
-                for (int i = 0; i < 1200 && (bombAt < 0f || volleyAt < 0f); i++)
+                var t = struck with { CameraFollowX = fresh.PlayerCamXAnchor };
+                float volleyAt = -1f;
+                float camAtFire = float.NaN;
+                bool planeGone = false;
+                for (int i = 0; i < 1800 && volleyAt < 0f; i++)
                 {
                     t = BattleTick.Step(t, 1f / 60f, null, new System.Random(3));
-                    float now = (i + 1) / 60f;
-
-                    bool bomb2 = t.Projectiles.Any(p => p.IsAirstrike);
-                    if (bomb2) bombSeen = true;
-                    else if (bombSeen && bombAt < 0f) bombAt = now;
-
+                    if (t.AirstrikePlane == null) planeGone = true;
                     bool volley2 = t.Projectiles.Any(p => !p.IsAirstrike && !p.IsStrafe
                                                        && p.OwnerIsPlayer);
-                    if (volley2) volleySeen = true;
-                    else if (volleySeen && volleyAt < 0f) volleyAt = now;
+                    if (volley2 && volleyAt < 0f)
+                    {
+                        volleyAt = (i + 1) / 60f;
+                        camAtFire = t.CameraFollowX ?? 0f;
+                    }
                 }
 
-                Check(bombAt > 0f && volleyAt > 0f && Mathf.Abs(bombAt - volleyAt) < 0.40f,
-                      $"the bomb and the volley LAND TOGETHER — bomb at {bombAt:F2}s, volley at "
-                      + $"{volleyAt:F2}s from release ({Mathf.Abs(bombAt - volleyAt):F2}s apart), "
-                      + "so the beat costs max(flight, run) rather than their sum");
+                Check(planeGone && volleyAt > 0f
+                      && Mathf.Abs(camAtFire - fresh.PlayerCamXAnchor) < 4.0f,
+                      $"the volley fires AFTER the plane, from the player line "
+                      + $"(t={volleyAt:F2}s, cam {camAtFire:F2} vs player "
+                      + $"{fresh.PlayerCamXAnchor:F2})");
             }
         }
 
@@ -1423,6 +1435,19 @@ public static class PortSelfTest
                 Check(st.Structures.Count == 2, "L1 builds 2 structures");
                 Check(st.Phase == GamePhase.Preview, "a new battle starts in Preview");
 
+                // Aiming is the empty beat (measured 2026-08-18: 6.5% content /
+                // 0.64% edges vs scout 20% / 1.65%). Backdrop strips sit at
+                // z=-30 and cannot fill the tan. Tall play-space flanks do.
+                var scenery = l1.props.Where(p =>
+                    p.modelAsset != null
+                    && (p.modelAsset.Contains("wreck_car")
+                        || p.modelAsset.Contains("dead_tree")
+                        || p.modelAsset.Contains("cactus"))).ToList();
+                Check(scenery.Count >= 2 && scenery.All(p => p.keepColors && p.scale >= 1.4f),
+                      scenery.Count >= 2
+                          ? $"L1 plants {scenery.Count} mid-ground scenery props (keepColors)"
+                          : "L1 is missing mid-ground scenery (car / tree / cactus)");
+
                 // Id bands must not collide — the tick relies on globally unique ids.
                 var allIds = st.PlayerUnits.Select(u => u.Id)
                     .Concat(st.EnemyUnits.Select(u => u.Id))
@@ -1459,11 +1484,16 @@ public static class PortSelfTest
                 Check(st.Structures.All(s2 => Mathf.Approximately(s2.HpFraction, 1f)),
                       "every structure reads fraction 1.0 at build time");
 
-                // Camera anchors are the INITIAL means, and the sides are on opposite sides.
+                // Camera anchors: player is the GROUND LINE, not the tank crew. Rule 1.
                 Check(st.PlayerCamXAnchor < 0f && st.EnemyCamXAnchor > 0f,
                       "camera anchors put the player left and the enemy right (game space)");
-                Near(st.PlayerCamXAnchor, st.PlayerUnits.Average(u => u.X), 1e-4f,
-                     "player anchor is the mean of the initial roster");
+                var groundXs = st.PlayerUnits.Where(u => u.StandingOnStructureId == null)
+                                             .Select(u => u.X).ToList();
+                Near(st.PlayerCamXAnchor, groundXs.Average(), 1e-4f,
+                     "player anchor is the mean of the ground line, not the tank crew");
+                Near(st.PlayerCamHalfWidth,
+                     Mathf.Max((groundXs.Max() - groundXs.Min()) / 2f, 1.5f), 1e-4f,
+                     "player half-width is the ground line's span");
 
                 // The tank's cannon ammo becomes the battle's shell count.
                 Check(st.TankShellsRemaining > 0, "the player tank contributes its cannon shells");
@@ -1474,6 +1504,248 @@ public static class PortSelfTest
                 var again = LevelBuilder.BuildInitialState(l1, 1, 29, new System.Random(7));
                 Check(again.PlayerUnits.Select(u => u.X).SequenceEqual(st.PlayerUnits.Select(u => u.X)),
                       "the same seed rebuilds an identical formation");
+
+                // THE AUTHORED COLLAPSE. Killing the outpost must spawn a wreck and must NOT
+                // place the cube-slab ruin — those slabs under the clip were a second wreck
+                // on the same footprint. Transient flying chunks still throw.
+                Check(!string.IsNullOrEmpty(outpost.Definition.wreckModelAsset),
+                      "the outpost has an authored collapse");
+                var wreckGo = AssetDatabase.LoadAssetAtPath<GameObject>(
+                    "Assets/Models/outpost_collapse.glb");
+                Check(wreckGo != null, "outpost_collapse.glb is imported");
+                var clips = wreckGo == null
+                    ? System.Array.Empty<AnimationClip>()
+                    : AssetDatabase.LoadAllAssetsAtPath("Assets/Models/outpost_collapse.glb")
+                        .OfType<AnimationClip>()
+                        .Where(c => !c.name.StartsWith("__preview"))
+                        .ToArray();
+                Check(clips.Any(c => c.name == WreckAnim.Collapse || c.name.Contains("collapse")),
+                      clips.Length == 0
+                          ? "outpost_collapse carries a collapse clip"
+                          : $"outpost_collapse clip is named collapse (got {clips[0].name})");
+                // OUTPUT: playing the clip MOVES a wall. A wreck that sits at rest
+                // looks like the killing hit never landed — the live hut hides and
+                // an identical intact wreck takes its place. Seen against Mecanim
+                // Play() on a controller-less import: angle 0.
+                {
+                    var inst = (GameObject)PrefabUtility.InstantiatePrefab(wreckGo);
+                    try
+                    {
+                        var wa = inst.GetComponent<WreckAnim>()
+                                 ?? inst.AddComponent<WreckAnim>();
+                        wa.SendMessage("Awake", SendMessageOptions.DontRequireReceiver);
+                        Transform wall = null;
+                        foreach (var t in inst.GetComponentsInChildren<Transform>(true))
+                            if (t.name == "wall_front" || t.name.Contains("wall_front"))
+                            { wall = t; break; }
+                        var body = inst.GetComponent<Animation>()
+                                   ?? inst.GetComponentInChildren<Animation>(true);
+                        Check(wall != null && body != null && body[WreckAnim.Collapse] != null,
+                              "the wreck prefab can play collapse on a named wall");
+                        if (wall != null && body != null && body[WreckAnim.Collapse] != null)
+                        {
+                            var rest = wall.localRotation;
+                            wa.Play();
+                            body[WreckAnim.Collapse].time = body[WreckAnim.Collapse].length;
+                            body.Sample();
+                            float travel = Quaternion.Angle(rest, wall.localRotation);
+                            Check(travel > 20f,
+                                  $"collapse MOVES the hut (wall_front {travel:F1} deg from rest)");
+                        }
+
+                        // Same fire/smoke as L4's city strip, on the wreck. Fade-in
+                        // starts at 0 so it does not sit on the intact hut.
+                        var fade = AssetDatabase.LoadAssetAtPath<Material>(
+                            "Assets/Materials/BackdropFadeSource.mat");
+                        var ownedFx = new List<Object>();
+                        try
+                        {
+                            var kit = RuinFx.MakeKit(fade, ownedFx);
+                            var sess = RuinFx.AttachWreck(inst.transform, kit, 1);
+                            Check(sess.Fires.Length == 3 && sess.Smokes.Length == 1,
+                                  $"wreck plants city-style fire+smoke "
+                                  + $"({sess.Fires.Length} fires, {sess.Smokes.Length} plumes)");
+                            sess.BornAt = 0f;
+                            sess.Tick(0f);
+                            float h0 = sess.Fires[0].Outer.localScale.y;
+                            sess.Tick(0.40f);
+                            float h1 = sess.Fires[0].Outer.localScale.y;
+                            Check(h1 > h0 + 0.05f,
+                                  $"wreck fire fades IN (h {h0:F2} -> {h1:F2})");
+                            var fp = sess.Fires[0].Outer.parent.localPosition;
+                            float mz0 = 1e9f, mz1 = -1e9f;
+                            foreach (var r in inst.GetComponentsInChildren<MeshRenderer>(true))
+                            {
+                                if (!r.enabled || r.name == "outer" || r.name == "inner"
+                                    || r.name.StartsWith("WreckFire") || r.name.StartsWith("WreckSmoke"))
+                                    continue;
+                                var b = r.bounds;
+                                var a = inst.transform.InverseTransformPoint(b.min);
+                                var c = inst.transform.InverseTransformPoint(b.max);
+                                mz0 = Mathf.Min(mz0, a.z, c.z);
+                                mz1 = Mathf.Max(mz1, a.z, c.z);
+                            }
+                            Check(fp.y > 0.02f && fp.z < mz1 - 0.03f && fp.z > mz0 - 0.05f,
+                                  $"wreck fire sits IN the pile (y={fp.y:F2} z={fp.z:F2} "
+                                  + $"in [{mz0:F2},{mz1:F2}]), not proud of the front");
+                        }
+                        finally
+                        {
+                            foreach (var o in ownedFx)
+                                if (o != null) Object.DestroyImmediate(o);
+                        }
+                    }
+                    finally
+                    {
+                        Object.DestroyImmediate(inst);
+                    }
+                }
+                var killed = st with
+                {
+                    Phase = GamePhase.Playing,
+                    TurnPhase = TurnPhase.Aiming,
+                    Structures = st.Structures
+                        .Select(s2 => s2.Definition.id == "outpost" ? s2 with { Hp = 0 } : s2)
+                        .ToList(),
+                };
+                var afterKill = BattleTick.Step(killed, 1f / 60f, l1, new System.Random(1));
+                int asleep = afterKill.Debris.Count(d => d.Asleep);
+                int wreckN = afterKill.Wrecks.Count(w => w.DefinitionId == "outpost");
+                Check(wreckN == 1 && asleep == 0 && afterKill.Debris.Count > 0,
+                      $"killing the outpost plays the wreck, not cube slabs "
+                      + $"(wrecks {wreckN}, asleep {asleep}, debris {afterKill.Debris.Count})");
+                float maxFly = afterKill.Debris
+                    .Where(d => !d.Asleep)
+                    .Select(d => d.Size)
+                    .DefaultIfEmpty(0f)
+                    .Max();
+                Check(maxFly > 0.02f && maxFly <= 0.14f + 1e-4f,
+                      $"flying chunks are pebbles, not crates (max {maxFly:F2})");
+                Check(afterKill.Debris.Where(d => !d.Asleep).All(
+                          d => d.Ttl >= CosmeticSystems.DebrisTtlSeconds - 1e-3f),
+                      "those pebbles persist through the next aim");
+                var aged = afterKill;
+                for (int i = 0; i < 40; i++)
+                    aged = BattleTick.Step(aged, 1f / 60f, l1, new System.Random(1));
+                Check(aged.Wrecks.Any(w => w.DefinitionId == "outpost"
+                                           && w.Age >= GameState.WreckCollapseSeconds),
+                      "the collapse ages to the hold, then stays");
+            }
+        }
+
+        // Collapse hold: killing a garrisoned structure rides the falling
+        // garrison, then releases the camera so it pans back to whoever is
+        // still standing. The old check glued the cam to post.X — that
+        // hid a static ruin frame that never followed the throw.
+        {
+            Check(CameraDirector.CollapseIsFollowing(CameraDirector.CollapseHoldSeconds)
+                  && !CameraDirector.CollapseIsFollowing(
+                          CameraDirector.CollapseHoldSeconds
+                          - CameraDirector.CollapseFollowSeconds)
+                  && !CameraDirector.CollapseIsFollowing(0f),
+                  "the follow window is the FIRST beat of the hold");
+
+            var l2 = AssetDatabase.LoadAssetAtPath<LevelDefinitionSO>(
+                "Assets/GameData/Levels/GarrisonPost.asset");
+            Check(l2 != null, "GarrisonPost asset present");
+            if (l2 == null) { /* skip the rest of this block */ }
+            else
+            {
+            var built = LevelBuilder.BuildInitialState(l2, 1, 12, new System.Random(3));
+            var post = built.Structures.First(st => st.Definition != null
+                                                    && !st.Definition.isPlayerSide);
+            int onPost = built.EnemyUnits.Count(u => u.StandingOnStructureId == post.Id);
+            int onGround = built.EnemyUnits.Count(u => u.StandingOnStructureId == null);
+            Check(onPost > 0 && onGround > 0,
+                  $"L2's post has a garrison AND a ground line ({onPost} + {onGround})");
+            var killed = built with
+            {
+                Phase = GamePhase.Playing,
+                TurnPhase = TurnPhase.Resolving,
+                TurnSide = TurnSide.Player,
+                Projectiles = new List<ProjectileEntity>(),
+                CameraFollowX = post.X,
+                Structures = built.Structures
+                    .Select(st => st.Id == post.Id ? st with { Hp = 0 } : st).ToList(),
+            };
+            var after = BattleTick.Step(killed, 1f / 60f, l2, new System.Random(3));
+            Check(after.CollapseHold > CameraDirector.CollapseHoldSeconds - 0.05f
+                  && after.DyingUnits.Count >= onPost
+                  && CameraDirector.CollapseIsFollowing(after.CollapseHold)
+                  && Mathf.Abs(after.CollapseHoldAnchorX - post.X) < 2f,
+                  $"killing the post ARMS a collapse hold "
+                  + $"({after.CollapseHold:F2}s, {after.DyingUnits.Count} bodies, "
+                  + $"anchor {after.CollapseHoldAnchorX:F2} vs post {post.X:F2})");
+
+            var held = after;
+            for (int i = 0; i < 30; i++)
+                held = BattleTick.Step(held, 1f / 60f, l2, new System.Random(3));
+            float bodyMean = held.DyingUnits.Where(d => d.Tumble)
+                .Select(d => d.X).DefaultIfEmpty(post.X).Average();
+            float liveMean = held.EnemyUnits.Count > 0
+                ? held.EnemyUnits.Average(u => u.X) : post.X;
+            float camRide = held.CameraFollowX ?? 0f;
+            Check(held.CollapseHold > 0f
+                  && CameraDirector.CollapseIsFollowing(held.CollapseHold)
+                  && Mathf.Abs(camRide - bodyMean) < Mathf.Abs(camRide - liveMean),
+                  "half a second later the camera is RIDING the fall "
+                  + $"(cam {camRide:F2}, bodies {bodyMean:F2}, live {liveMean:F2}, "
+                  + $"{held.CollapseHold:F2}s left)");
+
+            var panned = held;
+            float followLeftSec = held.CollapseHold
+                - (CameraDirector.CollapseHoldSeconds
+                   - CameraDirector.CollapseFollowSeconds);
+            int followLeft = Mathf.Max(0, Mathf.CeilToInt(followLeftSec * 60f)) + 1;
+            for (int i = 0; i < followLeft + 45; i++)
+                panned = BattleTick.Step(panned, 1f / 60f, l2, new System.Random(3));
+            float camBack = panned.CameraFollowX ?? 0f;
+            float liveNow = panned.EnemyUnits.Count > 0
+                ? panned.EnemyUnits.Average(u => u.X) : liveMean;
+            float bodiesNow = panned.DyingUnits.Where(d => d.Tumble)
+                .Select(d => d.X).DefaultIfEmpty(bodyMean).Average();
+            Check(panned.CollapseHold > 0f
+                  && !CameraDirector.CollapseIsFollowing(panned.CollapseHold)
+                  && Mathf.Abs(camBack - liveNow) < Mathf.Abs(camBack - bodiesNow),
+                  "then the camera pans back to the live line "
+                  + $"(cam {camBack:F2}, live {liveNow:F2}, bodies {bodiesNow:F2}, "
+                  + $"{panned.CollapseHold:F2}s left)");
+
+            var done = panned;
+            for (int i = 0; i < 120 && done.CollapseHold > 0f; i++)
+                done = BattleTick.Step(done, 1f / 60f, l2, new System.Random(3));
+            Check(done.CollapseHold <= 0f,
+                  "the collapse hold expires rather than freezing");
+
+            // Wreck.Y used to be the standing CENTRE (size/2). Lid then sat
+            // at ~1.6 and a body that stayed over the footprint froze in
+            // mid-air while the collapse mesh lay on the dirt.
+            var wreck = after.Wrecks.FirstOrDefault(w => w.Id == post.Id);
+            Check(wreck != null && wreck.Y < 0.15f
+                  && Mathf.Abs(CosmeticSystems.WreckLidY(wreck)
+                               - CosmeticSystems.WreckRestY) < 0.05f,
+                  $"the wreck lid is the mound on the dirt "
+                  + $"(y {wreck?.Y:F2}, lid {CosmeticSystems.WreckLidY(wreck):F2}, "
+                  + $"centre was {post.Y:F2})");
+
+            var settled = after;
+            for (int i = 0; i < 200; i++)
+                settled = BattleTick.Step(settled, 1f / 60f, l2, new System.Random(3));
+            var grounded = settled.DyingUnits
+                .Where(d => d.Tumble && !CosmeticSystems.RagdollAirborne(d))
+                .ToList();
+            int hung = settled.DyingUnits.Count(d => d.Tumble
+                && d.Y > 0.80f
+                && Mathf.Abs(d.Vy) < 0.15f
+                && Mathf.Abs(d.Vx) < 0.15f);
+            float minY = settled.DyingUnits.Select(d => d.Y).DefaultIfEmpty(-99f).Min();
+            float maxY = settled.DyingUnits.Select(d => d.Y).DefaultIfEmpty(-99f).Max();
+            float maxSup = settled.DyingUnits.Select(d => d.SupportY).DefaultIfEmpty(-99f).Max();
+            Check(grounded.Count > 0 && hung == 0
+                  && grounded.Max(d => d.Y) < CosmeticSystems.WreckRestY + 0.25f,
+                  $"no collapsed garrison rests in mid-air "
+                  + $"(landed {grounded.Count}/{settled.DyingUnits.Count}, "
+                  + $"y {minY:F2}..{maxY:F2}, support {maxSup:F2}, hung {hung})");
             }
         }
 
@@ -1783,6 +2055,53 @@ public static class PortSelfTest
             ProgressStore.ResetAll();
             Check(TurnFlow.AwardDefeat(lvl) == 15, "defeat still pays 15% of base");
 
+            // Encounter ammo: AP after L2, Incendiary after L4, pre-select only if the
+            // player has never tapped a chip. A fake levelNumber 0 must not grant (the
+            // checks above already ran AwardVictory on one).
+            ProgressStore.ResetAll();
+            var l2 = ScriptableObject.CreateInstance<LevelDefinitionSO>();
+            l2.id = "encounter_l2"; l2.levelNumber = 2; l2.levelBase = 40;
+            var l4 = ScriptableObject.CreateInstance<LevelDefinitionSO>();
+            l4.id = "encounter_l4"; l4.levelNumber = 4; l4.levelBase = 80;
+            ProgressStore.AllLevels = new List<LevelDefinitionSO> { l2, l4 };
+            TurnFlow.AwardVictory(l2, survivors: 8, initialCount: 8);
+            Check(ProgressStore.IsAmmoUnlocked(AmmoType.AP),
+                  "clearing L2 unlocks AP — the next fight is a structure");
+            Check(ProgressStore.SelectedAmmo() == AmmoType.AP,
+                  "AP is pre-selected after L2 while the player has never picked");
+            Check(!ProgressStore.IsAmmoUnlocked(AmmoType.Incendiary),
+                  "Incendiary stays locked until L4");
+            TurnFlow.AwardVictory(l4, survivors: 8, initialCount: 8);
+            Check(ProgressStore.IsAmmoUnlocked(AmmoType.Incendiary),
+                  "clearing L4 unlocks Incendiary");
+            Check(ProgressStore.SelectedAmmo() == AmmoType.Incendiary,
+                  "Incendiary replaces the previous gift when the player never tapped");
+            ProgressStore.ResetAll();
+            ProgressStore.UnlockAmmo(AmmoType.AP);
+            ProgressStore.SetSelectedAmmo(AmmoType.AP);
+            ProgressStore.MarkAmmoPickedByPlayer();
+            TurnFlow.AwardVictory(l4, survivors: 8, initialCount: 8);
+            Check(ProgressStore.IsAmmoUnlocked(AmmoType.Incendiary),
+                  "L4 still unlocks Incendiary after a player pick");
+            Check(ProgressStore.SelectedAmmo() == AmmoType.AP,
+                  "a player ammo choice is not overwritten by the L4 gift");
+            var l5 = ScriptableObject.CreateInstance<LevelDefinitionSO>();
+            l5.levelNumber = 5;
+            EncounterUnlocks.GrantAmmoForLevel(l5);
+            Check(ProgressStore.SelectedAmmo() == AmmoType.AP,
+                  "reaching L5 does not steal a player-picked AP");
+            ProgressStore.ResetAll();
+            EncounterUnlocks.GrantAmmoForLevel(l5);
+            Check(ProgressStore.IsAmmoUnlocked(AmmoType.AP)
+                  && ProgressStore.IsAmmoUnlocked(AmmoType.Incendiary),
+                  "reaching L5 without playing L2/L4 still hands over both gifts");
+            Check(ProgressStore.SelectedAmmo() == AmmoType.Incendiary,
+                  "the later gift is the one pre-selected when both arrive at once");
+            Object.DestroyImmediate(l2);
+            Object.DestroyImmediate(l4);
+            Object.DestroyImmediate(l5);
+            ProgressStore.ResetAll();
+
             // Star REASONS — PRODUCT_DIRECTION 0.5 shows the player why, every time, and the
             // number it promises has to be the number the award code actually pays on.
             bool survivorsAgree = true;
@@ -1825,6 +2144,78 @@ public static class PortSelfTest
             Check(CameraDirector.PhaseHalfWidth(TurnPhase.PlayerScout, TurnSide.Player,
                       p, e, shooter, march, false, reinforce, false) == e,
                   "PlayerScout frames the enemy cluster");
+
+            // THE OPENING SCOUT RUNS. LoadLevel used to jump to Aiming, so the player never
+            // saw the layout. Rob, 2026-08-13. The tick must hold PlayerScout for the beat
+            // and refuse a volley, then hand over to Aiming.
+            {
+                var l1 = AssetDatabase.LoadAssetAtPath<LevelDefinitionSO>(
+                    "Assets/GameData/Levels/PatrolEncounter.asset");
+                Check(l1 != null, "L1 exists so the scout beat can be stepped");
+                if (l1 != null)
+                {
+                    var scout = LevelBuilder.BuildInitialState(l1, 90, 12, new System.Random(1))
+                        with
+                        {
+                            Phase = GamePhase.Playing,
+                            TurnPhase = TurnPhase.PlayerScout,
+                            ScoutTimer = TurnFlow.PlayerScoutSeconds,
+                        };
+                    var fired = BattleTick.FireVolley(scout, new Vector3(8f, 8f, 0f),
+                                                      new System.Random(1));
+                    Check(fired.TurnPhase == TurnPhase.PlayerScout
+                          && fired.Projectiles.Count == 0,
+                          "a drag during the scout does not fire");
+                    for (int i = 0; i < 60; i++)
+                        scout = BattleTick.Step(scout, 1f / 60f, l1, new System.Random(1));
+                    Check(scout.TurnPhase == TurnPhase.PlayerScout && scout.ScoutTimer > 1f,
+                          $"the scout still holds at 1s ({scout.ScoutTimer:F2}s left)");
+                    for (int i = 0; i < 90; i++)
+                        scout = BattleTick.Step(scout, 1f / 60f, l1, new System.Random(1));
+                    Check(scout.TurnPhase == TurnPhase.Aiming && scout.ScoutTimer <= 0f,
+                          "then the first aim is handed over");
+
+                    // TANK ROLL-IN. A level with a cannon starts left of its park; the crew
+                    // ride the same delta; a drag does not fire; after the beat the vehicle
+                    // is ON its authored slot and the signed-off scout begins.
+                    var arrive = TurnFlow.StartBattle(
+                        LevelBuilder.BuildInitialState(l1, 91, 12, new System.Random(1)));
+                    var tank0 = arrive.Structures.First(st => st.Definition.hasCannon);
+                    var riders0 = arrive.PlayerUnits
+                        .Where(u => u.StandingOnStructureId == tank0.Id).ToList();
+                    Check(arrive.TurnPhase == TurnPhase.TankArrive
+                          && Mathf.Abs(tank0.X - (arrive.TankParkX - TurnFlow.TankArriveDistance)) < 0.001f,
+                          $"L1 opens on the tank roll ({arrive.TurnPhase}, x {tank0.X:F2} vs park {arrive.TankParkX:F2})");
+                    Check(riders0.Count > 0 && riders0.All(u => u.X < arrive.TankParkX),
+                          $"the crew ride the hull ({riders0.Count} on deck, starting left of the park)");
+                    var arriveFired = BattleTick.FireVolley(arrive, new Vector3(8f, 8f, 0f),
+                                                            new System.Random(1));
+                    Check(arriveFired.TurnPhase == TurnPhase.TankArrive
+                          && arriveFired.Projectiles.Count == 0,
+                          "a drag during the roll-in does not fire");
+                    var parked = arrive;
+                    int arriveSteps = Mathf.CeilToInt(TurnFlow.TankArriveSeconds * 60f) + 2;
+                    for (int i = 0; i < arriveSteps; i++)
+                        parked = BattleTick.Step(parked, 1f / 60f, l1, new System.Random(1));
+                    var tank1 = parked.Structures.First(st => st.Definition.hasCannon);
+                    var riders1 = parked.PlayerUnits
+                        .Where(u => u.StandingOnStructureId == tank1.Id).ToList();
+                    float gap0 = riders0[0].X - tank0.X;
+                    float gap1 = riders1[0].X - tank1.X;
+                    Check(parked.TurnPhase == TurnPhase.PlayerScout
+                          && Mathf.Abs(tank1.X - parked.TankParkX) < 0.02f,
+                          $"the tank parks and the scout begins (phase {parked.TurnPhase}, x {tank1.X:F2})");
+                    Check(Mathf.Abs(gap1 - gap0) < 0.02f,
+                          $"the crew stay on the deck (gap {gap1:F2} vs {gap0:F2})");
+                    var line0 = arrive.PlayerUnits.Where(u => u.StandingOnStructureId == null).ToList();
+                    var line1 = parked.PlayerUnits.Where(u => u.StandingOnStructureId == null).ToList();
+                    Check(line0.Count > 0 && line0.All(u => u.MarchTargetX != null),
+                          $"the ground line jogs in ({line0.Count} with a march slot)");
+                    Check(line1.All(u => u.MarchTargetX == null)
+                          && Mathf.Abs(line1[0].X - line0[0].MarchTargetX.Value) < 0.02f,
+                          $"the ground line is on its slots when the scout begins");
+                }
+            }
             Check(CameraDirector.PhaseHalfWidth(TurnPhase.Aiming, TurnSide.Player,
                       p, e, shooter, march, false, reinforce, true) == reinforce,
                   "Aiming widens while reinforcements are still marching in");
@@ -1858,6 +2249,29 @@ public static class PortSelfTest
                   "a single marcher still gets the minimum march frame");
             Check(CameraDirector.MarchHalfWidth(new List<float> { 0f, 20f }, new List<float>()) == 10f,
                   "a wide march spreads past the floor");
+
+            // MARCH vs CONTACT. A far escort must not pull the camera back to the tank;
+            // a fight at the line must still hold the whole player force.
+            {
+                var tankAndLine = new List<float> { -9.5f, -7.2f, -6.6f, -6.0f };
+                float marchHalf = CameraDirector.AssaultFrame(
+                    new List<float> { 3.2f, 3.5f, 3.8f }, new List<float>(),
+                    tankAndLine, out float marchAt);
+                Check(Mathf.Abs(marchAt - 3.5f) < 0.5f
+                      && marchHalf <= CameraDirector.MarchHalfWidthMin + 0.01f
+                      && Mathf.Abs(-9.5f - marchAt) > marchHalf,
+                      $"a distant march frames the CHARGERS, not the tank " +
+                      $"(cam {marchAt:F2} ±{marchHalf:F2})");
+
+                float fightAt = tankAndLine.Max() + 0.75f;
+                float fightHalf = CameraDirector.AssaultFrame(
+                    new List<float>(), new List<float> { fightAt, tankAndLine.Max() },
+                    tankAndLine, out float fightCam);
+                Check(tankAndLine.All(x => Mathf.Abs(x - fightCam) <= fightHalf)
+                      && Mathf.Abs(fightAt - fightCam) <= fightHalf,
+                      $"contact still frames the WHOLE player force " +
+                      $"(cam {fightCam:F2} ±{fightHalf:F2})");
+            }
 
             // Half-width -> camera z, clamped into the usable band.
             Near(CameraDirector.TargetZ(4.5f, false, 19f), 10f, 1e-4f,
@@ -1968,6 +2382,9 @@ public static class PortSelfTest
             // rails), and both have shipped.
             Check(CosmeticSystems.RagdollLeanDegrees(0f, true) == 0f,
                   "a body starts its fall upright");
+            Check(Mathf.Abs(CosmeticSystems.RagdollLeanDegrees(180f, true)) < 0.5f,
+                  "and a body that flopped to 180 lies FLAT — 180 is the other lying pose, "
+                  + "not a 38-degree prop");
             Check(Mathf.Abs(CosmeticSystems.RagdollLeanDegrees(220f, true)) > 5f,
                   "and leans measurably within the first second");
             for (float spun = 0f; spun < 4000f; spun += 37f)
@@ -1977,6 +2394,46 @@ public static class PortSelfTest
             Check(CosmeticSystems.RagdollLeanDegrees(500f, true)
                   * CosmeticSystems.RagdollLeanDegrees(500f, false) < 0f,
                   "the two sides tip opposite ways, each the way it is thrown");
+            var flyPose = new DyingUnitEntity(1, null, false, 0f, 3f, 0f, 1f, 1f, 140f)
+            { Rotation = 40f, Yaw = 12f, SettleTilt = -8f, SupportY = -1f };
+            var eul = CosmeticSystems.RagdollVisualEuler(flyPose);
+            Check(Mathf.Approximately(eul.z, -40f) && Mathf.Approximately(eul.y, 12f)
+                  && Mathf.Approximately(eul.x, -8f),
+                  "airborne draw is the live 3-axis tumble, not a sit-down clip");
+
+            // EACH BODY TAKES ITS OWN PATH. The tick used to throw every corpse with
+            // Vx=±1.5, Vy=2.5, spin=220, so a volley fell as one chorus line at one angle.
+            // Rob, 2026-08-13. Assert the OUTPUT (two neighbours differ; a rank fans) not
+            // that a hash function exists.
+            {
+                var a = CosmeticSystems.ImpulseFor(10, false);
+                var again = CosmeticSystems.ImpulseFor(10, false);
+                var b = CosmeticSystems.ImpulseFor(11, false);
+                Check(a.Vx == again.Vx && a.Vy == again.Vy && a.Vz == again.Vz,
+                      "the same body always takes the same path");
+                Check(a.Vx != b.Vx || a.Vy != b.Vy || a.Vz != b.Vz,
+                      "two neighbours do not share a launch");
+                Check(a.Vx > 0f && CosmeticSystems.ImpulseFor(10, true).Vx < 0f,
+                      "each side is still thrown BACKWARDS");
+                var seen = new HashSet<string>();
+                for (int id = 1; id <= 16; id++)
+                {
+                    var i = CosmeticSystems.ImpulseFor(id, false);
+                    seen.Add($"{i.Vx:F3}/{i.Vy:F3}/{i.Vz:F3}/{i.RotationSpeed:F0}");
+                }
+                Check(seen.Count >= 14,
+                      $"a dying rank fans out ({seen.Count} distinct launches in 16 bodies)");
+                Check(CosmeticSystems.DiesInATumble(1.4f, 3) && CosmeticSystems.DiesInATumble(0.6f, null)
+                      && !CosmeticSystems.DiesInATumble(0f, null),
+                      "deck and garrison deaths tumble; dirt deaths do not");
+                var dirt = CosmeticSystems.ImpulseFor(10, false, tumble: false);
+                var deck = CosmeticSystems.ImpulseFor(10, false, tumble: true);
+                Check(dirt.Vy < 0.4f && dirt.Vx < 0f
+                      && deck.Vy > dirt.Vy + 1f
+                      && Mathf.Abs(dirt.YawSpeed) < 1f && Mathf.Abs(deck.YawSpeed) > 10f,
+                      $"dirt tips AWAY from the building ({dirt.Vx:F2}, {dirt.Vy:F2} up); "
+                      + $"a deck fall launches ({deck.Vy:F2})");
+            }
             Check(CosmeticSystems.HealthBarTrackAlpha(CosmeticSystems.HealthBarSeconds - 0.2f)
                   < CosmeticSystems.HealthBarAlpha(CosmeticSystems.HealthBarSeconds - 0.2f),
                   "and it is visibly GONE first, so a bar dissolves to colour, not to black");
@@ -1992,7 +2449,10 @@ public static class PortSelfTest
             }
             Check(CosmeticSystems.RagdollRestY(90f) > CosmeticSystems.RagdollRestY(0f),
                   "a body propped upright rests HIGHER than one lying flat");
-            Near(CosmeticSystems.RagdollRestY(0f), 0f, 1e-6f, "a flat body rests on the ground");
+            Near(CosmeticSystems.RagdollRestY(0f), CosmeticSystems.RagdollBodyHalfWidth, 1e-5f,
+                 "a flat body rests on the ground");
+            Near(CosmeticSystems.RagdollRestY(180f), CosmeticSystems.RagdollBodyHalfWidth, 1e-5f,
+                 "and so does a body that flopped the other way — 180 is not a 0.5 hover");
 
             // --- A CORPSE MUST NOT LEVITATE ONTO A ROOF IT NEVER REACHED.
             //
@@ -2011,7 +2471,10 @@ public static class PortSelfTest
                 corpseDef.id = "corpse"; corpseDef.maxHp = 32; corpseDef.damage = 8;
                 var towerDef = ScriptableObject.CreateInstance<StructureDefinitionSO>();
                 towerDef.id = "tower"; towerDef.maxHp = 100; towerDef.size = 4f;
-                towerDef.hasHitWidth = true; towerDef.hitWidth = 3f; towerDef.isPlayerSide = false;
+                towerDef.hasHitWidth = true; towerDef.hitWidth = 3f;
+                // Ragdolls collide with standWidth, not hitWidth. Match the
+                // projectile box so the existing face/roof/lip numbers hold.
+                towerDef.standWidth = 3f; towerDef.isPlayerSide = false;
 
                 // Box: baseY 0, topY 4, x from 3.5 to 6.5.
                 var tower = new StructureEntity(900, towerDef, 5f, 2f, 0f, 100);
@@ -2022,7 +2485,8 @@ public static class PortSelfTest
                 // A body IN THE AIR, thrown into the tower's face well BELOW its roof — the
                 // real case. It is at y 1.5 against a roof of 4, arriving from the left. It must
                 // be stopped by the face and fall; it must NOT be lifted up the wall.
-                var thrown = new DyingUnitEntity(1, corpseDef, false, 3.4f, 1.5f, 0f, 4f, 0f, 0f);
+                var thrown = new DyingUnitEntity(1, corpseDef, false, 3.4f, 1.5f, 0f, 4f, 0f, 0f)
+                    { Tumble = true };
                 var st = new GameState
                 {
                     Phase = GamePhase.Playing,
@@ -2054,6 +2518,156 @@ public static class PortSelfTest
                 Check(landed == null || landed.Y >= tY - 0.05f,
                       $"a body falling from ABOVE still rests on the roof (y {landed?.Y:F2} " +
                       $"vs roof {tY:F1})");
+
+                // Depth scatter is live, not a field nobody integrates. A body thrown only in
+                // Z must actually travel in Z — the old Step wrote X/Y and left Vz sitting.
+                var shoved = new DyingUnitEntity(3, corpseDef, false, 0f, 2f, 0f, 0f, 1f, 0f)
+                    { Vz = 2f };
+                var stZ = st with { DyingUnits = new List<DyingUnitEntity> { shoved },
+                                    Structures = new List<StructureEntity>() };
+                for (int i = 0; i < 12; i++)
+                    stZ = BattleTick.Step(stZ, 1f / 60f, null, new System.Random(1));
+                var moved = stZ.DyingUnits.FirstOrDefault(d => d.Id == 3);
+                Check(moved != null && moved.Z > 0.3f,
+                      $"a body thrown in Z travels in Z (z {moved?.Z:F2} from 0 after 0.2s)");
+
+                // A BODY ON A ROOF IS NOT AIRBORNE. The renderer used to compare Y to
+                // RagdollRestY (dirt). A garrison at y=4 then thrashed for the whole TTL.
+                {
+                    var onRoof = new DyingUnitEntity(4, corpseDef, false, 5f, tY, 0f, 0f, 0f, 0f)
+                        { SupportY = tY };
+                    Check(!CosmeticSystems.RagdollAirborne(onRoof),
+                          "a body sitting on a roof is not airborne");
+                    var falling = new DyingUnitEntity(5, corpseDef, false, 5f, tY, 0f, 0f, 0f, 0f)
+                        { SupportY = -1f };
+                    Check(CosmeticSystems.RagdollAirborne(falling),
+                          "a body with no support still is");
+                    var slidingDirt = new DyingUnitEntity(
+                        5, corpseDef, false, 0f, 0.05f, 0f, 1.2f, 0f, 0f)
+                        { SupportY = 0.05f };
+                    Check(!CosmeticSystems.RagdollAirborne(slidingDirt),
+                          "a body sliding on dirt is not airborne — leftover vx is not a flail");
+                }
+
+                // LIP: a body on the last half-metre of a roof walks off and falls.
+                // The old face test killed vx the moment they dipped below topY, so
+                // they sat on the lip forever. Step until they have actually left —
+                // one tick is the same green-light-that-means-nothing as the levitation
+                // check above.
+                {
+                    float lipX = 3.5f + 0.20f;   // 0.20 inside the left face (margin 0.55)
+                    var onLip = new DyingUnitEntity(6, corpseDef, false, lipX, tY, 0f, 0f, 0f, 0f)
+                        { SupportY = tY, Tumble = true };
+                    var stLip = st with { DyingUnits = new List<DyingUnitEntity> { onLip } };
+                    DyingUnitEntity fallen = onLip;
+                    for (int i = 0; i < 90; i++)
+                    {
+                        stLip = BattleTick.Step(stLip, 1f / 60f, null, new System.Random(1));
+                        fallen = stLip.DyingUnits.FirstOrDefault(d => d.Id == 6);
+                        if (fallen == null) break;
+                    }
+                    Check(fallen != null && fallen.Y < tY - 0.4f && fallen.X <= 3.5f + 1e-3f,
+                          $"a body on a roof LIP falls off "
+                          + $"(y {fallen?.Y:F2} x {fallen?.X:F2}, roof {tY:F1} face 3.50)");
+                    Check(fallen != null && fallen.Bend < 0f,
+                          $"and folds OUT over the lip (bend {fallen?.Bend:F1})");
+                }
+
+                // A body that LANDS on the centre of a roof must keep its horizontal
+                // speed — the old "spawned inside" branch zeroed it the first tick
+                // they dipped below topY, which is why they could never reach a lip.
+                {
+                    var sliding = new DyingUnitEntity(7, corpseDef, false, 5f, tY + 0.05f, 0f,
+                                                      1.6f, 0f, 0f);
+                    var stSlide = st with { DyingUnits = new List<DyingUnitEntity> { sliding } };
+                    for (int i = 0; i < 10; i++)
+                        stSlide = BattleTick.Step(stSlide, 1f / 60f, null, new System.Random(1));
+                    var slid = stSlide.DyingUnits.FirstOrDefault(d => d.Id == 7);
+                    Check(slid != null && slid.Vx > 0.5f && slid.Y >= tY - 0.05f,
+                          $"a body on the centre of a roof KEEPS sliding "
+                          + $"(vx {slid?.Vx:F2}, y {slid?.Y:F2})");
+                }
+
+                // WALL: thrown into the left face below the roof, fold INTO it.
+                {
+                    var atFace = walk.DyingUnits.FirstOrDefault(d => d.Id == 1);
+                    Check(atFace != null && atFace.Bend > 0f,
+                          $"a body that hits a wall folds INTO it (bend {atFace?.Bend:F1})");
+                }
+
+                // INVISIBLE WALL: hitWidth hangs past the silhouette
+                // (GarrisonPost 3.75 vs size 2.5 / stand 3.125). Bodies used
+                // to stop at the projectile face and stack in empty air.
+                // They must fly PAST that face and rest on the deck edge.
+                {
+                    var postDef = ScriptableObject.CreateInstance<StructureDefinitionSO>();
+                    postDef.id = "post"; postDef.maxHp = 100; postDef.size = 2.5f;
+                    postDef.hasHitWidth = true; postDef.hitWidth = 3.75f;
+                    postDef.standWidth = 3.125f; postDef.isPlayerSide = false;
+                    var post = new StructureEntity(901, postDef, 6.5f, 0f, 0f, 100);
+                    // hit face 4.625, masonry face 4.9375.
+                    var flung = new DyingUnitEntity(11, corpseDef, false, 4.40f, 1.2f, 0f,
+                                                    5f, 0.4f, 0f);
+                    var stWall = st with
+                    {
+                        Structures = new List<StructureEntity> { post },
+                        DyingUnits = new List<DyingUnitEntity> { flung },
+                    };
+                    DyingUnitEntity body = flung;
+                    for (int i = 0; i < 50; i++)
+                    {
+                        stWall = BattleTick.Step(stWall, 1f / 60f, null, new System.Random(1));
+                        body = stWall.DyingUnits.FirstOrDefault(d => d.Id == 11);
+                        if (body == null) break;
+                    }
+                    Check(body != null && body.X > 4.70f,
+                          $"a body thrown at a wide-hit hut PASSES the projectile face "
+                          + $"(x {body?.X:F2}, hit-face 4.63) — that face is empty air");
+                    Check(body != null && body.X <= 4.9375f + 0.02f,
+                          $"and comes to rest against the masonry "
+                          + $"(x {body?.X:F2}, stand-face 4.94)");
+                    Check(body != null && Mathf.Abs(body.Z) > 0.15f,
+                          $"leftover speed becomes depth, not a stack on the pane "
+                          + $"(z {body?.Z:F2})");
+                }
+
+                // L8: the watch garrison flies toward the post, WELL ABOVE it.
+                // fromRoof is true for anyone high in the air, so the post's
+                // near lip used to pin them at the face and drop them as a
+                // curtain. They must sail over.
+                {
+                    var postDef = ScriptableObject.CreateInstance<StructureDefinitionSO>();
+                    postDef.id = "post"; postDef.maxHp = 100; postDef.size = 2.5f;
+                    postDef.hasHitWidth = true; postDef.hitWidth = 3.75f;
+                    postDef.standWidth = 3.125f; postDef.isPlayerSide = false;
+                    var post = new StructureEntity(902, postDef, 6.5f, 0f, 0f, 100);
+                    // Watch standing-Y 3.75, just left of the post's stand face.
+                    var flyer = new DyingUnitEntity(12, corpseDef, false, 4.40f, 3.75f, 0f,
+                                                    1.8f, 1.2f, 0f)
+                        { SupportY = -1f };
+                    var stFly = st with
+                    {
+                        Structures = new List<StructureEntity> { post },
+                        DyingUnits = new List<DyingUnitEntity> { flyer },
+                    };
+                    float maxX = 4.40f;
+                    float minVx = 1.8f;
+                    DyingUnitEntity body = flyer;
+                    for (int i = 0; i < 45; i++)
+                    {
+                        stFly = BattleTick.Step(stFly, 1f / 60f, null, new System.Random(1));
+                        body = stFly.DyingUnits.FirstOrDefault(d => d.Id == 12);
+                        if (body == null) break;
+                        maxX = Mathf.Max(maxX, body.X);
+                        minVx = Mathf.Min(minVx, body.Vx);
+                    }
+                    Check(body != null && maxX > 5.20f,
+                          $"a body flying OVER a hut is not pinned at its near face "
+                          + $"(reached x {maxX:F2}, face 4.94, y {body?.Y:F2})");
+                    Check(minVx > 0.5f,
+                          $"and keeps travelling instead of dropping as a curtain "
+                          + $"(slowest vx {minVx:F2})");
+                }
             }
 
             // Rolling: friction bleeds speed, and rotation is locked to travel (like a log).
@@ -2074,8 +2688,90 @@ public static class PortSelfTest
                 CosmeticSystems.StepFlop(rot2, rs2, 1f / 60f, out rot2, out rs2);
             Near(rot2, 180f, 1.0f, "a body past vertical falls the OTHER way, to 180");
 
+            float side = 20f, sideSp = 0f;
+            for (int i = 0; i < 240; i++)
+                CosmeticSystems.StepFlopToSide(side, sideSp, 1f / 60f, out side, out sideSp);
+            Near(side, 90f, 2f, "a grounded body flops onto its SIDE (horizontal), not upright");
+            float side2 = -20f, sideSp2 = 0f;
+            for (int i = 0; i < 240; i++)
+                CosmeticSystems.StepFlopToSide(side2, sideSp2, 1f / 60f, out side2, out sideSp2);
+            Near(side2, -90f, 2f, "a body tipping the other way lies the other side");
+
+            // AIRBORNE: they tip, they do not flop to horizontal in the air.
+            {
+                var flyDef = ScriptableObject.CreateInstance<UnitDefinitionSO>();
+                flyDef.id = "flyer"; flyDef.maxHp = 8; flyDef.damage = 4;
+                var flyer = new DyingUnitEntity(21, flyDef, false, 0f, 4f, 0f, 0.4f, 0.2f, 70f)
+                { Rotation = 8f };
+                var air = new GameState
+                {
+                    Phase = GamePhase.Playing,
+                    DyingUnits = new List<DyingUnitEntity> { flyer },
+                };
+                DyingUnitEntity body = flyer;
+                for (int i = 0; i < 45; i++)
+                {
+                    air = BattleTick.Step(air, 1f / 60f, null, new System.Random(1));
+                    body = air.DyingUnits.FirstOrDefault(d => d.Id == 21);
+                    if (body == null) break;
+                }
+                Check(body != null && CosmeticSystems.RagdollAirborne(body)
+                      && Mathf.Abs(body.Rotation) > 20f,
+                      "a flying body actually tumbles "
+                      + $"(rot {body?.Rotation:F1}, airborne {body != null && CosmeticSystems.RagdollAirborne(body)})");
+                Object.DestroyImmediate(flyDef);
+            }
+
+            {
+                var wDef = ScriptableObject.CreateInstance<UnitDefinitionSO>();
+                wDef.id = "w"; wDef.maxHp = 8; wDef.damage = 4;
+                var wreck = new WreckEntity(1, "outpost", 5f, 0f, 0f, 4f, 2f);
+                var faller = new DyingUnitEntity(3, wDef, false, 5f, 2.2f, 0f, 0f, -0.4f, 0f)
+                { Tumble = true };
+                var dummy = new UnitEntity(9, wDef, -8f, 0f, 0f, 8, true);
+                var dummyE = new UnitEntity(10, wDef, 8f, 0f, 0f, 8, false);
+                var st = new GameState
+                {
+                    Phase = GamePhase.Playing,
+                    PlayerUnits = new List<UnitEntity> { dummy },
+                    EnemyUnits = new List<UnitEntity> { dummyE },
+                    Wrecks = new List<WreckEntity> { wreck },
+                    DyingUnits = new List<DyingUnitEntity> { faller },
+                };
+                DyingUnitEntity landed = faller;
+                for (int i = 0; i < 90; i++)
+                {
+                    st = BattleTick.Step(st, 1f / 60f, null, new System.Random(1));
+                    landed = st.DyingUnits.FirstOrDefault(d => d.Id == 3);
+                    if (landed == null) break;
+                    if (!CosmeticSystems.RagdollAirborne(landed)) break;
+                }
+                Check(landed != null
+                      && Mathf.Abs(landed.SupportY - CosmeticSystems.WreckLidY(wreck)) < 0.05f,
+                      "a falling garrison lands ON the wreck mound, not through it "
+                      + $"(support {landed?.SupportY:F2}, lid {CosmeticSystems.WreckLidY(wreck):F2})");
+                Object.DestroyImmediate(wDef);
+            }
+
             Check(CosmeticSystems.RagdollExpired(5f), "a body is culled at the age limit");
             Check(!CosmeticSystems.RagdollExpired(4.9f), "and not before");
+
+            // SINK: last stretch, dirt only, fully under before cull. A pop is
+            // the same artefact as the health bar that vanished in one frame.
+            Check(CosmeticSystems.RagdollSinkY(0f, 0.05f) == 0f,
+                  "a fresh corpse on the dirt has not started sinking");
+            Check(CosmeticSystems.RagdollSinkY(3.5f, 0.05f) == 0f,
+                  "and not before the last stretch");
+            Near(CosmeticSystems.RagdollSinkY(CosmeticSystems.RagdollMaxAgeSeconds, 0.05f),
+                 -CosmeticSystems.RagdollSinkDepth, 1e-4f,
+                 "at expiry a dirt body is fully under the ground");
+            Check(CosmeticSystems.RagdollSinkY(4.8f, 2.5f) == 0f,
+                  "a body on a roof does not sink into masonry");
+            Check(CosmeticSystems.RagdollSinkY(4.8f, -1f) == 0f,
+                  "an airborne body does not sink");
+            Check(CosmeticSystems.RagdollSinkY(4.6f, 0.05f)
+                  > CosmeticSystems.RagdollSinkY(4.9f, 0.05f),
+                  "the sink only goes down");
 
             // Debris sleep: ONLY rubble sleeps, and only when actually still.
             Check(CosmeticSystems.ShouldSleep(true, true, 0f, 0f, 0f), "still grounded rubble sleeps");
@@ -2086,6 +2782,9 @@ public static class PortSelfTest
             Check(!CosmeticSystems.ShouldSleep(true, true, 0f, 0f, 50f), "spinning rubble stays awake");
             Check(CosmeticSystems.DebrisRubbleTtl > CosmeticSystems.DebrisTtlSeconds,
                   "rubble outlives transient debris by design");
+            Check(CosmeticSystems.DebrisTtlSeconds >= 7f,
+                  $"transient debris lasts through the next aim "
+                  + $"({CosmeticSystems.DebrisTtlSeconds:F1}s) — 2.6s vanished in the follow");
 
             // Scorch merging: nearby marks combine instead of stacking identical decals.
             var marks = new List<ScorchMark> { new(1, 5f, 0f), new(2, 20f, 0f) };
@@ -2346,6 +3045,221 @@ public static class PortSelfTest
                   "no snow on the foothills (BuildSnow returns null when no line is set)");
         }
 
+        // CityRuins is an authored 2.5D strip, not the 1D profile above. The profile is
+        // the fallback; these meshes are what the player sees on L4 and L10.
+        {
+            Bounds CityBounds(string key)
+            {
+                var go = AssetDatabase.LoadAssetAtPath<GameObject>($"Assets/Models/{key}.glb");
+                Check(go != null, $"city backdrop {key}.glb is imported");
+                var b = new Bounds();
+                bool any = false;
+                if (go == null) return b;
+                foreach (var f in go.GetComponentsInChildren<MeshFilter>())
+                {
+                    if (f.sharedMesh == null) continue;
+                    var mb = f.sharedMesh.bounds;
+                    var world = new Bounds(f.transform.TransformPoint(mb.center),
+                                           f.transform.TransformVector(mb.size));
+                    if (!any) { b = world; any = true; }
+                    else b.Encapsulate(world);
+                }
+                Check(any, $"city backdrop {key} has mesh filters");
+                return b;
+            }
+
+            var far = CityBounds(ArmedConflict.Render.BackdropRuntime.CityFarModel);
+            var near = CityBounds(ArmedConflict.Render.BackdropRuntime.CityNearModel);
+            float farNeed = ArmedConflict.Render.Backdrop.VisibleWidthAt(
+                ArmedConflict.Render.Backdrop.FarZ, ArmedConflict.Render.Backdrop.DesignAspect);
+            float nearNeed = ArmedConflict.Render.Backdrop.VisibleWidthAt(
+                ArmedConflict.Render.Backdrop.NearZ, ArmedConflict.Render.Backdrop.DesignAspect);
+            Check(far.size.x > farNeed,
+                  $"city far spans the frustum ({far.size.x:F1} > {farNeed:F1})");
+            Check(near.size.x > nearNeed,
+                  $"city near spans the frustum ({near.size.x:F1} > {nearNeed:F1})");
+            Check(near.size.y > far.size.y,
+                  $"city near is the taller skyline ({near.size.y:F1} vs far {far.size.y:F1})");
+            Check(near.min.y > -1.5f && near.min.y < 1.0f,
+                  $"city near sits on the ground plane (min y {near.min.y:F2})");
+
+            // The phone draws whatever the SCENE references, not whatever is on disk.
+            // Re-exporting a GLB can change its root fileID; the name stays in the
+            // table and the prefab slot goes missing. That is how L4 kept the old
+            // silhouette after the strip shipped.
+            var scene = UnityEditor.SceneManagement.EditorSceneManager.OpenScene(
+                "Assets/Scenes/Battle.unity", UnityEditor.SceneManagement.OpenSceneMode.Additive);
+            try
+            {
+                var scenery = Object.FindFirstObjectByType<LevelScenery>();
+                Check(scenery != null, "Battle.unity has a LevelScenery");
+                if (scenery != null)
+                {
+                    var so = new UnityEditor.SerializedObject(scenery);
+                    var names = so.FindProperty("modelNames");
+                    var prefs = so.FindProperty("modelPrefabs");
+                    bool farOk = false, nearOk = false;
+                    int n = Mathf.Min(names.arraySize, prefs.arraySize);
+                    for (int i = 0; i < n; i++)
+                    {
+                        string key = names.GetArrayElementAtIndex(i).stringValue;
+                        var pref = prefs.GetArrayElementAtIndex(i).objectReferenceValue;
+                        if (key == ArmedConflict.Render.BackdropRuntime.CityFarModel)
+                            farOk = pref != null;
+                        if (key == ArmedConflict.Render.BackdropRuntime.CityNearModel)
+                            nearOk = pref != null;
+                    }
+                    Check(farOk && nearOk,
+                          $"Battle.unity still references both city GLBs (far={farOk}, near={nearOk})");
+                    bool fFar = false, fNear = false;
+                    for (int i = 0; i < n; i++)
+                    {
+                        string key = names.GetArrayElementAtIndex(i).stringValue;
+                        var pref = prefs.GetArrayElementAtIndex(i).objectReferenceValue;
+                        if (key == ArmedConflict.Render.BackdropRuntime.ForestFarModel)
+                            fFar = pref != null;
+                        if (key == ArmedConflict.Render.BackdropRuntime.ForestNearModel)
+                            fNear = pref != null;
+                    }
+                    Check(fFar && fNear,
+                          $"Battle.unity still references both forest GLBs (far={fFar}, near={fNear})");
+                    foreach (SilhouetteStyle style in System.Enum.GetValues(typeof(SilhouetteStyle)))
+                    {
+                        string fk = ArmedConflict.Render.BackdropRuntime.StripFar(style);
+                        string nk = ArmedConflict.Render.BackdropRuntime.StripNear(style);
+                        if (fk == null) continue;
+                        bool a = false, b = false;
+                        for (int i = 0; i < n; i++)
+                        {
+                            string key = names.GetArrayElementAtIndex(i).stringValue;
+                            var pref = prefs.GetArrayElementAtIndex(i).objectReferenceValue;
+                            if (key == fk) a = pref != null;
+                            if (key == nk) b = pref != null;
+                        }
+                        Check(a && b, $"Battle.unity references {style} strip (far={a}, near={b})");
+
+                        // The MID strip is optional: a style that declares one must have it
+                        // wired, and a style that does not must stay on two planes. Both
+                        // halves matter — the runtime deliberately does not let a missing mid
+                        // drop the whole strip back to the procedural profile, so a broken
+                        // reference here is silent except for one LogError on device.
+                        string mk = ArmedConflict.Render.BackdropRuntime.StripMid(style);
+                        bool mid = false;
+                        for (int i = 0; i < n && mk != null; i++)
+                            if (names.GetArrayElementAtIndex(i).stringValue == mk)
+                                mid = prefs.GetArrayElementAtIndex(i).objectReferenceValue != null;
+                        string qk = ArmedConflict.Render.BackdropRuntime.StripFore(style);
+                        bool fore = false;
+                        for (int i = 0; i < n && qk != null; i++)
+                            if (names.GetArrayElementAtIndex(i).stringValue == qk)
+                                fore = prefs.GetArrayElementAtIndex(i).objectReferenceValue != null;
+                        Check((mk == null || mid) && (qk == null || fore),
+                              $"{style} optional strips wired (mid={mk ?? "none"}:{mid}, " +
+                              $"fore={qk ?? "none"}:{fore})");
+                    }
+                    Check(ArmedConflict.Render.BackdropRuntime.StripMid(SilhouetteStyle.Forest)
+                              == ArmedConflict.Render.BackdropRuntime.ForestMidModel
+                          && ArmedConflict.Render.BackdropRuntime.StripMid(SilhouetteStyle.City)
+                              == null
+                          && ArmedConflict.Render.BackdropRuntime.StripFore(SilhouetteStyle.Forest)
+                              == null
+                          && Backdrop.MidZ < Backdrop.NearZ && Backdrop.MidZ > Backdrop.FarZ
+                          // ForeZ stays a safe unused slot: a later biome can opt in
+                          // without the camera ending up behind the strip.
+                          && Backdrop.ForeZ > 0f
+                          && Backdrop.ForeZ < ArmedConflict.Game.CameraDirector.ZMin,
+                          "only forest declares mid, no style declares fore, MidZ sits " +
+                          $"between far and near ({Backdrop.FarZ} < {Backdrop.MidZ} < " +
+                          $"{Backdrop.NearZ}), and ForeZ {Backdrop.ForeZ} is in front of " +
+                          "the play plane but inside camera " +
+                          $"ZMin {ArmedConflict.Game.CameraDirector.ZMin}");
+                }
+            }
+            finally
+            {
+                UnityEditor.SceneManagement.EditorSceneManager.CloseScene(scene, true);
+            }
+
+            var fFarB = CityBounds(ArmedConflict.Render.BackdropRuntime.ForestFarModel);
+            var fNearB = CityBounds(ArmedConflict.Render.BackdropRuntime.ForestNearModel);
+            Check(fFarB.size.x > farNeed,
+                  $"forest far spans the frustum ({fFarB.size.x:F1} > {farNeed:F1})");
+            Check(fNearB.size.x > nearNeed,
+                  $"forest near spans the frustum ({fNearB.size.x:F1} > {nearNeed:F1})");
+            Check(fNearB.size.y > fFarB.size.y,
+                  $"forest near is the taller tree line ({fNearB.size.y:F1} vs far {fFarB.size.y:F1})");
+            Check(fNearB.min.y > -1.5f && fNearB.min.y < 1.0f,
+                  $"forest near sits on the ground plane (min y {fNearB.min.y:F2})");
+
+            foreach (var pair in new[]
+                     {
+                         ("mountains", ArmedConflict.Render.BackdropRuntime.MountainsFarModel,
+                          ArmedConflict.Render.BackdropRuntime.MountainsNearModel, true),
+                         ("winter", ArmedConflict.Render.BackdropRuntime.WinterFarModel,
+                          ArmedConflict.Render.BackdropRuntime.WinterNearModel, true),
+                         ("desert", ArmedConflict.Render.BackdropRuntime.DesertFarModel,
+                          ArmedConflict.Render.BackdropRuntime.DesertNearModel, false),
+                     })
+            {
+                var fb = CityBounds(pair.Item2);
+                var nb = CityBounds(pair.Item3);
+                Check(fb.size.x > farNeed,
+                      $"{pair.Item1} far spans the frustum ({fb.size.x:F1} > {farNeed:F1})");
+                Check(nb.size.x > nearNeed,
+                      $"{pair.Item1} near spans the frustum ({nb.size.x:F1} > {nearNeed:F1})");
+                if (pair.Item4)
+                    Check(fb.size.y > nb.size.y * 1.15f,
+                          $"{pair.Item1} far out-reaches the foothills "
+                          + $"({fb.size.y:F1} vs {nb.size.y:F1})");
+            }
+        }
+
+        // Ruin fire and smoke. The sites are a list; the check is what they DO.
+        {
+            int fireN = 0, smokeN = 0;
+            foreach (var s in ArmedConflict.Render.RuinFx.Sites)
+            {
+                fireN++;
+                if (s.SmokeH > 0.01f) smokeN++;
+            }
+            Check(fireN >= 4 && smokeN >= 3,
+                  $"city ruin FX: {fireN} fires, {smokeN} plumes (need a few of each)");
+
+            var fade = AssetDatabase.LoadAssetAtPath<Material>(
+                "Assets/Materials/BackdropFadeSource.mat");
+            Check(fade != null, "BackdropFadeSource.mat is what the ruin FX clones");
+            foreach (var s in ArmedConflict.Render.RuinFx.Sites)
+                Check(s.Z < -0.5f,
+                      $"ruin fire sits IN the building (z={s.Z:F2}), not in front of the facade");
+
+            var host = new GameObject("RuinFxHost");
+            var owned = new List<Object>();
+            var session = ArmedConflict.Render.RuinFx.Attach(host.transform, fade, owned);
+            Check(session.Fires.Length == fireN && session.Smokes.Length == smokeN,
+                  $"Attach built every site ({session.Fires.Length} fires, {session.Smokes.Length} plumes)");
+            Check(session.Fires[0].Glow.localPosition.z < -0.5f,
+                  $"the glow is behind the facade ({session.Fires[0].Glow.localPosition.z:F2})");
+            float tongueZ = session.Fires[0].Outer.parent.localPosition.z;
+            Check(tongueZ > -0.2f && tongueZ < 0.25f,
+                  $"the tongue sits in the window mouth (z={tongueZ:F2})");
+
+            session.Tick(0f);
+            float flame0 = session.Fires[0].Outer.localScale.y;
+            session.Tick(0.20f);
+            float flame1 = session.Fires[0].Outer.localScale.y;
+            Check(Mathf.Abs(flame1 - flame0) > 0.02f,
+                  $"ruin tongue licks ({flame0:F2} -> {flame1:F2})");
+
+            var smokeTex = ArmedConflict.Render.RuinFx.SmokeTex();
+            var foot = smokeTex.GetPixel(smokeTex.width / 2, 2);
+            var tip = smokeTex.GetPixel(smokeTex.width / 2, smokeTex.height - 2);
+            Check(foot.a > 0.08f && foot.a < 0.70f && tip.a < foot.a * 0.45f,
+                  $"smoke is a soft column, not a slab (foot a={foot.a:F2}, tip a={tip.a:F2})");
+            Object.DestroyImmediate(smokeTex);
+            Object.DestroyImmediate(host);
+            foreach (var o in owned) if (o != null) Object.DestroyImmediate(o);
+        }
+
         // --- The enemy's RAISED RIFLE must describe the round it actually fired.
         //
         // EnemyAI picks a fresh random arc per unit inside AimAt, so the only safe way to pose
@@ -2363,6 +3277,24 @@ public static class PortSelfTest
             st = st with { Phase = GamePhase.Playing, TurnPhase = TurnPhase.Aiming };
             int before = st.Projectiles.Count;
             var fired = BattleTick.FireEnemyVolley(st, new System.Random(11));
+
+            var prepared = BattleTick.PrepareEnemyVolley(st, new System.Random(11));
+            Check(prepared.EnemyAimDegrees.Count == prepared.EnemyUnits.Count
+                  && prepared.Projectiles.Count == st.Projectiles.Count,
+                  "PrepareEnemyVolley poses the line WITHOUT firing "
+                  + $"({prepared.EnemyAimDegrees.Count} aims, "
+                  + $"{prepared.Projectiles.Count} rounds)");
+            var fromPrepared = BattleTick.FireEnemyVolley(prepared, new System.Random(99));
+            int sameArc = 0;
+            foreach (var u in fromPrepared.EnemyUnits)
+            {
+                if (!prepared.EnemyAimDegrees.TryGetValue(u.Id, out float posed)) continue;
+                if (!fromPrepared.EnemyAimDegrees.TryGetValue(u.Id, out float firedDeg)) continue;
+                if (Mathf.Abs(posed - firedDeg) < 0.01f) sameArc++;
+            }
+            Check(sameArc == fromPrepared.EnemyUnits.Count,
+                  "FireEnemyVolley uses the windup pose, not a second roll "
+                  + $"({sameArc} of {fromPrepared.EnemyUnits.Count})");
 
             Check(fired.EnemyAimDegrees.Count == fired.EnemyUnits.Count,
                   $"every enemy records a launch elevation ({fired.EnemyAimDegrees.Count}" +
@@ -2387,6 +3319,26 @@ public static class PortSelfTest
             // And it must not outlive the volley: units are POOLED, so a pose left set would be
             // inherited by whoever recycles the slot.
             Check(st.EnemyAimDegrees.Count == 0, "no enemy pose is held outside a volley");
+
+            // The windup is when they RAISE. Handing over into it must pose the
+            // rifles before any round exists.
+            var intoWindup = BattleTick.Step(
+                st with
+                {
+                    Phase = GamePhase.Playing,
+                    TurnPhase = TurnPhase.Resolving,
+                    TurnSide = TurnSide.Player,
+                    TurnHandoverDelay = 0f,
+                    Projectiles = new List<ProjectileEntity>(),
+                },
+                1f / 60f, lv, new System.Random(11));
+            Check(intoWindup.TurnPhase == TurnPhase.EnemyWindup
+                  && intoWindup.EnemyAimDegrees.Count == intoWindup.EnemyUnits.Count
+                  && intoWindup.Projectiles.Count == 0,
+                  "the windup poses every rifle and has not fired yet "
+                  + $"(phase {intoWindup.TurnPhase}, "
+                  + $"{intoWindup.EnemyAimDegrees.Count} aims, "
+                  + $"{intoWindup.Projectiles.Count} rounds)");
         }
 
         // --- EVERY level must build and must have geometry for everything it places.
@@ -2415,6 +3367,17 @@ public static class PortSelfTest
             Check(levels.Count(l => !l.isTestLevel) == 12,
                   "the campaign is 12 levels — PRODUCT_DIRECTION Tier 0.1's funnel, "
                   + $"one beat each ({levels.Count(l => !l.isTestLevel)})");
+
+            // Mid-ground scenery is the emptiness lever. Aiming is the empty
+            // beat; backdrop strips sit at z=-30. Every campaign level owes
+            // two keepColors plants behind the play plane.
+            var bare = levels.Where(l => !l.isTestLevel).Where(l =>
+                l.props.Count(p => p.keepColors && p.z <= -6f) < 2)
+                .Select(l => l.displayName).ToList();
+            Check(bare.Count == 0,
+                  bare.Count == 0
+                      ? "every campaign level plants two mid-ground scenery props"
+                      : $"NO MID-GROUND SCENERY: {string.Join(", ", bare)}");
 
             // CONTIGUITY IS A CAMPAIGN RULE ONLY, as of the 2026-08-06 campaign/rig split.
             //
@@ -2452,12 +3415,38 @@ public static class PortSelfTest
                     Check(roster.slots.All(s2 => s2.unit != null && s2.pointCost >= 1),
                           "every roster slot has a unit and costs at least a point");
                     Check(roster.slots.OrderBy(s2 => s2.pointCost).First().coinPrice == 0,
-                          "the CHEAPEST unit is the free one — Loadout.Default picks by point " +
-                          "cost, so a dear free unit would make the default squad unaffordable");
+                          "the CHEAPEST unit is the free one — a locked specialist is swapped " +
+                          "for it, so a dear free unit would make the substitute unaffordable");
+
+                    // WITHOUT the encounter grant, Begin still fields a legal all-rifle line
+                    // (pillar 8). WITH the grant, Begin fields the authored mix.
+                    var mixed = levels.First(l2 => !l2.isTestLevel
+                        && Loadout.AuthoredPicks(l2).Any(p => p.Unit != null && p.Unit.id != "rifleman"));
+                    ProgressStore.ResetAll();
+                    var beforeGrant = Loadout.Default(mixed, roster, unlocked);
+                    Check(Loadout.IsLegal(beforeGrant, mixed, roster, unlocked),
+                          $"{mixed.displayName}: Default stays legal when specialists are locked " +
+                          "(locked slots become riflemen)");
+                    Check(beforeGrant.All(p => p.Unit != null && p.Unit.id == "rifleman"),
+                          $"{mixed.displayName}: locked specialists substitute to riflemen, " +
+                          "not an illegal mix");
+                    EncounterUnlocks.GrantUnits(mixed);
+                    var afterGrant = Loadout.Default(mixed, roster, ProgressStore.IsUnitUnlocked);
+                    Check(afterGrant.Any(p => p.Unit != null && p.Unit.id != "rifleman"),
+                          $"{mixed.displayName}: after the grant, Default keeps the authored specialist");
 
                     foreach (var lv in levels.Where(l2 => !l2.isTestLevel))
                     {
-                        var def = Loadout.Default(lv, roster, unlocked);
+                        EncounterUnlocks.GrantUnits(lv);
+                        var def = Loadout.Default(lv, roster, ProgressStore.IsUnitUnlocked);
+                        var authored = Loadout.AuthoredPicks(lv);
+                        Check(def.Count == authored.Count
+                              && def.All(p => authored.Any(a => a.Unit == p.Unit && a.Count == p.Count)),
+                              $"{lv.displayName}: after grant, Default IS the authored mix " +
+                              "(not N cheapest)");
+                        Check(Loadout.PointsUsed(def, roster) <= Loadout.Budget(lv),
+                              $"{lv.displayName}: authored mix ({Loadout.PointsUsed(def, roster)}pt) " +
+                              $"fits deployBudget {Loadout.Budget(lv)}");
                         Check(Loadout.IsLegal(def, lv, roster, unlocked),
                               $"{lv.displayName}: the DEFAULT loadout is legal — pillar 8, a " +
                               "player who taps straight through must lose nothing");
@@ -2502,6 +3491,22 @@ public static class PortSelfTest
                               $"least one cheap body per slot ({Loadout.Slots(lv)})");
                     }
 
+                    // L1–L2 stay rifle. From L3 the authored default is a specialist mix —
+                    // that is the whole point of Default reading the level instead of N cheapest.
+                    bool Has(int n, string id) =>
+                        Loadout.AuthoredPicks(campaign.First(c => c.levelNumber == n))
+                               .Any(p => p.Unit != null && p.Unit.id == id);
+                    Check(!Has(1, "grenadier") && !Has(2, "grenadier"),
+                          "L1 and L2 stay rifle-only — the drag is the lesson");
+                    Check(Has(3, "grenadier") && Has(5, "sniper") && Has(6, "rocket_trooper"),
+                          "L3 grenadier, L5 sniper, L6 rocket — the first three specialist teaches");
+                    Check(Has(7, "rocket_trooper") && Has(8, "sniper") && Has(8, "grenadier"),
+                          "L7 rocket, L8 combines L5's mix");
+                    Check(Has(9, "shield_bearer") && Has(10, "machine_gunner")
+                          && Has(11, "sniper") && Has(11, "rocket_trooper")
+                          && Has(12, "rocket_trooper"),
+                          "L9–L12 each carry a specialist the all-rifle default used to hide");
+
                     // Garrisons are level geometry and must survive any loadout.
                     var withTank = levels.First(l2 => !l2.isTestLevel
                         && l2.playerGroups.Any(g => !string.IsNullOrEmpty(g.standingOnStructureId)));
@@ -2512,7 +3517,59 @@ public static class PortSelfTest
                           "a loadout never disturbs the garrisoned groups — the tank crew is " +
                           "level geometry, not a squad pick");
 
-                    // Legality, at the edges.
+                    // DISJOINT GROUND GROUPS. The mean of two flanks is the gap, and the gap
+                    // is where the scenery sits. Campaign levels are one contiguous line, so
+                    // the centre must not move; the parade rig is the case that used to fail.
+                    var moved = levels.Where(l2 => !l2.isTestLevel).Select(lv =>
+                    {
+                        var ground = lv.playerGroups
+                            .Where(g => string.IsNullOrEmpty(g.standingOnStructureId)).ToList();
+                        if (ground.Count == 0) return (name: (string)null, d: 0f);
+                        float old = ground.Sum(g => g.anchorX * g.count)
+                                    / Mathf.Max(1, ground.Sum(g => g.count));
+                        return (name: lv.displayName,
+                                d: Mathf.Abs(Loadout.GroundAnchorX(lv) - old));
+                    }).Where(t => t.name != null && t.d > 1e-4f).ToList();
+                    Check(moved.Count == 0,
+                          "GroundAnchorX still centres every campaign line on its authored " +
+                          "mean — a disjoint-flank fix must not move a contiguous squad" +
+                          (moved.Count == 0 ? "" : $" (moved: {moved[0].name} by {moved[0].d:F3})"));
+                    var parade = levels.FirstOrDefault(l2 => l2.id == "level_test_natural_parade");
+                    if (parade != null)
+                    {
+                        float ax = Loadout.GroundAnchorX(parade);
+                        Near(ax, -5.6f, 0.05f,
+                             "disjoint flanks pick the left scale-reference group, " +
+                             "not the gap (0 is RidgeWatchtower)");
+                        var paradeGroups = Loadout.ToPlayerGroups(
+                            parade, Loadout.Default(parade, roster, unlocked));
+                        var paradeState = LevelBuilder.BuildInitialState(
+                            parade, 1, 12, new System.Random(9),
+                            playerGroupsOverride: paradeGroups);
+                        // The gap trap is the RIDGE at x 0.2, not the cliff the left
+                        // flank was authored against. Counting any box would fail the
+                        // correct placement — those two men already brush CliffOutcrop.
+                        int inRidge = 0;
+                        foreach (var u in paradeState.PlayerUnits)
+                        {
+                            if (u.StandingOnStructureId != null) continue;
+                            foreach (var st in paradeState.Structures)
+                            {
+                                if (st.Definition == null || st.Definition.name != "RidgeWatchtower")
+                                    continue;
+                                float halfW = (st.Definition.hasHitWidth ? st.Definition.hitWidth
+                                                                         : st.Definition.size) / 2f;
+                                if (Mathf.Abs(u.X - st.X) <= halfW) inRidge++;
+                            }
+                        }
+                        Check(inRidge == 0,
+                              "a parade loadout does not spawn inside RidgeWatchtower " +
+                              $"(in-ridge {inRidge}) — the output the player would notice");
+                    }
+
+                    // Legality, at the edges. GrantUnits above unlocked every campaign
+                    // specialist — Reset so "locked" still means locked.
+                    ProgressStore.ResetAll();
                     var one = levels.First(l2 => !l2.isTestLevel);
                     var rifle = roster.slots.OrderBy(s2 => s2.pointCost).First();
                     Check(!Loadout.IsLegal(new List<Pick>(), one, roster, unlocked),
@@ -2706,6 +3763,63 @@ public static class PortSelfTest
                 Check(!string.IsNullOrEmpty(after.BossAnnouncement),
                       "and raises its announcement");
 
+                // L12 is the motivating case: the citadel's captured frame is ~5 half-width
+                // and the escort is four men. Recapture + arrival push-in is what makes
+                // the riot shields readable. Asserted on TheCitadel, not "any boss", so a
+                // compact L6 spawn cannot hide a still-wide L12.
+                var citadel = levels.FirstOrDefault(l => l.id == "level_12");
+                if (citadel == null) Check(false, "TheCitadel asset present for the armour zoom");
+                else
+                {
+                    var c0 = LevelBuilder.BuildInitialState(citadel, 1, 12, new System.Random(3));
+                    var citadelDoomed = new HashSet<int>();
+                    for (int i = 0; i < citadel.structures.Count; i++)
+                        if (citadel.structures[i].id == "citadel")
+                            citadelDoomed.Add(LevelBuilder.StructureIdBase + i);
+
+                    var cRazed = c0 with
+                    {
+                        Phase = GamePhase.Playing,
+                        TurnPhase = TurnPhase.Resolving,
+                        TurnSide = TurnSide.Player,
+                        Structures = c0.Structures.Where(s2 => !citadelDoomed.Contains(s2.Id)).ToList(),
+                        EnemyUnits = c0.EnemyUnits
+                            .Where(u => u.StandingOnStructureId == null
+                                     || !citadelDoomed.Contains(u.StandingOnStructureId.Value))
+                            .ToList(),
+                    };
+                    var cAfter = BattleTick.Step(cRazed, 0.016f, citadel, new System.Random(3));
+
+                    Check(cAfter.TriggeredBossPhases.Count == 1,
+                          "L12: dropping the citadel fires the Sovereign");
+                    Check(cAfter.EnemyCamHalfWidth < c0.EnemyCamHalfWidth - 0.8f,
+                          $"L12: the leftover frame TIGHTENS once the citadel is gone " +
+                          $"({c0.EnemyCamHalfWidth:F2} -> {cAfter.EnemyCamHalfWidth:F2})");
+                    Check(cAfter.ArrivalCamHalfWidth > 0f
+                          && cAfter.ArrivalCamHalfWidth < cAfter.EnemyCamHalfWidth
+                          && cAfter.BossAnnouncementTimer > 0f,
+                          $"L12: the announcement frames the ESCORT tighter still " +
+                          $"(arrival {cAfter.ArrivalCamHalfWidth:F2} vs leftover " +
+                          $"{cAfter.EnemyCamHalfWidth:F2})");
+
+                    // Casualties must NOT twitch the zoom — the recapture is on the SET
+                    // changing, not on membership. Kill one leftover, the captured
+                    // leftover half-width stays.
+                    if (cAfter.EnemyUnits.Count > 1)
+                    {
+                        var oneDown = cAfter with
+                        {
+                            EnemyUnits = cAfter.EnemyUnits.Skip(1).ToList(),
+                            BossAnnouncementTimer = 0f,
+                            ArrivalCamHalfWidth = 0f,
+                        };
+                        var afterKill = BattleTick.Step(oneDown, 0.016f, citadel,
+                                                        new System.Random(3));
+                        Near(afterKill.EnemyCamHalfWidth, cAfter.EnemyCamHalfWidth, 1e-4f,
+                             "killing one leftover does not recapture the enemy frame");
+                    }
+                }
+
                 // TELEGRAPHS. A wave arriving on turn N must warn on turn N-1 and the warning must
                 // still be standing for the whole of that turn — pillar 7. Driven off the real
                 // level so a wave authored with no telegraph text cannot pass.
@@ -2772,8 +3886,13 @@ public static class PortSelfTest
                 foreach (var u in st.PlayerUnits.Concat(st.EnemyUnits))
                     unitClasses.Add(LevelScenery.ModelKey(u.Definition.modelAsset));
                 foreach (var s in st.Structures)
+                {
                     if (!haveModel.Contains(LevelScenery.ModelKey(s.Definition.modelAsset)))
                         missing.Add(s.Definition.modelAsset);
+                    if (!string.IsNullOrEmpty(s.Definition.wreckModelAsset)
+                        && !haveModel.Contains(LevelScenery.ModelKey(s.Definition.wreckModelAsset)))
+                        missing.Add(s.Definition.wreckModelAsset);
+                }
                 foreach (var p in l.props)
                     if (!haveModel.Contains(LevelScenery.ModelKey(p.modelAsset)))
                         missing.Add(p.modelAsset);
@@ -2783,6 +3902,100 @@ public static class PortSelfTest
                   missing.Count == 0
                       ? "every structure and prop the campaign places has an imported model"
                       : $"MODELS NOT IMPORTED: {string.Join(", ", missing)}");
+
+            var wreckMissing = new SortedSet<string>();
+            foreach (var path in AssetDatabase.FindAssets("t:StructureDefinitionSO")
+                         .Select(AssetDatabase.GUIDToAssetPath))
+            {
+                var def = AssetDatabase.LoadAssetAtPath<StructureDefinitionSO>(path);
+                if (def == null || def.isPlayerSide && def.hasCannon) continue;
+                if (string.IsNullOrEmpty(def.wreckModelAsset))
+                {
+                    wreckMissing.Add(def.id + " (no wreck)");
+                    continue;
+                }
+                var key = LevelScenery.ModelKey(def.wreckModelAsset);
+                if (!haveModel.Contains(key)
+                    && AssetDatabase.LoadAssetAtPath<GameObject>(
+                           $"Assets/Models/{key}.glb") == null)
+                    wreckMissing.Add(def.wreckModelAsset);
+            }
+            Check(wreckMissing.Count == 0,
+                  wreckMissing.Count == 0
+                      ? "every destroyable structure has an imported collapse"
+                      : $"WRECKS MISSING: {string.Join(", ", wreckMissing)}");
+
+            // OUTPUT: L8's wrecks ROTATE. Euler keys on a glTF-imported
+            // QUATERNION object export location only — the hut drops 5cm
+            // and still reads as a building. Seen 2026-08-16 on Timberline.
+            foreach (var wreckPath in new[]
+                     {
+                         "Assets/Models/watch_tower_collapse.glb",
+                         "Assets/Models/garrison_post_collapse.glb",
+                     })
+            {
+                var go = AssetDatabase.LoadAssetAtPath<GameObject>(wreckPath);
+                Check(go != null, $"{wreckPath} is imported");
+                if (go == null) continue;
+                var inst = (GameObject)PrefabUtility.InstantiatePrefab(go);
+                try
+                {
+                    var body = inst.GetComponent<Animation>()
+                               ?? inst.GetComponentInChildren<Animation>(true);
+                    var clip = body == null ? null : body[WreckAnim.Collapse];
+                    if (clip == null && body != null)
+                        foreach (AnimationState s in body) { clip = s; break; }
+                    Check(body != null && clip != null,
+                          $"{wreckPath} can play collapse");
+                    if (body == null || clip == null) continue;
+                    var rest = inst.GetComponentsInChildren<Transform>(true)
+                        .Where(t => t != inst.transform)
+                        .ToDictionary(t => t, t => t.localRotation);
+                    clip.wrapMode = WrapMode.ClampForever;
+                    clip.time = clip.length;
+                    clip.enabled = true;
+                    body.Play(clip.name);
+                    body.Sample();
+                    float travel = rest
+                        .Select(kv => Quaternion.Angle(kv.Value, kv.Key.localRotation))
+                        .DefaultIfEmpty(0f)
+                        .Max();
+                    Check(travel > 20f,
+                          $"{System.IO.Path.GetFileName(wreckPath)} ROTATES "
+                          + $"({travel:F1} deg) — location-only is a standing wreck");
+
+                    // L8 leftover was a short hut (0.92 of 1.62). Outpost
+                    // bar is ~0.50 of standing. Sample the clip, not the
+                    // rest pose — a grid of boxes at frame 1 is still a hut.
+                    if (wreckPath.Contains("garrison_post"))
+                    {
+                        float Span()
+                        {
+                            float y0 = 1e9f, y1 = -1e9f;
+                            foreach (var r in inst.GetComponentsInChildren<MeshRenderer>(true))
+                            {
+                                if (!r.enabled) continue;
+                                y0 = Mathf.Min(y0, r.bounds.min.y);
+                                y1 = Mathf.Max(y1, r.bounds.max.y);
+                            }
+                            return y1 - y0;
+                        }
+                        clip.time = 0f;
+                        body.Sample();
+                        float restH = Span();
+                        clip.time = clip.length;
+                        body.Sample();
+                        float endH = Span();
+                        Check(restH > 0.4f && endH < restH * 0.50f,
+                              $"garrison leftover is a pile, not a hut "
+                              + $"(end {endH:F2} of rest {restH:F2})");
+                    }
+                }
+                finally
+                {
+                    Object.DestroyImmediate(inst);
+                }
+            }
 
             // Every unit CLASS the levels actually field needs its own rigged silhouette and a
             // prefab per side, or BattleRunner has no pool to hand it a slot from and the soldier
@@ -2836,6 +4049,276 @@ public static class PortSelfTest
                           "`die` drives the ROOT — which is why a corpse's root has to be restored");
                     Check(!DrivesRoot(UnitAnim.Idle),
                           "`idle` does NOT drive the root, so it cannot undo a death on its own");
+
+                    bool DrivesPath(string clipName, string path)
+                    {
+                        var st = animation[clipName];
+                        if (st?.clip == null) return false;
+                        foreach (var b in AnimationUtility.GetCurveBindings(st.clip))
+                            if (b.path == path) return true;
+                        return false;
+                    }
+                    // `walk` writes the legs; `idle` does not. A march that CrossFades to idle
+                    // mid-stride therefore stays mid-stride — the hold-line frozen run Rob
+                    // caught on 2026-08-13. UnitAnim.RestoreStance puts the authored stance
+                    // back; this pair is the reason that method has to exist.
+                    Check(DrivesPath(UnitAnim.Walk, "leg-left")
+                          && DrivesPath(UnitAnim.Walk, "leg-right"),
+                          "`walk` drives both legs");
+                    Check(!DrivesPath(UnitAnim.Idle, "leg-left")
+                          && !DrivesPath(UnitAnim.Idle, "leg-right"),
+                          "`idle` does NOT drive the legs, so a stopped march cannot stand itself up");
+
+                    // OUTPUT: a stopped march stands up. The pair above is why; this is the
+                    // restore. Instantiated, walked to mid-stride, stopped, LateUpdate — the
+                    // left leg must be back at rest. Seen against the shape of the bug: idle
+                    // Sample after CrossFade leaves the stride on the joint.
+                    {
+                        var go = (GameObject)PrefabUtility.InstantiatePrefab(animPrefab);
+                        try
+                        {
+                            var ua = go.GetComponent<UnitAnim>();
+                            var body = go.GetComponentInChildren<Animation>();
+                            var leg = body != null ? body.transform.Find("leg-left") : null;
+                            Check(ua != null && body != null && body[UnitAnim.Walk] != null
+                                  && leg != null,
+                                  "the rifleman prefab can play walk");
+                            if (ua != null && body != null && body[UnitAnim.Walk] != null
+                                && leg != null)
+                            {
+                                // executeMethod is not play mode: Awake never ran, so the
+                                // rest-pose cache and the Animation ref are still empty.
+                                ua.SendMessage("Awake", SendMessageOptions.DontRequireReceiver);
+                                var rest = leg.localRotation;
+                                ua.SetWalking(true);
+                                // CrossFade has not blended yet; Play + Sample is the pose.
+                                body.Play(UnitAnim.Walk);
+                                body[UnitAnim.Walk].time = 0.166f;
+                                body.Sample();
+                                float stride = Quaternion.Angle(rest, leg.localRotation);
+                                ua.SendMessage("LateUpdate",
+                                               SendMessageOptions.DontRequireReceiver);
+                                float full = Quaternion.Angle(rest, leg.localRotation);
+                                ua.SetWalking(true, UnitAnim.MarchStride, UnitAnim.MarchAnimSpeed);
+                                body[UnitAnim.Walk].time = 0.166f;
+                                body.Sample();
+                                ua.SendMessage("LateUpdate",
+                                               SendMessageOptions.DontRequireReceiver);
+                                float marched = Quaternion.Angle(rest, leg.localRotation);
+                                ua.SetWalking(false);
+                                body.Sample();
+                                ua.SendMessage("LateUpdate",
+                                               SendMessageOptions.DontRequireReceiver);
+                                float stood = Quaternion.Angle(rest, leg.localRotation);
+                                Check(stride > 10f && stood < 2f,
+                                      $"a stopped march STANDS UP "
+                                      + $"(leg {stood:F1} deg from rest, was {stride:F1} mid-stride)");
+                                // OUTPUT: the arrive stride is smaller than Kenney's jog.
+                                // A missing ApplyStride leaves marched == full and this goes red.
+                                Check(full > 10f
+                                      && marched < full * 0.70f
+                                      && marched > full * 0.30f,
+                                      $"player arrive is a MARCH, not Kenney's 60° jog "
+                                      + $"(full {full:F1} deg, marched {marched:F1})");
+                            }
+                        }
+                        finally
+                        {
+                            Object.DestroyImmediate(go);
+                        }
+                    }
+
+                    // --- THE MELEE SWING, bound 2026-08-13.
+                    //
+                    // Advancing squads shipped 2026-08-12 with no fight animation at all: a
+                    // mutual kill was a knockback flinch and two ragdolls, so the mechanic was
+                    // real and unreadable. What can go wrong is not "is the clip listed" — it is
+                    // that a clip can be BOUND and move nothing, which is exactly how the port
+                    // shipped `walk` in the pack for a week without anyone marching.
+                    //
+                    // So this measures the ARM the player watches, and carries its own control:
+                    // `holding-both` is a static two-handed pose and MUST measure ~0 by the same
+                    // ruler. A travel measurement that cannot report zero is not a measurement.
+                    // Recorded when written: melee arm-right 161.6 degrees, hold 0.0.
+                    float ArmTravel(string clipName)
+                    {
+                        var st = animation[clipName];
+                        if (st?.clip == null) return -1f;
+                        var binding = AnimationUtility.GetCurveBindings(st.clip)
+                            .Where(b => b.path == "torso/arm-right"
+                                        && b.propertyName.StartsWith("m_LocalRotation"))
+                            .ToList();
+                        if (binding.Count == 0) return 0f;
+                        // PER COMPONENT. Pooling x/y/z/w into one range measures the POSE rather
+                        // than the motion — the static hold is a constant quaternion whose
+                        // components are 0.71 apart, and the first draft of this check read that
+                        // as a 90-degree swing and failed its own control.
+                        float widest = 0f;
+                        foreach (var b in binding)
+                        {
+                            var c = AnimationUtility.GetEditorCurve(st.clip, b);
+                            float lo = float.MaxValue, hi = float.MinValue;
+                            foreach (var k in c.keys) { lo = Mathf.Min(lo, k.value); hi = Mathf.Max(hi, k.value); }
+                            if (c.keys.Length > 0) widest = Mathf.Max(widest, hi - lo);
+                        }
+                        // Quaternion components, so the excursion is an angle only up to a
+                        // constant — ample for "did this joint move at all", which is the question.
+                        return Mathf.Rad2Deg * 2f * Mathf.Asin(Mathf.Clamp01(widest * 0.5f));
+                    }
+
+                    float swing = ArmTravel(UnitAnim.Melee), still = ArmTravel(UnitAnim.Hold);
+                    Check(swing > 20f && still < 1f && DrivesRoot(UnitAnim.Melee),
+                          $"the melee clip SWINGS the right arm ({swing:F1} deg) and steps the root, "
+                          + $"measured against a static hold that reads {still:F1} deg");
+
+                    // Die clip stays OFF. Flail is the limb motion on a neutral stance.
+                    {
+                        var go = (GameObject)PrefabUtility.InstantiatePrefab(animPrefab);
+                        try
+                        {
+                            var ua = go.GetComponent<UnitAnim>();
+                            var body = go.GetComponentInChildren<Animation>();
+                            var arm = body != null ? body.transform.Find("torso/arm-right") : null;
+                            Check(ua != null && body != null && arm != null,
+                                  "the rifleman prefab can ragdoll");
+                            if (ua != null && body != null && arm != null)
+                            {
+                                ua.SendMessage("Awake", SendMessageOptions.DontRequireReceiver);
+                                ua.Set(UnitAnim.Die);
+                                body.Sample();
+                                var rest = arm.localRotation;
+                                ua.SetRagdoll(7, 0.25f, true);
+                                ua.SendMessage("LateUpdate",
+                                               SendMessageOptions.DontRequireReceiver);
+                                float flung = Quaternion.Angle(rest, arm.localRotation);
+                                ua.SetRagdoll(7, 0.25f, false);
+                                ua.SendMessage("LateUpdate",
+                                               SendMessageOptions.DontRequireReceiver);
+                                float settled = Quaternion.Angle(rest, arm.localRotation);
+                                Check(flung > 3f && flung < 28f && settled < 2f,
+                                      $"an airborne corpse FLAILS "
+                                      + $"({flung:F1} deg) and a settled one does not "
+                                      + $"({settled:F1} deg)");
+
+                                // SLUMP: against a wall the torso folds, and the flail
+                                // does not run over it. Sample die, then LateUpdate with
+                                // slump=1, airborne=true — if flail won, the ARM would
+                                // move and the torso would not.
+                                var torso = body.transform.Find("torso");
+                                Check(torso != null, "the rifleman prefab has a torso");
+                                if (torso != null)
+                                {
+                                    body[UnitAnim.Die].normalizedTime = 1f;
+                                    body.Sample();
+                                    var frozenTorso = torso.localRotation;
+                                    var frozenArm = arm.localRotation;
+                                    ua.SetRagdoll(7, 0.25f, true, slumpToward: 1f);
+                                    ua.SendMessage("LateUpdate",
+                                                   SendMessageOptions.DontRequireReceiver);
+                                    float folded = Quaternion.Angle(frozenTorso,
+                                                                    torso.localRotation);
+                                    float armTwitch = Quaternion.Angle(frozenArm,
+                                                                       arm.localRotation);
+                                    Check(folded > 8f && armTwitch < folded,
+                                          $"a body against masonry SLUMPS the torso "
+                                          + $"({folded:F1} deg) and does not twitch the "
+                                          + $"arm over it ({armTwitch:F1} deg)");
+                                }
+                            }
+                        }
+                        finally
+                        {
+                            Object.DestroyImmediate(go);
+                        }
+                    }
+                }
+            }
+
+            // Every rigged prefab, not just the rifleman: the swing has to reach the classes that
+            // actually do the fighting. A clip list is per-prefab and `MakePrefab` runs 14 times.
+            {
+                var noMelee = new List<string>();
+                foreach (var k in RiggedUnits.Models)
+                    foreach (var side in new[] { "Player", "Enemy" })
+                    {
+                        var pf = AssetDatabase.LoadAssetAtPath<GameObject>(
+                            $"Assets/Prefabs/{side}Unit_{k}.prefab");
+                        var a = pf == null ? null : pf.GetComponentInChildren<Animation>();
+                        if (a == null || a[UnitAnim.Melee]?.clip == null) noMelee.Add($"{side}Unit_{k}");
+                    }
+                Check(noMelee.Count == 0,
+                      noMelee.Count == 0
+                          ? $"all {RiggedUnits.Models.Length * 2} unit prefabs carry the melee swing"
+                          : $"NO MELEE CLIP (rebuild the scene): {string.Join(", ", noMelee)}");
+            }
+
+            // The held rifle must sit BELOW the helmet. AttachGun is in model units and
+            // Normalize scales by the tallest point, so a short helmet (v2's first ACH,
+            // 2.64 against the old stacked hat's 2.97) lifts the hold-pose gun to the
+            // crown. Assert the thing the player would notice, on the built prefab.
+            {
+                var pf = AssetDatabase.LoadAssetAtPath<GameObject>(
+                    "Assets/Prefabs/PlayerUnit_unit_rifleman.prefab");
+                Check(pf != null, "the player rifleman prefab exists to measure the held rifle");
+                if (pf != null)
+                {
+                    var go = (GameObject)PrefabUtility.InstantiatePrefab(pf);
+                    try
+                    {
+                        var body = go.GetComponentInChildren<Animation>();
+                        var hold = body != null ? body[UnitAnim.Hold] : null;
+                        var gun = go.GetComponentsInChildren<Transform>(true)
+                            .FirstOrDefault(t => t.name == "gun");
+                        var helm = go.GetComponentsInChildren<MeshRenderer>(true)
+                            .FirstOrDefault(r => r.gameObject.name.StartsWith("accent_head"));
+                        var gunR = gun != null ? gun.GetComponentInChildren<MeshRenderer>() : null;
+                        Check(hold != null && gunR != null && helm != null,
+                              "rifleman prefab has a hold clip, a gun mesh and a helmet");
+                        if (hold != null && gunR != null && helm != null)
+                        {
+                            hold.enabled = true;
+                            hold.weight = 1f;
+                            hold.normalizedTime = 0f;
+                            body.Sample();
+                            float gunTop = gunR.bounds.max.y;
+                            float helmTop = helm.bounds.max.y;
+                            Check(gunTop < helmTop - 0.01f,
+                                  $"the held rifle sits BELOW the helmet "
+                                  + $"(gun top {gunTop:F3} vs helmet {helmTop:F3})");
+                            // placeholder_gun's long axis is +X. Identity parenting plus
+                            // Kenney's hold pointed that at the camera (world Z after the
+                            // facing yaw). Downfield is world X. Assert the span the
+                            // player sees, not the localEuler we meant to write.
+                            var span = gunR.bounds.size;
+                            Check(span.x > span.z * 1.4f,
+                                  $"the held rifle lies along the field, not toward the camera "
+                                  + $"(span x {span.x:F3} vs z {span.z:F3})");
+                            // Unity +X is SCREEN LEFT. The player must face −X
+                            // (screen right, the enemy). A check on world +X was
+                            // GREEN while the phone showed every back to the
+                            // outpost. Ask the facing pivot, then the muzzle
+                            // along that forward.
+                            var facing = go.transform.Find("facing");
+                            Check(facing != null, "rifleman prefab has a facing pivot");
+                            if (facing != null)
+                            {
+                                var faceDir = facing.TransformDirection(Vector3.forward);
+                                Check(faceDir.x < -0.7f,
+                                      $"the player faces screen-right / Unity −X "
+                                      + $"(forward x {faceDir.x:F2})");
+                                // The imported gun root's +X is not always the
+                                // mesh barrel (glTFast can wrap a root). Assert
+                                // the rendered mass: the bounds centre should
+                                // sit on the facing side of the grip.
+                                var grip = gun.position;
+                                float along = Vector3.Dot(gunR.bounds.center - grip, faceDir);
+                                Check(along > 0.01f,
+                                      $"the rifle mesh sits the way the soldier faces "
+                                      + $"(mesh along {along:F3})");
+                            }
+                        }
+                    }
+                    finally { Object.DestroyImmediate(go); }
                 }
             }
 
@@ -3199,6 +4682,7 @@ public static class PortSelfTest
         CheckNobodyOverlaps();
         CheckNobodyStandsInAWall();
         CheckCrowdSplitKeptTheBalance();
+        CheckAdvancingSquads();
 
         Debug.Log($"[PortSelfTest] {(failed == 0 ? "ALL PASS" : $"{failed} FAILURES")}\n{Log}");
         if (failed > 0 && Application.isBatchMode) EditorApplication.Exit(1);
@@ -3465,6 +4949,7 @@ public static class PortSelfTest
 
         int measured = 0;
         var offenders = new List<string>();
+        var advisories = new List<string>();
 
         foreach (var level in levels)
         {
@@ -3474,16 +4959,370 @@ public static class PortSelfTest
             measured++;
 
             var f = LevelComposition.CollisionBoxRule(level, state);
-            if (f.Level != LevelComposition.Severity.Ok)
+            // ONLY AN ERROR FAILS THE SUITE. The rule gained a Warn severity on 2026-08-12 with
+            // advancing squads: a charger that starts inside masonry and walks clear on its
+            // SECOND march is hittable, just not yet, and that is a pacing judgement rather than
+            // an unkillable body. Failing the suite on it would make the one severity that means
+            // "this level cannot be played" indistinguishable from a note about tempo.
+            if (f.Level == LevelComposition.Severity.Error)
                 offenders.Add($"L{level.levelNumber} {f.Text}");
+            else if (f.Level == LevelComposition.Severity.Warn)
+                advisories.Add($"L{level.levelNumber} {f.Text}");
         }
 
         // measured > 0 is part of the condition: over an empty campaign this is vacuously true,
         // which is the empty-purse trap.
         Check(measured > 0 && offenders.Count == 0,
               $"no ground unit stands inside a structure's collision box — {measured} campaign " +
-              $"level(s) measured, {offenders.Count} offending" +
+              $"level(s) measured, {offenders.Count} offending, {advisories.Count} advisory" +
               (offenders.Count == 0 ? "" : $": {string.Join("; ", offenders)}"));
+
+        // Surfaced, never asserted: a warning a level may bend still has to be READABLE, or the
+        // next session rediscovers it by hand.
+        foreach (var a in advisories) Debug.Log($"[PortSelfTest] rule 8 advisory — {a}");
+    }
+
+    /// <summary>
+    /// ADVANCING SQUADS AND MELEE — the eighth dead system, ported 2026-08-12.
+    ///
+    /// EVERY ASSERTION HERE IS AN OUTPUT. `AdvanceRemaining` and `SkirmishEntity` were both
+    /// DECLARED and never written for the whole life of this port, and a check on either field's
+    /// presence would have passed against that. So these ask what the player would see: did the
+    /// body MOVE, did it STOP at the line, did a soldier DIE for letting it arrive, and does
+    /// killing the attacker first SAVE him.
+    ///
+    /// All four were seen RED against the unwired tick before being trusted, with the failing
+    /// numbers recorded in HANDOVER.md.
+    /// </summary>
+    static void CheckAdvancingSquads()
+    {
+        // A REAL CAMPAIGN LEVEL THAT AUTHORS AN ADVANCE, not a synthetic one: the mechanic is
+        // only worth anything if the shipped data drives it, and four levels do (L4, L8, L9, L12).
+        var level = AssetDatabase.FindAssets("t:LevelDefinitionSO")
+            .Select(g => AssetDatabase.LoadAssetAtPath<LevelDefinitionSO>(
+                AssetDatabase.GUIDToAssetPath(g)))
+            .Where(l => l != null && !l.isTestLevel
+                        && l.enemyGroups.Any(gr => gr.advancePerTurn > 0f))
+            .OrderBy(l => l.levelNumber).FirstOrDefault();
+        if (level == null) { Check(false, "a campaign level that authors an advance"); return; }
+
+        var random = new System.Random(9);
+        var start = LevelBuilder.BuildInitialState(level, 1, 12, random)
+            with { Phase = GamePhase.Playing };
+
+        Check(start.EnemyUnits.Any(u => u.AdvancePerTurn > 0f),
+              $"L{level.levelNumber} fields an advancing squad " +
+              $"({start.EnemyUnits.Count(u => u.AdvancePerTurn > 0f)} bodies)");
+
+        // --- 1. the march: it MOVES, it spends its budget, and it HOLDS short of the line ------
+        //
+        // Driven through the same edge the game uses — Resolving with an empty volley hands over
+        // to EnemyWindup, which is where the budget is banked. Asserting on a hand-set
+        // AdvanceRemaining would test the marcher and skip the banking, and the banking is the
+        // half that was missing.
+        var handover = start with { TurnSide = TurnSide.Player, TurnPhase = TurnPhase.Resolving,
+                                    TurnHandoverDelay = 0f };
+        var windup = BattleTick.Step(handover, 1f / 60f, level, random);
+
+        float budget = windup.EnemyUnits.Where(u => u.AdvancePerTurn > 0f)
+                             .Select(u => u.AdvanceRemaining).DefaultIfEmpty(0f).Max();
+        Check(windup.TurnPhase == TurnPhase.EnemyWindup && budget > 0f,
+              $"the handover into the windup BANKS an advance budget ({budget:F2})");
+
+        var before = windup;
+        var marching = windup;
+        for (int i = 0; i < 120 && AdvanceSystems.Marching(marching.EnemyUnits); i++)
+            marching = BattleTick.Step(marching, 1f / 60f, level, random);
+
+        int id = before.EnemyUnits.First(u => u.AdvancePerTurn > 0f).Id;
+        float fromX = before.EnemyUnits.First(u => u.Id == id).X;
+        float toX = marching.EnemyUnits.First(u => u.Id == id).X;
+        float frontline = marching.PlayerUnits.Where(u => u.StandingOnStructureId == null)
+                                  .Max(u => u.X);
+
+        Check(toX < fromX - 0.05f
+              && toX >= frontline + AdvanceSystems.AdvanceStopGap - 0.01f
+              && marching.EnemyUnits.All(u => u.AdvanceRemaining == 0f),
+              $"the squad WALKS toward the line and stops clear of it " +
+              $"(x {fromX:F2} -> {toX:F2}, front {frontline:F2}, " +
+              $"hold {frontline + AdvanceSystems.AdvanceStopGap:F2})");
+
+        // --- 2. arrival costs a soldier, and takes the attacker with it -----------------------
+        //
+        // Walked to the line rather than teleported there: MeleeRange is a claim condition, and a
+        // body placed AT the line by hand would prove the claim works on a state the march can
+        // never produce. Budget is topped up until it arrives.
+        var closing = windup;
+        for (int i = 0; i < 600 && closing.Skirmishes.Count == 0; i++)
+        {
+            if (!AdvanceSystems.Marching(closing.EnemyUnits))
+                closing = closing with { EnemyUnits = AdvanceSystems.BankBudget(closing.EnemyUnits) };
+            closing = BattleTick.Step(closing, 1f / 60f, level, random);
+        }
+        Check(closing.Skirmishes.Count > 0,
+              $"a charger that reaches the line LOCKS ONTO a soldier " +
+              $"({closing.Skirmishes.Count} fight(s))");
+
+        // NOTHING BELOW CAN RUN WITHOUT A FIGHT, and it must go RED rather than THROW: against
+        // the unwired tick this list is empty, and indexing it aborted the whole suite — every
+        // check after this one silently stopped running. A check that explodes is not a check
+        // that failed; it takes its neighbours with it.
+        if (closing.Skirmishes.Count == 0)
+        {
+            Check(false, "the fight is a MUTUAL KILL — NO FIGHT EVER STARTED");
+            Check(false, "killing the attacker mid-scuffle SPARES the soldier — NO FIGHT");
+            return;
+        }
+
+        int playersBefore = closing.PlayerUnits.Count;
+        int enemiesBefore = closing.EnemyUnits.Count;
+        int victimId = closing.Skirmishes[0].VictimId;
+        int attackerId = closing.Skirmishes[0].AttackerId;
+
+        var fought = closing;
+        for (int i = 0; i < 240 && fought.Skirmishes.Count > 0; i++)
+            fought = BattleTick.Step(fought, 1f / 60f, level, random);
+
+        Check(fought.PlayerUnits.All(u => u.Id != victimId)
+              && fought.EnemyUnits.All(u => u.Id != attackerId)
+              && fought.PlayerUnits.Count < playersBefore
+              && fought.EnemyUnits.Count < enemiesBefore,
+              $"the fight is a MUTUAL KILL — both bodies fall " +
+              $"(players {playersBefore} -> {fought.PlayerUnits.Count}, " +
+              $"enemies {enemiesBefore} -> {fought.EnemyUnits.Count})");
+
+        // --- 3. the counter-play: kill the attacker and the soldier lives --------------------
+        //
+        // The whole point of the mechanic is that the advance can be ANSWERED. Same locked pair,
+        // attacker removed mid-scuffle the way a volley would remove it.
+        var spared = closing with
+        {
+            EnemyUnits = closing.EnemyUnits.Where(u => u.Id != attackerId).ToList(),
+        };
+        for (int i = 0; i < 240 && spared.Skirmishes.Count > 0; i++)
+            spared = BattleTick.Step(spared, 1f / 60f, level, random);
+
+        Check(spared.PlayerUnits.Any(u => u.Id == victimId) && spared.Skirmishes.Count == 0,
+              "killing the attacker mid-scuffle SPARES the soldier — the fight ends");
+
+        // --- 3b. THE TANK CREW IS REACHABLE, and the ground line is not a shield ---------------
+        //
+        // Rob found this on the first device build: "the player standing on the tank never gets
+        // touched by the assault force." The crew stands 0.60 up on the vehicle and the old rule
+        // exempted anyone standing on anything, so once the ground line was dead the chargers had
+        // nobody they were allowed to touch and the battle could not be lost to melee at all.
+        //
+        // PUT THE WORLD IN THE STATE WHERE IT COULD FAIL: every ground unit removed, so the crew
+        // is the ONLY thing left. Against the old predicate the squad stands there forever.
+        {
+            var crewOnly = windup with
+            {
+                PlayerUnits = windup.PlayerUnits.Where(u => u.StandingOnStructureId != null).ToList(),
+            };
+            Check(crewOnly.PlayerUnits.Count > 0 && crewOnly.PlayerUnits.All(u => u.Y > 0f),
+                  $"the tank crew is garrisoned, off the ground " +
+                  $"({crewOnly.PlayerUnits.Count} at y {crewOnly.PlayerUnits.Max(u => u.Y):F2})");
+
+            int crewBefore = crewOnly.PlayerUnits.Count;
+            for (int i = 0; i < 900 && crewOnly.PlayerUnits.Count == crewBefore; i++)
+            {
+                if (!AdvanceSystems.Marching(crewOnly.EnemyUnits)
+                    && crewOnly.Skirmishes.Count == 0)
+                    crewOnly = crewOnly with
+                        { EnemyUnits = AdvanceSystems.BankBudget(crewOnly.EnemyUnits) };
+                crewOnly = BattleTick.Step(crewOnly, 1f / 60f, level, random);
+            }
+
+            Check(crewOnly.PlayerUnits.Count < crewBefore,
+                  $"an assault that has run out of GROUND targets comes for the TANK CREW " +
+                  $"({crewBefore} -> {crewOnly.PlayerUnits.Count})");
+        }
+
+        // A GARRISON ON A REAL STRUCTURE STAYS OUT OF REACH — the other half of the same rule, and
+        // the half that stops this from becoming "melee hits everything". Measured decks: the tank
+        // is 0.60, every enemy structure is 1.40 or higher.
+        Check(AdvanceSystems.Reachable(start.PlayerUnits.First(u => u.StandingOnStructureId != null))
+              && !AdvanceSystems.Reachable(
+                     start.PlayerUnits.First(u => u.StandingOnStructureId != null)
+                     with { Y = 1.40f }),
+              $"reach is a HEIGHT, not a flag — a 0.60 tank deck is reachable and a 1.40 deck is " +
+              $"not (threshold {AdvanceSystems.MeleeReachHeight:F2})");
+
+        // --- 3c. THE CAMERA GOES WHERE THE FIGHT IS ------------------------------------------
+        //
+        // Rob, first device build: the melee "happens off camera and it's weird". The windup
+        // anchor was a fixed per-level value on the ENEMY side, while the march and the fight
+        // happen at the PLAYER's line — `PhaseHalfWidth`'s whole marcher branch was ported and
+        // fed `0f, false` from a literal.
+        //
+        // ASSERTED AS AN OUTPUT: where the camera actually ends up after a second of marching,
+        // measured against the enemy anchor it used to sit on and the marchers it should now be
+        // following. Asserting that the arguments are non-literal would be an input check.
+        {
+            var riding = windup;
+            for (int i = 0; i < 60 && AdvanceSystems.Marching(riding.EnemyUnits); i++)
+                riding = BattleTick.Step(riding, 1f / 60f, level, random);
+
+            float marcherMean = riding.EnemyUnits.Where(u => u.AdvancePerTurn > 0f)
+                                      .Select(u => u.X).Average();
+            float cam = riding.CameraFollowX ?? riding.EnemyCamXAnchor;
+            Check(Mathf.Abs(cam - marcherMean) < Mathf.Abs(cam - riding.EnemyCamXAnchor),
+                  $"the windup camera RIDES THE MARCH rather than holding the enemy anchor " +
+                  $"(cam {cam:F2}, marchers {marcherMean:F2}, enemy anchor " +
+                  $"{riding.EnemyCamXAnchor:F2})");
+        }
+
+        // And it HOLDS on the fight once one starts: an engaged attacker has spent its budget and
+        // is no longer a marcher, so a target built from marchers alone snaps back to the shooter
+        // line ~1s before the mutual kill it was waiting for.
+        Check(Mathf.Approximately(
+                  CameraDirector.EnemyWindupAnchorX(
+                      new List<float>(), new List<float> { -6f, -5.8f },
+                      new List<float> { 7f, 8f }, new List<float> { 7f, 8f, -6f }, 9f),
+                  -5.9f),
+              "with the march over and a fight running, the camera holds on the SKIRMISH line");
+
+        // --- 3d. A FIGHT KEEPS THE CAMERA EVEN WITH A VOLLEY IN THE AIR ----------------------
+        //
+        // Rob, second device build: "when the actual melee attack takes place, the camera should
+        // stay on that until it's complete." Holding it inside the windup branch was not enough —
+        // a skirmish SPANS phases (the handover gate waits for it), so a fight still running when
+        // the windup ended handed the frame to the volley chase, which is by definition somewhere
+        // else on the field.
+        //
+        // PUT IT IN THE STATE WHERE IT COULD FAIL: a live fight AND a live volley, in Resolving,
+        // which is exactly the frame the player lost. The rounds are placed on the far side of the
+        // field so the two targets cannot be confused for one another.
+        {
+            var mid = closing;
+            var attackerNow = mid.EnemyUnits.First(u => u.Id == mid.Skirmishes[0].AttackerId);
+            var far = mid.Projectiles.ToList();
+            var contested = mid with
+            {
+                TurnPhase = TurnPhase.Resolving,
+                TurnSide = TurnSide.Player,
+                CameraFollowX = attackerNow.X,
+            };
+            // LONG ENOUGH FOR THE SPRING TO ACTUALLY GO SOMEWHERE. The first draft of this check
+            // seeded the camera ON the fight and stepped ONE tick, so it passed against the very
+            // regression it was written for — a camera that has not had time to move is not
+            // evidence of a camera that stayed. 40 ticks is two thirds of a second, plenty of
+            // travel toward the enemy anchor ~9 units away, and short of SkirmishDuration so the
+            // fight is still running at the end.
+            for (int i = 0; i < 40 && contested.Skirmishes.Count > 0; i++)
+                contested = BattleTick.Step(contested, 1f / 60f, level, random);
+
+            float fightX = contested.Skirmishes
+                .Select(sk => contested.EnemyUnits.FirstOrDefault(u => u.Id == sk.AttackerId)?.X)
+                .Where(x => x.HasValue).Select(x => x.Value).DefaultIfEmpty(attackerNow.X).Average();
+            float camNow = contested.CameraFollowX ?? 0f;
+
+            // ASSERTED AS CONTAINMENT, NOT PROXIMITY. The camera deliberately does NOT sit on the
+            // fight — it sits at the midpoint of the whole engagement so the player's force is in
+            // shot too, which on L4 is 1.54 from the fight and would fail a distance test while
+            // being exactly right. The frame is recovered from CameraFollowZ through TargetZ's own
+            // inverse rather than re-derived, so this cannot drift from the camera the game uses.
+            float shownHalfWidth = (contested.CameraFollowZ ?? 0f) * CameraDirector.ZHalfFovTan
+                                   - CameraDirector.FramePad;
+            float playerFrontX = contested.PlayerUnits.Max(u => u.X);
+            float playerRearX = contested.PlayerUnits.Min(u => u.X);
+
+            Check(contested.Skirmishes.Count > 0
+                  && Mathf.Abs(camNow - fightX) <= shownHalfWidth
+                  && Mathf.Abs(camNow - playerRearX) <= shownHalfWidth
+                  && Mathf.Abs(camNow - playerFrontX) <= shownHalfWidth,
+                  $"a running fight KEEPS the camera in Resolving AND frames the whole engagement " +
+                  $"— the fight and the player's force, rear rank included (cam {camNow:F2} " +
+                  $"±{shownHalfWidth:F2}, fight {fightX:F2}, player line {playerRearX:F2}.." +
+                  $"{playerFrontX:F2}, {contested.Skirmishes.Count} fight(s))");
+        }
+
+        // THE FRAME ITSELF, asked directly: a fight at the line must not crop the TANK CREW out of
+        // the picture. That is the exact shot Rob asked for — "so the player can see what's
+        // happening to their force" — and it is what framing the fighters alone got wrong.
+        {
+            var force = start.PlayerUnits.Select(u => u.X).ToList();
+            float fightAt = force.Max() + AdvanceSystems.AdvanceStopGap;
+            float half = CameraDirector.AssaultFrame(
+                new List<float>(), new List<float> { fightAt, force.Max() }, force, out float at);
+
+            Check(force.All(x => Mathf.Abs(x - at) <= half) && Mathf.Abs(fightAt - at) <= half,
+                  $"the assault frame holds the FIGHT and the WHOLE player force including the " +
+                  $"rear rank (centre {at:F2} ±{half:F2}, force {force.Min():F2}..{force.Max():F2}, " +
+                  $"fight {fightAt:F2})");
+        }
+
+        // --- 3e. THE CAMERA HOLDS AFTER THE KILL, and the volley waits for it -----------------
+        //
+        // Rob, fourth device build: "we still are in a hurry to zoom back to the main force. we
+        // need to show the melee assault the whole time and pause so it registers with the
+        // player." Releasing on the tick the skirmish list emptied played the payoff — the two
+        // bodies falling — as the camera was already leaving.
+        //
+        // MEASURED HALF A SECOND AFTER THE LAST PAIR FELL, which is the window that was broken:
+        // the fight is over, its participants are gone from the unit lists, and the camera must
+        // still be looking at where it happened.
+        {
+            var ending = closing;
+            for (int i = 0; i < 240 && ending.Skirmishes.Count > 0; i++)
+                ending = BattleTick.Step(ending, 1f / 60f, level, random);
+
+            float heldAt = ending.MeleeHoldAnchorX;
+            Check(ending.Skirmishes.Count == 0 && ending.MeleeHold > 0f,
+                  $"the hold ARMS when the fight ends ({ending.MeleeHold:F2}s on the clock)");
+
+            for (int i = 0; i < 30; i++)
+                ending = BattleTick.Step(ending, 1f / 60f, level, random);
+
+            float camAfter = ending.CameraFollowX ?? 0f;
+            Check(ending.MeleeHold > 0f && Mathf.Abs(camAfter - heldAt) < 1.0f,
+                  $"half a second after the last pair falls the camera is STILL THERE " +
+                  $"(cam {camAfter:F2}, fight was at {heldAt:F2}, {ending.MeleeHold:F2}s left)");
+
+            // And nothing shoots into the pause. The windup is the renderer's clock, so this
+            // asserts the predicate the renderer gates on rather than the clock itself.
+            Check(ending.MeleeHold > 0f,
+                  "...and the enemy volley is still held off while it runs");
+        }
+
+        // THE LAST KILL HOLDS THE CAMERA. The cosmetic-over path used to spring to the
+        // survivors the same tick Phase became Victory, so the killing blow played as the
+        // camera was already leaving. Rob, 2026-08-13.
+        {
+            var def = ScriptableObject.CreateInstance<UnitDefinitionSO>();
+            def.id = "holdcam"; def.maxHp = 16; def.damage = 8;
+            var survivor = new UnitEntity(1, def, -7.2f, 0f, 0f, 16, true);
+            var held = new GameState
+            {
+                Phase = GamePhase.Victory,
+                VictoryCamHold = CameraDirector.VictoryCamHoldSeconds,
+                CameraFollowX = 5.2f,
+                CameraFollowZ = 11f,
+                PlayerUnits = new List<UnitEntity> { survivor },
+            };
+            float killCam = held.CameraFollowX.Value;
+            for (int i = 0; i < 60; i++)
+                held = BattleTick.Step(held, 1f / 60f, null, new System.Random(1));
+            Check(held.VictoryCamHold > 0.8f
+                  && Mathf.Abs(held.CameraFollowX.Value - killCam) < 0.35f,
+                  $"victory hold keeps the camera on the last kill at 1s "
+                  + $"(cam {held.CameraFollowX:F2}, was {killCam:F2}, "
+                  + $"{held.VictoryCamHold:F2}s left)");
+            for (int i = 0; i < 180; i++)
+                held = BattleTick.Step(held, 1f / 60f, null, new System.Random(1));
+            Check(held.VictoryCamHold <= 0f && held.CameraFollowX.Value < 0f,
+                  $"then it pans back to the survivors "
+                  + $"(cam {held.CameraFollowX:F2}, hold {held.VictoryCamHold:F2})");
+        }
+
+        // --- 4. the turn cannot hand over while a fight is running ---------------------------
+        //
+        // TurnFlow.EvaluateVolley already took a skirmish count before anything could ever build
+        // one; this is the first time it is asked with a real fight in progress.
+        Check(TurnFlow.EvaluateVolley(0, 1, 0f, TurnSide.Enemy, 0, 1) == TurnFlow.VolleyGate.Busy
+              && TurnFlow.EvaluateVolley(0, 0, 0f, TurnSide.Enemy, 0, 0)
+                 == TurnFlow.VolleyGate.ReadyToHandOver,
+              "a running skirmish HOLDS the turn open, and its end releases it");
     }
 
 }

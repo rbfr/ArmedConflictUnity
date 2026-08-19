@@ -110,6 +110,20 @@ MonoBehaviour:
     scale: 0.9
     slowsAdvance: 0
     halfWidth: 1
+  - modelAsset: models/prop_dead_tree.glb
+    x: -5.1
+    z: -8.5
+    scale: 2.6
+    slowsAdvance: 0
+    halfWidth: 0.6
+    keepColors: 1
+  - modelAsset: models/prop_dead_tree.glb
+    x: -8.8
+    z: -10.6
+    scale: 2.1
+    slowsAdvance: 0
+    halfWidth: 0.6
+    keepColors: 1
   levelBase: 90
   deployBudget: 12
   bossPhases: []

@@ -15,6 +15,7 @@ MonoBehaviour:
   id: command_bunker
   displayName: Command Bunker
   modelAsset: models/bunker.glb
+  wreckModelAsset: models/bunker_collapse.glb
   maxHp: 250
   size: 1.125
   isPlayerSide: 0

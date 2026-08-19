@@ -32,6 +32,14 @@ namespace ArmedConflict.Render
         public const float MidZ = -38f;
         public const float NearZ = -30f;
 
+        /// <summary>
+        /// FOREGROUND — the only backdrop layer at POSITIVE z, i.e. between the camera and the
+        /// play plane at z = 0. It must sit inside <see cref="Game.CameraDirector.ZMin"/> (5.5)
+        /// or a tight frame would put the camera BEHIND it and it would vanish or clip through.
+        /// 3 leaves margin under that floor at every framing the director can choose.
+        /// </summary>
+        public const float ForeZ = 3f;
+
         /// <summary>Roughly the gameplay camera's z, so a layer's DISTANCE is |z| + this.</summary>
         public const float CameraZ = 11f;
 
@@ -325,6 +333,12 @@ namespace ArmedConflict.Render
         }
 
         // --- City ------------------------------------------------------------------------
+        // FALLBACK / TEST CONTRACT. The live CityRuins skyline is the authored GLB pair
+        // (backdrop_city_far / _near) placed by BackdropRuntime. This profile still has to
+        // produce a legal Plan — PortSelfTest walks every style — and it is what draws if
+        // those meshes are missing. Do not delete it to "use the GLB"; the GLB does not
+        // go through Plan.
+        //
         // Burned-out blocks: the same max-of-elements profile, but each element is a rectangle
         // whose roofline is bitten into three ragged steps. Sparse ember windows go on the near
         // row only — on the far row they would be single lit pixels in the haze.

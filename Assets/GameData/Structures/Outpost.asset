@@ -15,6 +15,7 @@ MonoBehaviour:
   id: outpost
   displayName: Outpost
   modelAsset: models/outpost.glb
+  wreckModelAsset: models/outpost_collapse.glb
   maxHp: 90
   size: 2
   isPlayerSide: 0

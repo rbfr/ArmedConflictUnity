@@ -15,6 +15,7 @@ MonoBehaviour:
   id: cliff_outcrop
   displayName: Cliff Outcrop
   modelAsset: models/cliff_outcrop.glb
+  wreckModelAsset: models/cliff_outcrop_collapse.glb
   maxHp: 120
   size: 3
   isPlayerSide: 0

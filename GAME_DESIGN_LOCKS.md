@@ -236,6 +236,9 @@
 - Fixed side-on view with slight 3D parallax/tilt. No free-roam.
 - **LOCKED as of 2026-07-24** — see `CAMERA_ARCHITECTURE.md`. Do not modify camera or aim
   (`SpringFollow`, `cameraFollowX/Z`, `AimOverlay`) behavior without an explicit ask.
+  2026-08-18 ask: after a garrisoned structure falls, the camera rides the
+  falling bodies for 1.25s then pans back to the remaining enemy line
+  (`CameraDirector.CollapseFollowSeconds`).
 
 ## V1 Scope
 - Single-player campaign vs AI only. No networking or PvP.

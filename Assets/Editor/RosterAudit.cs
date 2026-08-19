@@ -108,13 +108,27 @@ public static class RosterAudit
                     $"volley fires {p.Rounds:F2}. `projectilesPerVolley` is read by AutoFire and by " +
                     "nothing else, so the burst exists only under the debug driver.");
 
+            // MELEE LANDED ON 2026-08-12 AND THIS NUMBER IS STILL DEAD — which is not what the
+            // handover predicted, so it is worth being exact about. `meleeDamage` is read in
+            // exactly one place (`AdvanceSystems.Claim`) and read as a FLAG: "does this class
+            // fight hand-to-hand". The fight it starts is a MUTUAL KILL, not a damage roll, so
+            // the 12 is never arithmetic on either side — that is the ported design, and the
+            // reference build never used the number either.
+            //
+            // And it can only ever fire on the ENEMY copy: a skirmish is claimed BY an advancing
+            // attacker, `LevelBuilder` pins every PLAYER unit's AdvancePerTurn to 0, and the
+            // locked turn structure has the player firing from a fixed line with no counter-
+            // charge. The player's shield bearer keeps ARMOUR as its distinctness, which is why
+            // that was given in the first place.
             if (p.DeclaredMelee > 0)
                 Warns(ref warns,
-                    $"[Roster] {p.Name} declares {p.DeclaredMelee} melee damage and NOTHING reads " +
-                    "`meleeDamage` at runtime — melee is unported (no SkirmishEntity is ever " +
-                    "created, and LevelBuilder pins every PLAYER unit's AdvancePerTurn to 0). " +
-                    "Dead DATA rather than a missing mechanic since 2026-08-12, when the class " +
-                    "was given armour instead; it goes live if advancing squads ever land.");
+                    $"[Roster] {p.Name} declares {p.DeclaredMelee} melee damage and the number is " +
+                    "still DEAD DATA now that melee ships (2026-08-12). `meleeDamage` is read only " +
+                    "as a FLAG — \"this class fights hand-to-hand\" — and a skirmish is a MUTUAL " +
+                    "KILL rather than a damage roll, so no melee number is ever arithmetic. It " +
+                    "also only reaches the ENEMY copy: skirmishes are claimed by ADVANCING " +
+                    "attackers and every PLAYER unit's AdvancePerTurn is pinned to 0. The " +
+                    "player's copy earns its distinctness from ARMOUR, not from this field.");
         }
 
         // `bulletVariant` is a three-value enum on every unit asset and on the projectile record,

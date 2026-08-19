@@ -182,7 +182,7 @@ public static class PlanePreview
         // here. This preview spent its first session at a hardcoded camZ 11 while the actual run
         // camera sits at 14 — so every height judged in it was judged at the wrong distance, and a
         // preview that disagrees with the game is the BackdropPreview mistake all over again.
-        float runCamZ = CameraDirector.TargetZ(CameraDirector.AirstrikeRunHalfWidth + 1.2f,
+        float runCamZ = CameraDirector.TargetZ(CameraDirector.AirstrikeRunHalfWidth + CameraDirector.FramePad,
                                                false, 0f);
         BattleCamera.Apply(cam, 0f, BattleCamera.CameraY, runCamZ);
 

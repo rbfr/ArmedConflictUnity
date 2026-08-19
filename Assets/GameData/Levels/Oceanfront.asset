@@ -70,14 +70,40 @@ MonoBehaviour:
     standingOnStructureId: player_tank
     advancePerTurn: 0
   - definition: {fileID: 11400000, guid: 42221a45b5be3eb57b1b2bd28b9aaac0, type: 2}
-    count: 8
-    anchorX: -8
+    count: 6
+    anchorX: -8.2
+    anchorZ: 0
+    standingOnStructureId: 
+    advancePerTurn: 0
+  - definition: {fileID: 11400000, guid: bc720e3a7e2e4fd75aa060dbb24b72c8, type: 2}
+    count: 1
+    anchorX: -6.6
+    anchorZ: 0
+    standingOnStructureId: 
+    advancePerTurn: 0
+  - definition: {fileID: 11400000, guid: 78df349efe93c4808aaf91ecd66e5ee7, type: 2}
+    count: 1
+    anchorX: -5.8
     anchorZ: 0
     standingOnStructureId: 
     advancePerTurn: 0
   background: {fileID: 11400000, guid: 6d79aa5e81fc8c7fc84dcf8e548ca824, type: 2}
   heliChance: 0
-  props: []
+  props:
+  - modelAsset: models/prop_wreck_car.glb
+    x: -6.2
+    z: -8.3
+    scale: 3.3
+    slowsAdvance: 0
+    halfWidth: 1.2
+    keepColors: 1
+  - modelAsset: models/prop_dead_tree.glb
+    x: -9.8
+    z: -10.0
+    scale: 2.5
+    slowsAdvance: 0
+    halfWidth: 0.6
+    keepColors: 1
   levelBase: 200
   deployBudget: 15
   bossPhases: []
@@ -87,16 +113,18 @@ MonoBehaviour:
     spawnGroups:
     - definition: {fileID: 11400000, guid: 75e1a253a474334eb8576862998ca8e1, type: 2}
       count: 3
-      anchorX: 9
+      anchorX: 3
       anchorZ: 0
       standingOnStructureId: 
-      advancePerTurn: 0
+      advancePerTurn: 1.2
     announcement: Their best are on the beach!
     telegraphLabel: Elite squad inbound
     telegraphLeadTurns: 2
   staticCamera: 0
   isTestLevel: 0
-  designNotes: 'Beat 11: the exam. The chart offers a helicopter here OR a focus-fire
+  designNotes: 'Beat 11: the exam. Default is 6 rifle + 1 sniper + 1 rocket so the
+    player sorts fragile-and-dangerous from tough-and-slow with the matching guns.
+    The chart offers a helicopter here OR a focus-fire
     test; HELI_ENABLED is false for camera-load reasons that are a real problem rather
     than a stale flag, so this is the skill version. Rocket troopers and heavies
     on one post: everything is either fragile-and-dangerous or tough-and-slow, and
@@ -111,4 +139,4 @@ MonoBehaviour:
     campaign teaches one clock, not two. Ground units at x 8, NOT garrisoned: the
     beach post is already at 288-capacity limits and a wave that had to be shot off
     a deck would spend siege damage the squad does not have. Waves are enemy-side
-    only, so the star math (player-roster based) is untouched. WAVE MOVED 2026-08-12, anchorX 8 -> 9: at 8 the first of its three heavies stood 0.71 INSIDE GarrisonPost''s collision box - unhittable except by a near-vertical plunge (rule 8, which until that day never looked at mid-battle arrivals). At 9 the nearest man clears the box edge (7.88) by 0.28 and the deepest sits at 91% power from the front rank, 99% from the back - in reach, and the beat is unchanged: the elite push still lands BEHIND the post, two turns after its warning. An earlier attempt moved the wave in front of the post at anchorX 0 on the belief that there was no room behind it; that belief came from a hand-rolled reach estimate (x - backRank > 20.25) which ignores dy and the launch envelope, and BalanceAudit.ReachRule - the only implementation that counts - disagreed with it. Do not re-derive reach; ask ReachRule.'
+    only, so the star math (player-roster based) is untouched. WAVE MOVED 2026-08-12, anchorX 8 -> 9: at 8 the first of its three heavies stood 0.71 INSIDE GarrisonPost''s collision box - unhittable except by a near-vertical plunge (rule 8, which until that day never looked at mid-battle arrivals). At 9 the nearest man clears the box edge (7.88) by 0.28 and the deepest sits at 91% power from the front rank, 99% from the back - in reach, and the beat is unchanged: the elite push still lands BEHIND the post, two turns after its warning. An earlier attempt moved the wave in front of the post at anchorX 0 on the belief that there was no room behind it; that belief came from a hand-rolled reach estimate (x - backRank > 20.25) which ignores dy and the launch envelope, and BalanceAudit.ReachRule - the only implementation that counts - disagreed with it. Do not re-derive reach; ask ReachRule. WAVE 2026-08-17: Rob, they sit to the right of the post and are very hard to hit. Moved to the FRONT (anchorX 3, clear of the box at 4.13) with advancePerTurn 1.2. Heavies have no melee, so they walk up and hold as a firing line. Timed exam stays.'

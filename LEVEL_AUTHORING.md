@@ -27,11 +27,14 @@ exits 1 on it, as the suite always did.
 ## The eight rules
 
 **1. Aiming zoom is set by the PLAYER LINE alone.**
-`camZ = (playerHalfWidth + 1.2) / 0.45`, and the visible half-width at that distance is exactly
-`playerHalfWidth + 1.2`. During the phase the player spends most of their time in, they see their
-own line and 1.2 units of margin — **the enemy is not in frame and cannot be.** Keep the player
-line **~6 wide**: that puts the camera near 9 and renders a soldier around 130px. A wide player
-line is a zoomed-out level, and nothing else about the layout can compensate.
+`camZ = (playerHalfWidth + FramePad) / 0.45`, and the visible half-width at that distance is exactly
+`playerHalfWidth + FramePad`. `FramePad` is 0.6 (was 1.2; Rob, 2026-08-14, camera felt far).
+The line is the GROUND TROOPS — a garrisoned tank crew stands on the
+vehicle and must not pull the camera back (the unit parade was the failure). During the phase
+the player spends most of their time in, they see their own line and 0.6 units of margin —
+**the enemy is not in frame and cannot be.** Keep the player line **~6 wide**: that puts the
+camera near 8 and renders a soldier around 150px. A wide player line is a zoomed-out level,
+and nothing else about the layout can compensate.
 
 **2. Scout / resolving zoom is set by the ENEMY CLUSTER, structure edges included.**
 Keep the whole enemy side inside **~11 world units** so that framing stays near `camZ` 15. This is
@@ -137,13 +140,23 @@ into.
 Two further exemptions, both semantic rather than tolerances:
 
 - **Garrisoned units**, which stand on a deck above every box and are meant to.
-- **ADVANCING units** (`advancePerTurn > 0`), which walk out of the box on their first move. L9's
-  shield bearers start 0.01 inside the bunker purely on formation jitter and are hittable from
-  turn one. A STATIC unit gets no such reprieve.
-  **This exemption does not verify that the unit actually leaves promptly**, and it is worth
-  knowing before leaning on it: L11's wave, had it been given an advance rather than moved, would
-  have started 0.71 deep and needed THREE turns at 1.2 a turn to clear the box. "Advancing" is not
-  the same claim as "hittable soon", and the check does not currently tell them apart.
+- **ADVANCING units** (`advancePerTurn > 0`) — but **only if they clear the box on their FIRST
+  march**, which the check now verifies rather than assumes (closed 2026-08-12, the day advancing
+  squads went live and the exemption started carrying real weight). L9's shield bearers start 0.01
+  inside the bunker purely on formation jitter and are hittable from turn one. A STATIC unit gets
+  no such reprieve.
+
+  An advancer that clears the box **eventually but not on its first march** is a **WARNING**, not
+  an error, and the split is deliberate: an Error means the player is asked to kill a body they
+  cannot hit AT ALL, which no level may bend; a charger behind masonry for one turn and in the
+  open on the next is a PACING judgement, which a level may bend for a reason it records in
+  `designNotes`. The old blanket exemption told the two apart not at all — L11's wave, had it been
+  given an advance rather than moved, would have started 0.71 deep and needed THREE turns at 1.2 a
+  turn, and nothing would have said so.
+
+  **One level is currently in the warning state: L12's boss shield escort** starts 1.91 inside the
+  gate's box and advances 1.20/turn, so it takes two marches to appear. It is the same gate that
+  shadows the Sovereign, and both are Rob's call — see HANDOVER.md.
 
 Only a box at **lower x** than the target can shadow it, since the shot travels left to right — so
 the practical rule when placing a ground group is: pick the leading EDGE of the foremost structure

@@ -261,27 +261,20 @@ namespace ArmedConflict.Game
             }
 
             // The LOADOUT replaces the authored ground squad when one is supplied; the level's
-            // own groups are the fallback, and are exactly what Loadout.Default reproduces. So a
-            // player who never opens the picker fights the level as it was measured.
+            // own groups are the fallback. Loadout.Default now emits that same authored mix
+            // (after encounter grants), so a player who never opens the picker fights the
+            // level as it was measured.
             var playerUnits = BuildUnits(level, playerGroupsOverride ?? level.playerGroups,
                                          true, PlayerUnitIdBase, random, tierResolver);
             var enemyUnits = BuildUnits(level, level.enemyGroups, false, EnemyUnitIdBase, random, tierResolver);
 
-            // STABLE per-level anchors: the mean x of the INITIAL roster, computed once and never
-            // recomputed as units die. A live mean would drift and reintroduce per-tick camera
-            // jitter — the exact class of bug the camera architecture exists to prevent.
-            float playerCamXAnchor = playerUnits.Count > 0 ? playerUnits.Average(u => u.X) : -6f;
-
-            var enemyAnchorXs = enemyUnits.Select(u => u.X)
-                .Concat(structures.Where(s => !s.Definition.isPlayerSide).Select(s => s.X))
-                .ToList();
-            float enemyCamXAnchor = enemyUnits.Count > 0 && enemyAnchorXs.Count > 0
-                ? enemyAnchorXs.Average() : 6f;
-
-            // Captured once, never recomputed — see GameState.PlayerCamHalfWidth.
-            float playerHalf = HalfSpan(playerUnits.Select(u => u.X));
-            float enemyHalf = HalfSpan(enemyUnits.Select(u => u.X).Concat(
-                StructureEdges(structures.Where(st => !st.Definition.isPlayerSide))));
+            // Aiming frames the GROUND LINE — composition rule 1. Including the tank crew
+            // pulls the camera back whenever the vehicle sits off the infantry, which is
+            // exactly the unit-parade / "I cannot see the armour" shot. The crew stays in
+            // picture on campaign levels because they stand next to the line; they must
+            // not SET the zoom.
+            PlayerLineFraming(playerUnits, out float playerCamXAnchor, out float playerHalf);
+            EnemyFraming(enemyUnits, structures, out float enemyCamXAnchor, out float enemyHalf);
 
             float staticCamZ = 19f;
             if (level.staticCamera)
@@ -349,7 +342,52 @@ namespace ArmedConflict.Game
             };
         }
 
-        static float HalfSpan(IEnumerable<float> xs)
+        /// <summary>
+        /// Aiming / player-resolve frame. Ground troops only — a garrisoned tank crew is
+        /// part of the vehicle, not the line rule 1 measures. Falls back to the whole
+        /// roster when a level has no ground troops.
+        /// </summary>
+        public static void PlayerLineFraming(IReadOnlyList<UnitEntity> playerUnits,
+                                             out float anchorX, out float halfWidth)
+        {
+            var line = playerUnits
+                .Where(u => u.StandingOnStructureId == null)
+                .Select(u => u.X).ToList();
+            if (line.Count == 0)
+                line = playerUnits.Select(u => u.X).ToList();
+            anchorX = line.Count > 0 ? line.Average() : -6f;
+            halfWidth = HalfSpan(line);
+        }
+
+        /// <summary>
+        /// Scout / resolve frame for the enemy side: live units plus remaining enemy
+        /// structure edges. Same function at load and when a structure or spawn changes
+        /// the set — two implementations would drift the way the old live-span twitch did.
+        /// </summary>
+        public static void EnemyFraming(IReadOnlyList<UnitEntity> enemyUnits,
+                                        IReadOnlyList<StructureEntity> structures,
+                                        out float anchorX, out float halfWidth)
+        {
+            var enemyStructs = structures.Where(s => s.Definition != null
+                                                     && !s.Definition.isPlayerSide).ToList();
+            var unitXs = enemyUnits.Select(u => u.X).ToList();
+            var anchorXs = unitXs.Concat(enemyStructs.Select(s => s.X)).ToList();
+            anchorX = anchorXs.Count > 0 ? anchorXs.Average() : 6f;
+            halfWidth = HalfSpan(unitXs.Concat(StructureEdges(enemyStructs)));
+        }
+
+        /// <summary>
+        /// Tight frame on a just-arrived group (boss escort, reinforcement wave).
+        /// </summary>
+        public static void ArrivalFraming(IReadOnlyList<UnitEntity> arrived,
+                                          out float anchorX, out float halfWidth)
+        {
+            var xs = arrived.Select(u => u.X).ToList();
+            anchorX = xs.Count > 0 ? xs.Average() : 0f;
+            halfWidth = HalfSpan(xs);
+        }
+
+        public static float HalfSpan(IEnumerable<float> xs)
         {
             var l = xs.ToList();
             if (l.Count == 0) return 3f;

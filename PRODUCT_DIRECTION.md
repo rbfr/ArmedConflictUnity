@@ -344,6 +344,7 @@ locks and unit measurement.
 | 0.4b something to buy | **DONE 2026-08-06** — roster, picker, unlocks. Slots fixed / points buy quality, so no loadout can break the framing |
 | 0.5 star criteria + reasons | **DONE** — pure roster survival, reason shown on every victory |
 | 0.6 enemy turn juice | **DONE 2026-08-06** — flash banner + standing telegraph strip, handover names the advance |
+| Authored defaults + encounter ammo | **BUILT 2026-08-18**, not device-signed. `Loadout.Default` is the authored mix; reaching a level unlocks those units; AP after L2 / Incendiary after L4, pre-select until the player taps a chip. L1–L2 stay rifle. |
 | Tier 1 ammo | per `DYNAMISM_DESIGN.md` status |
 | 1.2 telegraphed events | **HALF DONE 2026-08-07.** Reinforcement waves ship with a live multi-turn countdown, and the schedule now covers L10 and L11 (both 2-turn leads). **Wind is NOT shipped and is not a scheduling problem** — `windAccelZ` drifts the round in Z while collision is X/Y only, so a wind schedule would telegraph a change that cannot alter what a shot hits. Making it real is a physics change and needs an ask |
 | 1.3 consumables | **DONE 2026-08-10**, device-confirmed. Four items bought, carried and fired; the Airstrike's aircraft was rebuilt 2026-08-11 and signed off. Overwatch Flare is deliberately NOT sold — nothing in this port advances for it to halve |

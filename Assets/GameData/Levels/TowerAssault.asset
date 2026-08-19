@@ -103,7 +103,21 @@ MonoBehaviour:
     advancePerTurn: 0
   background: {fileID: 11400000, guid: e189402158fef8374aba4dab97d743b2, type: 2}
   heliChance: 0
-  props: []
+  props:
+  - modelAsset: models/prop_cactus.glb
+    x: -5.0
+    z: -8.4
+    scale: 2.7
+    slowsAdvance: 0
+    halfWidth: 0.5
+    keepColors: 1
+  - modelAsset: models/prop_wreck_car.glb
+    x: -8.7
+    z: -9.6
+    scale: 3.0
+    slowsAdvance: 0
+    halfWidth: 1.2
+    keepColors: 1
   levelBase: 110
   deployBudget: 13
   bossPhases: []

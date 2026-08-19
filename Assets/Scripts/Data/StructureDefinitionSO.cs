@@ -60,6 +60,12 @@ namespace ArmedConflict.Data
         public string id;
         public string displayName;
         public string modelAsset;
+        /// <summary>
+        /// Optional collapse GLB. When set, destruction plays this and does not
+        /// place the cube-slab ruin. Transient flying chunks still throw.
+        /// Empty on every structure that has not been authored yet.
+        /// </summary>
+        public string wreckModelAsset;
         public int maxHp;
 
         /// <summary>

@@ -31,6 +31,8 @@ public class BattleAudio : MonoBehaviour
     [SerializeField] AudioClip helicopterLoop;
     [SerializeField] AudioClip planePassby;
 
+    AudioClip uiDown, uiUp;
+
     const int Voices = 12;
     AudioSource[] voices;
     int nextVoice;
@@ -59,7 +61,29 @@ public class BattleAudio : MonoBehaviour
         foreach (var c in new[] { volleyFire, groundImpact, unitDeath, unitHit, explosion,
                                   victory, defeat, helicopterLoop, planePassby })
             if (c != null && c.loadState != AudioDataLoadState.Loaded) c.LoadAudioData();
+
+        uiDown = MakeTick("ui_down", 420f, 0.045f);
+        uiUp = MakeTick("ui_up", 640f, 0.032f);
     }
+
+    static AudioClip MakeTick(string name, float hz, float seconds)
+    {
+        const int Rate = 22050;
+        int n = Mathf.Max(48, (int)(Rate * seconds));
+        var clip = AudioClip.Create(name, n, 1, Rate, false);
+        var data = new float[n];
+        for (int i = 0; i < n; i++)
+        {
+            float t = i / (float)Rate;
+            float env = 1f - i / (float)(n - 1);
+            data[i] = Mathf.Sin(2f * Mathf.PI * hz * t) * env * env * 0.40f;
+        }
+        clip.SetData(data, 0);
+        return clip;
+    }
+
+    public void PlayUiDown() => Play(uiDown, 0.55f);
+    public void PlayUiUp() => Play(uiUp, 0.45f);
 
     /// <summary>Diagnostic only — proves the trigger path executes when you cannot hear it.</summary>
     public static bool TracePlays = false;

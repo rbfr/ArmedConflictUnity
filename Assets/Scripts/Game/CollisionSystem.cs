@@ -232,6 +232,27 @@ namespace ArmedConflict.Game
             topY = baseY + (st.Definition.hasDeckY ? st.Definition.deckY : st.Definition.size);
         }
 
+        /// <summary>
+        /// The masonry a corpse can rest against. Same height as
+        /// <see cref="StructureBox"/>, but the width is the DECK
+        /// (<c>standWidth</c>), not the projectile <c>hitWidth</c>.
+        ///
+        /// hitWidth often hangs in empty air — GarrisonPost 3.75 against
+        /// a ~2.4 silhouette — so a rank thrown backward stacked on an
+        /// invisible pane in front of the building. Rob, 2026-08-16.
+        /// </summary>
+        public static void RagdollBox(StructureEntity st, out float minX, out float maxX,
+                                      out float baseY, out float topY)
+        {
+            StructureBox(st, out _, out _, out baseY, out topY);
+            float w = st.Definition.standWidth > 0.01f
+                ? st.Definition.standWidth
+                : (st.Definition.hasHitWidth ? st.Definition.hitWidth : st.Definition.size);
+            float halfW = w * 0.5f;
+            minX = st.X - halfW;
+            maxX = st.X + halfW;
+        }
+
         public static HashSet<int> PropagateCollapse(IReadOnlyList<StructureEntity> surviving,
                                                      IEnumerable<int> directlyDestroyedIds)
         {

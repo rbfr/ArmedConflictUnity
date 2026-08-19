@@ -20,6 +20,9 @@ silent victory screen.
   freely selectable every volley. Ammo is a skill/decision layer, not a rationed resource —
   no per-shot costs, no stock to run out of. (Consumables stay the rationed layer; ammo is
   the permanent one.) Preserves the skill-first pillar: no level may require special ammo.
+  **The first two types are also granted:** AP after L2 (or on reaching L3+), Incendiary
+  after L4 (or on reaching L5+), pre-selected only if the player has never tapped a chip.
+  A shop that is the only way to see ammo is a shop nobody opens.
 - **Variety on three axes**: what you fire (ammo types), what the battle throws at you
   (mid-battle events), and what you see (factions, biomes, silhouettes, cosmetics).
 - **Everything new is also an economy hook.** Ammo unlocks, cosmetics, and faction-stage

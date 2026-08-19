@@ -9,6 +9,11 @@ namespace ArmedConflict.Game
 
     public enum TurnPhase
     {
+        /// <summary>
+        /// The player tank rolls on from the left edge with its crew riding. First beat after
+        /// BEGIN, only on levels that field a cannon. Hands over to PlayerScout.
+        /// </summary>
+        TankArrive,
         PlayerScout,   // camera pans to the enemy side so the player sees the layout before aiming
         Aiming,
         EnemyWindup,
@@ -81,9 +86,20 @@ namespace ArmedConflict.Game
         /// it. The angle is DERIVED rather than chosen here on purpose: EnemyAI picks a random
         /// arc inside AimAt, and a second draw for display would be a different number than the
         /// one fired.
+        ///
+        /// Populated at the START of EnemyWindup (PrepareEnemyVolley) so the rifles can raise
+        /// for the whole windup and then fire the same arc. Cleared when the turn comes back.
         /// </summary>
         public IReadOnlyDictionary<int, float> EnemyAimDegrees { get; init; }
             = new Dictionary<int, float>();
+
+        /// <summary>
+        /// The launch velocity each enemy will fire, keyed by unit id. Written with
+        /// <see cref="EnemyAimDegrees"/> so FireEnemyVolley cannot re-roll a different shot
+        /// than the one the rifles were posed at.
+        /// </summary>
+        public IReadOnlyDictionary<int, Vector3> EnemyLaunch { get; init; }
+            = new Dictionary<int, Vector3>();
         public IReadOnlyList<SkirmishEntity> Skirmishes { get; init; } = new List<SkirmishEntity>();
         public HelicopterEntity Helicopter { get; init; }
 
@@ -107,6 +123,59 @@ namespace ArmedConflict.Game
         public TurnPhase TurnPhase { get; init; } = TurnPhase.Aiming;
         public float EnemyAimTimer { get; init; }
         public float TurnHandoverDelay { get; init; }
+
+        /// <summary>
+        /// Seconds left on the opening scout. Armed by LoadLevel; the tick counts it down and
+        /// hands over to Aiming. Zero after the first aim, and after every later turn.
+        /// </summary>
+        public float ScoutTimer { get; init; }
+
+        /// <summary>
+        /// Seconds left on the tank's roll-in. Armed by <see cref="TurnFlow.StartBattle"/>;
+        /// the tick eases the vehicle and its crew to <see cref="TankParkX"/> then hands
+        /// over to PlayerScout. Zero on levels with no cannon.
+        /// </summary>
+        public float TankArriveTimer { get; init; }
+
+        /// <summary>Authored X of the player tank — the slot the roll-in parks in.</summary>
+        public float TankParkX { get; init; }
+
+        /// <summary>
+        /// THE BEAT THE CAMERA HOLDS ON A MELEE AFTER THE LAST PAIR HAS FALLEN, and the frame it
+        /// holds while doing it.
+        ///
+        /// Rob, fourth device build: *"we still are in a hurry to zoom back to the main force. we
+        /// need to show the melee assault the whole time and pause so it registers with the
+        /// player."* Releasing the camera on the tick the last skirmish resolved meant the payoff
+        /// — the two bodies actually falling — happened as the camera was already leaving. Same
+        /// family as `TurnHandoverDelay`, which exists because the handover used to tread on the
+        /// impact the player was still reading.
+        ///
+        /// The anchor and half-width are CARRIED rather than recomputed, because once the fight is
+        /// over its participants are gone from the unit lists and there is nothing left to frame
+        /// from — recomputing would snap to whatever remains on the tick the hold begins.
+        /// </summary>
+        public float MeleeHold { get; init; }
+        public float MeleeHoldAnchorX { get; init; }
+        public float MeleeHoldHalfWidth { get; init; }
+
+        /// <summary>
+        /// Camera hold on a structure that just fell with its garrison. Armed the
+        /// tick the building dies. The first beat rides the falling bodies
+        /// (anchor/half-width recomputed from the live tumble set); after that
+        /// the hold only freezes the windup so the spring can pan back to
+        /// whoever is still standing. Decays on every tick path.
+        /// </summary>
+        public float CollapseHold { get; init; }
+        public float CollapseHoldAnchorX { get; init; }
+        public float CollapseHoldHalfWidth { get; init; }
+
+        /// <summary>
+        /// Seconds the camera stays on the last kill after Victory. Armed on the Playing →
+        /// Victory edge and decayed on every path, including the cosmetic-over one — a hold
+        /// that only decayed in the combat block would freeze on the victory screen.
+        /// </summary>
+        public float VictoryCamHold { get; init; }
         public int TurnNumber { get; init; } = 1;
 
         // ---- player armament ------------------------------------------------------------
@@ -229,25 +298,32 @@ namespace ArmedConflict.Game
         public float HeliMarginBlendVelocity { get; init; }
 
         /// <summary>
-        /// Stable per-level anchors — the mean x of each side's INITIAL roster, computed once at
-        /// load and never recomputed as units die. A live mean would drift and reintroduce
-        /// exactly the per-tick jitter the camera architecture exists to prevent.
+        /// Stable per-side anchors. The player's is the GROUND LINE (not the tank crew).
+        /// The enemy's is recaptured when a structure falls or a boss/wave lands — never
+        /// on a casualty, which is the membership twitch the camera architecture forbids.
         /// </summary>
         public float PlayerCamXAnchor { get; init; } = -6f;
         public float EnemyCamXAnchor { get; init; } = 6f;
 
         /// <summary>
-        /// Framing half-widths for each side, captured ONCE at level load from the initial
-        /// roster — for exactly the same reason as the anchors above.
-        ///
-        /// Sizing the frame from LIVE unit spans re-derives it every tick from a set whose
-        /// MEMBERSHIP changes: each casualty shrinks or widens the span discontinuously, so the
-        /// zoom twitches on every death even though no surviving unit moved. That is the class
-        /// of bug the camera architecture exists to prevent, and it is easy to reintroduce
-        /// because a live span looks like the more "correct" number.
+        /// Framing half-widths. Player is the ground line, captured at load. Enemy is
+        /// recaptured on the same events as the enemy anchor. Casualties do not resize
+        /// either: a shrinking roster twitching the zoom is the bug these exist to prevent.
         /// </summary>
         public float PlayerCamHalfWidth { get; init; } = 3f;
         public float EnemyCamHalfWidth { get; init; } = 3f;
+
+        /// <summary>
+        /// Push-in on the group that just walked onto the field. Armed with the
+        /// announcement timer; half-width 0 means nothing to reveal.
+        ///
+        /// L12's shield escort is the reason: after the citadel falls the captured
+        /// enemy frame is still the fortress, and four men with riot shields read as
+        /// a speck. The leftover cluster is recaptured too; this is tighter still,
+        /// for the 2.5s the banner is up.
+        /// </summary>
+        public float ArrivalCamXAnchor { get; init; }
+        public float ArrivalCamHalfWidth { get; init; }
 
         /// <summary>
         /// A ZOOM CEILING ONLY. It used to pin camera X as well, which disabled the whole

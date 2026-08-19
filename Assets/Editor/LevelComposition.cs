@@ -262,9 +262,9 @@ public static class LevelComposition
     /// </summary>
     public static Finding CollisionBoxRule(LevelDefinitionSO level, GameState state)
     {
-        int inside = 0, ground = 0;
+        int inside = 0, ground = 0, slowToClear = 0;
         float tightest = float.MaxValue;
-        string worstWho = "", firstOffender = null;
+        string worstWho = "", firstOffender = null, firstSlow = null;
 
         // The units on the field at turn 0, and then EVERY MID-BATTLE ARRIVAL. The first version
         // of this read `state.EnemyUnits` alone and so measured only turn 0 — boss phases and
@@ -277,11 +277,6 @@ public static class LevelComposition
         {
             // A garrison stands ON its deck, above every box, and is meant to.
             if (u.StandingOnStructureId != null) continue;
-            // An ADVANCING unit walks out of the box on its first move, so starting inside one
-            // costs it nothing. L9's shield bearers start 0.01 inside the bunker purely on
-            // formation jitter and are hittable from turn one. This is a semantic exemption, not
-            // a tolerance — a static unit gets no such reprieve.
-            if (u.AdvancePerTurn > 0f) continue;
             ground++;
             foreach (var st in state.Structures)
             {
@@ -307,6 +302,42 @@ public static class LevelComposition
                 }
                 if (clear <= 0f)
                 {
+                    // AN ADVANCING UNIT IS EXEMPT ONLY IF IT ACTUALLY LEAVES, and "leaves" means
+                    // ON ITS FIRST MARCH — that is the claim the exemption makes, so that is the
+                    // claim it now has to meet. It used to wave through ANY unit with
+                    // advancePerTurn > 0 on the reasoning that it walks out of the box; L11's
+                    // wave, had it been given an advance instead of being moved, would have
+                    // started 0.71 deep and needed THREE turns at 1.2 a turn to clear. Three turns
+                    // of being unhittable is not "hittable soon", and it was invisible here.
+                    //
+                    // Advancing runs toward -X (AdvanceSystems.March), so the distance owed is to
+                    // the box's PLAYER-SIDE edge. A unit that clears it in one turn costs the
+                    // player nothing; anything slower is a static embed wearing a march.
+                    //
+                    // Opened as a known hole on 2026-08-12 when rule 8 gained arrivals, and closed
+                    // the same day advancing squads went live — the day the exemption started
+                    // carrying real weight.
+                    float owed = u.X - (st.X - halfW);
+                    if (u.AdvancePerTurn > 0f)
+                    {
+                        // Clears on its FIRST march: the exemption's claim holds, no finding.
+                        if (u.AdvancePerTurn >= owed) continue;
+                        // Clears EVENTUALLY. Counted separately and reported as a WARNING, because
+                        // the severities mean different things and this project pays for conflating
+                        // them: an Error says the player is asked to kill something they cannot hit
+                        // AT ALL, which is not a rule a level may bend. A charger that is behind
+                        // masonry for its first turn and in the open on its second CAN be hit — it
+                        // is a pacing judgement, and those are Warnings a level may bend for a
+                        // reason it records in `designNotes`.
+                        slowToClear++;
+                        if (firstSlow == null)
+                            firstSlow = $"{label} {u.Definition.name} at x {u.X:F2} starts " +
+                                        $"{owed:F2} inside {st.Definition.name} and advances " +
+                                        $"{u.AdvancePerTurn:F2}/turn — " +
+                                        $"{Mathf.CeilToInt(owed / u.AdvancePerTurn)} turns to clear";
+                        continue;
+                    }
+
                     inside++;
                     if (firstOffender == null)
                         firstOffender = $"{label} {u.Definition.name} at x {u.X:F2} inside " +
@@ -321,6 +352,15 @@ public static class LevelComposition
         // it measured none, rather than claiming a clean result it never looked for.
         if (ground == 0)
             return new Finding(Severity.Ok, "rule 8: no ground units to place — nothing measured");
+
+        // An advancing unit that needs more than one march to clear masonry is a WARNING — see
+        // the severity note at the exemption. Reported only when nothing worse was found, so an
+        // Error is never softened by a Warning sharing the line.
+        if (inside == 0 && slowToClear > 0)
+            return new Finding(Severity.Warn,
+                $"rule 8: {slowToClear} advancing unit(s) start inside a collision box and need " +
+                $"more than one march to clear it — {firstSlow}. Hittable, but not on the turn " +
+                "the player is first asked to deal with them.");
 
         return new Finding(inside == 0 ? Severity.Ok : Severity.Error,
             $"rule 8: {inside} of {ground} ground unit(s) inside a structure's collision box " +

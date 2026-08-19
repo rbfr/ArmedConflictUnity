@@ -159,28 +159,50 @@ to `[6, 14]`. Floor below the floor, ceiling above the ceiling. The flag only be
 anything on a level whose whole battlefield is *tighter* than `CAMERA_GAMEPLAY_Z`. Keep it for
 intent, but if a framing swing ever shows up on L12, this is not what will stop it.
 
-## The ONE phase that cuts instead of springing — `AirstrikeRun`, added 2026-08-10
+## AirstrikeRun rides the aircraft — asked 2026-08-17
 
-**Camera X is a continuous spring everywhere else, and that is deliberate**: it used to be nulled
-outside a volley, so every phase change TELEPORTED the camera across the field. Keeping one spring
-and only changing its TARGET is what makes the choreography read as camera work. This document is
-LOCKED, and this exception was **asked for and granted** rather than assumed.
+The 2026-08-10 cut (hold on the drop, plane crosses a still frame) is **withdrawn**.
+Rob: the plane should come in from the left where the player units are, fly
+across, strafe, go off screen; the camera moves with it, then goes back to
+the player units — it is their turn to fire.
 
-**Why the run cannot use it.** The airstrike's aircraft spawns off-frame under the run's own
-framing — but the run BEGINS with the camera over the player's line, ~17 units away on L1, and the
-spring then travels right at `MarchEscortSmoothTime` while the aircraft does 7 u/s in the same
-direction. **The camera overtakes it and arrives to find it already mid-frame.** Measured on L1:
+**Why the cut existed:** the camera target was the drop point, ~17 units right
+of the player line. The spring raced the plane and overtook it, so the
+aircraft appeared mid-frame. That target was the bug, not the spring.
 
-```
-target=10.92  spawn=1.92
-AIMING frame  centre=-7.54  half=2.05  left=-9.59   RUN frame  centre=9.42  half=5.10  left=4.32
-```
+**What it does now:**
+1. Spawn LEFT of the player line. Camera is already there.
+2. Target = `plane.X + PlaneCameraBias`. The spring RIDES the aircraft.
+3. Plane exits. Target snaps back to the player line.
+4. After `AirstrikeReturnSeconds` the infantry volley fires.
 
-No spawn distance fixes this — a camera moving the same direction faster than the plane always
-overtakes it. So `TurnPhase.AirstrikeRun` sets `followX` to its anchor directly and zeroes the
-velocity: it CUTS to the strike and holds, the aircraft crosses a frame that is already still, and
-the spring resumes untouched the moment the volley launches. It is also what the phase always
-claimed to be — "a hold, not a chase".
+No cut. The default spring stays. The bomb still drops on the aim during
+the pass; the guns still rake the enemy position. Only the camera and the
+volley timing moved.
 
-**Scope: this phase only.** Any future phase wanting a cut needs its own ask; the default stays a
-spring, for the reason at the top of this section.
+## Zoom in on the leftover and the charge (Unity, 2026-08-13)
+
+Asked: the riot shield / armour is unreadable because the camera sits at fortress
+distance. Not a new marker. Three discrete recaptures, never a live span:
+
+0. **TankArrive (2026-08-14).** After BEGIN, a level that fields a player cannon
+   holds the camera on the union of the ground line, the tank, and the crew while
+   the vehicle rolls in from the left. Two seconds, cubic ease, then the signed-off
+   scout. Without this beat the roll is off-camera: scout looks at the enemy, aiming
+   excludes the tank. Not a new cut — the existing spring walks onto that union.
+1. **Aiming frames the ground line**, not the tank crew. Rule 1.
+2. **Enemy half-width recaptures when a structure leaves or a boss/wave lands.** Casualties
+   do not — that membership twitch is the class of bug this document exists to prevent.
+   The announcement (2.5s) then frames the arrived group tighter still.
+3. **A march frames the chargers** until they are within 5 of the player line. **A fight
+   still frames the whole player force** — that union was signed off on L4 and stays.
+
+No new cut. The existing spring walks between these targets.
+
+## FramePad 1.2 → 0.6 (Unity, 2026-08-14)
+
+Asked: zoom in a little, camera feels far, hard to see. This is the air
+around every framed set, not who is in the set. `CameraDirector.FramePad`
+was the `+ 1.2` on every `TargetZ` call. 0.6 keeps the same subjects and
+the airstrike still clears camZ 11. Composition rule 1's player line is
+still ~6 wide.

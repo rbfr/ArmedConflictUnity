@@ -43,6 +43,12 @@ namespace ArmedConflict.Data
         public float scale = 1f;
         public bool slowsAdvance = false;
         public float halfWidth = 1f;
+        /// <summary>
+        /// Keep the GLB's authored colours. Default false: sandbags and
+        /// wire take the player structure paint. A wreck or a cactus
+        /// painted olive is a different object.
+        /// </summary>
+        public bool keepColors = false;
     }
 
     [Serializable]

@@ -15,6 +15,7 @@ MonoBehaviour:
   id: watch_tower
   displayName: Watch Tower
   modelAsset: models/watch_tower.glb
+  wreckModelAsset: models/watch_tower_collapse.glb
   maxHp: 90
   size: 3.75
   isPlayerSide: 0

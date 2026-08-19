@@ -30,6 +30,7 @@ public class LevelScenery : MonoBehaviour
 
     readonly Dictionary<string, GameObject> models = new();
     readonly Dictionary<int, GameObject> structures = new();
+    readonly Dictionary<int, GameObject> wrecks = new();
 
     /// <summary>
     /// Damage-chunk groups per structure id, in ascending group number — the renderers that get
@@ -57,6 +58,10 @@ public class LevelScenery : MonoBehaviour
     public Material ScorchMaterial { get; private set; }
 
     public GameObject Structure(int id) => structures.TryGetValue(id, out var go) ? go : null;
+    public GameObject Wreck(int id) => wrecks.TryGetValue(id, out var go) ? go : null;
+
+    public static string WreckKey(string wreckModelAsset)
+        => string.IsNullOrEmpty(wreckModelAsset) ? null : ModelKey(wreckModelAsset);
 
     public int ModelCount => modelPrefabs == null ? 0 : modelPrefabs.Length;
 
@@ -117,7 +122,9 @@ public class LevelScenery : MonoBehaviour
         backdrop.transform.SetParent(root, false);
         // Backdrop.DesignAspect, never Screen — see the note on that constant.
         BackdropRuntime.Build(bg, Backdrop.DesignAspect, backdrop.transform,
-                              unlitSource, unlitFadeSource, owned);
+                              unlitSource, unlitFadeSource, owned, models);
+
+        RuinFx.Kit wreckKit = default;
 
         foreach (var st in placed)
         {
@@ -134,6 +141,30 @@ public class LevelScenery : MonoBehaviour
                  st.Definition.isPlayerSide ? structPlayerAccent : structEnemyAccent, null);
             structures[st.Id] = go;
             chunkGroups[st.Id] = CollectChunkGroups(go);
+
+            // Authored collapse, spawned with the live building so we never mint a
+            // slot mid-volley. Hidden until the building dies.
+            if (!string.IsNullOrEmpty(st.Definition.wreckModelAsset))
+            {
+                var wreck = Spawn(st.Definition.wreckModelAsset, root);
+                if (wreck != null)
+                {
+                    wreck.name = $"wreck_{st.Id}";
+                    wreck.transform.localPosition = go.transform.localPosition;
+                    wreck.transform.localScale = go.transform.localScale;
+                    Tone(wreck,
+                         st.Definition.isPlayerSide ? structPlayer : structEnemy,
+                         st.Definition.isPlayerSide ? structPlayerAccent : structEnemyAccent,
+                         null);
+                    if (wreck.GetComponent<WreckAnim>() == null)
+                        wreck.AddComponent<WreckAnim>();
+                    if (wreckKit.Fire == null)
+                        wreckKit = RuinFx.MakeKit(unlitFadeSource, owned);
+                    RuinFx.AttachWreck(wreck.transform, wreckKit, st.Id);
+                    wreck.SetActive(false);
+                    wrecks[st.Id] = wreck;
+                }
+            }
         }
 
         // Props are authored at z=0 like every campaign prop, and are cosmetic — nothing collides
@@ -145,7 +176,8 @@ public class LevelScenery : MonoBehaviour
             pg.name = $"prop_{ModelKey(prop.modelAsset)}";
             pg.transform.localPosition = GameSpace.ToUnity(prop.x, 0f, prop.z);
             Normalize(pg, prop.scale);
-            Tone(pg, structPlayer, structPlayerAccent, null);
+            if (!prop.keepColors)
+                Tone(pg, structPlayer, structPlayerAccent, null);
         }
 
         var g = bg != null ? bg.groundColor : Color.gray;
@@ -159,6 +191,7 @@ public class LevelScenery : MonoBehaviour
         if (root != null) Destroy(root.gameObject);
         root = null;
         structures.Clear();
+        wrecks.Clear();
         chunkGroups.Clear();
         foreach (var o in owned) if (o != null) Destroy(o);
         owned.Clear();

@@ -23,8 +23,74 @@ namespace ArmedConflict.Render
     /// </summary>
     public static class BackdropRuntime
     {
+        public const string CityFarModel = "backdrop_city_far";
+        public const string CityNearModel = "backdrop_city_near";
+        public const string ForestFarModel = "backdrop_forest_far";
+        public const string ForestNearModel = "backdrop_forest_near";
+        public const string ForestMidModel = "backdrop_forest_mid";
+        public const string ForestForeModel = "backdrop_forest_fore";
+        public const string MountainsFarModel = "backdrop_mountains_far";
+        public const string MountainsNearModel = "backdrop_mountains_near";
+        public const string WinterFarModel = "backdrop_winter_far";
+        public const string WinterNearModel = "backdrop_winter_near";
+        public const string DesertFarModel = "backdrop_desert_far";
+        public const string DesertNearModel = "backdrop_desert_near";
+
+        public static string StripFar(SilhouetteStyle style) => style switch
+        {
+            SilhouetteStyle.City => CityFarModel,
+            SilhouetteStyle.Forest => ForestFarModel,
+            SilhouetteStyle.Mountains => MountainsFarModel,
+            SilhouetteStyle.Winter => WinterFarModel,
+            SilhouetteStyle.Desert => DesertFarModel,
+            _ => null,
+        };
+
+        /// <summary>
+        /// OPTIONAL middle strip, sat between far and near. A style with no mid GLB simply
+        /// does not get one — this is why adding it changed nothing for city, mountains,
+        /// winter or desert. Two planes cap the backdrop at four depth steps (sky, far, near,
+        /// ground) and six material slots; the third plane is what buys a wood enough
+        /// separation to stop reading as two cut-outs.
+        /// Its colour is INTERPOLATED from the level's two authored silhouettes rather than
+        /// authored again, so no BackgroundDefinition needs a new field to opt in.
+        /// </summary>
+        public static string StripMid(SilhouetteStyle style) => style switch
+        {
+            SilhouetteStyle.Forest => ForestMidModel,
+            _ => null,
+        };
+
+        /// <summary>
+        /// OPTIONAL foreground, in FRONT of the play plane. Also opt-in per style, for the
+        /// same reason as the mid strip. Its body colour is the near silhouette pushed toward
+        /// black: the nearest plane is the darkest, and a foreground that carries detail
+        /// competes with the units instead of framing them.
+        /// </summary>
+        public static string StripFore(SilhouetteStyle style) => style switch
+        {
+            // Forest HAD a foreground (2026-08-17). It was the dark blob-row on
+            // the ground line: magnified ~7x, world-fixed, and it competed with
+            // the units instead of dressing the wood. Rob, 2026-08-18: the
+            // shrubs "don't look great" and were never the ask — more
+            // BACKGROUND detail was. No style declares a fore strip now.
+            // ForestForeModel / ForeZ stay so a later biome can opt in.
+            _ => null,
+        };
+
+        public static string StripNear(SilhouetteStyle style) => style switch
+        {
+            SilhouetteStyle.City => CityNearModel,
+            SilhouetteStyle.Forest => ForestNearModel,
+            SilhouetteStyle.Mountains => MountainsNearModel,
+            SilhouetteStyle.Winter => WinterNearModel,
+            SilhouetteStyle.Desert => DesertNearModel,
+            _ => null,
+        };
+
         public static void Build(BackgroundDefinitionSO bg, float aspect, Transform parent,
-                                 Material unlitSource, Material fadeSource, List<Object> owned)
+                                 Material unlitSource, Material fadeSource, List<Object> owned,
+                                 IReadOnlyDictionary<string, GameObject> models = null)
         {
             // Note a DESTROYED asset also trips this — Unity's fake null. That is deliberate:
             // silently drawing from a freed BackgroundDefinition is worse than drawing nothing.
@@ -32,8 +98,41 @@ namespace ArmedConflict.Render
 
             MakeSky(bg, parent, unlitSource, owned);
 
-            foreach (var layer in Backdrop.Plan(bg.style, aspect))
-                MakeLayer(bg, layer, parent, unlitSource, fadeSource, owned);
+            // Authored 2.5D strips, not a 1D height profile. The profile stays
+            // as the fallback so a missing GLB still draws something.
+            // Both meshes are required — checking only far hid a broken
+            // serialized reference after a re-export changed the root fileID.
+            string farKey = StripFar(bg.style);
+            string nearKey = StripNear(bg.style);
+            string midKey = StripMid(bg.style);
+            string foreKey = StripFore(bg.style);
+            GameObject farGo = null, nearGo = null, midGo = null, foreGo = null;
+            if (farKey != null && models != null)
+            {
+                models.TryGetValue(farKey, out farGo);
+                models.TryGetValue(nearKey, out nearGo);
+                // Mid is OPTIONAL and deliberately does not gate `strip` below — a style
+                // without one must keep drawing its two, not fall back to the profile.
+                if (midKey != null) models.TryGetValue(midKey, out midGo);
+                if (foreKey != null) models.TryGetValue(foreKey, out foreGo);
+            }
+            if (midKey != null && midGo == null)
+                Debug.LogError($"[Backdrop] {bg.style} declares a MID strip but {midKey} is " +
+                               "missing — rebuild the scene.");
+            if (foreKey != null && foreGo == null)
+                Debug.LogError($"[Backdrop] {bg.style} declares a FORE strip but {foreKey} is " +
+                               "missing — rebuild the scene.");
+            bool strip = farKey != null && farGo != null && nearGo != null;
+            if (farKey != null && !strip)
+                Debug.LogError($"[Backdrop] {bg.style} strip missing " +
+                               $"(far={(farGo != null)}, near={(nearGo != null)}) — " +
+                               "falling back to the profile. Rebuild the scene.");
+            if (strip)
+                PlaceStrip(bg, parent, unlitSource, fadeSource, farGo, midGo, nearGo, foreGo,
+                           owned, ruinFx: bg.style == SilhouetteStyle.City);
+            else
+                foreach (var layer in Backdrop.Plan(bg.style, aspect))
+                    MakeLayer(bg, layer, parent, unlitSource, fadeSource, owned);
 
             // The thin bright line where sky meets ground — cheap, and it is what makes the
             // horizon read as a horizon rather than as two flat bands meeting.
@@ -83,6 +182,96 @@ namespace ArmedConflict.Render
                        owned);
 
             if (layer.SunRadius > 0f) MakeSun(layer, go.transform, fadeSource, owned);
+        }
+
+        /// <summary>
+        /// Drops an authored far/near strip on the same depths the profile used.
+        /// Authored at world scale — do not Normalize: width is the span.
+        /// Facades sit on local z=0 facing +Z. Mass extends to -Z.
+        /// </summary>
+        static void PlaceStrip(BackgroundDefinitionSO bg, Transform parent, Material unlitSource,
+                               Material fadeSource, GameObject farSrc, GameObject midSrc,
+                               GameObject nearSrc, GameObject foreSrc, List<Object> owned,
+                               bool ruinFx)
+        {
+            // City accent used to be ember cubes; those are dark recesses now.
+            // Mountains / winter accent is snow.
+            Color hi = ruinFx
+                ? Color.Lerp(bg.silhouetteFar, Color.black, 0.48f)
+                : Color.Lerp(bg.silhouetteFar, Color.white, 0.78f);
+            PlaceStripLayer("StripFar", farSrc, Backdrop.FarZ, parent, unlitSource,
+                            bg.silhouetteFar, hi, owned);
+            if (midSrc != null)
+            {
+                // Halfway between the two authored silhouettes, so the three planes step
+                // evenly in value and the mid one never crosses either neighbour.
+                var midBody = Color.Lerp(bg.silhouetteFar, bg.silhouetteNear, 0.5f);
+                var hiM = ruinFx
+                    ? Color.Lerp(midBody, Color.black, 0.48f)
+                    : Color.Lerp(midBody, Color.white, 0.74f);
+                PlaceStripLayer("StripMid", midSrc, Backdrop.MidZ, parent, unlitSource,
+                                midBody, hiM, owned);
+            }
+            if (nearSrc == null) return;
+            Color hiN = ruinFx
+                ? Color.Lerp(bg.silhouetteNear, Color.black, 0.48f)
+                : Color.Lerp(bg.silhouetteNear, Color.white, 0.70f);
+            var near = PlaceStripLayer("StripNear", nearSrc, Backdrop.NearZ, parent, unlitSource,
+                                       bg.silhouetteNear, hiN, owned);
+            if (ruinFx) RuinFx.Attach(near.transform, fadeSource, owned);
+            if (foreSrc != null)
+            {
+                var foreBody = Color.Lerp(bg.silhouetteNear, Color.black, 0.35f);
+                PlaceStripLayer("StripFore", foreSrc, Backdrop.ForeZ, parent, unlitSource,
+                                foreBody, Color.Lerp(foreBody, Color.white, 0.30f), owned);
+            }
+        }
+
+        static GameObject PlaceStripLayer(string name, GameObject src, float z, Transform parent,
+                                         Material unlitSource, Color body, Color highlight,
+                                         List<Object> owned)
+        {
+            var go = Object.Instantiate(src, parent);
+            go.name = name;
+            go.transform.localPosition = new Vector3(0f, 0f, z);
+            go.transform.localRotation = Quaternion.identity;
+            go.transform.localScale = Vector3.one;
+
+            var trim = Color.Lerp(body, Color.black, 0.48f);
+            var bodyMat = Unlit(unlitSource, body, owned);
+            var trimMat = Unlit(unlitSource, trim, owned);
+            var accentMat = Unlit(unlitSource, highlight, owned);
+
+            foreach (var r in go.GetComponentsInChildren<MeshRenderer>())
+            {
+                string n = r.gameObject.name;
+                // Kenney Nature Kit has no atlas. leafsDark is authored
+                // AQUA (0.17, 0.65, 0.67) and woodBarkDark is peach —
+                // that is the kit, not a tint bug. Keep the meshes;
+                // paint leaves with this layer's silhouette green and
+                // bark a real brown so L2 is a wood, not a toy set.
+                if (n.IndexOf("leaf", System.StringComparison.OrdinalIgnoreCase) >= 0)
+                {
+                    Color leaf = n.IndexOf("Dark", System.StringComparison.OrdinalIgnoreCase) >= 0
+                        ? Color.Lerp(body, Color.black, 0.22f)
+                        : body;
+                    r.sharedMaterial = Unlit(unlitSource, leaf, owned);
+                    continue;
+                }
+                if (n.IndexOf("wood", System.StringComparison.OrdinalIgnoreCase) >= 0
+                    || n.IndexOf("Bark", System.StringComparison.OrdinalIgnoreCase) >= 0)
+                {
+                    var bark = new Color(0.30f, 0.20f, 0.13f);
+                    if (n.IndexOf("Dark", System.StringComparison.OrdinalIgnoreCase) >= 0)
+                        bark = Color.Lerp(bark, Color.black, 0.28f);
+                    r.sharedMaterial = Unlit(unlitSource, bark, owned);
+                    continue;
+                }
+                if (n.StartsWith("accent")) r.sharedMaterial = accentMat;
+                else if (n.StartsWith("trim")) r.sharedMaterial = trimMat;
+                else r.sharedMaterial = bodyMat;
+            }
+            return go;
         }
 
         /// <summary>

@@ -37,13 +37,78 @@ namespace ArmedConflict.Game
                 .Where(g => string.IsNullOrEmpty(g.standingOnStructureId))
                 .Sum(g => g.count);
 
-        /// <summary>The x the authored ground squad is centred on.</summary>
+        /// <summary>
+        /// The x the authored ground squad is centred on.
+        ///
+        /// A single contiguous line is the count-weighted mean of its groups — that is the
+        /// centre ToPlayerGroups tiles around, and every campaign level is one of those.
+        /// Two DISJOINT flanks must not be averaged: the mean lands in the gap, and the
+        /// gap is where this game puts the scenery. LevelNaturalParadeTest's scale-reference
+        /// groups at ±5.6 averaged to 0, dead centre of RidgeWatchtower's box.
+        ///
+        /// The test is the OUTPUT, not a gap heuristic. Clustering by spacing would have
+        /// to be wide enough to keep TowerAssault's three authored ranks as one line
+        /// (edge gap ~3.8 spacings) and still refuse a 11-unit parade split; the next
+        /// authored line that sat a little looser would silently pick a new centre. If
+        /// the mean sits inside a structure's collision box — the same box CollisionSystem
+        /// uses — it is the gap trap, and the largest authored flank is the line.
+        /// Those flanks may brush scenery; that is where they were placed.
+        /// </summary>
         public static float GroundAnchorX(LevelDefinitionSO level)
         {
             var ground = level.playerGroups
                 .Where(g => string.IsNullOrEmpty(g.standingOnStructureId)).ToList();
             if (ground.Count == 0) return -7f;
-            return ground.Sum(g => g.anchorX * g.count) / Mathf.Max(1, ground.Sum(g => g.count));
+            int bodies = Mathf.Max(1, ground.Sum(g => g.count));
+            float mean = ground.Sum(g => g.anchorX * g.count) / bodies;
+            if (!IsGapTrap(level, ground, mean)) return mean;
+
+            // The authored flanks are the answer — they may sit next to scenery
+            // (the parade's scale-reference groups brush the cliff and the bunker).
+            // Filtering them by the same box test throws both away and returns the
+            // mean we just rejected.
+            EnemyGroup pick = ground[0];
+            foreach (var g in ground)
+            {
+                if (g.count > pick.count
+                    || (g.count == pick.count && g.anchorX < pick.anchorX))
+                    pick = g;
+            }
+            return pick.anchorX;
+        }
+
+        /// <summary>
+        /// The mean of two flanks landed on the scenery, not on a line.
+        ///
+        /// Primary: inside an enemy collision box — EXACTLY CollisionSystem's box
+        /// (hitWidth when set, else size; no worldScale).
+        /// Fallback: closer to an enemy structure's anchor than to any ground group.
+        /// The fallback does not need a resolved definition, so a missing hitWidth
+        /// cannot hide the trap the way a box-only test can.
+        /// </summary>
+        static bool IsGapTrap(LevelDefinitionSO level, List<EnemyGroup> ground, float x)
+        {
+            float toGroup = float.PositiveInfinity;
+            foreach (var g in ground)
+                toGroup = Mathf.Min(toGroup, Mathf.Abs(x - g.anchorX));
+
+            float toEnemy = float.PositiveInfinity;
+            if (level.structures != null)
+            {
+                foreach (var s in level.structures)
+                {
+                    if (s == null) continue;
+                    var def = s.definition;
+                    if (def != null && def.isPlayerSide) continue;
+                    if (def != null)
+                    {
+                        float halfW = (def.hasHitWidth ? def.hitWidth : def.size) / 2f;
+                        if (Mathf.Abs(x - s.x) <= halfW) return true;
+                    }
+                    toEnemy = Mathf.Min(toEnemy, Mathf.Abs(x - s.x));
+                }
+            }
+            return toEnemy < toGroup;
         }
 
         public static int PointsUsed(IReadOnlyList<Pick> picks, RosterDefinitionSO roster)
@@ -79,12 +144,33 @@ namespace ArmedConflict.Game
             => level.deployBudget > 0 ? level.deployBudget : Slots(level);
 
         /// <summary>
-        /// The squad a player gets for pressing BEGIN without opening the picker: every slot
-        /// filled with the cheapest unlocked unit.
+        /// The authored ground mix, tank crew excluded. One pick per unit type, counts merged.
         ///
-        /// Pillar 8, "default paths cost nothing" — this reproduces exactly what every level
-        /// fielded before the loadout existed, so a player who never touches the screen loses
-        /// nothing and the levels stay balanced as authored.
+        /// This is the squad Begin is supposed to field — the mix the level was written around,
+        /// not "N cheapest." Garrisoned groups stay out: they are geometry, not a pick.
+        /// </summary>
+        public static List<Pick> AuthoredPicks(LevelDefinitionSO level)
+        {
+            var picks = new List<Pick>();
+            if (level?.playerGroups == null) return picks;
+            foreach (var g in level.playerGroups)
+            {
+                if (g?.definition == null || g.count <= 0) continue;
+                if (!string.IsNullOrEmpty(g.standingOnStructureId)) continue;
+                int i = picks.FindIndex(p => p.Unit == g.definition);
+                if (i >= 0) picks[i] = new Pick(g.definition, picks[i].Count + g.count);
+                else picks.Add(new Pick(g.definition, g.count));
+            }
+            return picks;
+        }
+
+        /// <summary>
+        /// The squad a player gets for pressing BEGIN without opening the picker: the level's
+        /// authored ground mix. A locked specialist is swapped for the cheapest unlocked unit
+        /// so Begin stays legal if the grant-on-encounter path did not run (pillar 8).
+        ///
+        /// After <see cref="EncounterUnlocks.GrantUnits"/> the substitution is a no-op and
+        /// Begin fields exactly what the level authored.
         /// </summary>
         public static List<Pick> Default(LevelDefinitionSO level, RosterDefinitionSO roster,
                                          System.Func<string, bool> isUnlocked)
@@ -93,13 +179,32 @@ namespace ArmedConflict.Game
                 .Where(s => s.unit != null && isUnlocked(s.unit.id))
                 .OrderBy(s => s.pointCost)
                 .FirstOrDefault();
-            if (cheapest == null) return new List<Pick>();
 
-            int slots = Slots(level);
-            int affordable = Mathf.Min(slots, Budget(level) / Mathf.Max(1, cheapest.pointCost));
-            return affordable <= 0
-                ? new List<Pick>()
-                : new List<Pick> { new(cheapest.unit, affordable) };
+            var authored = AuthoredPicks(level);
+            if (authored.Count == 0)
+            {
+                if (cheapest == null) return new List<Pick>();
+                int slots = Slots(level);
+                int affordable = Mathf.Min(slots, Budget(level) / Mathf.Max(1, cheapest.pointCost));
+                return affordable <= 0
+                    ? new List<Pick>()
+                    : new List<Pick> { new(cheapest.unit, affordable) };
+            }
+
+            var picks = new List<Pick>();
+            int substitute = 0;
+            foreach (var p in authored)
+            {
+                if (p.Unit != null && isUnlocked(p.Unit.id)) picks.Add(p);
+                else substitute += p.Count;
+            }
+            if (substitute > 0 && cheapest != null)
+            {
+                int i = picks.FindIndex(p => p.Unit == cheapest.unit);
+                if (i >= 0) picks[i] = new Pick(cheapest.unit, picks[i].Count + substitute);
+                else picks.Insert(0, new Pick(cheapest.unit, substitute));
+            }
+            return picks;
         }
 
         /// <summary>

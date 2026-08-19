@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
+using ArmedConflict.Data;
 
 namespace ArmedConflict.Game
 {
@@ -36,6 +37,15 @@ namespace ArmedConflict.Game
         public const float ZMin = 5.5f;
         public const float ZHalfFovTan = 0.45f;
 
+        /// <summary>
+        /// Air around every framed set, added before <see cref="TargetZ"/>.
+        /// Was 1.2; Rob, 2026-08-14: camera feels far out, hard to see. 0.6 is
+        /// a little closer without changing WHO is in the shot — composition
+        /// still frames the same points, just with less empty sky. The airstrike
+        /// floor still clears the 11 that fits the aircraft.
+        /// </summary>
+        public const float FramePad = 0.6f;
+
         /// <summary>Fast — the bullet cam must stay glued to a volley in flight.</summary>
         public const float VolleyFollowSmoothTime = 0.06f;
 
@@ -43,11 +53,122 @@ namespace ArmedConflict.Game
         public const float MarchEscortSmoothTime = 0.30f;
 
         /// <summary>
+        /// How long the camera stays on the last kill after the battle is won.
+        ///
+        /// The cosmetic-over path used to spring to the survivors the same tick Phase became
+        /// Victory, so the killing blow — a garrison coming off a bunker, the last man falling —
+        /// played as the camera was already leaving. Rob, 2026-08-13: leave it there a couple of
+        /// seconds so it registers. Same family as <see cref="GameState.MeleeHold"/>.
+        /// BattleUI's victory card waits this long too, or the dim covers the beat.
+        /// </summary>
+        public const float VictoryCamHoldSeconds = 2.0f;
+
+        /// <summary>
+        /// How long a collapse owns the camera after a garrisoned structure
+        /// comes down. The first <see cref="CollapseFollowSeconds"/> ride the
+        /// falling bodies (the tumble is the shot); the rest of the hold
+        /// releases the camera so it springs back to whoever is still
+        /// standing. The hold itself also freezes the enemy windup, so they
+        /// do not fire while the camera is still on the throw. Same family
+        /// as <see cref="GameState.MeleeHold"/>.
+        ///
+        /// Rob, 2026-08-18, explicit ask against the camera lock: follow
+        /// the fall to show the animation, then pan back to the live line.
+        /// </summary>
+        public const float CollapseHoldSeconds = 2.1f;
+        public const float CollapseFollowSeconds = 1.25f;
+        public const float CollapseHoldPad = 2.2f;
+        public const float CollapseHoldHalfMin = 3.8f;
+        /// <summary>
+        /// Tight frame while riding the throw. The wide pad/min would keep
+        /// the ruin in picture without the camera actually moving — the
+        /// bodies only travel a couple of units.
+        /// </summary>
+        public const float CollapseFollowPad = 1.2f;
+        public const float CollapseFollowHalfMin = 2.4f;
+        /// <summary>Faster than a march escort, slower than the bullet cam.</summary>
+        public const float CollapseFollowSmoothTime = 0.12f;
+
+        public static bool CollapseIsFollowing(float collapseHold)
+            => collapseHold > 0f
+               && (CollapseHoldSeconds - collapseHold) < CollapseFollowSeconds;
+
+        /// <summary>
+        /// Frame for a collapse: the ruined structures and the men who stood on
+        /// them, plus pad so a throw stays in picture. Carried on the hold —
+        /// those men leave the unit lists the same tick.
+        /// </summary>
+        public static void CollapseFrame(IReadOnlyList<float> xs,
+                                         out float anchor, out float half)
+        {
+            FrameXs(xs, CollapseHoldPad, CollapseHoldHalfMin, out anchor, out half);
+        }
+
+        /// <summary>
+        /// Live frame of the tumbling garrison. Empty (no tumble bodies
+        /// left) leaves the carried frame alone so a retarget cannot snap
+        /// to an empty set.
+        /// </summary>
+        public static void CollapseFollowFrame(IReadOnlyList<DyingUnitEntity> dying,
+                                              ref float anchor, ref float half)
+        {
+            if (dying == null || dying.Count == 0) return;
+            var xs = new List<float>();
+            for (int i = 0; i < dying.Count; i++)
+                if (dying[i].Tumble) xs.Add(dying[i].X);
+            if (xs.Count == 0) return;
+            FrameXs(xs, CollapseFollowPad, CollapseFollowHalfMin, out anchor, out half);
+        }
+
+        /// <summary>
+        /// Second beat: whoever is still standing. Empty (the last
+        /// garrison just died) leaves the carried fall frame so the
+        /// camera does not snap to a vacant default.
+        /// </summary>
+        public static void CollapseReturnFrame(IReadOnlyList<UnitEntity> liveEnemies,
+                                              ref float anchor, ref float half)
+        {
+            if (liveEnemies == null || liveEnemies.Count == 0) return;
+            var xs = new List<float>(liveEnemies.Count);
+            for (int i = 0; i < liveEnemies.Count; i++)
+                xs.Add(liveEnemies[i].X);
+            FrameXs(xs, CollapseHoldPad, CollapseHoldHalfMin, out anchor, out half);
+        }
+
+        static void FrameXs(IReadOnlyList<float> xs, float pad, float halfMin,
+                            out float anchor, out float half)
+        {
+            if (xs == null || xs.Count == 0)
+            {
+                anchor = 0f;
+                half = halfMin;
+                return;
+            }
+            float lo = xs[0], hi = xs[0];
+            for (int i = 1; i < xs.Count; i++)
+            {
+                if (xs[i] < lo) lo = xs[i];
+                if (xs[i] > hi) hi = xs[i];
+            }
+            anchor = (lo + hi) * 0.5f;
+            half = Mathf.Max((hi - lo) * 0.5f + pad, halfMin);
+        }
+
+        /// <summary>
         /// A FLOOR on the march frame, so escorting a lone advancing unit does not zoom to a
         /// keyhole. Verified against the Kotlin (4f) rather than inferred — guessing it at 2
         /// would have framed every march twice as tight as intended.
         /// </summary>
         public const float MarchHalfWidthMin = 4f;
+
+        /// <summary>
+        /// How close a charger has to get before the player's line joins the march frame.
+        ///
+        /// Farther than this, the camera sits on the squad so a class (the riot shield)
+        /// is readable. At this gap the threatened front starts entering, and at contact
+        /// the signed-off union takes over. L12's escort starts ~8 units out; L4's ~6.
+        /// </summary>
+        public const float MarchIncludePlayerGap = 5f;
 
         static float Span(IReadOnlyList<float> xs)
             => xs.Count == 0 ? 0f : xs.Max() - xs.Min();
@@ -114,6 +235,9 @@ namespace ArmedConflict.Game
             {
                 case TurnPhase.Aiming:
                     return playerReinforcing ? reinforceHalfWidth : playerHalfWidth;
+                case TurnPhase.TankArrive:
+                    // Fallback only — BattleTick feeds the live union (tank + crew + line).
+                    return playerHalfWidth;
                 case TurnPhase.PlayerScout:
                     return enemyHalfWidth;
                 case TurnPhase.EnemyWindup:
@@ -141,6 +265,28 @@ namespace ArmedConflict.Game
         /// "distance from anchor" and "the set's own span", because the anchor is not always the
         /// centroid.
         /// </summary>
+        /// <summary>
+        /// The roll-in frame: the moving tank, the crew on its deck, and the ground
+        /// line waiting for it. Mean of those points, then CameraFraming.HalfWidth
+        /// so the set cannot disagree with every other phase.
+        /// </summary>
+        public static void TankArriveFrame(
+            IReadOnlyList<StructureEntity> structures,
+            IReadOnlyList<UnitEntity> playerUnits,
+            out float anchorX, out float halfWidth)
+        {
+            var xs = new List<float>();
+            foreach (var st in structures)
+                if (st.Definition != null && st.Definition.isPlayerSide && st.Definition.hasCannon)
+                    xs.Add(st.X);
+            foreach (var u in playerUnits) xs.Add(u.X);
+            if (xs.Count == 0) { anchorX = 0f; halfWidth = 3f; return; }
+            float sum = 0f;
+            for (int i = 0; i < xs.Count; i++) sum += xs[i];
+            anchorX = sum / xs.Count;
+            halfWidth = Mathf.Max(CameraFraming.HalfWidth(anchorX, xs), 2.5f);
+        }
+
         public static float EnemyHalfWidth(IReadOnlyList<float> enemyXs, float shooterReach)
             => Mathf.Max(Span(enemyXs) / 2f, shooterReach);
 
@@ -162,6 +308,78 @@ namespace ArmedConflict.Game
         {
             var all = marchingXs.Concat(skirmishXs).ToList();
             return Mathf.Max(Span(all) / 2f, MarchHalfWidthMin);
+        }
+
+        /// <summary>
+        /// TWO SHOTS, because they ask for opposite zooms.
+        ///
+        /// CONTACT (any skirmish): the signed-off union — chargers, both ends of every fight,
+        /// and the whole player force. Framing the pair alone put the camera at x -5.1 ±4
+        /// on L4 and cropped the tank crew at -9.59. Rob: *"so the player can see what's
+        /// happening to their force."*
+        ///
+        /// MARCH (nobody fighting yet): the chargers, plus only the player units already
+        /// inside <see cref="MarchIncludePlayerGap"/> of the lead. The old union sat the
+        /// camera at citadel distance the moment a squad left the ruins, and four riot
+        /// shields read as a speck — Rob, 2026-08-13, on the armour. As the gap closes the
+        /// threatened front enters continuously; contact then takes the union. No cut.
+        /// </summary>
+        public static float AssaultFrame(IReadOnlyList<float> marchingXs,
+                                         IReadOnlyList<float> skirmishXs,
+                                         IReadOnlyList<float> playerXs,
+                                         out float anchorX)
+        {
+            var all = new List<float>();
+            all.AddRange(marchingXs);
+            all.AddRange(skirmishXs);
+
+            if (skirmishXs.Count > 0)
+            {
+                all.AddRange(playerXs);
+            }
+            else if (all.Count > 0 && playerXs.Count > 0)
+            {
+                float lead = all.Min();
+                foreach (float px in playerXs)
+                    if (px >= lead - MarchIncludePlayerGap) all.Add(px);
+            }
+
+            if (all.Count == 0) { anchorX = 0f; return MarchHalfWidthMin; }
+
+            anchorX = (all.Min() + all.Max()) / 2f;
+            return Mathf.Max(CameraFraming.HalfWidth(anchorX, all), MarchHalfWidthMin);
+        }
+
+        /// <summary>
+        /// Where the camera looks during EnemyWindup when an assault force is on the move.
+        ///
+        /// THREE BEATS, and the middle one is the whole reason this exists:
+        ///  1. while the melee force is CLOSING, ride with it — the advance happens ON SCREEN;
+        ///  2. once a fighter ARRIVES and engages, HOLD on the skirmish line until every fight
+        ///     has resolved. An engaged attacker is no longer a marcher (its budget is spent),
+        ///     so a target built from marchers alone snaps away the instant the last one locks
+        ///     on — panning off the fight ~1s before its own mutual-kill payoff lands;
+        ///  3. only with both empty does the rest of the windup pan BACK to whoever actually
+        ///     fires this volley — the RANGED shooters, not the roster mean. On a level where
+        ///     advancers outnumber the rear line, that mean parks on the player line and the
+        ///     shooters fire off-frustum.
+        ///
+        /// Ported 2026-08-12 with advancing squads. Rob, on the first device build: the melee
+        /// "happens off camera and it's weird" — because the windup anchor was a fixed per-level
+        /// value on the ENEMY side while the fight was at the player's line.
+        /// </summary>
+        public static float EnemyWindupAnchorX(IReadOnlyList<float> marchingXs,
+                                               IReadOnlyList<float> skirmishXs,
+                                               IReadOnlyList<float> shooterXs,
+                                               IReadOnlyList<float> allEnemyXs,
+                                               float fallback)
+        {
+            if (marchingXs.Count > 0 || skirmishXs.Count > 0)
+                return marchingXs.Concat(skirmishXs).Average();
+            if (shooterXs.Count > 0) return shooterXs.Average();
+            // An all-melee force with nobody marching this tick: the roster mean beats dividing
+            // by zero, and beats the per-level anchor, which is where nothing is standing.
+            return allEnemyXs.Count > 0 ? allEnemyXs.Average() : fallback;
         }
 
         /// <summary>

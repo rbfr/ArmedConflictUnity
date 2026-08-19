@@ -36,8 +36,8 @@ namespace ArmedConflict.Game
         /// <summary>Shared empty map, so clearing the enemy pose never allocates.</summary>
         // Shed-piece sizing band, shared with the destruction rubble so the two kinds of
         // wreckage read as one material.
-        const float ChunkPieceMinSize = 0.10f;
-        const float ChunkPieceMaxSize = 0.30f;
+        const float ChunkPieceMinSize = 0.05f;
+        const float ChunkPieceMaxSize = 0.14f;
         const float ChunkShedVy = 0.5f;
         const float ChunkShedSpreadVx = 0.9f;
 
@@ -49,6 +49,7 @@ namespace ArmedConflict.Game
         const float RuinSquash = 0.3f;
 
         static readonly Dictionary<int, float> EmptyAim = new();
+        static readonly Dictionary<int, Vector3> EmptyLaunch = new();
 
 
         /// <param name="ammoCatalog">
@@ -102,6 +103,10 @@ namespace ArmedConflict.Game
             }
 
             float volleyDelay = Mathf.Max(0f, s.PendingVolleyDelay - dt);
+            // Plane just left: start the return beat so the camera can
+            // get home to the player line before they fire.
+            if (s.AirstrikePlane != null && planeNow == null && s.PendingVolleyAim != null)
+                volleyDelay = AirstrikeReturnSeconds;
 
             var helicopter = s.Helicopter;
             var heliResult = HelicopterSystem.Step(helicopter, dt, s.Phase,
@@ -118,7 +123,7 @@ namespace ArmedConflict.Game
             }
 
             // Ragdolls and shake advance regardless of phase.
-            var dyingUnits = StepRagdolls(s.DyingUnits, dt, s.Structures);
+            var dyingUnits = StepRagdolls(s.DyingUnits, dt, s.Structures, s.Wrecks);
             float shake = CosmeticSystems.DecayShake(s.ShakeIntensity, dt);
 
             if (s.Phase != GamePhase.Playing)
@@ -131,13 +136,43 @@ namespace ArmedConflict.Game
                 // structures are gone, is simply a patch of empty ground. The battle ended on the
                 // most legible shot available and then panned away from it. Frame the survivors
                 // instead: they are what the player wants to look at, win or lose.
+                //
+                // NOT ON THE TICK THE LAST ENEMY FALLS. Rob, 2026-08-13: the killing blow has to
+                // sit for a couple of seconds or it never registers. VictoryCamHold is that beat;
+                // once it runs out the spring to the survivors is the same as it was.
+                float victoryCamHold = Mathf.Max(0f, s.VictoryCamHold - dt);
+                float endCollapseHold = Mathf.Max(0f, s.CollapseHold - dt);
+                float endCollapseAnchorX = s.CollapseHoldAnchorX;
+                float endCollapseHalf = s.CollapseHoldHalfWidth;
                 var survivors = s.PlayerUnits.Count > 0 ? s.PlayerUnits : s.EnemyUnits;
                 float? endX = s.CameraFollowX;
                 float endXVel = s.CameraFollowXVelocity;
                 float endZ = s.CameraFollowZ ?? 11f;
                 float endZVel = s.CameraFollowZVelocity;
 
-                if (survivors.Count > 0)
+                if (CameraDirector.CollapseIsFollowing(endCollapseHold))
+                {
+                    // Last-garrison collapse ends the battle the same tick the
+                    // bodies launch. Ride them on this path too or the throw
+                    // plays as a still frame of the ruin.
+                    CameraDirector.CollapseFollowFrame(dyingUnits,
+                                                       ref endCollapseAnchorX,
+                                                       ref endCollapseHalf);
+                    float x = endX ?? endCollapseAnchorX;
+                    SpringFollow.Step(ref x, ref endXVel, endCollapseAnchorX, dt,
+                                      CameraDirector.CollapseFollowSmoothTime);
+                    endX = x;
+                    SpringFollow.Step(ref endZ, ref endZVel,
+                                      CameraDirector.TargetZ(
+                                          endCollapseHalf + CameraDirector.FramePad,
+                                          s.StaticCamera, s.StaticCamZ),
+                                      dt, CameraDirector.CollapseFollowSmoothTime);
+                }
+                else if (s.Phase == GamePhase.Victory && victoryCamHold > 0f)
+                {
+                    // Stay put. A spring that has not been given a new target does not move.
+                }
+                else if (survivors.Count > 0)
                 {
                     float mean = survivors.Average(u => u.X);
                     float half = Mathf.Max((survivors.Max(u => u.X) - survivors.Min(u => u.X)) / 2f, 1.5f);
@@ -145,7 +180,8 @@ namespace ArmedConflict.Game
                     SpringFollow.Step(ref x, ref endXVel, mean, dt, 0.35f);
                     endX = x;
                     SpringFollow.Step(ref endZ, ref endZVel,
-                                      CameraDirector.TargetZ(half + 1.2f, s.StaticCamera, s.StaticCamZ),
+                                      CameraDirector.TargetZ(half + CameraDirector.FramePad,
+                                                             s.StaticCamera, s.StaticCamZ),
                                       dt, 0.35f);
                 }
 
@@ -171,6 +207,15 @@ namespace ArmedConflict.Game
                     CameraFollowXVelocity = endXVel,
                     CameraFollowZ = endZ,
                     CameraFollowZVelocity = endZVel,
+                    // DECAYS ON EVERY TICK PATH, including the one taken once the battle is over.
+                    // A melee mutual kill can be the blow that ENDS the battle, and a hold left
+                    // frozen at 1.5 on the victory screen is a value that never decays again —
+                    // the exact failure the standing rule in CLAUDE.md is written about.
+                    MeleeHold = Mathf.Max(0f, s.MeleeHold - dt),
+                    CollapseHold = endCollapseHold,
+                    CollapseHoldAnchorX = endCollapseAnchorX,
+                    CollapseHoldHalfWidth = endCollapseHalf,
+                    VictoryCamHold = victoryCamHold,
                 };
             }
 
@@ -224,6 +269,9 @@ namespace ArmedConflict.Game
             structures = surviving.Where(st => !destroyedIds.Contains(st.Id)).ToList();
 
             // A garrison dies with what it stands on, however much HP it personally has left.
+            float collapseHold = s.CollapseHold;
+            float collapseHoldAnchorX = s.CollapseHoldAnchorX;
+            float collapseHoldHalfWidth = s.CollapseHoldHalfWidth;
             if (destroyedIds.Count > 0)
             {
                 var fell = enemyUnits.Where(u => u.StandingOnStructureId is int id
@@ -234,7 +282,28 @@ namespace ArmedConflict.Game
                     dyingUnits = dyingUnits.Concat(fell.Select(RagdollFrom)).ToList();
                     enemyUnits = enemyUnits.Where(u => !(u.StandingOnStructureId is int id2
                                                          && destroyedIds.Contains(id2))).ToList();
+
+                    // Hold the camera on the throw. The last round and the launch
+                    // are the same tick; without this the follow dies with the
+                    // projectile and the bodies fly off-screen. The first beat
+                    // rides the falling garrison; after that the hold only
+                    // freezes the windup so the spring can pan back to the
+                    // live line before they fire.
+                    collapseHold = CameraDirector.CollapseHoldSeconds;
                 }
+            }
+            else collapseHold = Mathf.Max(0f, collapseHold - dt);
+
+            if (collapseHold > 0f)
+            {
+                if (CameraDirector.CollapseIsFollowing(collapseHold))
+                    CameraDirector.CollapseFollowFrame(dyingUnits,
+                                                       ref collapseHoldAnchorX,
+                                                       ref collapseHoldHalfWidth);
+                else
+                    CameraDirector.CollapseReturnFrame(enemyUnits,
+                                                       ref collapseHoldAnchorX,
+                                                       ref collapseHoldHalfWidth);
             }
 
             dyingUnits = dyingUnits
@@ -400,6 +469,14 @@ namespace ArmedConflict.Game
                 structures = after;
                 debris = shedPieces;
             }
+            // Wrecks age on EVERY path, including after the battle is over — a collapse
+            // that only ticks in the combat block freezes mid-fold on the victory screen.
+            var wrecks = new List<WreckEntity>(s.Wrecks.Count + destroyedIds.Count);
+            foreach (var w in s.Wrecks)
+                wrecks.Add(w.Age >= GameState.WreckCollapseSeconds
+                    ? w
+                    : w with { Age = w.Age + dt });
+
             if (destroyedIds.Count > 0)
             {
                 var pieces = new List<DebrisPiece>(debris);
@@ -407,8 +484,50 @@ namespace ArmedConflict.Game
                 {
                     var st = s.Structures.FirstOrDefault(x => x.Id == id);
                     if (st == null) continue;
-                    float halfW = (st.Definition.hasHitWidth ? st.Definition.hitWidth
-                                                             : st.Definition.size) / 2f;
+                    // Same box the wreck GO uses: BASE on the dirt (or the
+                    // tier floor), standWidth not hitWidth. The standing
+                    // centre plus hitWidth was an invisible deck in mid-air.
+                    float halfW = (st.Definition.standWidth > 0.01f
+                                   ? st.Definition.standWidth
+                                   : (st.Definition.hasHitWidth ? st.Definition.hitWidth
+                                                                : st.Definition.size)) / 2f;
+
+                    wrecks.Add(new WreckEntity(
+                        Id: id,
+                        DefinitionId: st.Definition.id,
+                        X: st.X,
+                        Y: st.Y - st.Definition.size * 0.5f,
+                        Z: st.Z,
+                        Width: halfW * 2f,
+                        Height: st.Definition.size));
+
+                    // An authored collapse IS the ruin. Cube slabs under it would
+                    // stack a second wreck on the same footprint.
+                    bool authored = !string.IsNullOrEmpty(st.Definition.wreckModelAsset);
+                    if (authored)
+                    {
+                        // The moment of collapse still throws chunks — transient.
+                        for (int i = 0; i < 6 && pieces.Count < DebrisSlots; i++)
+                        {
+                            float ang = (float)random.NextDouble() * Mathf.PI * 2f;
+                            float speed = 1.0f + (float)random.NextDouble() * 1.6f;
+                            pieces.Add(new DebrisPiece(
+                                Id: nextDebris++,
+                                DefinitionId: st.Definition.id,
+                                Accent: i % 3 == 0,
+                                X: st.X + ((float)random.NextDouble() - 0.5f) * halfW,
+                                Y: st.Y + (float)random.NextDouble() * st.Definition.size * 0.6f,
+                                Z: st.Z,
+                                Vx: Mathf.Cos(ang) * speed,
+                                Vy: 1.5f + (float)random.NextDouble() * 2.5f,
+                                Rotation: (float)random.NextDouble() * 360f,
+                                RotationSpeed: ((float)random.NextDouble() - 0.5f) * 500f,
+                                Size: Mathf.Min(ChunkPieceMaxSize,
+                                    st.Definition.size * (0.035f + 0.025f * (float)random.NextDouble())),
+                                Ttl: CosmeticSystems.DebrisTtlSeconds));
+                        }
+                        continue;
+                    }
 
                     // THE RUIN. Placed, not launched: a row of wide flat slabs lying inside the
                     // structure's OWN FOOTPRINT, already asleep, persisting for the rest of the
@@ -467,7 +586,8 @@ namespace ArmedConflict.Game
                             Vy: 1.5f + (float)random.NextDouble() * 2.5f,
                             Rotation: (float)random.NextDouble() * 360f,
                             RotationSpeed: ((float)random.NextDouble() - 0.5f) * 500f,
-                            Size: st.Definition.size * (0.08f + 0.07f * (float)random.NextDouble()),
+                            Size: Mathf.Min(ChunkPieceMaxSize,
+                                st.Definition.size * (0.035f + 0.025f * (float)random.NextDouble())),
                             Ttl: CosmeticSystems.DebrisTtlSeconds));
                     }
                 }
@@ -487,14 +607,112 @@ namespace ArmedConflict.Game
             var turnSide = s.TurnSide;
             var turnPhase = s.TurnPhase;
             var enemyAim = s.EnemyAimDegrees;
+            var enemyLaunch = s.EnemyLaunch;
             float handover = s.TurnHandoverDelay;
             int turnNumber = s.TurnNumber;
+            float scoutTimer = s.ScoutTimer;
+            float tankArriveTimer = s.TankArriveTimer;
+            if (phase == GamePhase.Playing && turnPhase == TurnPhase.TankArrive)
+            {
+                tankArriveTimer = Mathf.Max(0f, tankArriveTimer - dt);
+                float ease = TurnFlow.TankArriveEase(tankArriveTimer);
+                float want = s.TankParkX - TurnFlow.TankArriveDistance * (1f - ease);
+                float shift = 0f;
+                var moved = new List<StructureEntity>(structures.Count);
+                foreach (var st in structures)
+                {
+                    if (st.Definition != null && st.Definition.isPlayerSide && st.Definition.hasCannon)
+                    {
+                        if (shift == 0f) shift = want - st.X;
+                        moved.Add(st with { X = st.X + shift });
+                    }
+                    else moved.Add(st);
+                }
+                structures = moved;
+                if (shift != 0f)
+                {
+                    var tankIds = new HashSet<int>();
+                    foreach (var st in structures)
+                        if (st.Definition != null && st.Definition.isPlayerSide && st.Definition.hasCannon)
+                            tankIds.Add(st.Id);
+                    var riding = new List<UnitEntity>(playerUnits.Count);
+                    foreach (var u in playerUnits)
+                    {
+                        bool rides = u.StandingOnStructureId is int id && tankIds.Contains(id);
+                        riding.Add(rides ? u with { X = u.X + shift } : u);
+                    }
+                    playerUnits = riding;
+                }
+                if (tankArriveTimer <= 0f)
+                {
+                    var snapped = new List<UnitEntity>(playerUnits.Count);
+                    foreach (var u in playerUnits)
+                        snapped.Add(u.MarchTargetX is float slot
+                            ? u with { X = slot, MarchTargetX = null }
+                            : u);
+                    playerUnits = snapped;
+                    turnPhase = TurnPhase.PlayerScout;
+                }
+            }
+            else if (phase == GamePhase.Playing && turnPhase == TurnPhase.PlayerScout)
+            {
+                scoutTimer = Mathf.Max(0f, scoutTimer - dt);
+                if (scoutTimer <= 0f) turnPhase = TurnPhase.Aiming;
+            }
+
+            // --- 7b. advancing squads and the melee they exist for ------------------------
+            //
+            // BEFORE the volley gate, because the gate WAITS on `skirmishes.Count` and must see
+            // this tick's fights rather than last tick's — a pair that resolved this tick would
+            // otherwise hold the turn open for one extra tick, every time.
+            //
+            // Order within the block is load-bearing: resolve the fights that exist, THEN let
+            // newly-arrived fighters claim, THEN march whoever is still walking. Claiming before
+            // resolving would let a fighter that died this tick take a victim with it.
+            var skirmishes = s.Skirmishes;
+            if (phase == GamePhase.Playing)
+            {
+                var melee = AdvanceSystems.StepSkirmishes(skirmishes, playerUnits, enemyUnits, dt);
+                if (melee.KilledPlayers.Count > 0 || melee.KilledEnemies.Count > 0)
+                {
+                    playerUnits = melee.PlayerUnits;
+                    enemyUnits = melee.EnemyUnits;
+                    dyingUnits = dyingUnits
+                        .Concat(melee.KilledPlayers.Select(RagdollFrom))
+                        .Concat(melee.KilledEnemies.Select(RagdollFrom))
+                        .ToList();
+                    playerKilled += melee.KilledPlayers.Count;
+                    enemyKilled += melee.KilledEnemies.Count;
+                    // A mutual kill can end the battle, and it is the ONE kill path that is not a
+                    // projectile — the burn block below recomputes for the same reason.
+                    phase = TurnFlow.ResolvePhase(playerUnits.Count, enemyUnits.Count);
+                }
+                else
+                {
+                    playerUnits = melee.PlayerUnits;
+                    enemyUnits = melee.EnemyUnits;
+                }
+                skirmishes = melee.Skirmishes;
+
+                skirmishes = AdvanceSystems.Claim(skirmishes, enemyUnits, playerUnits);
+
+                // THE MARCH RUNS IN THE WINDUP ONLY. That is the one phase whose camera is
+                // pointed at the enemy side, so the player watches the gap close before the
+                // shooters fire — and the windup countdown is FROZEN while anyone is still
+                // walking (see BattleRunner), so the march owns its own beat instead of racing
+                // the volley for the same slice of time.
+                if (turnPhase == TurnPhase.EnemyWindup && AdvanceSystems.Marching(enemyUnits))
+                {
+                    enemyUnits = AdvanceSystems.March(
+                        enemyUnits, playerUnits, s.Props, skirmishes, dt);
+                }
+            }
 
             if (phase == GamePhase.Playing && turnPhase == TurnPhase.Resolving)
             {
                 var gate = TurnFlow.EvaluateVolley(
                     projectiles.Count, s.Projectiles.Count, handover, turnSide,
-                    helicopter?.BurstsLeft ?? 0, s.Skirmishes.Count);
+                    helicopter?.BurstsLeft ?? 0, skirmishes.Count);
 
                 switch (gate)
                 {
@@ -509,6 +727,14 @@ namespace ArmedConflict.Game
                         {
                             turnSide = TurnSide.Enemy;
                             turnPhase = TurnPhase.EnemyWindup;
+
+                            // ADVANCING SQUADS BANK THEIR BUDGET HERE, exactly once, on the edge
+                            // into the windup they spend it in — the same shape as the burn
+                            // below, and for the same reason: one legible step per turn rather
+                            // than a continuous drift the player cannot count.
+                            //
+                            // Overwatch Flare halves this when it is built; nothing arms it yet.
+                            enemyUnits = AdvanceSystems.BankBudget(enemyUnits, overwatchFlare: false);
 
                             // INCENDIARY BURNS HERE, exactly once, on the edge into the windup.
                             // DYNAMISM_DESIGN asks for ONE legible damage event the player can
@@ -540,6 +766,16 @@ namespace ArmedConflict.Game
                                           $"({burnKills} died)");
                             }
                             burning.Clear();
+
+                            // Aims NOW, not at the fire. The windup is 1.5s of watching
+                            // the enemy line — if the rifles stay at ready until the
+                            // rounds leave, there is nothing to watch. Same random draw
+                            // FireEnemyVolley will use, so the pose is the shot.
+                            var prepared = PrepareEnemyVolley(
+                                s with { EnemyUnits = enemyUnits, PlayerUnits = playerUnits },
+                                random);
+                            enemyAim = prepared.EnemyAimDegrees;
+                            enemyLaunch = prepared.EnemyLaunch;
                         }
                         else
                         {
@@ -550,84 +786,22 @@ namespace ArmedConflict.Game
                             // Left set, the line would hold last turn's elevation for the whole
                             // battle — and units are POOLED, so it would outlive the shooters.
                             enemyAim = EmptyAim;
+                            enemyLaunch = EmptyLaunch;
                         }
                         handover = 0f;
                         break;
                 }
             }
 
-            // --- 8. camera ----------------------------------------------------------------
-            // CAMERA X IS ALWAYS A SPRING. It used to be nulled outside a volley, and the
-            // renderer then fell back to a phase anchor — so every phase change TELEPORTED the
-            // camera across the field instead of panning. Keeping one continuous spring and only
-            // changing its TARGET is what makes the whole choreography read as camera work.
-            var groundVolley = projectiles.Where(p => !p.IsHeliShot).ToList();
-            bool chasing = phase == GamePhase.Playing
-                        && turnPhase == TurnPhase.Resolving
-                        && groundVolley.Count > 0;
-
-            float followXVel = s.CameraFollowXVelocity;
-            float followX;
-            if (chasing)
-            {
-                followX = CameraDirector.FollowVolley(s.CameraFollowX, followXVel, groundVolley,
-                                                      playerUnits, enemyUnits, structures,
-                                                      false, dt, out followXVel);
-            }
-            else
-            {
-                // Pan to the phase's anchor rather than snapping to it. Slower than the bullet
-                // cam by design: a chase should feel urgent, a reposition should not.
-                float anchorTarget = turnPhase switch
-                {
-                    TurnPhase.Aiming => s.PlayerCamXAnchor,
-                    TurnPhase.PlayerScout => s.EnemyCamXAnchor,
-                    TurnPhase.EnemyWindup => s.EnemyCamXAnchor,
-                    TurnPhase.Resolving => turnSide == TurnSide.Enemy ? s.PlayerCamXAnchor
-                                                                     : s.EnemyCamXAnchor,
-                    // THE AIRSTRIKE RUN HOLDS ON THE DROP POINT, biased back toward the incoming
-                    // aircraft. A hold, not a chase: following the plane would keep it pinned dead
-                    // centre and it would never appear to move, and this project already measured
-                    // that less camera churn reads better. The bias is what gets the RELEASE and
-                    // the IMPACT into the same frame — see PlaneCameraBias.
-                    TurnPhase.AirstrikeRun => AirstrikeCameraAnchorFor(s),
-                    _ => s.PlayerCamXAnchor,
-                };
-                if (turnPhase == TurnPhase.AirstrikeRun)
-                {
-                    // THE ONE PHASE THAT CUTS INSTEAD OF PANNING, and it is not a style choice.
-                    //
-                    // The aircraft spawns off-frame under the run's own framing — but the camera
-                    // begins the run over the PLAYER LINE, ~17 units away on L1, and springs
-                    // right. It therefore sweeps PAST the aircraft and arrives to find it already
-                    // sitting mid-frame, which is what Rob saw on a device: "the plane should come
-                    // from the left side of the screen. it seems to just appear in the middle."
-                    // No spawn distance fixes that — a camera travelling the same direction faster
-                    // than the plane will always overtake it.
-                    //
-                    // So the run CUTS to its anchor and holds there, and the aircraft crosses a
-                    // frame that is already still. That is also what the phase always claimed to
-                    // do ("a hold, not a chase") and the reason the spring is left alone
-                    // everywhere else: `CAMERA_ARCHITECTURE.md` is locked, and this exception was
-                    // asked for and granted rather than assumed.
-                    followX = anchorTarget;
-                    followXVel = 0f;
-                }
-                else
-                {
-                    followX = s.CameraFollowX ?? anchorTarget;
-                    SpringFollow.Step(ref followX, ref followXVel, anchorTarget, dt,
-                                      CameraDirector.MarchEscortSmoothTime);
-                }
-            }
-
-            // --- 7b. MID-BATTLE EVENTS ----------------------------------------------------
+            // --- 7c. MID-BATTLE EVENTS ----------------------------------------------------
             //
-            // Boss phases and reinforcement waves. EventSystems has decided these correctly since
-            // the port and NOTHING EVER ASKED IT — `bossPhases` and `reinforcementWaves` were read
-            // only by BattleRunner, and only to size the pools. Three campaign levels are authored
-            // around them, so without this the Sovereign never appears and the "reinforcements"
-            // never arrive.
+            // BEFORE the camera, so a boss that walks out of a fallen structure is the
+            // thing the frame sizes against THIS tick. Sitting after the camera left the
+            // reveal a tick late, still sized for the masonry that had just left.
+            //
+            // EventSystems has decided these correctly since the port and NOTHING EVER
+            // ASKED IT — `bossPhases` and `reinforcementWaves` were read only by
+            // BattleRunner, and only to size the pools.
             var triggeredBoss = new HashSet<int>(s.TriggeredBossPhases);
             var triggeredWaves = new HashSet<int>(s.TriggeredReinforcementWaves);
             string bossAnnouncement = s.BossAnnouncement;
@@ -635,11 +809,11 @@ namespace ArmedConflict.Game
             if (bossTimer <= 0f) bossAnnouncement = null;
             string telegraph = s.TelegraphText;
 
+            var idsBeforeEvents = new HashSet<int>(enemyUnits.Select(u => u.Id));
+            int enemyStructBefore = s.Structures.Count(st => st.Definition != null
+                                                             && !st.Definition.isPlayerSide);
             if (phase == GamePhase.Playing && level != null)
             {
-                // A structure counts as destroyed once it has left the live list — collapse
-                // propagation already removed it there, so no separate "destroyed ever" set has
-                // to be carried on the state and kept in sync.
                 var liveStructureIds = new HashSet<int>(structures.Select(st => st.Id));
                 var runtimeIdByLevelId = new Dictionary<string, int>();
                 var destroyedEver = new HashSet<int>();
@@ -668,9 +842,6 @@ namespace ArmedConflict.Game
                     bossTimer = EventSystems.BossAnnouncementSeconds;
                 }
 
-                // The telegraph is recomputed from scratch every tick rather than latched, so it
-                // clears itself the moment the wave lands or the turn moves on. A latched warning
-                // is one that eventually gets left on screen.
                 telegraph = null;
                 int telegraphAway = int.MaxValue;
                 for (int i = 0; i < level.reinforcementWaves.Count; i++)
@@ -681,9 +852,6 @@ namespace ArmedConflict.Game
                                                           w.telegraphLeadTurns)
                         != EventSystems.WaveTriggerBeat.Telegraph) continue;
 
-                    // With per-wave leads two warnings can overlap, and there is ONE strip. Show
-                    // the NEAREST — the player acts on the next thing to land, and a strip that
-                    // flickered between two counts would read as neither.
                     int away = w.arrivesOnTurn - turnNumber;
                     if (away >= telegraphAway) continue;
                     telegraphAway = away;
@@ -694,9 +862,6 @@ namespace ArmedConflict.Game
                 {
                     var wave = level.reinforcementWaves[i];
                     if (triggeredWaves.Contains(i)) continue;
-                    // ARRIVE only. The telegraph beat is a HUD concern (Phase F) and must not
-                    // consume the wave — spending it on the warning is how a telegraphed wave
-                    // ends up never arriving.
                     if (EventSystems.ReinforcementWaveBeat(wave.arrivesOnTurn, turnNumber,
                                                           wave.telegraphLeadTurns)
                         != EventSystems.WaveTriggerBeat.Arrive) continue;
@@ -709,21 +874,183 @@ namespace ArmedConflict.Game
                 }
             }
 
-            // STABLE half-widths, captured at level load. Deriving these from live spans made the
-            // zoom twitch on every casualty, because the span of a shrinking set changes
-            // discontinuously even when no survivor has moved.
+            var arrived = enemyUnits.Where(u => !idsBeforeEvents.Contains(u.Id)).ToList();
+            float enemyCamX = s.EnemyCamXAnchor;
+            float enemyCamHalf = s.EnemyCamHalfWidth;
+            float arrivalCamX = s.ArrivalCamXAnchor;
+            float arrivalCamHalf = s.ArrivalCamHalfWidth;
+            int enemyStructNow = structures.Count(st => st.Definition != null
+                                                        && !st.Definition.isPlayerSide);
+            if (arrived.Count > 0)
+                LevelBuilder.ArrivalFraming(arrived, out arrivalCamX, out arrivalCamHalf);
+            if (arrived.Count > 0 || enemyStructNow != enemyStructBefore)
+                LevelBuilder.EnemyFraming(enemyUnits, structures, out enemyCamX, out enemyCamHalf);
+            if (bossTimer <= 0f) arrivalCamHalf = 0f;
+
+            // THE MARCH AND THE FIGHT ARE WHAT THE CAMERA IS FOR during a windup that has one.
+            // These two arguments were hardcoded to `0f, false` from the port until 2026-08-12:
+            // the whole marcher branch of PhaseHalfWidth existed, was never fed, and so the
+            // windup always framed the SHOOTERS while the assault walked into the player's line
+            // off the left edge. Rob, first device build: "that happens off camera and it's
+            // weird."
+            var engagedIds = new HashSet<int>(skirmishes.Select(sk => sk.AttackerId));
+            var marchingXs = enemyUnits.Where(u => u.AdvanceRemaining > 0f && !engagedIds.Contains(u.Id))
+                                       .Select(u => u.X).ToList();
+            // BOTH ENDS OF EACH FIGHT. Framing the attacker alone would crop the soldier he is
+            // killing, which is the half the player cares about.
+            var skirmishXs = skirmishes
+                .SelectMany(sk => new[]
+                {
+                    enemyUnits.FirstOrDefault(u => u.Id == sk.AttackerId)?.X,
+                    playerUnits.FirstOrDefault(u => u.Id == sk.VictimId)?.X,
+                })
+                .Where(x => x.HasValue).Select(x => x.Value).ToList();
+            bool marchersActive = marchingXs.Count > 0 || skirmishXs.Count > 0;
+
+            // AssaultFrame: chargers while they are far, the signed-off union at contact.
+            float assaultHalfWidth = CameraDirector.AssaultFrame(
+                marchingXs, skirmishXs, playerUnits.Select(u => u.X).ToList(),
+                out float assaultAnchorX);
+
+            // THE HOLD. While a fight is running the beat is refreshed and the frame recorded;
+            // once the list empties it runs down, and the camera stays put for the whole of it.
+            // Carried, not recomputed — see GameState.MeleeHold: the fighters are gone from the
+            // unit lists by then, so a recomputed frame would snap somewhere else on the tick the
+            // hold begins, which is precisely the lurch this is here to prevent.
+            float meleeHold = s.MeleeHold;
+            float meleeHoldAnchorX = s.MeleeHoldAnchorX;
+            float meleeHoldHalfWidth = s.MeleeHoldHalfWidth;
+            if (skirmishXs.Count > 0)
+            {
+                meleeHold = AdvanceSystems.PostMeleeHoldSeconds;
+                meleeHoldAnchorX = assaultAnchorX;
+                meleeHoldHalfWidth = assaultHalfWidth;
+            }
+            else meleeHold = Mathf.Max(0f, meleeHold - dt);
+
+            // --- 8. camera ----------------------------------------------------------------
+            // CAMERA X IS ALWAYS A SPRING. It used to be nulled outside a volley, and the
+            // renderer then fell back to a phase anchor — so every phase change TELEPORTED the
+            // camera across the field instead of panning. Keeping one continuous spring and only
+            // changing its TARGET is what makes the whole choreography read as camera work.
+            var groundVolley = projectiles.Where(p => !p.IsHeliShot).ToList();
+
+            // A FIGHT OWNS THE CAMERA UNTIL IT IS OVER, in whatever phase it is running.
+            //
+            // Holding it inside the windup branch alone was not enough (Rob, second device build:
+            // "when the actual melee attack takes place, the camera should stay on that until
+            // it's complete"). A skirmish SPANS phases — the handover gate deliberately waits for
+            // it — so a fight still playing when the windup ends handed the frame straight to the
+            // volley chase, which is the one target guaranteed to be somewhere else. The player
+            // watched the charge arrive and then had the kill itself yanked away.
+            //
+            // It outranks the volley chase rather than sharing with it: two subjects at opposite
+            // ends of the field average out to a frame containing neither.
+            bool fighting = phase == GamePhase.Playing
+                            && (skirmishXs.Count > 0 || meleeHold > 0f);
+
+            // Collapse hold is the melee hold's sibling: it owns the camera
+            // for both beats (ride the fall, then pan to the live line).
+            // Melee still outranks it — two subjects at opposite ends
+            // average to neither.
+            bool watchingCollapse = phase == GamePhase.Playing && collapseHold > 0f;
+
+            bool chasing = !fighting && !watchingCollapse
+                        && phase == GamePhase.Playing
+                        && turnPhase == TurnPhase.Resolving
+                        && groundVolley.Count > 0;
+
+            float followXVel = s.CameraFollowXVelocity;
+            float followX;
+            if (chasing)
+            {
+                followX = CameraDirector.FollowVolley(s.CameraFollowX, followXVel, groundVolley,
+                                                      playerUnits, enemyUnits, structures,
+                                                      false, dt, out followXVel);
+            }
+            else
+            {
+                // Pan to the phase's anchor rather than snapping to it. Slower than the bullet
+                // cam by design: a chase should feel urgent, a reposition should not.
+                float arriveAnchor = s.PlayerCamXAnchor;
+                if (!fighting && turnPhase == TurnPhase.TankArrive)
+                    CameraDirector.TankArriveFrame(structures, playerUnits,
+                                                   out arriveAnchor, out _);
+                float anchorTarget = fighting
+                    ? (skirmishXs.Count > 0 ? assaultAnchorX : meleeHoldAnchorX)
+                    : watchingCollapse ? collapseHoldAnchorX
+                    : turnPhase switch
+                {
+                    TurnPhase.Aiming => s.PlayerCamXAnchor,
+                    TurnPhase.TankArrive => arriveAnchor,
+                    TurnPhase.PlayerScout => enemyCamX,
+                    // THE WINDUP ANCHOR MOVES WITH THE ASSAULT when there is one. A fixed
+                    // per-level enemy anchor is correct for a shooting line that stands still and
+                    // wrong for a force that walks the width of the field — see
+                    // CameraDirector.EnemyWindupAnchorX for the three beats.
+                    // MARCH sits on the chargers (so a riot shield is readable) until the
+                    // gap closes; CONTACT takes the signed-off union. See AssaultFrame.
+                    // With nobody moving, EnemyWindupAnchorX falls through to the shooters.
+                    TurnPhase.EnemyWindup => marchersActive
+                        ? assaultAnchorX
+                        : CameraDirector.EnemyWindupAnchorX(
+                              marchingXs, skirmishXs,
+                              enemyUnits.Where(u => u.Definition != null
+                                                    && u.Definition.meleeDamage == 0)
+                                        .Select(u => u.X).ToList(),
+                              enemyUnits.Select(u => u.X).ToList(),
+                              enemyCamX),
+                    TurnPhase.Resolving => turnSide == TurnSide.Enemy ? s.PlayerCamXAnchor
+                                                                     : enemyCamX,
+                    // Ride the aircraft from the player line across the
+                    // enemy, then (plane gone) sit back on the player
+                    // line so they fire from their own frame.
+                    TurnPhase.AirstrikeRun => AirstrikeCameraAnchorFor(s),
+                    _ => s.PlayerCamXAnchor,
+                };
+                if (!fighting && !watchingCollapse && turnPhase != TurnPhase.AirstrikeRun
+                    && arrivalCamHalf > 0f && bossTimer > 0f)
+                    anchorTarget = arrivalCamX;
+                followX = s.CameraFollowX ?? anchorTarget;
+                float arriveSmooth = watchingCollapse
+                    && CameraDirector.CollapseIsFollowing(collapseHold)
+                    ? CameraDirector.CollapseFollowSmoothTime
+                    : CameraDirector.MarchEscortSmoothTime;
+                SpringFollow.Step(ref followX, ref followXVel, anchorTarget, dt,
+                                  arriveSmooth);
+            }
+
+            // Enemy half-width is recaptured when a structure or spawn changes the SET.
+            // Casualties do not — that is the membership twitch these captures exist to
+            // prevent. An arrival on the clock outranks the leftover cluster so the
+            // escort is readable for the banner's 2.5s.
             float halfWidth = CameraDirector.PhaseHalfWidth(
                 turnPhase, turnSide,
-                s.PlayerCamHalfWidth, s.EnemyCamHalfWidth, s.EnemyCamHalfWidth,
-                0f, false, s.PlayerCamHalfWidth, false);
+                s.PlayerCamHalfWidth, enemyCamHalf, enemyCamHalf,
+                assaultHalfWidth, marchersActive,
+                s.PlayerCamHalfWidth, false);
+            if (turnPhase == TurnPhase.TankArrive)
+            {
+                CameraDirector.TankArriveFrame(structures, playerUnits, out _, out halfWidth);
+            }
 
-            // The RUN is the one phase whose framing is not a captured half-width. It has to hold
-            // the whole rake AND the bomb, and those are now different places — the burst covers
-            // the enemy position while the bomb goes where the player aimed. Widened, never
-            // narrowed: the standing floor still applies, so this can only pull the camera back.
+            // The fight sets its own framing in any phase, for the same reason it sets the anchor
+            // — PhaseHalfWidth only consults the march branch during the windup, and a fight that
+            // outlives the windup would otherwise be framed for a volley happening elsewhere.
+            if (fighting)
+                halfWidth = skirmishXs.Count > 0 ? assaultHalfWidth : meleeHoldHalfWidth;
+            else if (watchingCollapse)
+                halfWidth = collapseHoldHalfWidth;
+            else if (turnPhase != TurnPhase.AirstrikeRun
+                     && arrivalCamHalf > 0f && bossTimer > 0f)
+                halfWidth = arrivalCamHalf;
+
+            // Room for the aircraft. The camera rides it, so this is a
+            // floor, not a frame of the whole rake.
             if (turnPhase == TurnPhase.AirstrikeRun)
                 halfWidth = Mathf.Max(halfWidth, AirstrikeRunHalfWidth(s));
-            float targetZ = CameraDirector.TargetZ(halfWidth + 1.2f, s.StaticCamera, s.StaticCamZ);
+            float targetZ = CameraDirector.TargetZ(halfWidth + CameraDirector.FramePad,
+                                                   s.StaticCamera, s.StaticCamZ);
             float followZ = s.CameraFollowZ ?? targetZ;
             float followZVel = s.CameraFollowZVelocity;
             SpringFollow.Step(ref followZ, ref followZVel, targetZ, dt, 0.12f);
@@ -737,6 +1064,7 @@ namespace ArmedConflict.Game
                 EnemyUnits = enemyUnits,
                 Structures = structures,
                 DyingUnits = dyingUnits,
+                Skirmishes = skirmishes,
                 Helicopter = helicopter,
                 NextExplosionSlot = nextExplosionSlot,
                 ShakeIntensity = shake,
@@ -749,12 +1077,28 @@ namespace ArmedConflict.Game
                 TurnSide = turnSide,
                 TurnPhase = turnPhase,
                 EnemyAimDegrees = enemyAim,
+                EnemyLaunch = enemyLaunch,
                 TurnHandoverDelay = handover,
+                ScoutTimer = scoutTimer,
+                TankArriveTimer = tankArriveTimer,
+                MeleeHold = meleeHold,
+                MeleeHoldAnchorX = meleeHoldAnchorX,
+                MeleeHoldHalfWidth = meleeHoldHalfWidth,
+                CollapseHold = collapseHold,
+                CollapseHoldAnchorX = collapseHoldAnchorX,
+                CollapseHoldHalfWidth = collapseHoldHalfWidth,
+                VictoryCamHold = phase == GamePhase.Victory && s.Phase != GamePhase.Victory
+                    ? CameraDirector.VictoryCamHoldSeconds
+                    : s.VictoryCamHold,
                 TurnNumber = turnNumber,
                 CameraFollowX = followX,
                 CameraFollowXVelocity = followXVel,
                 CameraFollowZ = followZ,
                 CameraFollowZVelocity = followZVel,
+                EnemyCamXAnchor = enemyCamX,
+                EnemyCamHalfWidth = enemyCamHalf,
+                ArrivalCamXAnchor = arrivalCamX,
+                ArrivalCamHalfWidth = arrivalCamHalf,
                 TotalPlayerKills = s.TotalPlayerKills + enemyKilled,
                 TotalEnemyKills = s.TotalEnemyKills + playerKilled,
                 TotalGroundImpacts = s.TotalGroundImpacts + groundImpactsThisTick,
@@ -766,6 +1110,7 @@ namespace ArmedConflict.Game
                 NextScorchSlot = nextScorch,
                 Debris = debris,
                 NextDebrisSlot = nextDebris,
+                Wrecks = wrecks,
                 AirstrikePlane = planeNow,
                 AirstrikeSpawnDelay = spawnDelay,
                 PendingVolleyDelay = volleyDelay,
@@ -819,8 +1164,19 @@ namespace ArmedConflict.Game
         }
 
         static DyingUnitEntity RagdollFrom(UnitEntity u)
-            => new(u.Id, u.Definition, u.IsPlayerSide, u.X, u.Y, u.Z,
-                   Vx: u.IsPlayerSide ? -1.5f : 1.5f, Vy: 2.5f, RotationSpeed: 220f);
+        {
+            bool tumble = CosmeticSystems.DiesInATumble(u.Y, u.StandingOnStructureId);
+            var i = CosmeticSystems.ImpulseFor(u.Id, u.IsPlayerSide, tumble);
+            return new DyingUnitEntity(u.Id, u.Definition, u.IsPlayerSide, u.X, u.Y, u.Z,
+                                       Vx: i.Vx, Vy: i.Vy, RotationSpeed: i.RotationSpeed)
+            {
+                Vz = i.Vz,
+                Rotation = i.Rotation,
+                YawSpeed = i.YawSpeed,
+                TiltSpeed = i.TiltSpeed,
+                Tumble = tumble,
+            };
+        }
 
         /// <summary>
         /// Advances debris. Grounded rubble that has stopped moving is put to SLEEP: its motion
@@ -872,13 +1228,20 @@ namespace ArmedConflict.Game
         }
 
         /// <summary>
-        /// Stops a thrown body at a structure's face and rests it on a structure's roof.
+        /// Stops a thrown body at a structure's face, rests it on a structure's roof,
+        /// or lets it drape off a lip.
         ///
         /// Corpses used to sail straight THROUGH buildings, which is the one place a purely
         /// cosmetic system stops looking cosmetic: a body passing through a bunker says the
         /// bunker is not there. Blocks on EVERY structure, not just the opposing side's —
         /// projectiles are allowed through friendly walls so a garrison can fire over its own
         /// fortress, but a body has no such excuse.
+        ///
+        /// THE ROOF AND THE FACE ARE MUTUALLY EXCLUSIVE. Gravity dips a landed body a hair
+        /// below <c>topY</c> every tick. The face test then saw "spawned inside" and killed
+        /// <c>vx</c>, while the roof test snapped them back up. A garrison on a deck could
+        /// never walk off, and the renderer kept them flailing because they never settled
+        /// against dirt. Rob, 2026-08-14: twitching, stuck on the lip.
         /// </summary>
         /// <param name="fromY">
         /// The body's PREVIOUS height. Needed for the same reason `fromX` is: whether a body
@@ -888,16 +1251,48 @@ namespace ArmedConflict.Game
         /// </param>
         static void BlockOnStructures(IReadOnlyList<StructureEntity> structures,
                                       float fromX, float fromY, float y, ref float x, ref float vx,
-                                      ref float restY)
+                                      ref float vz, ref float restY, ref float bend,
+                                      int unitId, float supportY)
         {
             foreach (var st in structures)
             {
-                CollisionSystem.StructureBox(st, out float minX, out float maxX,
-                                             out float baseY, out float topY);
+                CollisionSystem.RagdollBox(st, out float minX, out float maxX,
+                                           out float baseY, out float topY);
 
-                // Resting ON it: horizontally over the box and AT OR ABOVE ITS ROOF. Checked
-                // first, because a body that cleared the wall should land on the roof rather than
-                // be shoved back off the face it already passed.
+                bool inX = x > minX && x < maxX;
+                bool wasInside = fromX > minX && fromX < maxX;
+                // At or above the roof last tick — standing on it, or falling onto it.
+                // A body at chest height against the wall is not this.
+                bool fromRoof = fromY >= topY - 1e-3f;
+                // Seated on THIS roof, not merely flying above it. fromRoof is
+                // true for anyone high in the air, so L8's watch garrison was
+                // treated as on the post's lip the instant they crossed its
+                // left face — pinned mid-air and dropped as a curtain.
+                bool seatedOnRoof = supportY >= topY - 1e-3f
+                                 && supportY <= topY + CosmeticSystems.RagdollAirborneSlack;
+
+                // LIP: only a body already RESTING on this roof walks off.
+                // A flyer entering from the side is not on the lip.
+                if (inX && seatedOnRoof && CosmeticSystems.RagdollOnLip(x, minX, maxX))
+                {
+                    bool offLeft = (x - minX) <= (maxX - x);
+                    if (offLeft)
+                    {
+                        x = minX;
+                        if (vx > 0f) vx = 0f;
+                        bend = -1f;
+                    }
+                    else
+                    {
+                        x = maxX;
+                        if (vx < 0f) vx = 0f;
+                        bend = 1f;
+                    }
+                    continue;
+                }
+
+                // ROOF: inside, came from above/on it, not at a lip. Rest here and skip
+                // the face — that is the vx-kill described above.
                 //
                 // THE TEST IS THE ROOF, NOT THE BASE. This read `y >= baseY`, and a ground
                 // structure's base IS the ground — so any body that got horizontally inside the
@@ -906,23 +1301,68 @@ namespace ArmedConflict.Game
                 // the building. That is Rob's "physically impossible interactions with
                 // structures", reported 2026-08-07; the condition's own comment already said
                 // "cleared the wall", which `y >= baseY` never tested.
-                if (x > minX && x < maxX && fromY >= topY) restY = Mathf.Max(restY, topY);
+                // Already over this footprint and above its roof — land here.
+                // Entering from the SIDE while high is flying over (L8 watch
+                // → post). Those must not catch the near face as a roof.
+                if (inX && fromRoof && wasInside)
+                {
+                    restY = Mathf.Max(restY, topY);
+                    continue;
+                }
 
-                // Stopped BY it: only while the body is inside the box's vertical span. Above the
+                // FACE: only while the body is inside the box's vertical span. Above the
                 // roof it is flying over, which is a real trajectory and not a miss.
                 if (y > topY || y < baseY) continue;
-                if (x <= minX || x >= maxX) continue;
+                if (!inX) continue;
 
-                // Put it back against the face it came in through, and kill the horizontal
-                // travel. Approaching from the right means resting against the right-hand face.
-                if (fromX >= maxX) { x = maxX; vx = 0f; }
-                else if (fromX <= minX) { x = minX; vx = 0f; }
+                // Put it back against the face it came in through. Inbound
+                // speed becomes depth so a rank does not stack on one pane —
+                // they drape along the wall while they fall. Approaching from
+                // the right means resting against the right-hand face.
+                // Bend INTO the wall — the part that hit stops, the rest folds toward it.
+                if (fromX >= maxX)
+                {
+                    x = maxX;
+                    vz += CosmeticSystems.RagdollWallScatterVz(unitId, Mathf.Abs(vx));
+                    vx = 0f;
+                    bend = -1f;
+                }
+                else if (fromX <= minX)
+                {
+                    x = minX;
+                    vz += CosmeticSystems.RagdollWallScatterVz(unitId, Mathf.Abs(vx));
+                    vx = 0f;
+                    bend = 1f;
+                }
                 else vx = 0f;                      // spawned inside: just stop, do not teleport
             }
         }
 
+        /// <summary>
+        /// A ruin is a low mound. Falling garrison used to pass through the
+        /// wreck mesh and flail inside it because the standing box was gone.
+        /// No Bend — slump-against-masonry on a collapsed pile is the twitch
+        /// Rob saw on L1.
+        /// </summary>
+        static void BlockOnWrecks(IReadOnlyList<WreckEntity> wrecks,
+                                  float fromY, float y, float x, ref float vx, ref float surface)
+        {
+            if (wrecks == null) return;
+            foreach (var w in wrecks)
+            {
+                float half = w.Width * 0.5f;
+                if (x < w.X - half || x > w.X + half) continue;
+                float lid = CosmeticSystems.WreckLidY(w);
+                if (fromY >= lid - 1e-3f && y <= lid)
+                    surface = Mathf.Max(surface, lid);
+                else if (y < lid && vx != 0f)
+                    vx = 0f;
+            }
+        }
+
         static List<DyingUnitEntity> StepRagdolls(IReadOnlyList<DyingUnitEntity> dying, float dt,
-                                                  IReadOnlyList<StructureEntity> structures)
+                                                  IReadOnlyList<StructureEntity> structures,
+                                                  IReadOnlyList<WreckEntity> wrecks)
         {
             var outp = new List<DyingUnitEntity>(dying.Count);
             foreach (var d in dying)
@@ -932,48 +1372,94 @@ namespace ArmedConflict.Game
 
                 float vy = d.Vy - TrajectoryPhysics.Gravity * dt;
                 float y = d.Y + vy * dt;
-                float rest = CosmeticSystems.RagdollRestY(d.Rotation);
+                float x = d.X + d.Vx * dt;
+                float vx = d.Vx;
+                // Depth is live now: ImpulseFor throws each body on its own Vz so a volley
+                // does not share one plane. Grounded bodies drop it — sliding in Z after the
+                // flop reads as the corpse skating, not settling.
+                float vz = d.Vz;
+                float z = d.Z + vz * dt;
+                float bend = d.Tumble ? d.Bend : 0f;
+                // Dirt is the lying box, always. RagdollRestY(live spin) at
+                // ±90 is 0.5 — they "land" on a phantom floor, the second
+                // pass treats that as a lip walk-off, and they hang at y=0.5
+                // with SupportY=-1. Roofs and wreck lids raise surface.
+                float surface = CosmeticSystems.RagdollRestY(0f);
+                BlockOnStructures(structures, d.X, d.Y, y, ref x, ref vx, ref vz, ref surface, ref bend,
+                                  d.Id, d.SupportY);
+                if (!d.Tumble) bend = 0f;
+                BlockOnWrecks(wrecks, d.Y, y, x, ref vx, ref surface);
 
-                if (y <= rest)
+                if (y <= surface)
                 {
-                    if (CosmeticSystems.ShouldRoll(d.Vx))
+                    float rot = d.Rotation, rotSpeed = d.RotationSpeed;
+                    if (CosmeticSystems.ShouldRoll(vx))
                     {
-                        CosmeticSystems.StepRoll(d.Vx, dt, out float nvx, out float rollSpeed);
-                        float rx = d.X + nvx * dt;
-                        float restRolled = CosmeticSystems.RagdollRestY(d.Rotation);
-                        BlockOnStructures(structures, d.X, d.Y, y, ref rx, ref nvx, ref restRolled);
+                        CosmeticSystems.StepRoll(vx, dt, out vx, out rotSpeed);
+                        rot += rotSpeed * dt;
+                    }
+                    else
+                    {
+                        // ±90 is a body on its SIDE — horizontal at this camera.
+                        // Flopping to 0/180 sat them back upright (the sit-up).
+                        CosmeticSystems.StepFlopToSide(rot, rotSpeed, dt, out rot, out rotSpeed);
+                        vx = 0f;
+                    }
+                    // Pose change moves the body's own rest; a roof still wins if they
+                    // are on one. Re-run so a roll that just reached a lip this pose
+                    // step is allowed to leave rather than snapped to dirt from y=4.
+                    //
+                    // fromY is the SURFACE they just landed on, not the dipped ballistic
+                    // y. Passing the dip made fromRoof false and the face test killed vx
+                    // as "spawned inside" — then they fell through. Seen red: falling
+                    // onto a roof ended at y 0.05, and a centre-roof slide had vx 0.
+                    //
+                    // GROUNDED HEIGHT IS THE LYING BOX, not RagdollRestY(rot). At ±90
+                    // that formula returns standing height and they hover.
+                    float onY = surface;
+                    surface = CosmeticSystems.RagdollRestY(0f);
+                    BlockOnStructures(structures, x, onY, onY, ref x, ref vx, ref vz, ref surface, ref bend,
+                                      d.Id, onY);
+                    BlockOnWrecks(wrecks, onY, onY, x, ref vx, ref surface);
+                    if (onY <= surface)
+                    {
                         outp.Add(d with
                         {
-                            X = rx, Y = restRolled,
-                            Vx = nvx, Vy = 0f,
-                            Rotation = d.Rotation + rollSpeed * dt,
-                            RotationSpeed = rollSpeed, Age = age,
+                            X = x, Y = surface, Z = z,
+                            Vx = vx, Vy = 0f, Vz = 0f,
+                            Rotation = rot, RotationSpeed = rotSpeed,
+                            Yaw = d.Yaw * CosmeticSystems.DecayPerTick60(0.88f, dt),
+                            SettleTilt = d.SettleTilt * CosmeticSystems.DecayPerTick60(0.88f, dt),
+                            Age = age, SupportY = surface, Bend = bend,
                         });
                     }
                     else
                     {
-                        CosmeticSystems.StepFlop(d.Rotation, d.RotationSpeed, dt,
-                                                 out float rot, out float rotSpeed);
-                        float sx = d.X, svx = 0f;
-                        float restFlop = CosmeticSystems.RagdollRestY(rot);
-                        BlockOnStructures(structures, d.X, d.Y, y, ref sx, ref svx, ref restFlop);
+                        // Walked off a lip during the pose step — fall from the roof,
+                        // not from dirt.
                         outp.Add(d with
                         {
-                            X = sx, Y = restFlop, Vx = 0f, Vy = 0f,
-                            Rotation = rot, RotationSpeed = rotSpeed, Age = age,
+                            X = x, Y = onY, Z = z,
+                            Vx = vx, Vy = vy,
+                            Rotation = rot, RotationSpeed = rotSpeed,
+                            Age = age, SupportY = -1f, Bend = bend,
                         });
                     }
                 }
                 else
                 {
-                    float ax = d.X + d.Vx * dt, avx = d.Vx, aRest = rest;
-                    BlockOnStructures(structures, d.X, d.Y, y, ref ax, ref avx, ref aRest);
-                    // A body that hit a wall mid-flight keeps falling — it just stops travelling.
-                    // Clamping to the roof here is what rests it on top when it cleared the wall.
+                    // A body that hit a wall mid-flight keeps falling — leftover
+                    // travel is now in Vz, so they slide along the face.
+                    // Full 3-axis tumble. The die clip is not posing them, so
+                    // this spin is the whole read — they flip, they do not sit.
                     outp.Add(d with
                     {
-                        X = ax, Y = Mathf.Max(y, aRest), Vy = y <= aRest ? 0f : vy, Vx = avx,
-                        Rotation = d.Rotation + d.RotationSpeed * dt, Age = age,
+                        X = x, Y = y, Z = z,
+                        Vy = vy, Vx = vx, Vz = vz,
+                        Rotation = d.Rotation + d.RotationSpeed * dt,
+                        Yaw = d.Yaw + d.YawSpeed * dt,
+                        SettleTilt = d.SettleTilt + d.TiltSpeed * dt,
+                        Age = age, SupportY = -1f, Bend = bend,
                     });
                 }
             }
@@ -996,29 +1482,11 @@ namespace ArmedConflict.Game
             if (s.Phase != GamePhase.Playing || s.TurnPhase != TurnPhase.Aiming) return s;
             if (s.PlayerUnits.Count == 0) return s;
 
-            // AN ARMED AIRSTRIKE ALIGNS THE TWO HALVES ON THEIR IMPACTS. Whichever takes longer
-            // to reach the target goes first; the other is delayed by the difference. In almost
-            // every case that means the VOLLEY goes now — its flight is the longer of the two at
-            // any usable power — and the aircraft is held back so its bomb lands with the rounds.
+            // AN ARMED AIRSTRIKE FLIES FIRST. The plane enters over the
+            // player line, the camera rides it across the enemy, it
+            // exits, the camera comes home, THEN the volley fires.
             if (s.AirstrikeArmed)
-            {
-                var prepared = BeginAirstrikeRun(s, aimVelocity);
-                if (prepared.AirstrikeSpawnDelay <= 0f) return prepared;
-
-                // The volley is the slower half: fire it NOW, exactly as an unarmed release would,
-                // and let the held aircraft catch up. PendingVolleyAim is cleared with it — the
-                // bomb's target rides on the aircraft precisely so nothing downstream needs it.
-                //
-                // **THE PHASE STAYS AirstrikeRun even though the volley is away.** That is what
-                // keeps the pass owning the frame: the run's camera cuts to the strike and HOLDS,
-                // so the aircraft still enters across the left edge and the player's rounds arc
-                // into the same held frame instead of dragging the camera off after them. Hits
-                // land either way — collision runs on the always-run path, not inside a phase.
-                var away = LaunchVolley(prepared with { TurnPhase = TurnPhase.Aiming },
-                                        aimVelocity, random, ammoCatalog);
-                return away with { PendingVolleyAim = null,
-                                   TurnPhase = TurnPhase.AirstrikeRun };
-            }
+                return BeginAirstrikeRun(s, aimVelocity);
 
             return LaunchVolley(s, aimVelocity, random, ammoCatalog);
         }
@@ -1201,13 +1669,22 @@ namespace ArmedConflict.Game
         public const float PlaneRunHalfLength = 11f;
 
         /// <summary>
-        /// How far LEFT of the drop point the camera sits during the run, leading the subject.
-        ///
-        /// Without it the release (5.95 units short) sits outside the frame's ~4.94 half-width.
-        /// With it, release lands at -4.45 and impact at +1.5, and BOTH are on screen — which is
-        /// the one thing the beat has to deliver.
+        /// How far past the RIGHT EDGE of the held enemy frame the
+        /// aircraft keeps flying — just enough to leave the picture.
+        /// The camera does not follow it there.
+        /// </summary>
+        public const float PlaneExitOvershoot = 0.8f;
+
+        /// <summary>
+        /// How far AHEAD of the aircraft the camera looks while riding it.
+        /// Enough to see the nose and the rounds leaving it; not so much
+        /// that the plane sits on the left edge.
         /// </summary>
         public const float PlaneCameraBias = 1.5f;
+
+        /// <summary>After the plane leaves, how long the camera has to
+        /// spring home before the infantry fire.</summary>
+        public const float AirstrikeReturnSeconds = 0.75f;
 
         /// <summary>
         /// Starts the aircraft's pass and banks the aim for the volley that follows it.
@@ -1218,45 +1695,29 @@ namespace ArmedConflict.Game
         /// the player can no longer change their mind.
         /// </summary>
         /// <summary>
-        /// Where the camera sits during the run: the drop point, pulled back toward the aircraft.
-        /// Falls back to the enemy anchor if there is somehow no aim to derive one from, so a
-        /// missing aim cannot leave the camera staring at the player's boots.
+        /// Where the camera sits during the run: rides the aircraft
+        /// until the enemy, then HOLDS so the plane can leave the
+        /// right edge. Once the plane is gone, the player line.
         /// </summary>
         public static float AirstrikeCameraAnchorFor(GameState s)
         {
-            if (s.PendingVolleyAim is not Vector3 aim) return s.EnemyCamXAnchor;
-            float targetX = TrajectoryPhysics.LandingPoint(MeanMuzzle(s.PlayerUnits), aim).x;
-
-            // THE FRAME HAS TO HOLD THE WHOLE RAKE, not just the bomb. Now that the burst covers
-            // the enemy position rather than walking to the aim point, the two are different
-            // places — aim past the line and the rake is BEHIND the impact. Centring on the
-            // midpoint of everything that must be seen (both ends of the walk, and the bomb) is
-            // what keeps all three on screen; the bias then leads the aircraft into it.
             var p = s.AirstrikePlane;
-            if (p == null) return targetX - PlaneCameraBias;
-
-            float lo = Mathf.Min(p.StrafeFromX, targetX);
-            float hi = Mathf.Max(p.StrafeToX, targetX);
-            return (lo + hi) / 2f - PlaneCameraBias;
+            if (p == null) return s.PlayerCamXAnchor;
+            float ride = p.X + PlaneCameraBias;
+            float cap = AirstrikeCameraCap(p);
+            return ride < cap ? ride : cap;
         }
+
+        /// <summary>The enemy frame the camera will not pan past.</summary>
+        public static float AirstrikeCameraCap(AirstrikePlaneEntity p)
+            => p == null ? 0f : (p.StrafeFromX + p.StrafeToX) * 0.5f;
 
         /// <summary>
-        /// Half-width the run must frame: everything the pass shows — both ends of the rake and the
-        /// bomb's impact — measured from the anchor the camera actually uses, plus the standing
-        /// floor so a narrow engagement still gets the aircraft's own room.
+        /// Room for the aircraft itself. The camera rides it, so the
+        /// frame does not have to hold the whole rake at once.
         /// </summary>
         public static float AirstrikeRunHalfWidth(GameState s)
-        {
-            if (s.PendingVolleyAim is not Vector3 aim || s.AirstrikePlane == null)
-                return CameraDirector.AirstrikeRunHalfWidth;
-
-            float targetX = TrajectoryPhysics.LandingPoint(MeanMuzzle(s.PlayerUnits), aim).x;
-            float anchor = AirstrikeCameraAnchorFor(s);
-            var p = s.AirstrikePlane;
-            float needed = CameraFraming.HalfWidth(
-                anchor, new[] { p.StrafeFromX, p.StrafeToX, targetX });
-            return Mathf.Max(needed + StrafeMargin, CameraDirector.AirstrikeRunHalfWidth);
-        }
+            => CameraDirector.AirstrikeRunHalfWidth;
 
         /// <summary>
         /// Flies the aircraft, and retires it once it is past its own exit point. Null in, null out
@@ -1310,40 +1771,36 @@ namespace ArmedConflict.Game
             => (targetX - PlaneSpeed * BombFallTime - spawnX) / PlaneSpeed + BombFallTime;
 
         /// <summary>
-        /// Where the aircraft must start to do its job: far enough back to exist `StrafeLead`
-        /// before the rake's first firing point, and to still be short of the release when it drops.
-        /// Never nearer than the standing `PlaneRunHalfLength`.
+        /// Where the aircraft must start: LEFT of the player line so it
+        /// enters over our troops, and still far enough back for
+        /// `StrafeLead` before the first rake point and the bomb release.
         /// </summary>
-        static float PlaneSpawnX(float rakeFromX, float targetX)
-            => Mathf.Min(Mathf.Min(rakeFromX - StrafeLead - 1f,
-                                   targetX - PlaneSpeed * BombFallTime - 1f),
-                         targetX - PlaneRunHalfLength);
+        static float PlaneSpawnX(GameState s, float rakeFromX, float targetX)
+        {
+            float playerLeft = float.MaxValue;
+            foreach (var u in s.PlayerUnits)
+                if (u.X < playerLeft) playerLeft = u.X;
+            if (playerLeft > 1e8f) playerLeft = -8f;
+            return Mathf.Min(playerLeft - 2.5f,
+                             Mathf.Min(rakeFromX - StrafeLead - 1f,
+                                       targetX - PlaneSpeed * BombFallTime - 1f));
+        }
 
         public static GameState BeginAirstrikeRun(GameState s, Vector3 aimVelocity)
         {
             var target = TrajectoryPhysics.LandingPoint(MeanMuzzle(s.PlayerUnits), aimVelocity);
             var (from, to) = StrafeSpan(s, target.x);
+            float spawn = PlaneSpawnX(s, from, target.x);
 
-            // THE AIRCRAFT IS SIZED TO ITS JOB, not to a fixed offset from the aim — see
-            // PlaneSpawnX. Deriving it means a level whose enemy line is wide, or an aim far from
-            // that line, cannot silently start the burst before the plane exists: that failure
-            // drops rounds with no error anywhere.
-            float spawn = PlaneSpawnX(from, target.x);
-
-            // THE TWO HALVES ARE ALIGNED ON THEIR IMPACTS, not queued one after the other.
-            //
-            // Whichever takes LONGER to reach the target starts first, and the other is delayed by
-            // the difference — so both land together and the beat costs `max(flight, run)` rather
-            // than their sum. On an ordinary 86% shot that is 2.91s against 4.53s, and the third of
-            // the old beat that was watching an aircraft with none of the player's rounds in the
-            // air disappears.
-            float volleyFlight = TrajectoryPhysics.FlightTime(MeanMuzzle(s.PlayerUnits), aimVelocity);
-            float runToImpact = PlaneRunToImpact(spawn, target.x);
-            float lead = volleyFlight - runToImpact;
-
+            float cap = (from + to) * 0.5f;
+            float offScreen = cap + CameraDirector.AirstrikeRunHalfWidth
+                                  + CameraDirector.FramePad
+                                  + PlaneExitOvershoot;
+            float lastJob = Mathf.Max(to - StrafeLead + 1f,
+                                      target.x - PlaneSpeed * BombFallTime + 1f);
             var plane = new AirstrikePlaneEntity(
                 X: spawn, Y: PlaneY, Vx: PlaneSpeed,
-                ExitX: Mathf.Max(target.x, to) + PlaneRunHalfLength)
+                ExitX: Mathf.Max(offScreen, lastJob))
             {
                 StrafeFromX = from,
                 StrafeToX = to,
@@ -1351,39 +1808,16 @@ namespace ArmedConflict.Game
                 BombTargetX = target.x,
             };
 
-            var committed = s with
+            return s with
             {
                 AirstrikeArmed = false,
                 LoadedConsumables = Consumables.Decrement(s.LoadedConsumables,
                                                           ConsumableType.Airstrike),
                 TurnSide = TurnSide.Player,
-            };
-
-            if (lead >= 0f)
-            {
-                // The volley is the slower half: it goes NOW and the aircraft is held back. There
-                // is no AirstrikeRun phase in this case — the player's own rounds are in the air
-                // from the release, which is the whole point, and the volley camera has something
-                // to follow immediately.
-                return committed with
-                {
-                    // The entity exists from the moment of release so nothing has to be
-                    // recomputed when it is let go — the delay is what keeps it off the field,
-                    // and both the tick and the renderer gate on that one value.
-                    AirstrikePlane = plane,
-                    AirstrikeSpawnDelay = lead,
-                    PendingVolleyAim = aimVelocity,
-                    PendingVolleyDelay = 0f,
-                };
-            }
-
-            // The aircraft is the slower half — a flat, fast shot. It goes now and the volley is
-            // held, which is the old behaviour narrowed to the only case that still needs it.
-            return committed with
-            {
                 AirstrikePlane = plane,
+                AirstrikeSpawnDelay = 0f,
                 PendingVolleyAim = aimVelocity,
-                PendingVolleyDelay = -lead,
+                PendingVolleyDelay = 999f,
                 TurnPhase = TurnPhase.AirstrikeRun,
             };
         }
@@ -1617,39 +2051,27 @@ namespace ArmedConflict.Game
         }
 
         /// <summary>
-        /// Launches the HELD volley once its delay expires — the only thing left in the run's own
-        /// phase now that the aircraft, its guns and its bomb all live on the always-run path.
-        ///
-        /// Reached only when the aircraft is the SLOWER half of the beat (a flat, fast shot). When
-        /// the volley is slower it was launched at the moment of release and this phase is never
-        /// entered at all.
+        /// Launches the held volley after the plane has left and the
+        /// camera has had its return beat. The guns and bomb live on
+        /// the always-run path; this only sequences the infantry.
         /// </summary>
         static GameState StepAirstrikeRun(GameState s, float dt, System.Random random,
                                           AmmoCatalogSO ammoCatalog)
         {
-            // Still holding a volley? Launch it the moment its delay runs out. TurnPhase goes back
-            // to Aiming for exactly one call because LaunchVolley guards on it — the alternative is
-            // a second entry point into the same volley builder, and two ways to fire one volley is
-            // how they drift apart.
             if (s.PendingVolleyAim is Vector3 held)
             {
-                if (s.PendingVolleyDelay > 0f) return s;
+                // Still crossing, or the camera is still coming home.
+                if (s.AirstrikePlane != null || s.PendingVolleyDelay > 0f) return s;
                 var launched = LaunchVolley(s with { TurnPhase = TurnPhase.Aiming },
                                             held, random, ammoCatalog);
-                LogVolley(launched, "with the airstrike");
+                LogVolley(launched, "after the airstrike");
                 return launched with { PendingVolleyAim = null,
-                                       TurnPhase = TurnPhase.AirstrikeRun };
+                                       TurnPhase = TurnPhase.Resolving };
             }
 
-            // The volley is away. The run OWNS THE FRAME until the bomb resolves, which is what
-            // keeps the aircraft's pass readable — asked of the PROJECTILE LIST, not of a timer: a
-            // bomb that clips a tall structure on the way down ends the run early and correctly,
-            // where a timer would hold on for a flight that had already finished.
-            var p = s.AirstrikePlane;
-            bool bombGone = p == null
-                         || (p.HasDropped && !s.Projectiles.Any(r => r.Id >= AirstrikeIdBase
-                                                                  && r.Id < AirstrikeIdBase + 1000));
-            return bombGone ? s with { TurnPhase = TurnPhase.Resolving } : s;
+            return s.TurnPhase == TurnPhase.AirstrikeRun
+                ? s with { TurnPhase = TurnPhase.Resolving }
+                : s;
         }
 
         /// <summary>
@@ -1902,6 +2324,35 @@ namespace ArmedConflict.Game
             };
         }
 
+        /// <summary>
+        /// Rolls each enemy's launch at the START of the windup. FireEnemyVolley
+        /// consumes these so the raised rifles and the rounds agree.
+        /// </summary>
+        public static GameState PrepareEnemyVolley(GameState s, System.Random random)
+        {
+            if (s.EnemyUnits.Count == 0 || s.PlayerUnits.Count == 0) return s;
+
+            float jitterMultiplier = s.SmokeScreenArmed ? SmokeScreenJitterMultiplier : 1f;
+            var aim = new Dictionary<int, float>(s.EnemyUnits.Count);
+            var launch = new Dictionary<int, Vector3>(s.EnemyUnits.Count);
+            foreach (var e in s.EnemyUnits)
+            {
+                var v = SolveEnemyLaunch(e, s.PlayerUnits, jitterMultiplier, random);
+                aim[e.Id] = Mathf.Atan2(v.y, Mathf.Abs(v.x)) * Mathf.Rad2Deg;
+                launch[e.Id] = v;
+            }
+            return s with { EnemyAimDegrees = aim, EnemyLaunch = launch };
+        }
+
+        static Vector3 SolveEnemyLaunch(UnitEntity e, IReadOnlyList<UnitEntity> playerUnits,
+                                        float jitterMultiplier, System.Random random)
+        {
+            var target = playerUnits[random.Next(playerUnits.Count)];
+            return EnemyAI.AimAt(new Vector3(e.X, e.Y + 0.35f, e.Z),
+                                 new Vector3(target.X, target.Y, target.Z),
+                                 jitterMultiplier);
+        }
+
         /// <summary>The enemy's answering volley, aimed with jitter at random player units.</summary>
         public static GameState FireEnemyVolley(GameState s, System.Random random)
         {
@@ -1909,19 +2360,25 @@ namespace ArmedConflict.Game
 
             var rounds = new List<ProjectileEntity>(s.Projectiles);
             var aim = new Dictionary<int, float>(s.EnemyUnits.Count);
+            var launch = s.EnemyLaunch;
             int slot = s.NextBulletSlot;
 
             // SMOKE SCREEN: this one volley is fired through smoke, so every shooter's aim wanders
             // twice as far. It is spent HERE, at the volley it affects — the same "consumed by the
             // thing it does, not by the tap that armed it" rule the Airstrike follows.
+            //
+            // If PrepareEnemyVolley already rolled through smoke, the stored launch IS the
+            // smoked shot and we must not roll again.
             float jitterMultiplier = s.SmokeScreenArmed ? SmokeScreenJitterMultiplier : 1f;
+            bool prepared = launch != null && launch.Count > 0;
 
             foreach (var e in s.EnemyUnits)
             {
-                var target = s.PlayerUnits[random.Next(s.PlayerUnits.Count)];
-                var v = EnemyAI.AimAt(new Vector3(e.X, e.Y + 0.35f, e.Z),
-                                      new Vector3(target.X, target.Y, target.Z),
-                                      jitterMultiplier);
+                Vector3 v;
+                if (prepared && launch.TryGetValue(e.Id, out var stored))
+                    v = stored;
+                else
+                    v = SolveEnemyLaunch(e, s.PlayerUnits, jitterMultiplier, random);
 
                 // The elevation this unit is ABOUT TO FIRE at, read back off the velocity rather
                 // than drawn again — AimAt picks its arc at random, so a second draw would pose
@@ -1942,6 +2399,7 @@ namespace ArmedConflict.Game
                 Projectiles = rounds,
                 NextBulletSlot = slot,
                 EnemyAimDegrees = aim,
+                EnemyLaunch = launch ?? EmptyLaunch,
                 SmokeScreenArmed = false,
                 LoadedConsumables = s.SmokeScreenArmed
                     ? Consumables.Decrement(s.LoadedConsumables, ConsumableType.SmokeScreen)

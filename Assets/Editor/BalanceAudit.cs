@@ -137,6 +137,7 @@ public static class BalanceAudit
 
         foreach (var level in levels)
         {
+            EncounterUnlocks.GrantUnits(level);
             var picks = Loadout.Default(level, roster, unlocked);
             var s = LevelBuilder.BuildInitialState(level, 1, 12, new System.Random(9),
                                                    playerGroupsOverride: Loadout.ToPlayerGroups(level, picks));
@@ -175,6 +176,7 @@ public static class BalanceAudit
     static IEnumerable<Squad> Squads(LevelDefinitionSO level, RosterDefinitionSO roster,
                                      System.Func<string, bool> unlocked)
     {
+        EncounterUnlocks.GrantUnits(level);
         yield return new Squad { Label = "stock", Picks = Loadout.Default(level, roster, unlocked) };
 
         var dearest = roster.slots.OrderByDescending(s => s.pointCost).First();

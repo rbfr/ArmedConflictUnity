@@ -68,7 +68,9 @@ Payout summary joins the victory screen; balance shown on stage/level select.
   (rifleman cheap, heavy/specialist expensive). Levels define `deployBudget`; the player
   composes any mix within it. Stays inside the locked 7–30 units/side scale.
 - Default/"quick start" loadout auto-filled so a player who skips the screen gets the
-  current hardcoded composition — the screen adds choice, never friction.
+  **authored ground mix** for that level (not N cheapest riflemen). Specialists in
+  that mix unlock when the player reaches the level, so Begin never requires a shop
+  visit. The screen adds choice, never friction.
 - **Sanity pass required**: audit all existing levels against min/max-budget
   compositions (all-cheap spam, all-expensive few). Some levels authored around the fixed
   roster may trivialize or brick under extreme mixes; adjust budgets or enemy comps.
@@ -251,7 +253,6 @@ test (structures, ammo, now consumables).
    by construction but say nothing about balance. **The full manual audit is still owed
    as a fast-follow session** before treating 1b as fully closed — do it before/alongside
    Slice 1c.
-2. **Skipping the loadout screen must cost nothing.** The screen auto-fills a default
-   loadout matching today's hardcoded composition; one tap on Begin plays exactly like
-   the current game. Loadout adds choice, never friction — a player who never opens the
-   picker keeps the full skill-first experience.
+2. **Skipping the loadout screen must cost nothing.** The screen auto-fills the level's
+   authored ground mix (unlock-on-encounter makes that mix legal). One tap on Begin
+   plays the squad the level was written around. Loadout adds choice, never friction.

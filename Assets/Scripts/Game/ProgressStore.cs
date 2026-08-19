@@ -27,6 +27,7 @@ namespace ArmedConflict.Game
         const string KeyUnlockedUnits = "unlocked_units";
         const string KeyUnlockedAmmo = "unlocked_ammo";
         const string KeySelectedAmmo = "selected_ammo";
+        const string KeyAmmoPlayerPicked = "ammo_player_picked";
         const string KeyUnlockedCosmetics = "unlocked_cosmetics";
         const string KeySelectedCosmetic = "selected_cosmetic";
         const string KeyClaimedMilestones = "claimed_milestones";
@@ -141,6 +142,18 @@ namespace ArmedConflict.Game
             PlayerPrefs.Save();
         }
 
+        /// <summary>
+        /// True once the player has tapped an ammo chip. Encounter grants pre-select only
+        /// while this is false, so a gift never overwrites a choice.
+        /// </summary>
+        public static bool AmmoPickedByPlayer() => PlayerPrefs.GetInt(KeyAmmoPlayerPicked, 0) == 1;
+
+        public static void MarkAmmoPickedByPlayer()
+        {
+            PlayerPrefs.SetInt(KeyAmmoPlayerPicked, 1);
+            PlayerPrefs.Save();
+        }
+
         // ---- cosmetics ------------------------------------------------------------------
 
         public static ISet<string> UnlockedCosmetics() => ReadSet(KeyUnlockedCosmetics);
@@ -239,7 +252,7 @@ namespace ArmedConflict.Game
                 if (l != null) PlayerPrefs.DeleteKey($"stars_{l.id}");
             foreach (var k in new[]
             {
-                KeyCoins, KeyUnlockedUnits, KeyUnlockedAmmo, KeySelectedAmmo,
+                KeyCoins, KeyUnlockedUnits, KeyUnlockedAmmo, KeySelectedAmmo, KeyAmmoPlayerPicked,
                 KeyUnlockedCosmetics, KeySelectedCosmetic, KeyClaimedMilestones, KeyLastWinDate,
             }) PlayerPrefs.DeleteKey(k);
             foreach (ConsumableType t in System.Enum.GetValues(typeof(ConsumableType)))

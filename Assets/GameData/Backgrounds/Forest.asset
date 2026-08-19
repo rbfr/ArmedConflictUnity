@@ -17,7 +17,7 @@ MonoBehaviour:
   groundColor: {r: 0.30980393, g: 0.4862745, b: 0.23529412, a: 1}
   groundNear: {r: 0.42745098, g: 0.6117647, b: 0.3137255, a: 1}
   horizonAccent: {r: 0.65882355, g: 0.81960785, b: 0.54901963, a: 1}
-  silhouetteFar: {r: 0.5764706, g: 0.7372549, b: 0.627451, a: 1}
+  silhouetteFar: {r: 0.42, g: 0.5647059, b: 0.4549020, a: 1}
   silhouetteNear: {r: 0.24705882, g: 0.42745098, b: 0.26666668, a: 1}
   style: 1
   snowfall: 0

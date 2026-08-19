@@ -86,14 +86,34 @@ MonoBehaviour:
     standingOnStructureId: player_tank
     advancePerTurn: 0
   - definition: {fileID: 11400000, guid: 42221a45b5be3eb57b1b2bd28b9aaac0, type: 2}
-    count: 8
-    anchorX: -7
+    count: 6
+    anchorX: -7.2
+    anchorZ: 0
+    standingOnStructureId: 
+    advancePerTurn: 0
+  - definition: {fileID: 11400000, guid: 78df349efe93c4808aaf91ecd66e5ee7, type: 2}
+    count: 2
+    anchorX: -5.6
     anchorZ: 0
     standingOnStructureId: 
     advancePerTurn: 0
   background: {fileID: 11400000, guid: 4f15fdd70f38b57f29ee4bfd832b0259, type: 2}
   heliChance: 0
-  props: []
+  props:
+  - modelAsset: models/prop_dead_tree.glb
+    x: -5.3
+    z: -8.8
+    scale: 2.7
+    slowsAdvance: 0
+    halfWidth: 0.6
+    keepColors: 1
+  - modelAsset: models/prop_wreck_car.glb
+    x: -8.5
+    z: -10.4
+    scale: 3.0
+    slowsAdvance: 0
+    halfWidth: 1.2
+    keepColors: 1
   levelBase: 190
   deployBudget: 14
   bossPhases:
@@ -117,7 +137,8 @@ MonoBehaviour:
   reinforcementWaves: []
   staticCamera: 0
   isTestLevel: 0
-  designNotes: "Beat 6: stage boss. The first BossPhaseTrigger the project has ever
+  designNotes: "Beat 6: stage boss. Default squad is 6 rifle + 2 rocket — the keep
+    is the first masonry the player is handed the tool for. The first BossPhaseTrigger the project has ever
     fired \u2014 the keep falling spawns the Citadel Sovereign (260 hp) and a heavy
     escort, so the level does not end when the structure does. Biome reuses Mountains
     from beat 1 on purpose: same ground, a fortress instead of a hut, which is the

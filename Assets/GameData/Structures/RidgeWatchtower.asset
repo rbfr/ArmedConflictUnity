@@ -15,6 +15,7 @@ MonoBehaviour:
   id: ridge_watchtower
   displayName: Ridge Watchtower
   modelAsset: models/ridge_watchtower.glb
+  wreckModelAsset: models/ridge_watchtower_collapse.glb
   maxHp: 105
   size: 4.5
   isPlayerSide: 0
