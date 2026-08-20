@@ -49,6 +49,13 @@ namespace ArmedConflict.Data
         /// painted olive is a different object.
         /// </summary>
         public bool keepColors = false;
+        /// <summary>
+        /// Skip Normalize. The GLB is already in world units; `scale` is
+        /// a uniform multiplier (1 = authored size). A road's longest
+        /// axis is its length — Normalize would turn scale 1 into a
+        /// postage stamp.
+        /// </summary>
+        public bool absoluteScale = false;
     }
 
     [Serializable]

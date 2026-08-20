@@ -101,12 +101,12 @@ MonoBehaviour:
     slowsAdvance: 0
     halfWidth: 0.5
     keepColors: 1
-  - modelAsset: models/prop_cactus.glb
+  - modelAsset: models/prop_boulder.glb
     x: -8.6
     z: -10.3
     scale: 2.2
     slowsAdvance: 0
-    halfWidth: 0.5
+    halfWidth: 0.9
     keepColors: 1
   levelBase: 260
   deployBudget: 16

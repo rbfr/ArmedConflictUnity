@@ -106,12 +106,12 @@ MonoBehaviour:
     scale: 0.9
     slowsAdvance: 1
     halfWidth: 1
-  - modelAsset: models/prop_wreck_car.glb
+  - modelAsset: models/prop_pine.glb
     x: -5.4
     z: -8.6
     scale: 3.2
     slowsAdvance: 0
-    halfWidth: 1.2
+    halfWidth: 0.6
     keepColors: 1
   - modelAsset: models/prop_dead_tree.glb
     x: -8.4

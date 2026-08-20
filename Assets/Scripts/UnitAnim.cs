@@ -72,6 +72,15 @@ public class UnitAnim : MonoBehaviour
     public const float ReadyDrop = 16f;
     const float ReadyBreathe = 2.4f;
 
+    /// <summary>
+    /// How much of the lift above ready is a torso lean. Arms take the
+    /// rest, so the muzzle still matches the drag (arms are children of
+    /// the torso — adding the same angle twice would overshoot).
+    /// </summary>
+    public const float TorsoShare = 0.22f;
+    public const float TorsoMax = 14f;
+    const float HeadFollow = 0.4f;
+
     // Which way a positive AimDegrees lifts the muzzle. The soldier is built facing glTF +Z and
     // the `facing` pivot yaws the whole model, so elevation is always a pitch about the arm
     // parent's X — the sign is the only thing the facing can flip, and it does not, because the
@@ -213,9 +222,38 @@ public class UnitAnim : MonoBehaviour
         shownAim = Mathf.Lerp(shownAim, target, 1f - Mathf.Exp(-AimFollow * Time.deltaTime));
         if (Mathf.Abs(shownAim) < 0.01f) return;
 
-        var lift = Quaternion.AngleAxis(AimSign * shownAim, Vector3.right);
+        SplitAim(shownAim, wholeBody: !walkingNow && !fightingNow,
+                 out float torsoAim, out float armAim);
+
+        if (torso != null && Mathf.Abs(torsoAim) > 0.01f)
+            torso.localRotation = Quaternion.AngleAxis(AimSign * torsoAim, Vector3.right)
+                                  * torso.localRotation;
+        if (head != null && Mathf.Abs(torsoAim) > 0.01f)
+            head.localRotation = Quaternion.AngleAxis(AimSign * torsoAim * HeadFollow, Vector3.right)
+                                 * head.localRotation;
+
+        var lift = Quaternion.AngleAxis(AimSign * armAim, Vector3.right);
         if (armL != null) armL.localRotation = lift * armL.localRotation;
         if (armR != null) armR.localRotation = lift * armR.localRotation;
+    }
+
+    /// <summary>
+    /// Split a shown elevation into torso lean + remaining arm pitch.
+    /// Ready (−ReadyDrop) is arms-only — that hold is signed. Walking
+    /// and fighting stay arms-only so a march does not lean into the
+    /// shot. torso + arms == shownAim always, so the muzzle still is
+    /// the drag.
+    /// </summary>
+    public static void SplitAim(float shownAim, bool wholeBody,
+                                out float torsoAim, out float armAim)
+    {
+        armAim = shownAim;
+        torsoAim = 0f;
+        if (!wholeBody) return;
+        float fromReady = shownAim + ReadyDrop;
+        if (fromReady <= 1f) return;
+        torsoAim = Mathf.Min(fromReady * TorsoShare, TorsoMax);
+        armAim = shownAim - torsoAim;
     }
 
     void Layer(string clip, int layer, WrapMode wrap)

@@ -175,7 +175,10 @@ public class LevelScenery : MonoBehaviour
             if (pg == null) continue;
             pg.name = $"prop_{ModelKey(prop.modelAsset)}";
             pg.transform.localPosition = GameSpace.ToUnity(prop.x, 0f, prop.z);
-            Normalize(pg, prop.scale);
+            if (prop.absoluteScale)
+                pg.transform.localScale = Vector3.one * (prop.scale <= 0f ? 1f : prop.scale);
+            else
+                Normalize(pg, prop.scale);
             if (!prop.keepColors)
                 Tone(pg, structPlayer, structPlayerAccent, null);
         }

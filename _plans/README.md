@@ -35,6 +35,7 @@ is a statement about the current state of the code** — that is what made archi
 | `archive/TIER0_PLAN.md` | `PRODUCT_DIRECTION.md` Tier 0 — the product spine (0.1–0.6) | Phases A–F, 2026-08-06; Tier 0 closed 2026-08-07 |
 | `archive/TIER1_3_CONSUMABLES.md` | Tier 1.3 — the four base/tactical consumables | 2026-08-10, device-confirmed. Overwatch Flare deliberately held |
 | `archive/AIRSTRIKE_PLANE.md` | The airstrike's aircraft and its own beat | 2026-08-10, reworked 2026-08-11, signed off "ok this will work" |
+| `archive/MIDGROUND_VARIETY.md` | Per-biome mid-ground set; L1 car stays | 2026-08-19, Rob: "ok, looks nice." |
 
 **Archived on 2026-08-11**, and the trigger is worth recording: `TIER0_PLAN.md` still said the
 balance audit's device half was "still owed" four days after it had been run and signed off. That

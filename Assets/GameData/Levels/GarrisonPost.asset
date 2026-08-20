@@ -72,7 +72,7 @@ MonoBehaviour:
     scale: 0.9
     slowsAdvance: 0
     halfWidth: 1
-  - modelAsset: models/prop_dead_tree.glb
+  - modelAsset: models/prop_stump.glb
     x: -5.2
     z: -8.6
     scale: 2.8

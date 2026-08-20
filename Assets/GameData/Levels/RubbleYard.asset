@@ -88,20 +88,28 @@ MonoBehaviour:
   background: {fileID: 11400000, guid: 01c2e6705a601b4ac80a3e7f022da10e, type: 2}
   heliChance: 0
   props:
-  - modelAsset: models/prop_wreck_car.glb
+  - modelAsset: models/prop_lamp.glb
     x: -5.0
     z: -7.8
     scale: 3.4
     slowsAdvance: 0
-    halfWidth: 1.2
+    halfWidth: 0.4
     keepColors: 1
-  - modelAsset: models/prop_dead_tree.glb
+  - modelAsset: models/prop_rubble.glb
     x: -8.9
     z: -9.4
     scale: 2.2
     slowsAdvance: 0
-    halfWidth: 0.6
+    halfWidth: 0.8
     keepColors: 1
+  - modelAsset: models/prop_city_road.glb
+    x: -1.5
+    z: -2.4
+    scale: 1
+    slowsAdvance: 0
+    halfWidth: 7
+    keepColors: 1
+    absoluteScale: 1
   levelBase: 170
   deployBudget: 15
   bossPhases: []

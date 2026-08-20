@@ -454,10 +454,10 @@ namespace ArmedConflict.UI
         /// <summary>
         /// Two channels, and the difference between them is the whole of pillar 7.
         ///
-        /// The BANNER is a flash: something just happened ("Their heavies are here!"). The
-        /// TELEGRAPH STRIP is a standing condition: something is ABOUT to happen, and it stays on
-        /// screen for the entire turn the player is being warned about. A warning that fades has
-        /// blindsided anyone who looked away, which is the thing the pillar exists to prevent.
+        /// The BANNER is a flash: a boss or wave just arrived. It does not
+        /// narrate phases — those Kotlin lines are gone. The TELEGRAPH STRIP
+        /// is a standing condition: something is ABOUT to happen, and it stays
+        /// on screen for the entire turn being warned about.
         ///
         /// Both sit under the coin pill and above the battlefield, clear of the safe-area insets.
         /// </summary>

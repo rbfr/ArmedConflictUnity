@@ -31,13 +31,21 @@ a live MCP Blender (it kills the addon).
 
 ---
 
-## Asked for: more mid-ground scenery variety — parked 2026-08-18
+## RESOLVED 2026-08-19: Kotlin narration banners
 
-All twelve campaign levels have two keepColors plants at z ≤ −6
-(car / blasted tree / cactus). Depth and the L1 car are signed.
-Rob: *"ok. seems repetitive but we can address later."* The
-fix is a wider per-biome set, not moving or rescaling the three
-we have. Do not reopen those as a taste pass.
+Rob: *"ok that's good."* Phase copy is gone (levelGoal flash,
+"Look over the field", "N closing", "Your forces arrive").
+Wave telegraph and boss announcements stay. HUD still names
+the phase. Do not restore `ThreatLine`.
+
+---
+
+## RESOLVED 2026-08-19: mid-ground scenery variety
+
+Rob: *"ok, looks nice. we may come back and revisit but
+breaks up the monotony for the moment."* Per-biome set
+ships; L1 car slot stays. A further taste pass is optional,
+not scheduled. Plan archived.
 
 ---
 

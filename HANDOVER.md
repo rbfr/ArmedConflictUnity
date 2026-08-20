@@ -32,7 +32,9 @@
   Mountains / L7 Winter signed), unit hold + emptiness (hold
   signed, mid-ground scenery planted, variety parked), authored
   defaults + encounter ammo, then ragdoll tumble / collapse
-  follow / mid-air rest (signed). Read "Pick up here".
+  follow / mid-air rest (signed). 2026-08-19 closed mid-ground
+  variety, body-aim, enemy raise, the authored funnel, and the
+  Kotlin narration banners. Read "Pick up here".
   A date alone will not tell you which piece of work a section belongs to — read the heading.
 - **ALL OF TIER 0 IS DONE AND SIGNED OFF.** The Phase E balance audit — the last thing it owed —
   was run on 2026-08-07 in both halves, and Rob played the campaign afterwards and reported the
@@ -122,11 +124,12 @@
 ### Pick up here
 
 **A new session starts here.** Ask which beat to take.
+Do not sequence the look pass or the unsigned phone work.
 
-**2026-08-18/19 sitting is closed.** Ragdoll tumble, collapse
-follow, and the mid-air hang are signed. Do not reopen as a
-taste pass. The look sitting, hold, and mid-ground plant from
-earlier the same day stay signed too.
+**2026-08-19 sitting is closed.** Banners, body-aim, mid-ground
+variety, enemy raise, and the authored funnel are signed.
+08-18 ragdoll / collapse / hold / biomes stay signed too.
+Do not reopen any of that as taste.
 
 **Signed this sitting (on the phone):**
 
@@ -143,32 +146,61 @@ earlier the same day stay signed too.
   the live spin — at ±90 that formula is 0.5 and they hung
   there with `SupportY=-1`. Rob: *"think that will work fine."*
 - **Hold, Forest, Mountains, Winter, Cluster 3.2x, L1 car /
-  mid-ground depth.** All signed earlier 08-18. Variety of the
-  three props is parked in `_plans/BACKLOG.md`. Do not widen
+  mid-ground depth.** All signed earlier 08-18. Do not widen
   the aim frame; do not reopen those biomes or the three props.
-
-**Shipped, not a playthrough sign-off:**
-
-- **Authored defaults + encounter ammo.** `Loadout.Default` is
-  the authored ground mix; reaching a level unlocks its
-  specialists; AP after L2, Incendiary after L4 (pre-select
-  only until the player taps an ammo chip). L1–L2 stay rifle;
-  L6/L8–L12 now author a specialist. Play L1→L7 on a **fresh
-  install**, Begin every time, before calling the funnel signed.
+- **Mid-ground scenery variety.** Per-biome set, L1 car slot
+  unchanged. Rob, 2026-08-19: *"ok, looks nice."* Breaks the
+  monotony; a further taste pass may come later. Do not reopen
+  as a "are the three signed props still fine" pass.
 - **Enemy aim raise.** Windup prepares the launch and rifles
-  raise over 1.5s, then fire that arc. On the phone with the
-  ragdoll sitting; never separately signed.
+  raise over 1.5s, then fire that arc. Rob, 2026-08-19:
+  *"looks good."* Closed.
+- **Whole-body aim.** Torso takes 22% of the lift above
+  ready (cap 14°), arms the rest, head follows. Muzzle still
+  the drag. Walking chargers stay arms-only. Rob:
+  *"exactly what i was going for."* Closed.
+- **Authored defaults + encounter ammo.** Fresh-install
+  L1→L7, Begin through. `Loadout.Default` is the authored
+  ground mix; reaching a level unlocks its specialists; AP
+  after L2, Incendiary after L4 (pre-select only until the
+  player taps an ammo chip). L1–L2 stay rifle. Rob,
+  2026-08-19: *"it works."* Funnel is tested. Do not reopen
+  as a "does Begin field the authored mix" pass.
+- **Phase-narration banners withdrawn.** Rob, 2026-08-19:
+  *"ok that's good."* Gone: the levelGoal flash, "Look over
+  the field", "N closing on your line", "Your forces arrive".
+  Those were Kotlin turn-handover copy (`ThreatLine`). HUD
+  still names the phase: Your turn / Firing... / Enemy turn.
+  **Keep** the wave telegraph strip (L10/L11, pillar 7) and
+  boss announcements (L6/L12). `BattleRunner` feeds
+  `SetEvents(BossAnnouncement, TelegraphText)` only. Do not
+  restore `ThreatLine` or flash `levelGoal`.
 
 `PortSelfTest.Run` last ran ALL PASS. **Ask git what is committed.**
 
-**Device.** APK on the phone is this sitting (collapse follow +
-mid-air rest), installed `-r`. **RIGS is the test supply.**
+**Device.** APK on the phone is no-banner (`-r`).
+**RIGS is the test supply.**
+
+**On the phone, not signed as taste — do not start these:**
+
+- **City road, option 2** (things ON the road: jersey, bollards,
+  manhole, drain, dashes). First furniture pass he called
+  *"ok these are fine."* Then: shapes without texture. He
+  chose objects on the road over buying a texture. That
+  second pass has not been called. A road at 6° is kerbs and
+  slabs, not a decal — see trap 13.
+- **L4 march zoom.** Aiming was never the bug (lock holds;
+  L4 aim height matched L5). Kotlin `MarchHalfWidthMin` 4
+  pulled the assault cam to ~10 against aim ~6 — a plaza.
+  Now 2.5; `ContactHalfWidthMin` stays 4 (signed union —
+  do not share the march floor). Giant `wreck_car` off L4
+  (a keepColors z≤−6 lamp holds the slot). He signed the
+  aiming look, not the closer march as its own beat.
 
 **Open — ask, do not sequence:**
 
-- Authored-default funnel playtest (fresh L1→L7).
-- Mid-ground scenery variety (wider per-biome set).
 - Look pass: next biome or unit. He has not named one.
+- Mid-ground or city-road taste only if he asks.
 - Wind still blocked. Overwatch Flare still not sold.
 
 **Traps this sitting paid for — do not re-learn:**
@@ -221,6 +253,18 @@ mid-air rest), installed `-r`. **RIGS is the test supply.**
 12. **Wreck.Y is the visual BASE** (`st.Y - size/2`), same as
     the wreck GO. The standing centre plus 0.32 sat bodies at
     ~1.6 after the hut had collapsed to the dirt.
+13. **A road is kerbs and slabs, not a decal.** 6° turns a
+    flat strip into a smear. `PropPlacement.absoluteScale`
+    skips Normalize — a 14-unit boulevard at scale 1 would
+    otherwise become a postage stamp.
+14. **Do not restore the narration banners.** Phase copy is
+    gone on purpose. The telegraph strip and the boss flash
+    are the remaining event channels. HUD phase labels stay.
+15. **Do not share `MarchHalfWidthMin` with contact.** 2.5 on
+    contact crops the tank. The self-test failed at
+    cam −6.67 ±2.82 vs tank rear −9.59 when they were one
+    constant. Contact is the signed union; march is the
+    distant escort.
 
 **Do not widen the aim frame.** That analysis still stands.
 The collapse follow was a separate, explicit ask and is signed.
@@ -458,10 +502,12 @@ Builders in **this** repo (`tools/blender/`):
 - `build_backdrop_land.py` — mountains / winter / desert.
   Mountains and Winter: `kind=range`, far foothill. Winter
   `snow_from=2` (no cap mesh). Desert still a smooth dune.
-- `build_prop_scenery.py` — `prop_wreck_car` (signed),
-  `prop_dead_tree`, `prop_cactus`. `keepColors` on the
-  placement. `prop_flank.glb` is the unused box-berm
-  stand-in — do not plant it.
+- `build_prop_scenery.py` — signed three (wreck_car,
+  dead_tree, cactus) plus the 2026-08-19 biome set
+  (pine, stump, boulder, rubble, lamp, barrel_cactus,
+  snow_pine, skiff, piling). `keepColors` on the
+  placement. Do not re-export the signed three.
+  `prop_flank.glb` is the unused box-berm — do not plant it.
 Re-export changes GLB root fileIDs. After every export:
 `SpikeSceneBattle.Build` then the APK. Never `Normalize` a strip.
 Never `bpy.ops.wm.read_factory_settings` in a live MCP Blender.
@@ -520,19 +566,17 @@ Never `bpy.ops.wm.read_factory_settings` in a live MCP Blender.
 5. **L1 rifleman v2 at Aiming distance** — look, do not remodel.
    If it still reads as the old box man, stop adding pouches.
 
-6. **Mid-ground scenery variety** — parked. All 12 campaign
-   levels have two `keepColors` plants at z ≤ −6. Depth and
-   the L1 car are signed. Rob: *"seems repetitive but we
-   can address later."* Wider per-biome set, not a pass on
-   the three we have. See `_plans/BACKLOG.md`.
+6. **Mid-ground scenery variety** — signed 2026-08-19.
+   Rob: *"ok, looks nice."* L1 car slot unchanged. A further
+   taste pass may come later. See `_plans/archive/MIDGROUND_VARIETY.md`.
 
 **If a sitting starts with the phone:**
 
 1. **L11 Oceanfront turn 4** — elites in front, walking.
 2. **L1 after BEGIN** — rifleman v2. Then L4/L12 armour zoom.
 3. Emptiness on Aiming vs Scout/Arrive is measured (table above).
-   Variety of the mid-ground set is parked — do not start it
-   unless he asks.
+   Mid-ground variety is signed. City-road street objects and
+   the closer L4 march are on the phone, not called.
 
 **Already signed off, do not reopen as tuning:**
 
@@ -549,6 +593,9 @@ Never `bpy.ops.wm.read_factory_settings` in a live MCP Blender.
   numbers, the wreck-fire nestle, the leftover grid, the
   airstrike cut, Kenney aqua, Forest foreground, or a snow-cap
   mesh.
+- **Whole-body aim / enemy raise / authored funnel / narration
+  banners.** 2026-08-19. Do not restore `ThreatLine` or the
+  levelGoal flash. Do not reopen the aim pose as taste.
 
 **City strip — traps that cost a device session:**
 

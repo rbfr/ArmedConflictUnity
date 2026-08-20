@@ -155,11 +155,20 @@ namespace ArmedConflict.Game
         }
 
         /// <summary>
-        /// A FLOOR on the march frame, so escorting a lone advancing unit does not zoom to a
-        /// keyhole. Verified against the Kotlin (4f) rather than inferred — guessing it at 2
-        /// would have framed every march twice as tight as intended.
+        /// Floor on the MARCH frame (nobody fighting yet). Kotlin used 4f; in this FOV
+        /// that is camZ ~10 against aiming's ~6, and on L4 it is a pulled-back plaza.
+        /// 2.5 is still above a one-man keyhole (camZ ~6.9) and keeps the tank out of
+        /// a distant escort. Rob, 2026-08-19 on L4: zooming too far out.
+        /// CONTACT keeps its own floor — that union is signed off.
         /// </summary>
-        public const float MarchHalfWidthMin = 4f;
+        public const float MarchHalfWidthMin = 2.5f;
+
+        /// <summary>
+        /// Floor on the CONTACT frame (a fight is on). The signed-off union is the
+        /// whole player force plus the fight; 4f is the air that keeps the tank crew
+        /// in shot while the camera springs. Do not share the march floor.
+        /// </summary>
+        public const float ContactHalfWidthMin = 4f;
 
         /// <summary>
         /// How close a charger has to get before the player's line joins the march frame.
@@ -344,10 +353,11 @@ namespace ArmedConflict.Game
                     if (px >= lead - MarchIncludePlayerGap) all.Add(px);
             }
 
-            if (all.Count == 0) { anchorX = 0f; return MarchHalfWidthMin; }
+            float floor = skirmishXs.Count > 0 ? ContactHalfWidthMin : MarchHalfWidthMin;
+            if (all.Count == 0) { anchorX = 0f; return floor; }
 
             anchorX = (all.Min() + all.Max()) / 2f;
-            return Mathf.Max(CameraFraming.HalfWidth(anchorX, all), MarchHalfWidthMin);
+            return Mathf.Max(CameraFraming.HalfWidth(anchorX, all), floor);
         }
 
         /// <summary>

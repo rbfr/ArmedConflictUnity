@@ -1438,15 +1438,22 @@ public static class PortSelfTest
                 // Aiming is the empty beat (measured 2026-08-18: 6.5% content /
                 // 0.64% edges vs scout 20% / 1.65%). Backdrop strips sit at
                 // z=-30 and cannot fill the tan. Tall play-space flanks do.
-                var scenery = l1.props.Where(p =>
-                    p.modelAsset != null
-                    && (p.modelAsset.Contains("wreck_car")
-                        || p.modelAsset.Contains("dead_tree")
-                        || p.modelAsset.Contains("cactus"))).ToList();
-                Check(scenery.Count >= 2 && scenery.All(p => p.keepColors && p.scale >= 1.4f),
+                // L1's car slot is SIGNED — a variety pass must not move it.
+                var car = l1.props.FirstOrDefault(p =>
+                    p.modelAsset != null && p.modelAsset.Contains("wreck_car"));
+                Check(car != null && car.keepColors,
+                      "L1 plants the signed wrecked car (keepColors)");
+                if (car != null)
+                {
+                    Near(car.x, -5.15f, 0.05f, "L1 car x");
+                    Near(car.z, -8.4f, 0.05f, "L1 car z (mid-ground, not the play plane)");
+                    Near(car.scale, 3.3f, 0.05f, "L1 car scale");
+                }
+                var scenery = l1.props.Where(p => p.keepColors && p.z <= -6f).ToList();
+                Check(scenery.Count >= 2 && scenery.All(p => p.scale >= 1.4f),
                       scenery.Count >= 2
                           ? $"L1 plants {scenery.Count} mid-ground scenery props (keepColors)"
-                          : "L1 is missing mid-ground scenery (car / tree / cactus)");
+                          : "L1 is missing mid-ground scenery");
 
                 // Id bands must not collide — the tick relies on globally unique ids.
                 var allIds = st.PlayerUnits.Select(u => u.Id)
@@ -3371,13 +3378,47 @@ public static class PortSelfTest
             // Mid-ground scenery is the emptiness lever. Aiming is the empty
             // beat; backdrop strips sit at z=-30. Every campaign level owes
             // two keepColors plants behind the play plane.
-            var bare = levels.Where(l => !l.isTestLevel).Where(l =>
+            var campaignLevels = levels.Where(l => !l.isTestLevel).ToList();
+            var bare = campaignLevels.Where(l =>
                 l.props.Count(p => p.keepColors && p.z <= -6f) < 2)
                 .Select(l => l.displayName).ToList();
             Check(bare.Count == 0,
                   bare.Count == 0
                       ? "every campaign level plants two mid-ground scenery props"
                       : $"NO MID-GROUND SCENERY: {string.Join(", ", bare)}");
+
+            // The 2026-08-18 plant was the same three models on every level
+            // (and the same model twice on L2/L7/L12). Variety is a wider
+            // per-biome set, not a second copy of the tree.
+            var twins = campaignLevels.Select(l =>
+            {
+                var keys = l.props.Where(p => p.keepColors && p.z <= -6f)
+                    .Select(p => LevelScenery.ModelKey(p.modelAsset)).ToList();
+                return (l.displayName, dup: keys.Count != keys.Distinct().Count());
+            }).Where(t => t.dup).Select(t => t.displayName).ToList();
+            Check(twins.Count == 0,
+                  twins.Count == 0
+                      ? "no campaign level plants the same mid-ground model twice"
+                      : $"TWIN MID-GROUND: {string.Join(", ", twins)}");
+            var midModels = campaignLevels
+                .SelectMany(l => l.props.Where(p => p.keepColors && p.z <= -6f)
+                    .Select(p => LevelScenery.ModelKey(p.modelAsset)))
+                .Distinct().ToList();
+            Check(midModels.Count >= 8,
+                  $"campaign mid-ground uses {midModels.Count} models (need >=8, was 3)");
+
+            // City boulevard. A flat decal at 6° is a smear, so this is a
+            // world-sized kerbed slab with absoluteScale — Normalize would
+            // stamp it to `scale` on the longest axis.
+            var cityBare = campaignLevels.Where(l =>
+                l.background != null && l.background.style == SilhouetteStyle.City
+                && !l.props.Any(p => p.modelAsset != null
+                    && p.modelAsset.Contains("city_road")
+                    && p.keepColors && p.absoluteScale)).Select(l => l.displayName).ToList();
+            Check(cityBare.Count == 0,
+                  cityBare.Count == 0
+                      ? "CityRuins campaign levels plant an absoluteScale road"
+                      : $"NO CITY ROAD: {string.Join(", ", cityBare)}");
 
             // CONTIGUITY IS A CAMPAIGN RULE ONLY, as of the 2026-08-06 campaign/rig split.
             //
@@ -4018,6 +4059,25 @@ public static class PortSelfTest
                   noPrefab.Count == 0
                       ? "every fielded class has a per-side prefab"
                       : $"PREFABS MISSING (rebuild the scene): {string.Join(", ", noPrefab)}");
+
+            // Aim split: torso lean + remaining arm pitch. Ready is
+            // arms-only (the signed hold). A live aim must still SUM to
+            // the drag, or the muzzle lies.
+            {
+                UnitAnim.SplitAim(-UnitAnim.ReadyDrop, true, out float t0, out float a0);
+                Check(Mathf.Abs(t0) < 0.01f && Mathf.Abs(a0 + UnitAnim.ReadyDrop) < 0.01f,
+                      "ready is arms-only — the signed hold does not slouch");
+                UnitAnim.SplitAim(45f, true, out float t45, out float a45);
+                Near(t45 + a45, 45f, 0.01f, "torso + arms is the drag at 45°");
+                Check(t45 > 4f && t45 <= UnitAnim.TorsoMax,
+                      $"45° leans the torso ({t45:F1}°, cap {UnitAnim.TorsoMax})");
+                UnitAnim.SplitAim(45f, false, out float tw, out float aw);
+                Check(Mathf.Abs(tw) < 0.01f && Mathf.Abs(aw - 45f) < 0.01f,
+                      "a walking charger does not lean — the march already is whole-body");
+                UnitAnim.SplitAim(90f, true, out float t90, out float a90);
+                Near(t90 + a90, 90f, 0.01f, "torso + arms is the drag at 90°");
+                Near(t90, UnitAnim.TorsoMax, 0.01f, "a high arc caps the lean so they do not fall over");
+            }
 
             // --- WHY UnitAnim.Stand() RESTORES THE ROOT BY HAND.
             //

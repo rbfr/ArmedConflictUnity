@@ -100,19 +100,19 @@ MonoBehaviour:
   background: {fileID: 11400000, guid: 4f15fdd70f38b57f29ee4bfd832b0259, type: 2}
   heliChance: 0
   props:
-  - modelAsset: models/prop_dead_tree.glb
+  - modelAsset: models/prop_pine.glb
     x: -5.3
     z: -8.8
     scale: 2.7
     slowsAdvance: 0
     halfWidth: 0.6
     keepColors: 1
-  - modelAsset: models/prop_wreck_car.glb
+  - modelAsset: models/prop_boulder.glb
     x: -8.5
     z: -10.4
     scale: 3.0
     slowsAdvance: 0
-    halfWidth: 1.2
+    halfWidth: 0.9
     keepColors: 1
   levelBase: 190
   deployBudget: 14

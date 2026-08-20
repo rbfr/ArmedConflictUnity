@@ -154,8 +154,6 @@ public class BattleRunner : MonoBehaviour
     bool TestSupply => showRigs;
 
     BattleUI ui;
-    /// <summary>The turn-handover line, held for the enemy turn. Outranked by a real event.</summary>
-    string turnBanner;
     /// <summary>The squad chosen for THIS battle. Null means "as authored".</summary>
     List<EnemyGroup> loadoutGroups;
     /// <summary>
@@ -444,9 +442,6 @@ public class BattleRunner : MonoBehaviour
         ui.Hide();
         ui.SetCoins(ProgressStore.Coins());
         enemyWindup = 0f;
-        turnBanner = state.TurnPhase == TurnPhase.TankArrive
-            ? "Your forces arrive"
-            : string.IsNullOrEmpty(level.levelGoal) ? "Survey the field" : level.levelGoal;
         dragging = false;
         aimVel = Vector3.zero;
         aimPoseDegrees = 0f;
@@ -1270,23 +1265,16 @@ public class BattleRunner : MonoBehaviour
         if (!dragging && state.TurnPhase == TurnPhase.Aiming) aimPoseDegrees = 0f;
         DriveAudio(before, state);
 
-        // Mid-battle events, and the turn handover, both go through the ONE banner channel.
-        // Two competing banners is how a game ends up telling the player nothing at all.
-        //
-        // An event outranks the turn: "Their heavies are here!" matters more than "enemy turn",
-        // and they land on the same frame when a wave arrives on the handover.
+        // Banner is events only (boss arrival). Phase narration — "Look over
+        // the field", "N closing on your line", the levelGoal flash — was a
+        // Kotlin remnant and is gone. The telegraph STRIP still stands for
+        // a wave that has not landed yet (pillar 7).
         if (state.BossAnnouncement != before.BossAnnouncement &&
             !string.IsNullOrEmpty(state.BossAnnouncement))
             Debug.Log($"[Battle] EVENT: {state.BossAnnouncement} " +
                       $"(enemies {before.EnemyUnits.Count} -> {state.EnemyUnits.Count})");
 
-        if (before.TurnPhase != TurnPhase.EnemyWindup && state.TurnPhase == TurnPhase.EnemyWindup)
-            turnBanner = ThreatLine(state);
-        else if (before.TurnPhase != TurnPhase.PlayerScout && state.TurnPhase == TurnPhase.PlayerScout)
-            turnBanner = string.IsNullOrEmpty(level.levelGoal) ? "Survey the field" : level.levelGoal;
-        else if (state.TurnPhase == TurnPhase.Aiming) turnBanner = null;
-
-        ui.SetEvents(state.BossAnnouncement ?? turnBanner, state.TelegraphText);
+        ui.SetEvents(state.BossAnnouncement, state.TelegraphText);
 
         ResolveBattleEnd();
 
@@ -1370,24 +1358,6 @@ public class BattleRunner : MonoBehaviour
     {
         if (state.PlayerUnits.Count == 0) return new Vector3(-9.5f, 0.9f, 0f);
         return new Vector3(state.PlayerUnits.Average(u => u.X), 0.9f, 0f);
-    }
-
-    /// <summary>
-    /// What the enemy turn is about to do, in one line the player can act on.
-    ///
-    /// PRODUCT_DIRECTION 0.6: "fear is engagement, silence is punishment". The enemy turn used to
-    /// pass with nothing on screen but a HUD word, so a charge closing to contact and an ordinary
-    /// volley looked identical until the damage landed.
-    ///
-    /// The ADVANCE is named first because it is the only thing the player can lose the level to
-    /// this turn — a marching group that reaches the line fights in melee, and no amount of
-    /// counting rifles matters if it arrives.
-    /// </summary>
-    static string ThreatLine(GameState state)
-    {
-        int advancing = state.EnemyUnits.Count(u => u.AdvancePerTurn > 0f);
-        if (advancing > 0) return $"{advancing} closing on your line";
-        return state.EnemyUnits.Count > 0 ? "Enemy turn" : null;
     }
 
     /// <summary>
@@ -2042,9 +2012,8 @@ public class BattleRunner : MonoBehaviour
             GamePhase.Defeat => "DEFEAT",
             _ => state.TurnSide == TurnSide.Player
                  ? state.TurnPhase == TurnPhase.Aiming ? "Your turn"
-                 : state.TurnPhase == TurnPhase.TankArrive ? "Your forces arrive"
-                 : state.TurnPhase == TurnPhase.PlayerScout ? "Look over the field"
-                 : "Firing..."
+                 : state.TurnPhase == TurnPhase.Resolving ? "Firing..."
+                 : null
                  : "Enemy turn",
         };
         var turnStyle = new GUIStyle(big)
@@ -2053,7 +2022,11 @@ public class BattleRunner : MonoBehaviour
                                  : state.Phase == GamePhase.Victory ? new Color(0.6f, 1f, 0.6f)
                                  : new Color(1f, 0.86f, 0.3f) },
         };
-        GUI.Label(new Rect(28, y, 900, 60), turn, turnStyle); y += 52;
+        if (turn != null)
+        {
+            GUI.Label(new Rect(28, y, 900, 60), turn, turnStyle);
+            y += 52;
+        }
 
         if (dragging)
         {
