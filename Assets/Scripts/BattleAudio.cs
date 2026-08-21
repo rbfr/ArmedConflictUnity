@@ -102,7 +102,22 @@ public class BattleAudio : MonoBehaviour
     }
 
     /// <summary>ONE burst per volley, deliberately not per projectile.</summary>
-    public void PlayVolleyFire() => Play(volleyFire, 0.8f);
+    public void PlayVolleyFire()
+    {
+        Play(volleyFire, 0.8f);
+        Pulse();
+    }
+
+    /// <summary>
+    /// A short device buzz. No-op in the editor — Handheld.Vibrate is Android-only and
+    /// would otherwise be a silent no-op that looks like a call site.
+    /// </summary>
+    static void Pulse()
+    {
+#if UNITY_ANDROID && !UNITY_EDITOR
+        Handheld.Vibrate();
+#endif
+    }
 
     /// <summary>
     /// Rounds landing in the DIRT — misses and ground bursts only; a unit hit plays a scream
@@ -137,6 +152,17 @@ public class BattleAudio : MonoBehaviour
         if (Time.time - lastExplosion < ExplosionMinInterval) return;
         lastExplosion = Time.time;
         Play(explosion, 0.75f, Random.Range(0.95f, 1.05f));
+        Pulse();
+    }
+
+    /// <summary>
+    /// Extra death layer for a 3+ kill tick. The 700ms rate limit would otherwise collapse
+    /// a volley into one scream, which is the opposite of kill-confirm.
+    /// </summary>
+    public void PlayMultiKill()
+    {
+        Play(unitDeath, 0.55f, 0.82f);
+        Pulse();
     }
 
     /// <summary>

@@ -252,6 +252,7 @@ namespace ArmedConflict.Game
 
             var payout = EconomyStore.GrantVictoryPayout(level, stars, previousBest);
             ProgressStore.RecordStars(level.id, stars);
+            ProgressStore.ClearFailStreak(level.id);
 
             var award = new VictoryAward
             {
@@ -285,7 +286,113 @@ namespace ArmedConflict.Game
             return award;
         }
 
-        /// <summary>Defeat pays a consolation so a loss still feels like income.</summary>
-        public static int AwardDefeat(LevelDefinitionSO level) => EconomyStore.GrantDefeatPayout(level);
+        public class DefeatAward
+        {
+            public int Coins;
+            public string Reason;
+            /// <summary>Null until the fail streak hits <see cref="FailNudgeAfter"/>.</summary>
+            public string Nudge;
+        }
+
+        /// <summary>
+        /// Consecutive defeats on the SAME level before the card offers a consumable.
+        /// One loss is a miss; two is a pattern. Not a wall — Retry is still the primary CTA,
+        /// and the nudge never auto-equips.
+        /// </summary>
+        public const int FailNudgeAfter = 2;
+
+        public const string DefeatCharge =
+            "Charge reached your line — drop the lead squad before they close.";
+        public const string DefeatGarrison =
+            "The garrison is still firing — bring the building down.";
+        public const string DefeatVolley =
+            "Their volley broke your line — thin the shooters before they fire again.";
+        public const string DefeatOverrun =
+            "Your line was overrun — thin them out before they close.";
+
+        /// <summary>
+        /// One teaching line for a loss. Names the blow that ended the battle, not a scold.
+        /// PRODUCT_DIRECTION: "Loss screens teach, don't scold."
+        /// </summary>
+        public static string DefeatReason(GameState s)
+        {
+            if (s == null) return DefeatOverrun;
+            if (s.LastPlayerDeathCause == CasualtyCause.Charge)
+                return DefeatCharge;
+            if (MajorityGarrison(s))
+                return DefeatGarrison;
+            if (s.LastPlayerDeathCause == CasualtyCause.Volley)
+                return DefeatVolley;
+            if (AnyChargers(s))
+                return DefeatCharge;
+            return DefeatOverrun;
+        }
+
+        static bool AnyChargers(GameState s)
+        {
+            if (s.EnemyUnits == null) return false;
+            for (int i = 0; i < s.EnemyUnits.Count; i++)
+                if (s.EnemyUnits[i].AdvancePerTurn > 0f) return true;
+            return false;
+        }
+
+        static bool MajorityGarrison(GameState s)
+        {
+            if (s.EnemyUnits == null || s.EnemyUnits.Count == 0) return false;
+            int on = 0;
+            for (int i = 0; i < s.EnemyUnits.Count; i++)
+                if (s.EnemyUnits[i].StandingOnStructureId != null) on++;
+            return on * 2 >= s.EnemyUnits.Count;
+        }
+
+        /// <summary>
+        /// Which sold consumable would have changed THIS loss. Never Overwatch Flare —
+        /// that item is still not in the catalog.
+        /// </summary>
+        public static ConsumableType NudgeItem(GameState s)
+        {
+            if (s != null && s.LastPlayerDeathCause == CasualtyCause.Charge)
+                return ConsumableType.TraumaKit;
+            if (s != null && MajorityGarrison(s))
+                return ConsumableType.Airstrike;
+            return ConsumableType.SmokeScreen;
+        }
+
+        public static string NudgeLine(ConsumableType type, int owned)
+        {
+            string name = type == ConsumableType.TraumaKit ? "Trauma Kit"
+                        : type == ConsumableType.SmokeScreen ? "Smoke Screen"
+                        : "Airstrike";
+            if (owned > 0)
+            {
+                // Seen on device 2026-08-20: "You have a Airstrike".
+                string article = type == ConsumableType.Airstrike ? "an" : "a";
+                return $"You have {article} {name} — take it on the retry.";
+            }
+            if (type == ConsumableType.TraumaKit)
+                return "A Trauma Kit would keep the front rank standing.";
+            if (type == ConsumableType.SmokeScreen)
+                return "A Smoke Screen would spoil their next volley.";
+            return "An Airstrike would punch the cluster next time.";
+        }
+
+        /// <summary>
+        /// Defeat pays a consolation so a loss still feels like income, records the fail
+        /// streak, and (after a repeat) names a consumable that would have helped.
+        /// </summary>
+        public static DefeatAward AwardDefeat(LevelDefinitionSO level, GameState s)
+        {
+            int coins = EconomyStore.GrantDefeatPayout(level);
+            int streak = ProgressStore.RecordDefeat(level.id);
+            var item = NudgeItem(s);
+            return new DefeatAward
+            {
+                Coins = coins,
+                Reason = DefeatReason(s),
+                Nudge = streak >= FailNudgeAfter
+                    ? NudgeLine(item, ProgressStore.OwnedConsumables(item))
+                    : null,
+            };
+        }
     }
 }

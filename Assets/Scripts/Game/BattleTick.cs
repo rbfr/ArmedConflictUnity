@@ -239,6 +239,8 @@ namespace ArmedConflict.Game
             // --- 3. damage and deaths ----------------------------------------------------
             var enemyUnits = ApplyDamage(s.EnemyUnits, hits, dt, out var enemyKilled);
             var playerUnits = ApplyDamage(s.PlayerUnits, hits, dt, out var playerKilled);
+            var lastDeath = s.LastPlayerDeathCause;
+            if (playerKilled > 0) lastDeath = CasualtyCause.Volley;
 
             // The relief squad jogs in from the player's edge to its formation slots. They are
             // full roster members from the moment they spawn — a volley fired mid-march simply
@@ -598,10 +600,6 @@ namespace ArmedConflict.Game
             var projectiles = ProjectileSystem.Cull(stepped, hits.HitProjectileIds,
                                                     playerUnits, enemyUnits, structures);
 
-            // --- 6. cosmetics -------------------------------------------------------------
-            shake = CosmeticSystems.DecayShake(
-                CosmeticSystems.AddShakeForKills(s.ShakeIntensity, enemyKilled + playerKilled), dt);
-
             // --- 7. turn flow -------------------------------------------------------------
             var phase = TurnFlow.ResolvePhase(playerUnits.Count, enemyUnits.Count);
             var turnSide = s.TurnSide;
@@ -683,6 +681,7 @@ namespace ArmedConflict.Game
                         .ToList();
                     playerKilled += melee.KilledPlayers.Count;
                     enemyKilled += melee.KilledEnemies.Count;
+                    if (melee.KilledPlayers.Count > 0) lastDeath = CasualtyCause.Charge;
                     // A mutual kill can end the battle, and it is the ONE kill path that is not a
                     // projectile — the burn block below recomputes for the same reason.
                     phase = TurnFlow.ResolvePhase(playerUnits.Count, enemyUnits.Count);
@@ -838,7 +837,9 @@ namespace ArmedConflict.Game
                     enemyUnits = Spawn(enemyUnits, level, trigger.spawnGroups,
                                        EventSystems.BossWaveIdBase + i * 100, random);
                     triggeredBoss.Add(i);
-                    bossAnnouncement = trigger.announcement;
+                    // Timer only: the flavor banner is gone. ArrivalCam still uses this
+                    // window to hold on the arrived group.
+                    bossAnnouncement = null;
                     bossTimer = EventSystems.BossAnnouncementSeconds;
                 }
 
@@ -869,7 +870,7 @@ namespace ArmedConflict.Game
                     enemyUnits = Spawn(enemyUnits, level, wave.spawnGroups,
                                        EventSystems.ReinforcementWaveIdBase + i * 100, random);
                     triggeredWaves.Add(i);
-                    bossAnnouncement = wave.announcement;
+                    bossAnnouncement = null;
                     bossTimer = EventSystems.BossAnnouncementSeconds;
                 }
             }
@@ -1055,6 +1056,11 @@ namespace ArmedConflict.Game
             float followZVel = s.CameraFollowZVelocity;
             SpringFollow.Step(ref followZ, ref followZVel, targetZ, dt, 0.12f);
 
+            // AFTER every kill path (volley, melee, burn) so a 3-kill melee is not a silent
+            // mutual wipe, and a 3-kill volley gets the extra punch AddShakeForKills owes.
+            shake = CosmeticSystems.DecayShake(
+                CosmeticSystems.AddShakeForKills(s.ShakeIntensity, enemyKilled + playerKilled), dt);
+
             var stepResult = s with
             {
                 Projectiles = projectiles,
@@ -1101,6 +1107,7 @@ namespace ArmedConflict.Game
                 ArrivalCamHalfWidth = arrivalCamHalf,
                 TotalPlayerKills = s.TotalPlayerKills + enemyKilled,
                 TotalEnemyKills = s.TotalEnemyKills + playerKilled,
+                LastPlayerDeathCause = lastDeath,
                 TotalGroundImpacts = s.TotalGroundImpacts + groundImpactsThisTick,
                 TotalStructureImpacts = s.TotalStructureImpacts + structureImpactsThisTick,
                 TotalWoundedHits = s.TotalWoundedHits + woundedThisTick,
@@ -2337,12 +2344,21 @@ namespace ArmedConflict.Game
             var launch = new Dictionary<int, Vector3>(s.EnemyUnits.Count);
             foreach (var e in s.EnemyUnits)
             {
+                if (IsPureMelee(e)) continue;
                 var v = SolveEnemyLaunch(e, s.PlayerUnits, jitterMultiplier, random);
                 aim[e.Id] = Mathf.Atan2(v.y, Mathf.Abs(v.x)) * Mathf.Rad2Deg;
                 launch[e.Id] = v;
             }
             return s with { EnemyAimDegrees = aim, EnemyLaunch = launch };
         }
+
+        /// <summary>
+        /// Shield bearers (and any other class with meleeDamage) never fire. The lock lives
+        /// here, not in the authoring — a melee unit with leftover `damage` still must not
+        /// put a round in the air.
+        /// </summary>
+        public static bool IsPureMelee(UnitEntity e)
+            => e != null && e.Definition != null && e.Definition.meleeDamage > 0;
 
         static Vector3 SolveEnemyLaunch(UnitEntity e, IReadOnlyList<UnitEntity> playerUnits,
                                         float jitterMultiplier, System.Random random)
@@ -2374,6 +2390,10 @@ namespace ArmedConflict.Game
 
             foreach (var e in s.EnemyUnits)
             {
+                // PURE MELEE never volleys — GAME_DESIGN_LOCKS. They march and they grapple.
+                // Preparing a launch for them posed a rifle they do not fire.
+                if (IsPureMelee(e)) continue;
+
                 Vector3 v;
                 if (prepared && launch.TryGetValue(e.Id, out var stored))
                     v = stored;

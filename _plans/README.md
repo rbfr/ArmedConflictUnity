@@ -22,6 +22,8 @@ Sits outside `Assets/`, so Unity never imports it.
 
 | Plan | Covers | State |
 |---|---|---|
+| `FAIL_JUICE.md` | Fail teaching + nudge; kill-confirm / near-miss | Punch and scorch signed 2026-08-20; L1 Smoke nudge uncalled |
+| `RANGE.md` | Campaign distance; L5 no tank + MG/sniper roles | L1 distance signed; L5 on phone 2026-08-21 ("fine for now"); ask next |
 | `BACKLOG.md` | Asked for, not yet scheduled — one section per idea, with why | Not sequenced; pick one and give it its own plan file |
 
 ## Archived — `archive/`

@@ -19,25 +19,25 @@ MonoBehaviour:
   enemyGroups:
   - definition: {fileID: 11400000, guid: aecf03c40cb9b8f4d85d97ef12b4289f, type: 2}
     count: 5
-    anchorX: 0.5
+    anchorX: 2.5
     anchorZ: 0
     standingOnStructureId: 
-    advancePerTurn: 1.1
+    advancePerTurn: 1.5
   - definition: {fileID: 11400000, guid: b51688fb293b69e5cab2885bcaa975b8, type: 2}
     count: 2
-    anchorX: 1.2
+    anchorX: 3.2
     anchorZ: 0
     standingOnStructureId: 
     advancePerTurn: 0
   - definition: {fileID: 11400000, guid: 83aeca5cec8486eaf95c85703d65c4e7, type: 2}
     count: 12
-    anchorX: 4.8
+    anchorX: 6.8
     anchorZ: 0.12
     standingOnStructureId: block
     advancePerTurn: 0
   - definition: {fileID: 11400000, guid: 036d9a98cc0865381abf17644193b6cd, type: 2}
     count: 8
-    anchorX: 7.2
+    anchorX: 9.2
     anchorZ: 0.12
     standingOnStructureId: checkpoint
     advancePerTurn: 0
@@ -54,7 +54,7 @@ MonoBehaviour:
     hpScale: 1
   - id: block
     definition: {fileID: 11400000, guid: 95d24e4e2581b55ea876178f5d94a3b4, type: 2}
-    x: 4.8
+    x: 6.8
     y: 0
     z: 0
     collapseWith: 
@@ -64,7 +64,7 @@ MonoBehaviour:
     hpScale: 1
   - id: checkpoint
     definition: {fileID: 11400000, guid: 9e4a843ea184e52d38fc6e753a77a825, type: 2}
-    x: 7.2
+    x: 9.2
     y: 0
     z: 0
     collapseWith: 

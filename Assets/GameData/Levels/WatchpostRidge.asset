@@ -19,19 +19,19 @@ MonoBehaviour:
   enemyGroups:
   - definition: {fileID: 11400000, guid: b51688fb293b69e5cab2885bcaa975b8, type: 2}
     count: 4
-    anchorX: 1
+    anchorX: 3
     anchorZ: 0
     standingOnStructureId: 
     advancePerTurn: 0
   - definition: {fileID: 11400000, guid: 83aeca5cec8486eaf95c85703d65c4e7, type: 2}
     count: 8
-    anchorX: 5.5
+    anchorX: 7.5
     anchorZ: 0.12
     standingOnStructureId: bunker
     advancePerTurn: 0
   - definition: {fileID: 11400000, guid: db1f649e9127f6c1b8ed266c10d64185, type: 2}
-    count: 3
-    anchorX: 8
+    count: 1
+    anchorX: 10
     anchorZ: 0.12
     standingOnStructureId: tower
     advancePerTurn: 0
@@ -48,7 +48,7 @@ MonoBehaviour:
     hpScale: 1
   - id: bunker
     definition: {fileID: 11400000, guid: 503b76a9ccab71014b099da433b220fb, type: 2}
-    x: 5.5
+    x: 7.5
     y: 0
     z: 0
     collapseWith: 
@@ -58,7 +58,7 @@ MonoBehaviour:
     hpScale: 0.5
   - id: tower
     definition: {fileID: 11400000, guid: 687b6a02fa884c12ca4709fecc0fdee2, type: 2}
-    x: 8
+    x: 10
     y: 0
     z: 0
     collapseWith: 
@@ -89,7 +89,7 @@ MonoBehaviour:
   heliChance: 0
   props:
   - modelAsset: models/sandbags.glb
-    x: 0.2
+    x: 2.2
     z: 0.35
     scale: 0.9
     slowsAdvance: 0
@@ -115,14 +115,16 @@ MonoBehaviour:
   reinforcementWaves: []
   staticCamera: 0
   isTestLevel: 0
-  designNotes: "Beat 3: prioritise. Snipers on the tower out-damage everything on
-    the field (20 dmg at 16 hp) so they are the read, and they are the FURTHEST target
-    \u2014 the player must choose between the near bunker and the real threat. Bunker
-    moved 3.8 -> 5.5 to bring tank->dominant separation from 13.3 into range. Rule
-    7 warns and is ACCEPTED: the back rank (the tank crew) needs 103% power to reach
-    the snipers, so its 2 rounds fall short while the front rank reaches at 92%.
-    The snipers being the furthest AND highest target is the beat; pulling them in
-    to silence the warning is pulling the level's teeth. Structure hp RETUNED 2026-08-07:
+  designNotes: "Beat 3: prioritise. ONE sniper on the tower (was 3, 2026-08-21 \u2014
+    a loft that connected still left two, and taking them all out was the wrong kind
+    of tough). It out-damages everything on the field (20 dmg at 16 hp) so it is the
+    read, and it is the FURTHEST target \u2014 the player must choose between the near
+    bunker and the real threat. Bunker moved 3.8 -> 5.5 to bring tank->dominant
+    separation from 13.3 into range. Rule 7 warns and is ACCEPTED: the back rank
+    (the tank crew) needs 103% power to reach the sniper, so its 2 rounds fall
+    short while the front rank reaches at 92%. The sniper being the furthest AND
+    highest target is the beat; pulling it in to silence the warning is pulling
+    the level's teeth. Structure hp RETUNED 2026-08-07:
     bunker hpScale 0.5 (250 -> 125), garrisoned total 340 -> 215. A stock squad can
     only ever do 288 structure damage in a battle (3 tank shells x 96; a rifleman
     does 2), so a garrison behind more than that cannot be dug out at stock. The

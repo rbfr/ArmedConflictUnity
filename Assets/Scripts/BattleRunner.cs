@@ -1265,16 +1265,11 @@ public class BattleRunner : MonoBehaviour
         if (!dragging && state.TurnPhase == TurnPhase.Aiming) aimPoseDegrees = 0f;
         DriveAudio(before, state);
 
-        // Banner is events only (boss arrival). Phase narration — "Look over
-        // the field", "N closing on your line", the levelGoal flash — was a
-        // Kotlin remnant and is gone. The telegraph STRIP still stands for
-        // a wave that has not landed yet (pillar 7).
-        if (state.BossAnnouncement != before.BossAnnouncement &&
-            !string.IsNullOrEmpty(state.BossAnnouncement))
-            Debug.Log($"[Battle] EVENT: {state.BossAnnouncement} " +
-                      $"(enemies {before.EnemyUnits.Count} -> {state.EnemyUnits.Count})");
-
-        ui.SetEvents(state.BossAnnouncement, state.TelegraphText);
+        // Flavor banners are gone — phase narration (08-19) and arrival copy
+        // ("The Sovereign will not yield"). The telegraph STRIP still stands
+        // for a wave that has not landed yet (pillar 7). The camera still
+        // holds on an arrived group; nothing here writes a headline.
+        ui.SetEvents(state.TelegraphText);
 
         ResolveBattleEnd();
 
@@ -1391,9 +1386,11 @@ public class BattleRunner : MonoBehaviour
         }
         else
         {
-            int coins = TurnFlow.AwardDefeat(level);
-            ui.ShowDefeat(coins);
-            Debug.Log($"[Battle] defeat: +{coins} coins, balance {ProgressStore.Coins()}");
+            var award = TurnFlow.AwardDefeat(level, state);
+            ui.ShowDefeat(award);
+            Debug.Log($"[Battle] defeat: +{award.Coins} coins" +
+                      (award.Nudge != null ? $" ({award.Nudge})" : "") +
+                      $", balance {ProgressStore.Coins()}");
         }
         // The pill is NOT snapped to the new balance here — the panel's count-up climbs it, and
         // setting it now would give the animation nothing left to show.
@@ -1416,9 +1413,10 @@ public class BattleRunner : MonoBehaviour
     {
         if (audioFx == null) return;
 
-        int deaths = (after.TotalPlayerKills - before.TotalPlayerKills)
-                   + (after.TotalEnemyKills - before.TotalEnemyKills);
-        if (deaths > 0) audioFx.PlayUnitDeath();
+        int playerGot = after.TotalPlayerKills - before.TotalPlayerKills;
+        int playerLost = after.TotalEnemyKills - before.TotalEnemyKills;
+        if (playerGot + playerLost > 0) audioFx.PlayUnitDeath();
+        if (playerGot >= CosmeticSystems.MultiKillAt) audioFx.PlayMultiKill();
 
         // EXPLOSION only for real blasts — splash weapons and structure hits. A rifle round
         // striking a soldier is a hit, not a bang; playing the explosion clip for every
@@ -1427,7 +1425,8 @@ public class BattleRunner : MonoBehaviour
 
         // A wounded survivor gets the hit sound, provided nobody died this tick (the death
         // scream would bury it anyway).
-        if (deaths == 0 && after.TotalWoundedHits > before.TotalWoundedHits) audioFx.PlayUnitHit();
+        if (playerGot + playerLost == 0 && after.TotalWoundedHits > before.TotalWoundedHits)
+            audioFx.PlayUnitHit();
 
         // Ground impacts are counted by the tick, NOT inferred from the projectile list
         // shrinking — a round culled on the side bounds sailed off the field and never landed,
@@ -1589,8 +1588,10 @@ public class BattleRunner : MonoBehaviour
                 scorchSlots[i].SetActive(true);
                 scorchSlots[i].transform.position = GameSpace.ToUnity(sc.X, 0.012f, sc.Z);
                 scorchSlots[i].transform.rotation = Quaternion.Euler(90f, 0f, 0f);
+                // Depth, not width: at ~6° a round decal is a smear. Same stretch as shadows.
+                float r = CosmeticSystems.ScorchWorldRadius * 2f * sc.Scale;
                 scorchSlots[i].transform.localScale =
-                    Vector3.one * CosmeticSystems.ScorchWorldRadius * 2f * sc.Scale;
+                    new Vector3(r, r * CosmeticSystems.ScorchDepthStretch, 1f);
             }
             else scorchSlots[i].SetActive(false);
         }

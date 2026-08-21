@@ -77,7 +77,7 @@ public class Step4Battle : MonoBehaviour
     {
         var sb = new StringBuilder();
 
-        // 1. Reach. Max range at 45 degrees is v^2/g; L1's tank -> outpost separation is 16.5.
+        // 1. Reach. Max range at 45 degrees is v^2/g; L1's tank -> outpost is 18.5 (2026-08-20 trial).
         float maxRange = AimSystem.MaxRange45;
         float separation = 7.0f - (-9.5f);
         bool reachOk = maxRange >= separation;

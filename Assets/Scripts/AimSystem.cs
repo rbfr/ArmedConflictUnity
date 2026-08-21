@@ -7,14 +7,18 @@ using ArmedConflict.Game;
 /// shot the campaign needs, and SpeedScale is then whatever puts that speed at a comfortable
 /// full-length drag.
 ///
+/// 2026-08-20 range: 9 → 9.5 so a tank→outpost of 18.5 stays inside the envelope
+/// (flat max is now 22.56). L1 signed — Rob: "that actually plays better." L2–L12
+/// slid the same +2.
+///
 /// Self-consistency check, verified: drag pixels convert at ppu = width * 0.0208 (22.46 px per
 /// drag-unit at 1080 wide), so a ~525 px full-length drag is 23.4 drag-units, and
-/// 23.4 * (0.0064 * 60) = 8.99 — landing exactly on MaxAimMagnitude.
+/// 23.4 * (0.00677 * 60) = 9.50 — landing on MaxAimMagnitude.
 /// </summary>
 public static class AimSystem
 {
-    public const float MaxAimMagnitude = 9f;
-    public const float ProjectileSpeedScale = 0.0064f;
+    public const float MaxAimMagnitude = 9.5f;
+    public const float ProjectileSpeedScale = 0.00677f;
     /// <summary>The Kotlin passes PROJECTILE_SPEED_SCALE * 60f into velocityFromDrag.</summary>
     public const float DragSpeedScale = ProjectileSpeedScale * 60f;
 

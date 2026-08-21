@@ -53,6 +53,26 @@ namespace ArmedConflict.Game
             return true;
         }
 
+        // ---- fail streak ----------------------------------------------------------------
+
+        public static int FailStreak(string levelId) => PlayerPrefs.GetInt($"fails_{levelId}", 0);
+
+        /// <summary>Increments the consecutive-defeat count for this level. Returns the new streak.</summary>
+        public static int RecordDefeat(string levelId)
+        {
+            int n = FailStreak(levelId) + 1;
+            PlayerPrefs.SetInt($"fails_{levelId}", n);
+            PlayerPrefs.Save();
+            return n;
+        }
+
+        /// <summary>A win on the level ends the pattern. Next loss is a miss again, not a streak.</summary>
+        public static void ClearFailStreak(string levelId)
+        {
+            PlayerPrefs.DeleteKey($"fails_{levelId}");
+            PlayerPrefs.Save();
+        }
+
         /// <summary>Dev-only TEST levels are excluded, so playing one can never unlock a stage.</summary>
         public static int TotalStars()
             => AllLevels.Where(l => l != null && !l.isTestLevel).Sum(l => BestStars(l.id));
@@ -249,7 +269,11 @@ namespace ArmedConflict.Game
         public static void ResetAll()
         {
             foreach (var l in AllLevels)
-                if (l != null) PlayerPrefs.DeleteKey($"stars_{l.id}");
+            {
+                if (l == null) continue;
+                PlayerPrefs.DeleteKey($"stars_{l.id}");
+                PlayerPrefs.DeleteKey($"fails_{l.id}");
+            }
             foreach (var k in new[]
             {
                 KeyCoins, KeyUnlockedUnits, KeyUnlockedAmmo, KeySelectedAmmo, KeyAmmoPlayerPicked,

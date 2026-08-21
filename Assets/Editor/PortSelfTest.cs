@@ -2060,7 +2060,8 @@ public static class PortSelfTest
             Check(second.BonusTag == null, "and carries no bonus banner");
 
             ProgressStore.ResetAll();
-            Check(TurnFlow.AwardDefeat(lvl) == 15, "defeat still pays 15% of base");
+            Check(TurnFlow.AwardDefeat(lvl, new GameState()).Coins == 15,
+                  "defeat still pays 15% of base");
 
             // Encounter ammo: AP after L2, Incendiary after L4, pre-select only if the
             // player has never tapped a chip. A fake levelNumber 0 must not grant (the
@@ -2133,6 +2134,74 @@ public static class PortSelfTest
             Check(!TurnFlow.StarReason(14, 14).Contains("for 4"),
                   "and never dangles a fourth star");
             Check(TurnFlow.StarReason(3, 0) == "", "a zero-unit roster has no reason to give");
+
+            // FAIL SEQUENCE — teaches the blow, nudges a sold consumable after a repeat,
+            // never Overwatch Flare. First loss has no nudge; a win clears the streak.
+            Check(TurnFlow.DefeatReason(new GameState
+                  { LastPlayerDeathCause = CasualtyCause.Charge }) == TurnFlow.DefeatCharge,
+                  "a melee wipe names the charge");
+            Check(TurnFlow.DefeatReason(new GameState
+                  { LastPlayerDeathCause = CasualtyCause.Volley }) == TurnFlow.DefeatVolley,
+                  "a shooting wipe names the volley");
+            var garrison = new UnitEntity(1, null, 4f, 2f, 0f, 8, false)
+                { StandingOnStructureId = 9 };
+            Check(TurnFlow.DefeatReason(new GameState
+                  {
+                      LastPlayerDeathCause = CasualtyCause.Charge,
+                      EnemyUnits = new List<UnitEntity> { garrison },
+                  }) == TurnFlow.DefeatCharge,
+                  "a melee wipe names the charge even if a garrison is left");
+            Check(TurnFlow.DefeatReason(new GameState
+                  {
+                      LastPlayerDeathCause = CasualtyCause.Volley,
+                      EnemyUnits = new List<UnitEntity> { garrison },
+                  }) == TurnFlow.DefeatGarrison,
+                  "a leftover majority garrison outranks a volley line");
+            Check(TurnFlow.DefeatReason(new GameState()) == TurnFlow.DefeatOverrun,
+                  "an empty leftover with no recorded blow uses the overrun line");
+            Check(TurnFlow.NudgeItem(new GameState
+                  { LastPlayerDeathCause = CasualtyCause.Charge }) == ConsumableType.TraumaKit,
+                  "a charge loss nudges Trauma Kit");
+            Check(TurnFlow.NudgeItem(new GameState
+                  {
+                      LastPlayerDeathCause = CasualtyCause.Volley,
+                      EnemyUnits = new List<UnitEntity> { garrison },
+                  }) == ConsumableType.Airstrike,
+                  "a garrison leftover nudges Airstrike");
+            Check(TurnFlow.NudgeItem(new GameState
+                  { LastPlayerDeathCause = CasualtyCause.Volley }) == ConsumableType.SmokeScreen,
+                  "a volley loss nudges Smoke Screen");
+            Check(TurnFlow.NudgeItem(new GameState()) != ConsumableType.OverwatchFlare
+                  && TurnFlow.NudgeItem(new GameState
+                      { LastPlayerDeathCause = CasualtyCause.Charge })
+                      != ConsumableType.OverwatchFlare,
+                  "the nudge never sells Overwatch Flare");
+            Check(TurnFlow.NudgeLine(ConsumableType.TraumaKit, 0).IndexOf("would") >= 0,
+                  "an unowned kit is offered as a would-have-helped, not a wall");
+            Check(TurnFlow.NudgeLine(ConsumableType.TraumaKit, 1).IndexOf("You have") >= 0,
+                  "an owned kit is a take-it-on-retry, not a shop trip");
+            Check(TurnFlow.NudgeLine(ConsumableType.Airstrike, 1).IndexOf("an Airstrike") >= 0,
+                  "owned Airstrike uses an, not a — seen on device as 'a Airstrike'");
+
+            ProgressStore.AllLevels = new List<LevelDefinitionSO> { lvl };
+            ProgressStore.ResetAll();
+            var miss = TurnFlow.AwardDefeat(lvl, new GameState
+                { LastPlayerDeathCause = CasualtyCause.Volley });
+            Check(miss.Nudge == null, "the first loss has no consumable nudge");
+            Check(ProgressStore.FailStreak(lvl.id) == 1, "and starts a streak of 1");
+            var repeat = TurnFlow.AwardDefeat(lvl, new GameState
+                { LastPlayerDeathCause = CasualtyCause.Volley });
+            Check(repeat.Nudge != null && repeat.Nudge.IndexOf("Smoke") >= 0,
+                  "the second loss on the same level offers Smoke");
+            Check(ProgressStore.FailStreak(lvl.id) == TurnFlow.FailNudgeAfter,
+                  "the streak is the threshold, not one past it");
+            TurnFlow.AwardVictory(lvl, survivors: 10, initialCount: 10);
+            Check(ProgressStore.FailStreak(lvl.id) == 0, "a win clears the fail streak");
+            var afterWin = TurnFlow.AwardDefeat(lvl, new GameState
+                { LastPlayerDeathCause = CasualtyCause.Charge });
+            Check(afterWin.Nudge == null, "a loss after a win is a miss again, not a streak");
+            Check(afterWin.Reason == TurnFlow.DefeatCharge,
+                  "and still names the charge that ended it");
 
             ProgressStore.ResetAll();
             ProgressStore.AllLevels = new List<LevelDefinitionSO>();
@@ -2346,8 +2415,16 @@ public static class PortSelfTest
 
             // SHAKE must reach exactly zero, and must decay on EVERY tick path — a level ending
             // on a killing volley froze it forever and jittered the whole victory screen.
+            Near(CosmeticSystems.AddShakeForKills(0f, 1), CosmeticSystems.ShakePerKill, 1e-5f,
+                 "one kill is the per-kill punch only");
+            Near(CosmeticSystems.AddShakeForKills(0f, 2), 2f * CosmeticSystems.ShakePerKill, 1e-5f,
+                 "two kills do not yet add the multi-kill bonus");
+            Near(CosmeticSystems.AddShakeForKills(0f, 3),
+                 3f * CosmeticSystems.ShakePerKill + CosmeticSystems.ShakeMultiKillBonus, 1e-5f,
+                 "three kills add the multi-kill punch — one scream is not a volley");
             float shake = CosmeticSystems.AddShakeForKills(0f, 4);
-            Near(shake, 0.6f, 1e-5f, "four kills raise the shake");
+            Near(shake, 4f * CosmeticSystems.ShakePerKill + CosmeticSystems.ShakeMultiKillBonus, 1e-5f,
+                 "four kills raise the shake");
             for (int i = 0; i < 200; i++) shake = CosmeticSystems.DecayShake(shake, 1f / 60f);
             Check(shake == 0f, "shake decays to EXACTLY zero, never a lingering epsilon");
             Check(CosmeticSystems.DecayShake(0f, 1f) == 0f, "decaying past zero cannot go negative");
@@ -2805,6 +2882,8 @@ public static class PortSelfTest
             for (int i = 0; i < 100; i++) grown = CosmeticSystems.GrowScorch(grown);
             Check(grown <= CosmeticSystems.ScorchMaxScale + 1e-5f,
                   "repeated merges cannot grow one enormous blot");
+            Check(CosmeticSystems.ScorchDepthStretch > 1.5f,
+                  "a miss mark is stretched in DEPTH — at 6 degrees a round decal is a smear");
 
             // Knockback: an AGE, not a displacement — collision is unaffected.
             Check(CosmeticSystems.StepKnockback(-1f, 1f / 60f) == -1f, "an inactive hop stays inactive");
@@ -3764,6 +3843,15 @@ public static class PortSelfTest
                     Glyphs(TurnFlow.MilestoneTag(star), $"victory tag: {star}-star chest");
                 Glyphs(TurnFlow.StarReason(7, 10), "victory star reason");
                 Glyphs(TurnFlow.StarReason(10, 10), "victory star reason, clean sweep");
+                Glyphs(TurnFlow.DefeatCharge, "defeat reason: charge");
+                Glyphs(TurnFlow.DefeatGarrison, "defeat reason: garrison");
+                Glyphs(TurnFlow.DefeatVolley, "defeat reason: volley");
+                Glyphs(TurnFlow.DefeatOverrun, "defeat reason: overrun");
+                Glyphs(TurnFlow.NudgeLine(ConsumableType.TraumaKit, 0), "defeat nudge: trauma, unowned");
+                Glyphs(TurnFlow.NudgeLine(ConsumableType.TraumaKit, 1), "defeat nudge: trauma, owned");
+                Glyphs(TurnFlow.NudgeLine(ConsumableType.SmokeScreen, 0), "defeat nudge: smoke, unowned");
+                Glyphs(TurnFlow.NudgeLine(ConsumableType.Airstrike, 0), "defeat nudge: airstrike, unowned");
+                Glyphs(TurnFlow.NudgeLine(ConsumableType.Airstrike, 1), "defeat nudge: airstrike, owned");
             }
 
             // END TO END: a boss phase must actually put units on the field. The decision
@@ -3801,8 +3889,10 @@ public static class PortSelfTest
                       $"{bossLevel.displayName}: the boss phase fires once its structure is gone");
                 Check(after.EnemyUnits.Count > razed.EnemyUnits.Count,
                       "and puts its spawn groups on the field");
-                Check(!string.IsNullOrEmpty(after.BossAnnouncement),
-                      "and raises its announcement");
+                Check(after.BossAnnouncementTimer > 0f,
+                      "and arms the arrival hold");
+                Check(string.IsNullOrEmpty(after.BossAnnouncement),
+                      "the flavor banner is not raised — Sovereign-will-not-yield is withdrawn");
 
                 // L12 is the motivating case: the citadel's captured frame is ~5 half-width
                 // and the escort is four men. Recapture + arrival push-in is what makes
@@ -3905,6 +3995,8 @@ public static class PortSelfTest
                 Check(landed.EnemyUnits.Count > ws.EnemyUnits.Count, "the wave then arrives");
                 Check(string.IsNullOrEmpty(landed.TelegraphText),
                       "and the warning clears itself once it has");
+                Check(string.IsNullOrEmpty(landed.BossAnnouncement),
+                      "wave arrival does not flash flavor copy");
 
                 var again = BattleTick.Step(after, 0.016f, bossLevel, new System.Random(3));
                 Check(again.EnemyUnits.Count == after.EnemyUnits.Count,
@@ -4738,6 +4830,9 @@ public static class PortSelfTest
         CheckConsumables();
         CheckFactions();
         CheckCosmetics();
+        CheckL1RangeTrial();
+        CheckL5NoTank();
+        CheckL3OneSniper();
         CheckHeroStaging();
         CheckNobodyOverlaps();
         CheckNobodyStandsInAWall();
@@ -4746,6 +4841,145 @@ public static class PortSelfTest
 
         Debug.Log($"[PortSelfTest] {(failed == 0 ? "ALL PASS" : $"{failed} FAILURES")}\n{Log}");
         if (failed > 0 && Application.isBatchMode) EditorApplication.Exit(1);
+    }
+
+    /// <summary>
+    /// 2026-08-20 L1 range trial. The envelope and L1 geometry have to move together — raising
+    /// v without sliding the outpost makes every other level easier and this check would still
+    /// pass; sliding the outpost without raising v is a 99% back-rank shot on the garrison.
+    /// L1 signed 2026-08-20; L2–L12 slid the same +2 after that. Player tanks stay put.
+    /// </summary>
+    static void CheckL1RangeTrial()
+    {
+        Near(AimSystem.MaxAimMagnitude, 9.5f, 1e-4f, "L1 trial: MaxAimMagnitude is 9.5");
+        Near(AimSystem.MaxRange45, 9.5f * 9.5f / TrajectoryPhysics.Gravity, 1e-4f,
+             "L1 trial: flat max range is v^2/g (22.56)");
+        // Same 525 px / 23.4 drag-unit full pull the scale was derived from.
+        Near(23.4f * AimSystem.DragSpeedScale, AimSystem.MaxAimMagnitude, 0.02f,
+             "L1 trial: a comfortable full-length drag still lands on 100%");
+
+        var levels = AssetDatabase.FindAssets("t:LevelDefinitionSO")
+            .Select(AssetDatabase.GUIDToAssetPath)
+            .Select(AssetDatabase.LoadAssetAtPath<LevelDefinitionSO>)
+            .Where(l => l != null && !l.isTestLevel)
+            .ToList();
+        var l1 = levels.FirstOrDefault(l => l.levelNumber == 1);
+        var l2 = levels.FirstOrDefault(l => l.levelNumber == 2);
+        var l4 = levels.FirstOrDefault(l => l.levelNumber == 4);
+        Check(l1 != null && l2 != null && l4 != null, "L1/L2/L4 campaign assets load");
+        if (l1 == null || l2 == null || l4 == null) return;
+
+        var outpost = l1.structures.FirstOrDefault(s => s.id == "outpost");
+        var tank = l1.structures.FirstOrDefault(s => s.id == "player_tank");
+        var ground = l1.enemyGroups.FirstOrDefault(g =>
+            string.IsNullOrEmpty(g.standingOnStructureId));
+        Check(outpost != null && tank != null && ground != null, "L1 has tank, outpost, ground squad");
+        if (outpost == null || tank == null || ground == null) return;
+
+        Near(tank.x, -9.5f, 1e-3f, "L1 trial: player tank stays at -9.5");
+        Near(outpost.x, 9f, 1e-3f, "L1 trial: outpost is at 9 (was 7)");
+        Near(ground.anchorX, 6.5f, 1e-3f, "L1 trial: ground squad is at 6.5 (was 4.5)");
+        Near(Mathf.Abs(outpost.x - tank.x), 18.5f, 1e-3f,
+             "L1 trial: tank -> outpost is 18.5");
+
+        // L2–L12 took the same +2 after L1 signed. Player tanks do not move.
+        var l2Post = l2.structures.FirstOrDefault(s => s.id == "post");
+        var l2Tank = l2.structures.FirstOrDefault(s => s.id == "player_tank");
+        var l4Block = l4.structures.FirstOrDefault(s => s.id == "block");
+        var l4Charge = l4.enemyGroups.FirstOrDefault(g => g.advancePerTurn > 0f);
+        Check(l2Tank != null && Mathf.Abs(l2Tank.x - (-9.5f)) < 1e-3f,
+              "range slide did not move the L2 player tank");
+        Check(l2Post != null && Mathf.Abs(l2Post.x - 8.5f) < 1e-3f,
+              "L2 post slid +2 (8.5, was 6.5)");
+        Check(l4Block != null && Mathf.Abs(l4Block.x - 6.8f) < 1e-3f,
+              "L4 block slid +2 (6.8, was 4.8)");
+        Check(l4Charge != null && Mathf.Abs(l4Charge.advancePerTurn - 1.5f) < 1e-3f,
+              "L4 shield charge steps 1.5/turn (was 1.1) so the extra street does not add turns");
+
+        var st = LevelBuilder.BuildInitialState(l1, 1, 1, new System.Random(12345));
+        var reach = BalanceAudit.ReachRule(st);
+        Check(reach.Level != LevelComposition.Severity.Error,
+              "L1 trial: the garrison is still reachable — " + reach.Text);
+        Check(reach.Level == LevelComposition.Severity.Ok,
+              "L1 trial: front rank has aim headroom — " + reach.Text);
+
+        float frontPlayer = st.PlayerUnits.Max(u => u.X);
+        float frontEnemy = st.EnemyUnits.Min(u => u.X);
+        float gap = frontEnemy - frontPlayer;
+        // Anchors moved +2; formation width eats ~1, so the built street is ~12.4 not 13.5.
+        // Old built gap was ~10.4. Seeded, so this is a lock not a floor.
+        Near(gap, 12.4f, 0.25f,
+             "L1 trial: built infantry gap is ~12.4 (anchors +2, was ~10.4)");
+    }
+
+    /// <summary>
+    /// L5 is the loft beat. The tank's three shells were the structure-killer and
+    /// turned "fight upward" into a 3-shell errand. Rob 2026-08-21: take it off
+    /// this level. Shop comes later; this level must play without it.
+    /// </summary>
+    static void CheckL5NoTank()
+    {
+        var l5 = AssetDatabase.FindAssets("t:LevelDefinitionSO")
+            .Select(AssetDatabase.GUIDToAssetPath)
+            .Select(AssetDatabase.LoadAssetAtPath<LevelDefinitionSO>)
+            .FirstOrDefault(l => l != null && !l.isTestLevel && l.levelNumber == 5);
+        Check(l5 != null, "L5 Tower Assault loads");
+        if (l5 == null) return;
+
+        Check(l5.structures.All(s => s.id != "player_tank"
+                                  && (s.definition == null || !s.definition.hasCannon
+                                      || !s.definition.isPlayerSide)),
+              "L5 fields no player tank");
+        Check(l5.playerGroups.All(g => string.IsNullOrEmpty(g.standingOnStructureId)),
+              "L5's squad stands on the ground (crew folded into the line)");
+        Check(l5.playerGroups.Sum(g => g.count) == 10,
+              $"L5 still fields 10 bodies ({l5.playerGroups.Sum(g => g.count)})");
+
+        var st = LevelBuilder.BuildInitialState(l5, 1, 12, new System.Random(9));
+        Check(st.TankShellsRemaining == 0, "L5 starts with no shells");
+        st = st with { Phase = GamePhase.Playing, TurnPhase = TurnPhase.Aiming };
+        var fired = BattleTick.FireVolley(st, new Vector3(6f, 6f, 0f), new System.Random(3));
+        Check(fired.Projectiles.Count(p => p.Type == ProjectileType.Shell) == 0,
+              "a drag on L5 does not fire a tank shell");
+
+        var opened = TurnFlow.StartBattle(
+            LevelBuilder.BuildInitialState(l5, 1, 12, new System.Random(9)));
+        Check(opened.TurnPhase == TurnPhase.TankArrive
+              && opened.PlayerUnits.Any(u => u.MarchTargetX != null),
+              "L5 still jogs the ground line in (TankArrive without a hull)");
+
+        var reach = BalanceAudit.ReachRule(st);
+        Check(reach.Level != LevelComposition.Severity.Error,
+              "L5 remains reachable without the tank — " + reach.Text);
+
+        // Roles: MG in the street, one sniper on the platform. The tower used to field
+        // six machine-gunners; Rob read them as snipers.
+        var tower = l5.enemyGroups.Where(g => g.standingOnStructureId == "tow_top").ToList();
+        var front = l5.enemyGroups.FirstOrDefault(g =>
+            string.IsNullOrEmpty(g.standingOnStructureId));
+        Check(tower.Count == 1 && tower[0].count == 1
+              && tower[0].definition != null && tower[0].definition.id == "enemy_sniper",
+              "L5's tower fields one sniper");
+        Check(front != null && front.definition != null
+              && front.definition.id == "enemy_machine_gunner" && front.count == 3,
+              "L5's machine gunners stand in the street, not on the roof");
+        Check(l5.enemyGroups.All(g =>
+                  g.standingOnStructureId != "tow_top"
+                  || (g.definition != null && !g.definition.id.Contains("machine_gunner"))),
+              "L5 puts no machine gunner on the tower");
+    }
+
+    static void CheckL3OneSniper()
+    {
+        var l3 = AssetDatabase.FindAssets("t:LevelDefinitionSO")
+            .Select(AssetDatabase.GUIDToAssetPath)
+            .Select(AssetDatabase.LoadAssetAtPath<LevelDefinitionSO>)
+            .FirstOrDefault(l => l != null && !l.isTestLevel && l.levelNumber == 3);
+        Check(l3 != null, "L3 Watchpost Ridge loads");
+        if (l3 == null) return;
+        var onTower = l3.enemyGroups.Where(g => g.standingOnStructureId == "tower").ToList();
+        int n = onTower.Sum(g => g.count);
+        Check(n == 1, $"L3's tower fields one sniper (was 3, got {n})");
     }
 
     /// <summary>
@@ -4864,8 +5098,8 @@ public static class PortSelfTest
         // level -> units before, hp, volley damage, structure damage
         var expected = new (int level, int unitsBefore, int hp, int volleyDmg, float structDmg)[]
         {
-            (1,   9, 288,  72, 18f), (2,  11, 352,  88, 22f), (3,  11, 304, 124, 46f),
-            (4,  17, 616, 132, 33f), (5,  11, 376, 100, 25f), (6,  16, 616, 148, 37f),
+            (1,   9, 288,  72, 18f), (2,  11, 352,  88, 22f), (3,   9, 272,  84, 26f),
+            (4,  17, 616, 132, 33f), (5,   8, 264,  88, 27f), (6,  16, 616, 148, 37f),
             (7,  11, 392,  82, 52f), (8,  13, 400, 124, 46f), (9,  15, 536, 116, 29f),
             (10, 13, 448, 120, 30f), (11, 10, 352,  80, 89f), (12, 18, 680, 164, 41f),
         };
@@ -5073,6 +5307,20 @@ public static class PortSelfTest
         Check(start.EnemyUnits.Any(u => u.AdvancePerTurn > 0f),
               $"L{level.levelNumber} fields an advancing squad " +
               $"({start.EnemyUnits.Count(u => u.AdvancePerTurn > 0f)} bodies)");
+
+        // PURE MELEE NEVER VOLLEYS. L4 is the first advancing campaign level and its
+        // chargers are shield bearers; if this ran on a shooter-only advance it would
+        // pass against code that still fires melee. Count the OUTPUT: rounds in the air.
+        {
+            int melee = start.EnemyUnits.Count(BattleTick.IsPureMelee);
+            int shooters = start.EnemyUnits.Count - melee;
+            int roundsBefore = start.Projectiles.Count;
+            var volley = BattleTick.FireEnemyVolley(start, new System.Random(9));
+            int shots = volley.Projectiles.Count - roundsBefore;
+            Check(melee > 0 && shots == shooters,
+                  $"melee does not volley — {melee} shield bearers silent, " +
+                  $"{shots} rounds from {shooters} shooters");
+        }
 
         // --- 1. the march: it MOVES, it spends its budget, and it HOLDS short of the line ------
         //

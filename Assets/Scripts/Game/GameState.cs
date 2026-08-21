@@ -7,6 +7,12 @@ namespace ArmedConflict.Game
     public enum GamePhase { Preview, Playing, Victory, Defeat }
     public enum TurnSide { Player, Enemy }
 
+    /// <summary>
+    /// How the player's last casualty died. Drives the defeat teaching line — a generic
+    /// "you were overrun" does not tell the player what to do differently.
+    /// </summary>
+    public enum CasualtyCause { None, Volley, Charge }
+
     public enum TurnPhase
     {
         /// <summary>
@@ -251,6 +257,12 @@ namespace ArmedConflict.Game
         public int LastEnemyVolleyKills { get; init; }
         public int TotalPlayerKills { get; init; }
         public int TotalEnemyKills { get; init; }
+
+        /// <summary>
+        /// Sticky: the most recent player death this battle, so the defeat card can name
+        /// the blow that ended it rather than the leftover enemy composition.
+        /// </summary>
+        public CasualtyCause LastPlayerDeathCause { get; init; }
         public int TotalWoundedHits { get; init; }
         public int TotalGroundImpacts { get; init; }
         public int TotalStructureImpacts { get; init; }

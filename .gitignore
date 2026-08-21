@@ -41,3 +41,7 @@ sysinfo.txt
 
 # Python bytecode from the export tool
 tools/__pycache__/
+
+# Blender scratch
+__pycache__/
+*.blend1

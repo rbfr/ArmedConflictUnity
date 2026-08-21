@@ -19,25 +19,25 @@ MonoBehaviour:
   enemyGroups:
   - definition: {fileID: 11400000, guid: b51688fb293b69e5cab2885bcaa975b8, type: 2}
     count: 3
-    anchorX: -1
+    anchorX: 1
     anchorZ: 0
     standingOnStructureId: 
     advancePerTurn: 0
   - definition: {fileID: 11400000, guid: 0cc2a054cb1b0b38086ae4f985d09207, type: 2}
     count: 5
-    anchorX: 2.5
+    anchorX: 4.5
     anchorZ: 0.12
     standingOnStructureId: gate
     advancePerTurn: 0
   - definition: {fileID: 11400000, guid: 75e1a253a474334eb8576862998ca8e1, type: 2}
     count: 2
-    anchorX: 0.6
+    anchorX: 2.6
     anchorZ: 0.4
     standingOnStructureId: 
     advancePerTurn: 0
   - definition: {fileID: 11400000, guid: 83aeca5cec8486eaf95c85703d65c4e7, type: 2}
     count: 16
-    anchorX: 6
+    anchorX: 8
     anchorZ: 0.12
     standingOnStructureId: citadel
     advancePerTurn: 0
@@ -54,7 +54,7 @@ MonoBehaviour:
     hpScale: 1
   - id: gate
     definition: {fileID: 11400000, guid: 404b91b6136391ed2a3e6a523323aecb, type: 2}
-    x: 2.5
+    x: 4.5
     y: 0
     z: 0
     collapseWith: 
@@ -64,7 +64,7 @@ MonoBehaviour:
     hpScale: 0.66
   - id: citadel
     definition: {fileID: 11400000, guid: 6be4025f7b305743f9d8b1a40fed76d9, type: 2}
-    x: 6
+    x: 8
     y: 0
     z: 0
     collapseWith: 
@@ -116,16 +116,16 @@ MonoBehaviour:
     spawnGroups:
     - definition: {fileID: 11400000, guid: e2f345bdab5634c49a5e289daed390f3, type: 2}
       count: 1
-      anchorX: 5.5
+      anchorX: 7.5
       anchorZ: 0
       standingOnStructureId: 
       advancePerTurn: 0
     - definition: {fileID: 11400000, guid: aecf03c40cb9b8f4d85d97ef12b4289f, type: 2}
       count: 4
-      anchorX: 3.5
+      anchorX: 5.5
       anchorZ: 0
       standingOnStructureId: 
-      advancePerTurn: 1.2
+      advancePerTurn: 1.5
     announcement: The Sovereign will not yield!
   windAccelZ: 0
   reinforcementWaves: []

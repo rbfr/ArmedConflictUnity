@@ -19,25 +19,25 @@ MonoBehaviour:
   enemyGroups:
   - definition: {fileID: 11400000, guid: bf072637e71b3742e87fc93d9a2db422, type: 2}
     count: 3
-    anchorX: 2
+    anchorX: 4
     anchorZ: 0
     standingOnStructureId: 
     advancePerTurn: 0
   - definition: {fileID: 11400000, guid: 75e1a253a474334eb8576862998ca8e1, type: 2}
     count: 1
-    anchorX: 3.2
+    anchorX: 5.2
     anchorZ: 0.4
     standingOnStructureId: 
     advancePerTurn: 0
   - definition: {fileID: 11400000, guid: 83aeca5cec8486eaf95c85703d65c4e7, type: 2}
     count: 6
-    anchorX: 6
+    anchorX: 8
     anchorZ: 0.12
     standingOnStructureId: beach_post
     advancePerTurn: 0
   - definition: {fileID: 11400000, guid: 036d9a98cc0865381abf17644193b6cd, type: 2}
     count: 6
-    anchorX: 6
+    anchorX: 8
     anchorZ: 0.12
     standingOnStructureId: beach_post
     advancePerTurn: 0
@@ -54,7 +54,7 @@ MonoBehaviour:
     hpScale: 1
   - id: beach_post
     definition: {fileID: 11400000, guid: fbbfacb3df61fd8f492723bbb6150200, type: 2}
-    x: 6
+    x: 8
     y: 0
     z: 0
     collapseWith: 
@@ -113,7 +113,7 @@ MonoBehaviour:
     spawnGroups:
     - definition: {fileID: 11400000, guid: 75e1a253a474334eb8576862998ca8e1, type: 2}
       count: 3
-      anchorX: 3
+      anchorX: 5
       anchorZ: 0
       standingOnStructureId: 
       advancePerTurn: 1.2

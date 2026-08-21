@@ -226,13 +226,13 @@ They must **not** appear as the main campaign path or inflate "24 levels" market
 
 ## Juice checklist (cheap, high ROI — do alongside Tier 0)
 
-- [ ] **Kill confirm** — clearer falls; multi-kill emphasis (SFX/layering; light punch, not slow-mo spam)
+- [x] **Kill confirm** — multi-kill shake + extra death layer. Rob 2026-08-20: *"looks good."*
 - [ ] **Structure theater** — crack stages already exist; **final collapse** is the loudest moment in the game
-- [ ] **Near-miss feedback** — dust/scorch on ground misses so aim skill feels continuous
-- [ ] **Haptics** — volley release + big impacts (mobile expectation)
-- [ ] **Event popups over permanent HUD clutter** — "Bunker destroyed", "Reinforcements!", "Wind rising →"
-- [ ] **Victory sequence** — stars → coins → unlock teaser → primary CTA (Next / Retry for 3★)
-- [ ] **Fail sequence** — one teaching line + Retry + optional consumable after repeat fails
+- [x] **Near-miss feedback** — scorch stretched in DEPTH. Rob 2026-08-20: *"easier to see."*
+- [x] **Haptics** — volley release, explosions, multi-kill (`Handheld.Vibrate`). Signed with the punch.
+- [ ] **Event popups over permanent HUD clutter** — do **not** restore withdrawn banners. Wave telegraph stays; arrival headlines are gone.
+- [x] **Victory sequence** — stars → coins → unlock teaser → Next / Retry for 3★. DONE 2026-08-06
+- [x] **Fail sequence** — teaching line (charge / garrison / volley / overrun) + Retry + consumable nudge after 2 fails on the same level. Device owed 2026-08-20
 
 ---
 
@@ -343,8 +343,10 @@ locks and unit measurement.
 | 0.4a coins felt | **DONE** — the economy was fully ported and never called; one call site turned it on. Balance is now persistent on screen |
 | 0.4b something to buy | **DONE 2026-08-06** — roster, picker, unlocks. Slots fixed / points buy quality, so no loadout can break the framing |
 | 0.5 star criteria + reasons | **DONE** — pure roster survival, reason shown on every victory |
-| 0.6 enemy turn juice | **DONE 2026-08-06**. Narration banners withdrawn 2026-08-19 (Kotlin remnant); Rob: *"ok that's good."* Standing telegraph strip for inbound waves remains; boss announcements still flash. HUD still names the phase. |
+| 0.6 enemy turn juice | **DONE 2026-08-06**. Narration banners withdrawn 2026-08-19 (Kotlin remnant); Rob: *"ok that's good."* Arrival headlines withdrawn 2026-08-20 ("The Sovereign will not yield" and the rest); Rob: *"ok this is fine."* Standing telegraph strip for inbound waves remains. HUD still names the phase. The camera still holds on an arrived group. |
 | Authored defaults + encounter ammo | **DONE 2026-08-19**, device-tested on a fresh L1→L7. `Loadout.Default` is the authored mix; reaching a level unlocks those units; AP after L2 / Incendiary after L4, pre-select until the player taps a chip. L1–L2 stay rifle. Rob: *"it works."* |
+| Fail sequence + kill-confirm juice | Punch and miss scorch **signed 2026-08-20**. L4 fail cards seen (garrison teach + Airstrike nudge). L1 Smoke nudge uncalled. "an Airstrike" is in code, not on the APK. See `_plans/FAIL_JUICE.md` |
+| Range band | **L1 SIGNED 2026-08-20.** Rob: *"that actually plays better"* / *"i like the new distance."* v 9.5. L2–L12 slid +2; melee no longer volleys. **L5 has no tank** (2026-08-21, headless). L3 still does. Shop parked. See `_plans/RANGE.md` |
 | Tier 1 ammo | per `DYNAMISM_DESIGN.md` status |
 | 1.2 telegraphed events | **HALF DONE 2026-08-07.** Reinforcement waves ship with a live multi-turn countdown, and the schedule now covers L10 and L11 (both 2-turn leads). **Wind is NOT shipped and is not a scheduling problem** — `windAccelZ` drifts the round in Z while collision is X/Y only, so a wind schedule would telegraph a change that cannot alter what a shot hits. Making it real is a physics change and needs an ask |
 | 1.3 consumables | **DONE 2026-08-10**, device-confirmed. Four items bought, carried and fired; the Airstrike's aircraft was rebuilt 2026-08-11 and signed off. Overwatch Flare is deliberately NOT sold — nothing in this port advances for it to halve |

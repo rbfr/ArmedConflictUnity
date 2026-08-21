@@ -16,6 +16,26 @@ Nothing here overrides `GAME_DESIGN_LOCKS.md` or `CAMERA_ARCHITECTURE.md`.
 
 ---
 
+## Asked for: tank as an in-game purchase, not on every level — opened 2026-08-21
+
+Rob, after the range slide: the tank makes sniper/tower levels too
+easy (L5's loft became a 3-shell errand). L5's tank is already gone.
+The longer idea is a coin buy (not IAP) so some levels have no
+vehicle by default.
+
+**Skill-first first.** Every no-tank level must be clearable at stock
+with no spend (`PROGRESSION_DESIGN.md`). Do not sell the skip until
+L5 (and L3 if it loses its tank) play. Airstrike already *is* the
+"skip the masonry" consumable — a purchased tank is the persistent
+version of that, comfort not a gate.
+
+**Not started.** Needs: optional TankArrive (already no-ops with no
+cannon), loadout/economy slot, HP retune on any level whose masonry
+was budgeted against 3×96 shells, composition rule 4 fallback (now
+in for L5). Do not sequence this; ask.
+
+---
+
 ## Asked for: a look pass via the Blender MCP — opened 2026-08-14
 
 Rob parked the tier stack for a sitting so the game can look better, now
@@ -35,8 +55,9 @@ a live MCP Blender (it kills the addon).
 
 Rob: *"ok that's good."* Phase copy is gone (levelGoal flash,
 "Look over the field", "N closing", "Your forces arrive").
-Wave telegraph and boss announcements stay. HUD still names
-the phase. Do not restore `ThreatLine`.
+Wave telegraph stays. Arrival headlines withdrawn 2026-08-20
+("The Sovereign will not yield" and the rest). HUD still names
+the phase. Do not restore `ThreatLine` or those banners.
 
 ---
 

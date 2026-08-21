@@ -35,7 +35,8 @@ public static class LevelComposition
     const float EnemyClusterMaxWidth = 11f;
     const int   MaxEnemyStructures = 3;       // one dominant + at most two small supports
     const float SeparationMin = 14f;
-    const float SeparationMax = 18f;
+    // 20 while L1 trials 18.5 (2026-08-20). Min stays 14 until the rest of the campaign moves.
+    const float SeparationMax = 20f;
 
     public enum Severity { Ok, Warn, Error }
 
@@ -144,24 +145,31 @@ public static class LevelComposition
                 ? ". One commanding keep, not a village — this cannot be framed."
                 : "")));
 
-        // --- rules 4 and 6: separation, measured TANK -> DOMINANT STRUCTURE ---
+        // --- rules 4 and 6: separation, TANK -> DOMINANT STRUCTURE, or front rank
+        // when a level fields no player-side vehicle (L5, 2026-08-21). ---
         var tank = level.structures.FirstOrDefault(s => s.definition != null
                                                      && s.definition.isPlayerSide);
         var dominant = enemyStructures
             .OrderByDescending(s => Width(s.definition))
             .FirstOrDefault();
-        if (tank == null || dominant == null)
+        if (dominant == null)
         {
             findings.Add(new Finding(Severity.Ok,
-                "rules 4/6: separation not measurable — needs a player-side structure and at " +
-                "least one enemy structure"));
+                "rules 4/6: separation not measurable — needs an enemy structure"));
+        }
+        else if (tank == null && (state.PlayerUnits == null || state.PlayerUnits.Count == 0))
+        {
+            findings.Add(new Finding(Severity.Ok,
+                "rules 4/6: separation not measurable — no player line and no tank"));
         }
         else
         {
-            float separation = Mathf.Abs(dominant.x - tank.x);
+            float fromX = tank != null ? tank.x : state.PlayerUnits.Max(u => u.X);
+            string from = tank != null ? "tank" : "front rank";
+            float separation = Mathf.Abs(dominant.x - fromX);
             bool ok = separation >= SeparationMin && separation <= SeparationMax;
             findings.Add(new Finding(ok ? Severity.Ok : Severity.Warn,
-                $"rules 4/6: separation {separation:F1}, tank -> {dominant.definition.name} " +
+                $"rules 4/6: separation {separation:F1}, {from} -> {dominant.definition.name} " +
                 $"({SeparationMin}-{SeparationMax})" +
                 (ok ? "" : separation > SeparationMax
                     ? ". Further out reads as 'shots pass through' — range is not the "

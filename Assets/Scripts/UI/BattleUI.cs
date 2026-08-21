@@ -63,10 +63,10 @@ namespace ArmedConflict.UI
         GameObject nextButton, retryButton;
         TMP_Text retryLabel;
 
-        GameObject eventBanner, telegraphStrip;
-        TMP_Text eventText, telegraphText;
-        string shownAnnouncement, shownTelegraph;
-        Coroutine sequence, bannerPop;
+        GameObject telegraphStrip;
+        TMP_Text telegraphText;
+        string shownTelegraph;
+        Coroutine sequence;
         int shownBalance;
 
         GameObject loadoutPanel, beginButton, safeArea;
@@ -185,18 +185,19 @@ namespace ArmedConflict.UI
             Play(award.Stars, award.Coins, award.BonusTag, showStars: true, hold: VictoryHold);
         }
 
-        public void ShowDefeat(int coins)
+        public void ShowDefeat(TurnFlow.DefeatAward award)
         {
             titleText.text = "DEFEAT";
             titleText.color = Loss;
             // Teaches rather than scolds, and still pays — a loss that reads as pure punishment
             // is what makes a casual player close the app instead of retrying.
-            reasonText.text = "Your line was overrun — thin them out before they close.";
+            reasonText.text = award.Reason;
             retryLabel.text = "RETRY";
             nextButton.SetActive(false);
             // No star row on a defeat: there are no stars to fill, and running the beats anyway
             // spent most of a second staring at three empty outlines.
-            Play(0, coins, null, showStars: false, hold: DefeatHold);
+            // The nudge rides the bonus line — same slot a victory uses for First Clear.
+            Play(0, award.Coins, award.Nudge, showStars: false, hold: DefeatHold);
         }
 
         public void Hide()
@@ -205,7 +206,7 @@ namespace ArmedConflict.UI
             endPanel.SetActive(false);
             // The banners belong to the battle that raised them — a stale "reinforcements!" on
             // the next level would be a lie, and the strip would sit there forever.
-            SetEvents(null, null);
+            SetEvents(null);
         }
 
         /// <summary>
@@ -276,7 +277,10 @@ namespace ArmedConflict.UI
             {
                 Stars = stars, Coins = coins, BonusTag = bonusTag,
             }, survivors, initialCount, hasNextLevel: true);
-            else ShowDefeat(coins);
+            else ShowDefeat(new TurnFlow.DefeatAward
+            {
+                Coins = coins, Reason = TurnFlow.DefeatOverrun, Nudge = bonusTag,
+            });
 
             if (sequence != null) { StopCoroutine(sequence); sequence = null; }
             endPanel.SetActive(true);
@@ -452,14 +456,12 @@ namespace ArmedConflict.UI
         }
 
         /// <summary>
-        /// Two channels, and the difference between them is the whole of pillar 7.
+        /// The standing telegraph — pillar 7. Something is ABOUT to happen, and it
+        /// stays on screen for the whole turn being warned about.
         ///
-        /// The BANNER is a flash: a boss or wave just arrived. It does not
-        /// narrate phases — those Kotlin lines are gone. The TELEGRAPH STRIP
-        /// is a standing condition: something is ABOUT to happen, and it stays
-        /// on screen for the entire turn being warned about.
-        ///
-        /// Both sit under the coin pill and above the battlefield, clear of the safe-area insets.
+        /// Flavor arrival copy is withdrawn ("The Sovereign will not yield" and
+        /// the rest). The camera still holds on an arrived group; nothing here
+        /// writes a headline.
         /// </summary>
         void BuildEventBanner()
         {
@@ -468,10 +470,9 @@ namespace ArmedConflict.UI
             var strip = NewRect("Telegraph", safe);
             strip.anchorMin = strip.anchorMax = new Vector2(0.5f, 1f);
             strip.pivot = new Vector2(0.5f, 1f);
-            // BELOW the event banner, not above it. At -104 the strip ran straight through the
-            // CAM / RIGS / stepper cluster and the level readout — harmless for input, since it
-            // does not take raycasts, but it read as a broken layout.
-            strip.anchoredPosition = new Vector2(0f, -286f);
+            // Under the coin pill, clear of the CAM / RIGS / stepper cluster.
+            // At -104 it ran through that row.
+            strip.anchoredPosition = new Vector2(0f, -190f);
             strip.sizeDelta = new Vector2(760f, 62f);
             var stripBg = strip.gameObject.AddComponent<Image>();
             stripBg.color = new Color(0.55f, 0.16f, 0.10f, 0.85f);
@@ -482,45 +483,18 @@ namespace ArmedConflict.UI
                                     TextAlignmentOptions.Center);
             Stretch(telegraphText.rectTransform);
             telegraphStrip.SetActive(false);
-
-            var banner = NewRect("EventBanner", safe);
-            banner.anchorMin = banner.anchorMax = new Vector2(0.5f, 1f);
-            banner.pivot = new Vector2(0.5f, 1f);
-            banner.anchoredPosition = new Vector2(0f, -190f);
-            banner.sizeDelta = new Vector2(860f, 84f);
-            var bannerBg = banner.gameObject.AddComponent<Image>();
-            bannerBg.color = new Color(0f, 0f, 0f, 0.62f);
-            bannerBg.raycastTarget = false;
-            eventBanner = banner.gameObject;
-
-            eventText = NewText("Text", banner, 44f, new Color(1f, 0.86f, 0.35f),
-                                TextAlignmentOptions.Center);
-            Stretch(eventText.rectTransform);
-            eventBanner.SetActive(false);
         }
 
         /// <summary>
-        /// Drives both channels from the tick's state. Called every frame; does nothing unless
-        /// something changed, so it costs a reference comparison in the common case.
+        /// Drives the standing telegraph. Flavor arrival copy is withdrawn.
         /// </summary>
-        public void SetEvents(string announcement, string telegraph)
+        public void SetEvents(string telegraph)
         {
-            if (telegraph != shownTelegraph)
-            {
-                shownTelegraph = telegraph;
-                bool on = !string.IsNullOrEmpty(telegraph);
-                telegraphStrip.SetActive(on);
-                if (on) telegraphText.text = telegraph;
-            }
-
-            if (announcement == shownAnnouncement) return;
-            shownAnnouncement = announcement;
-            bool show = !string.IsNullOrEmpty(announcement);
-            eventBanner.SetActive(show);
-            if (!show) return;
-            eventText.text = announcement;
-            if (bannerPop != null) StopCoroutine(bannerPop);
-            if (isActiveAndEnabled) bannerPop = StartCoroutine(Pop(eventBanner.GetComponent<RectTransform>()));
+            if (telegraph == shownTelegraph) return;
+            shownTelegraph = telegraph;
+            bool on = !string.IsNullOrEmpty(telegraph);
+            telegraphStrip.SetActive(on);
+            if (on) telegraphText.text = telegraph;
         }
 
         void BuildLoadoutPanel()

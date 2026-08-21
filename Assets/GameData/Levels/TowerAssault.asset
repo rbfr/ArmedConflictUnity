@@ -17,38 +17,28 @@ MonoBehaviour:
   levelNumber: 5
   levelGoal: "Cut the tower's legs \u2014 what stands on it falls with it"
   enemyGroups:
-  - definition: {fileID: 11400000, guid: b51688fb293b69e5cab2885bcaa975b8, type: 2}
-    count: 4
-    anchorX: 1.5
+  - definition: {fileID: 11400000, guid: 0cc2a054cb1b0b38086ae4f985d09207, type: 2}
+    count: 3
+    anchorX: 3.5
     anchorZ: 0
     standingOnStructureId: 
     advancePerTurn: 0
   - definition: {fileID: 11400000, guid: 83aeca5cec8486eaf95c85703d65c4e7, type: 2}
     count: 8
-    anchorX: 5
+    anchorX: 7
     anchorZ: 0.12
     standingOnStructureId: bunker
     advancePerTurn: 0
-  - definition: {fileID: 11400000, guid: 036d9a98cc0865381abf17644193b6cd, type: 2}
-    count: 6
-    anchorX: 8
+  - definition: {fileID: 11400000, guid: db1f649e9127f6c1b8ed266c10d64185, type: 2}
+    count: 1
+    anchorX: 10
     anchorZ: 0.12
     standingOnStructureId: tow_top
     advancePerTurn: 0
   structures:
-  - id: player_tank
-    definition: {fileID: 11400000, guid: 5d4cd70c32b12f2429c5cbd2a376b2ba, type: 2}
-    x: -9.5
-    y: 0
-    z: 0
-    collapseWith: 
-    restsOn: 
-    standWidth: -1
-    hasStandWidth: 0
-    hpScale: 1
   - id: bunker
     definition: {fileID: 11400000, guid: 503b76a9ccab71014b099da433b220fb, type: 2}
-    x: 5
+    x: 7
     y: 0
     z: 0
     collapseWith: 
@@ -58,7 +48,7 @@ MonoBehaviour:
     hpScale: 0.55
   - id: tow_base
     definition: {fileID: 11400000, guid: 317e2cd76dce7a9cfa56a62635184cbc, type: 2}
-    x: 8
+    x: 10
     y: 0
     z: 0
     collapseWith: 
@@ -68,7 +58,7 @@ MonoBehaviour:
     hpScale: 1
   - id: tow_top
     definition: {fileID: 11400000, guid: a289ee6ee076f6213a44bbffcb15cc90, type: 2}
-    x: 8
+    x: 10
     y: 0.8
     z: 0
     collapseWith: 
@@ -78,13 +68,7 @@ MonoBehaviour:
     hpScale: 1
   playerGroups:
   - definition: {fileID: 11400000, guid: 42221a45b5be3eb57b1b2bd28b9aaac0, type: 2}
-    count: 2
-    anchorX: -9.5
-    anchorZ: 0.12
-    standingOnStructureId: player_tank
-    advancePerTurn: 0
-  - definition: {fileID: 11400000, guid: 42221a45b5be3eb57b1b2bd28b9aaac0, type: 2}
-    count: 5
+    count: 7
     anchorX: -7.4
     anchorZ: 0
     standingOnStructureId: 
@@ -127,12 +111,15 @@ MonoBehaviour:
   isTestLevel: 0
   designNotes: "Beat 5: fight upward. The platform garrison cannot be reached on
     a flat arc, so the drag has to be lofted \u2014 the first level where the ANGLE
-    matters more than the power. Bunker moved 1.8 -> 5.0; at 11.3 the separation
-    was the worst in the campaign and the whole fight sat on top of the player. Rule
-    7 warns and is ACCEPTED for the same reason as L3: the back rank needs 101% power
-    for the platform garrison and cannot reach it, front rank 88%. Fighting upward
-    IS the beat, and the shortfall is 1% \u2014 worth watching if the tower ever
-    moves out. Structure hp RETUNED 2026-08-07: bunker hpScale 0.55 (250 -> 137),
-    garrisoned total 340 -> 227, under the 288 a stock squad can do in a whole battle.
-    The tower stack is untouched - fighting upward is the beat, and tow_base carries
-    no garrison."
+    matters more than the power. NO PLAYER TANK (2026-08-21): the three shells
+    were the structure-killer (96x3=288) and turned the loft into a 3-shell errand.
+    Crew folded into the ground line (2+5 -> 7). HP not retuned yet \u2014 win is
+    units dead, so the loft onto the platform is the beat; if the tower then reads
+    as a wall, cut hpScale before inventing a shop. Bunker moved 1.8 -> 5.0; at 11.3
+    the separation was the worst in the campaign. Rule 7 used to warn because the
+    tank crew (back rank) could not reach the platform; without them the warning
+    may clear. Structure hp RETUNED 2026-08-07: bunker hpScale 0.55 (250 -> 137).
+    Tower garrison 2026-08-21: those were MACHINE GUNNERS (6 crowd), not snipers.
+    MG belong in the street (3, at 3.5). ONE sniper on the platform \u2014 elevated,
+    back, hard to reach. The loft is still the beat; the payload is one 16-hp gun,
+    not a roof of burst fire."

@@ -19,31 +19,31 @@ MonoBehaviour:
   enemyGroups:
   - definition: {fileID: 11400000, guid: b51688fb293b69e5cab2885bcaa975b8, type: 2}
     count: 3
-    anchorX: 0.5
+    anchorX: 2.5
     anchorZ: 0
     standingOnStructureId: 
     advancePerTurn: 0
   - definition: {fileID: 11400000, guid: 83aeca5cec8486eaf95c85703d65c4e7, type: 2}
     count: 8
-    anchorX: 2
+    anchorX: 4
     anchorZ: 0.12
     standingOnStructureId: bunker
     advancePerTurn: 0
   - definition: {fileID: 11400000, guid: 75e1a253a474334eb8576862998ca8e1, type: 2}
     count: 2
-    anchorX: -1
+    anchorX: 1
     anchorZ: 0.4
     standingOnStructureId: 
     advancePerTurn: 0
   - definition: {fileID: 11400000, guid: 83aeca5cec8486eaf95c85703d65c4e7, type: 2}
     count: 4
-    anchorX: 6
+    anchorX: 8
     anchorZ: 0.12
     standingOnStructureId: keep
     advancePerTurn: 0
   - definition: {fileID: 11400000, guid: 036d9a98cc0865381abf17644193b6cd, type: 2}
     count: 10
-    anchorX: 6
+    anchorX: 8
     anchorZ: 0.12
     standingOnStructureId: keep
     advancePerTurn: 0
@@ -60,7 +60,7 @@ MonoBehaviour:
     hpScale: 1
   - id: bunker
     definition: {fileID: 11400000, guid: 96c53e04c1e2e50778f909b147a957bc, type: 2}
-    x: 2
+    x: 4
     y: 0
     z: 0
     collapseWith: 
@@ -70,7 +70,7 @@ MonoBehaviour:
     hpScale: 0.66
   - id: keep
     definition: {fileID: 11400000, guid: 4ccb45e18b5d39dc981ca7dbff582e93, type: 2}
-    x: 6
+    x: 8
     y: 0
     z: 0
     collapseWith: 
@@ -122,13 +122,13 @@ MonoBehaviour:
     spawnGroups:
     - definition: {fileID: 11400000, guid: e2f345bdab5634c49a5e289daed390f3, type: 2}
       count: 1
-      anchorX: 6.5
+      anchorX: 8.5
       anchorZ: 0
       standingOnStructureId: 
       advancePerTurn: 0
     - definition: {fileID: 11400000, guid: 75e1a253a474334eb8576862998ca8e1, type: 2}
       count: 3
-      anchorX: 4.5
+      anchorX: 6.5
       anchorZ: 0
       standingOnStructureId: 
       advancePerTurn: 0

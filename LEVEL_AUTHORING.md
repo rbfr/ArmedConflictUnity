@@ -46,15 +46,24 @@ At 2.5x a fortress tier is 6.0 wide and the stack is 6.0 tall; a garrison post i
 or four of those in a row is a level that cannot be framed. This is also the Archery Bastions
 read — one commanding keep, not a village.
 
-**4. Engagement separation 14–18 units.**
+**4. Engagement separation 14–18 units** (checker max is 20 while L1 trials 18.5).
 It preserves the arc that made the original L1 feel right. Objectives further out read as "shots
 pass through".
 
 **The "~49-unit max range" this rule used to cite was WRONG, and it is what licensed a shipped
-level to become unwinnable.** The real figure is `AimSystem.MaxRange45` = v²/g = 81/4 =
-**20.25 units, on flat ground**, so 14–18 is not "well inside" anything — it spends 70–89% of the
-entire envelope before a single unit is raised off the ground. Range IS a constraint, it is a
-tight one, and rule 7 is what measures it.
+level to become unwinnable.** Range is `AimSystem.MaxRange45` = v²/g. That was 81/4 = **20.25**
+at v=9; the 2026-08-20 L1 trial raised v to 9.5 so the figure is **22.56**, unsigned. 14–18 at
+the old envelope spent 70–89% of it before a single unit is raised off the ground. Range IS a
+constraint, it is a tight one, and rule 7 is what measures it. **L1 is signed 2026-08-20**
+(Rob: "that actually plays better") — tank→outpost 18.5, ground squad 6.5. L2–L12 took the
+same +2 the same day (player tanks stayed). Shield charges step further so contact turns
+hold, and they no longer volley.
+
+**Class placement (2026-08-21).** Snipers sit in the back on elevated decks — hard to
+reach, that is their whole job. Machine gunners sit toward the FRONT, in the street or
+on the near structure, where burst fire is a close-range problem. L5 had this backwards
+(six MG on the tower); Rob read them as snipers. Not a checked rule yet — do not put MG
+on the far roof of a sniper/tower beat.
 
 **5. Garrison the MAJORITY of the enemy roster.**
 L3 was won in three volleys with its structures at 238/340 — the unit-kill win condition resolved
@@ -64,9 +73,11 @@ enemy roster stands **on** them. Raising `STRUCTURE_HP_SCALE` does not fix this;
 more HP standing at the same victory. (The scale itself measured correct: the L6 keep took ~5–6
 full-roster volleys at 637 HP.)
 
-**6. Separation is measured TANK → DOMINANT STRUCTURE**, which is what rule 4's 14–18 means.
-Shipped L1/L4/L6 are 16.5/14.3/17.0 by that measure; their forward ground groups sit far closer,
-and an advancing group closer still by design.
+**6. Separation is measured TANK → DOMINANT STRUCTURE**, which is what rule 4's band means.
+When a level fields no player tank (L5, 2026-08-21) it is **front rank → dominant**.
+Pre-trial L1/L4/L6 were 16.5/14.3/17.0; after the 2026-08-20 slide they are 18.5/16.3/19.0.
+Forward ground groups sit closer than the structure, and an advancing group closer still
+by design — that street is what read as "too close" more than the tank→structure number.
 
 **7. Every enemy UNIT must be REACHABLE, and height is what makes one unreachable.**
 Added 2026-08-06, after the first six passed a level that could not be won. Victory is "every

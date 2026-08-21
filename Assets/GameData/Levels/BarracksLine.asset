@@ -19,25 +19,25 @@ MonoBehaviour:
   enemyGroups:
   - definition: {fileID: 11400000, guid: b51688fb293b69e5cab2885bcaa975b8, type: 2}
     count: 3
-    anchorX: 1.2
+    anchorX: 3.2
     anchorZ: 0
     standingOnStructureId: 
     advancePerTurn: 0
   - definition: {fileID: 11400000, guid: 75e1a253a474334eb8576862998ca8e1, type: 2}
     count: 2
-    anchorX: 2.7
+    anchorX: 4.7
     anchorZ: 0.4
     standingOnStructureId: 
     advancePerTurn: 0
   - definition: {fileID: 11400000, guid: 83aeca5cec8486eaf95c85703d65c4e7, type: 2}
     count: 6
-    anchorX: 4.8
+    anchorX: 6.8
     anchorZ: 0.12
     standingOnStructureId: barracks
     advancePerTurn: 0
   - definition: {fileID: 11400000, guid: 4322cf73032452a0796c7d5fc72887e6, type: 2}
     count: 6
-    anchorX: 7.8
+    anchorX: 9.8
     anchorZ: 0.12
     standingOnStructureId: platform
     advancePerTurn: 0
@@ -54,7 +54,7 @@ MonoBehaviour:
     hpScale: 1
   - id: barracks
     definition: {fileID: 11400000, guid: 95d24e4e2581b55ea876178f5d94a3b4, type: 2}
-    x: 4.8
+    x: 6.8
     y: 0
     z: 0
     collapseWith: 
@@ -64,7 +64,7 @@ MonoBehaviour:
     hpScale: 1
   - id: mast
     definition: {fileID: 11400000, guid: eeeb271bc8fccfe34a7ed8558af589e9, type: 2}
-    x: 8.6
+    x: 10.6
     y: 0
     z: 0
     collapseWith: 
@@ -74,7 +74,7 @@ MonoBehaviour:
     hpScale: 1
   - id: platform
     definition: {fileID: 11400000, guid: a289ee6ee076f6213a44bbffcb15cc90, type: 2}
-    x: 7.8
+    x: 9.8
     y: 0
     z: 0
     collapseWith: 

@@ -1,266 +1,151 @@
-# Handover — Unity, as of 2026-08-19
+# Handover — Unity, as of 2026-08-21
 
-## START HERE
+## Pick up here
 
-- **THIS FILE NO LONGER RECORDS WHAT IS COMMITTED OR PUSHED. ASK GIT.**
+A new session starts here. **Ask which beat.** Do not sequence
+look work or unsigned phone items. **Ask git** — this file does
+not record commits. Rob commits/pushes on an explicit ask; do
+not tidy unpushed work unprompted.
 
-  ```bash
-  git status --short --branch
-  git log --oneline origin/main..HEAD     # empty means everything is pushed
-  ```
+`PortSelfTest.Run` after every change. **RIGS** is the test
+supply (consumables, camo, classes, ammo). **Do not use Auto**
+for structures, ammo, or consumables. Android repo is RETIRED.
 
-  A sentence naming the unpushed commits was here for four days and was **wrong four times** —
-  on 2026-08-11 three times in one day, and again on 2026-08-12 within minutes of a push. Every
-  time it was written TRUE and went stale on the next command, which is what a snapshot of
-  mutable state does in a document nobody re-reads before editing. It has been deleted rather
-  than corrected a fifth time. **Do not restore it.** What is durable, and all that is worth
-  saying: **Rob commits and pushes on an explicit ask**, so unpushed work is normal and is not a
-  loose end to tidy up unprompted.
-  The Android repo's `projectile-refinement` is never being merged; **the Android build is
-  RETIRED**, reference only.
-- **SEVERAL SESSIONS RAN PER DAY AND THIS FILE DISTINGUISHES THEM BY SUBJECT, NOT BY DATE.**
-  2026-08-11 ran three: the airstrike rebuild (signed off), Tier 2.1 + 2.4, then Tier 2.2's hero
-  work and a docs pass. 2026-08-12 ran two: Tier 2.2's crowd half, then the Tier 2.3 audit.
-  2026-08-13 ran four: melee refine + opening scout (signed off), the warm-up that
-  closed GroundAnchorX, then the armour zoom and the APK that is on the phone.
-  2026-08-14 ran the Blender MCP art (rifleman, tank, opening arrive) and
-  the CityRuins strip (Rob: *"ok, looks good."*).
-  2026-08-14/16 ran deaths: ragdoll contact, dirt sink, quieter flail.
-  Rob: contact *"ok looks better."* Sink *"looks good."* Flail *"ok looks
-  better."* Do not reopen as a taste pass.
-  2026-08-18 ran the look sitting (Cluster / Forest Kenney / L1
-  Mountains / L7 Winter signed), unit hold + emptiness (hold
-  signed, mid-ground scenery planted, variety parked), authored
-  defaults + encounter ammo, then ragdoll tumble / collapse
-  follow / mid-air rest (signed). 2026-08-19 closed mid-ground
-  variety, body-aim, enemy raise, the authored funnel, and the
-  Kotlin narration banners. Read "Pick up here".
-  A date alone will not tell you which piece of work a section belongs to — read the heading.
-- **ALL OF TIER 0 IS DONE AND SIGNED OFF.** The Phase E balance audit — the last thing it owed —
-  was run on 2026-08-07 in both halves, and Rob played the campaign afterwards and reported the
-  levels feel fine. That closed it.
-- **Tier 1.1 (ammo types) IS BUILT** and confirmed on device. Its last owed piece, the **FLAME on
-  a burning unit, shipped 2026-08-09 and was confirmed on device on 2026-08-10.**
-- **Tier 1.2 is HALF DONE**: reinforcement waves are telegraphed with a live countdown and the
-  schedule covers two levels. **Wind is the other half and is still blocked** — see below.
-- **TIER 1.3 IS BUILT** — four consumables, bought, carried and fired, confirmed on device
-  2026-08-10. **Overwatch Flare is deliberately not among them**; see its section.
-- **THE AIRSTRIKE HAS AN AIRCRAFT.** 2026-08-11 cut-and-hold was signed
-  (*"ok this will work"*). 2026-08-17 **withdrew the cut**: plane enters
-  from the player LEFT, camera rides it to the enemy then HOLDS, plane
-  leaves the right edge, camera home, THEN the volley. Pass-by on the
-  armed-fall (FireVolley mints the plane — DriveAudio never sees a
-  null→plane edge). Rob: *"yes. looking good."* Do not restore the cut.
-- **TIER 2.1 (ENEMY FACTIONS) AND TIER 2.4 (PLAYER CAMO) ARE BUILT AND ACCEPTED BY ROB.** He
-  looked at a build on 2026-08-11 and called it: *"ok, uniforms are fine for now."* That is the
-  first of this tier's features to clear the only bar that has ever mattered here. Factions are
-  L1's Redguard red and L7's Ironclad Legion steel blue-grey; camo is four sets bought and worn.
-- **TIER 2.2 IS DONE AND SIGNED OFF BY ROB ON THE DEVICE, 2026-08-12** — both halves in one
-  build. He rejected the first hero placement — *"heroes are behind the structure... really tough
-  to hit"* — and the fix (rule 8, below) cleared his second look. The crowd half split every
-  garrison into more, weaker bodies — 155 -> 248 — at **constant HP, damage and structure
-  damage**, proved by building all twelve levels on both data sets and by a `BalanceAudit` run
-  byte-identical across all 61 findings. The wide decks roughly doubled their fill (GarrisonPost
-  16% -> 34%, BarracksBlock 22% -> 47%). **Shrinking the STRUCTURES was tried first and the
-  arithmetic killed it** — see "The crowd split" below.
-- **TIER 2.3 IS BUILT.** Burst is three independent jitters; Rob signed the fan off 2026-08-13
-  (*"yeah, think this looks fine"*). The shield bearer has ARMOUR (`damageTakenMultiplier` 0.5).
-  The closer frames that make the riot shield readable are on the phone and have **not
-  been signed off**. `RosterAudit.Report` is 0 errors.
-- **ADVANCING SQUADS + MELEE ARE SIGNED OFF, 2026-08-13.** Four campaign levels (L4, L8, L9,
-  L12). Swing is bound. Constants stay: `PostMeleeHoldSeconds` 1.5, `AdvanceSpeed` 2.4,
-  `GrappleGap` 0.75. Rob on L4: march and hold *"are fine"*; Grapple 0.75 *"ok that looks
-  better"*. Do not reopen as a tuning pass.
-- **RIGS IS THE TEST SUPPLY FOR EVERYTHING BUYABLE — consumables, camo, UNIT CLASSES and AMMO.**
-  Every item free to equip, nothing spent, nothing written to the economy, wardrobe or roster.
-  **Classes and ammo were added on 2026-08-12 and had NEVER been covered**, while this file told
-  two sessions to "buy both with RIGS on" — which is how a Tier 2.3 device test spent 250 real
-  coins on a machine gunner and then could not afford the 500 shield bearer. Use it: the release
-  build is not debuggable, `run-as` cannot reach PlayerPrefs, and the test protocol is
-  uninstall/reinstall, so every purchase is re-earned on every install.
-- **Self-test checks last ran ALL PASS — run `PortSelfTest.Run` after every change.** It was 281 at
-  the start of 2026-08-06, 411 at the end of it, 444 on 2026-08-07, 539 after the Tier 1.2 and
-  glyph-coverage blocks, 559 with the flame and the Auto-ammo pair, 576 with Tier 1.3's
-  consumables, 582 with the airstrike's aircraft, 585 with its strafing burst, 587 with the burst's
-  absolute count-and-budget check and the aircraft's left-edge entry, 592 with 2026-08-11's
-  rake-coverage, aim-independence, whole-burst and impact-alignment checks, 599 with Tier 2.1's
-  seven faction checks, 606 with Tier 2.4's camo block, and 607/608/609 with Tier 2.2's
-  hero-staging, deck-overlap and collision-box checks — the last of those written because Rob
-  found the bug on a device — **625** after 2026-08-12's crowd split, **628** with Tier 2.3's
-  burst check, its roster guard and the armour check, **654** with advancing squads and the five
-  camera/reach fixes, **656** with the melee swing's travel check and its per-prefab guard,
-  and **three more** with GroundAnchorX (campaign-mean unchanged, parade on the left flank,
-  nobody in RidgeWatchtower), and **six more** with the armour zoom: distant march on the
-  chargers (`cam 3.50 ±4.00`, tank out), contact still the union, L12 leftover
-  `5.15 -> 3.38`, arrival `1.50`, a casualty does not recapture. L12's leftover
-  number is what the old capture would have kept. Then **eight more** with the
-  city strip (both GLBs imported, span the frustum at their own depth, near is
-  the taller skyline, sits on y=0). Then **the ragdoll contact block** —
-  roof-is-not-airborne, a lip falls, a centre-roof body keeps its vx
-  (seen red at `vx 0.00` against the dipped-fromY bug), a wall sets
-  Bend into it, a slump folds the torso 45° and leaves the arm still.
-  The existing "falls from above, stays on the roof" check went red at
-  `y 0.05 vs roof 4.0` against the same bug before the second
-  `BlockOnStructures` was handed the surface, not the dip. Then
-  **sink** (dirt only, last 0.9s, fully under at expiry; roof does not)
-  and **sliding on dirt is not airborne** (seen as the ground twitch:
-  leftover `vx` kept the sine wave on). Flail is 10°/5° at ~1–2 Hz.
-  Then **the optional-strip block** (2026-08-17): every style's mid and
-  fore references wired, only Forest declaring either, `MidZ` between far
-  and near, and `ForeZ` in front of the play plane but inside
-  `CameraDirector.ZMin`. **Seen RED** against a deliberately broken
-  `ForestMidModel` before being trusted.
-  Two things about that history are worth knowing before reading a changed number as a lost check.
-  **The crowd split's jump was +16 for three new checks** (crowd-split balance, projectile-pool
-  headroom, crowd frailty), because several existing assertions are DATA-DRIVEN and log per body —
-  **this count moves when the level data moves**, and it was measured on both sides of that change
-  rather than extrapolated. And **both of Tier 2.3's behaviour checks were seen RED against the
-  old code before being trusted**, with the failing numbers recorded — a check never seen to fail
-  is not evidence. **Assert related facts TOGETHER** —
-  Tier 1.3's block was first written as 50 assertions over 307 lines and is 18 over 232, with the
-  same nine breakages still caught. A failure message naming three properties is as diagnostic as
-  three checks, and this file is read by people.
+**Last sitting (08-20/21): range + L5.** On the phone. L5 is
+3 MG in the street, one sniper on the tower, no tank. Ask
+before restoring L3's three snipers, rolling MG/sniper roles
+across the campaign, or selling the tank.
 
-### Pick up here
+**Dirty tree (ask git):** fail juice + banners + `an Airstrike`
++ range slide + L5 no-tank + L5 roles. Look sitting `6249e7a`
+is committed, not necessarily pushed.
 
-**A new session starts here.** Ask which beat to take.
-Do not sequence the look pass or the unsigned phone work.
+**Signed — do not reopen as taste**
 
-**2026-08-19 sitting is closed.** Banners, body-aim, mid-ground
-variety, enemy raise, and the authored funnel are signed.
-08-18 ragdoll / collapse / hold / biomes stay signed too.
-Do not reopen any of that as taste.
+- New distance. Rob: *"that actually plays better"* / *"i
+  like the new distance."* v 9→9.5 (flat max 22.56). SpeedScale
+  0.0064→0.00677. L1 outpost 7→9, ground 4.5→6.5, tank −9.5.
+  Built infantry gap 12.4. **Do not widen the aim frame.**
+- L2–L12 enemy side +2 (08-20). Shield charges 1.1/1.0/1.2 →
+  1.5/1.3/1.5 so the extra street does not add turns. Melee
+  does **not** volley (`FireEnemyVolley` skipped `meleeDamage`;
+  that lock was prose). L11 heavies still walk-and-shoot at
+  1.2. Player tanks stayed except L5.
+- Punch (3+ kills) and miss scorch. Rob: punch *"looks good"*;
+  scorch *"easier to see."*
+- Arrival headlines gone. Rob: *"ok this is fine."* Keep the
+  L10/L11 telegraph strip. HUD names the phase. Camera still
+  holds on an arrived group. Do not restore `ThreatLine`,
+  `levelGoal` flash, or "The Sovereign will not yield".
+- 08-19: body-aim, enemy raise, mid-ground variety, authored
+  funnel, phase banners. 08-18: hold, Forest/Mountains/Winter,
+  Cluster 3.2x, L1 car, ragdoll tumble/rest, collapse camera.
+- Melee camera (L4/L8/L9/L12): hold 1.5s, march 2.4, Grapple
+  0.75. Do not share `MarchHalfWidthMin` with contact.
 
-**Signed this sitting (on the phone):**
+**On the phone, not a taste sign-off**
 
-- **Collapse camera.** Two-beat hold (2.1s). First 1.25s rides
-  the falling garrison; then the spring pans back to the live
-  enemy line. Windup stays frozen for the whole hold.
-  Rob: *"ok that's good."* Explicit ask against the camera lock.
-- **Ragdoll tumble.** Do **not** play Kenney `die` in the air
-  (that is the sit-down). GO is a 3-axis tumble; landing flops
-  to ±90 (side-lie). Dirt deaths tip over, they do not tumble.
-  Flail only tumble, first 0.35s. Wreck lid is a 0.32 mound on
-  the visual BASE (`st.Y - size/2`), standWidth not hitWidth.
-- **Mid-air rest.** First-pass dirt is `RagdollRestY(0)`, never
-  the live spin — at ±90 that formula is 0.5 and they hung
-  there with `SupportY=-1`. Rob: *"think that will work fine."*
-- **Hold, Forest, Mountains, Winter, Cluster 3.2x, L1 car /
-  mid-ground depth.** All signed earlier 08-18. Do not widen
-  the aim frame; do not reopen those biomes or the three props.
-- **Mid-ground scenery variety.** Per-biome set, L1 car slot
-  unchanged. Rob, 2026-08-19: *"ok, looks nice."* Breaks the
-  monotony; a further taste pass may come later. Do not reopen
-  as a "are the three signed props still fine" pass.
-- **Enemy aim raise.** Windup prepares the launch and rifles
-  raise over 1.5s, then fire that arc. Rob, 2026-08-19:
-  *"looks good."* Closed.
-- **Whole-body aim.** Torso takes 22% of the lift above
-  ready (cap 14°), arms the rest, head follows. Muzzle still
-  the drag. Walking chargers stay arms-only. Rob:
-  *"exactly what i was going for."* Closed.
-- **Authored defaults + encounter ammo.** Fresh-install
-  L1→L7, Begin through. `Loadout.Default` is the authored
-  ground mix; reaching a level unlocks its specialists; AP
-  after L2, Incendiary after L4 (pre-select only until the
-  player taps an ammo chip). L1–L2 stay rifle. Rob,
-  2026-08-19: *"it works."* Funnel is tested. Do not reopen
-  as a "does Begin field the authored mix" pass.
-- **Phase-narration banners withdrawn.** Rob, 2026-08-19:
-  *"ok that's good."* Gone: the levelGoal flash, "Look over
-  the field", "N closing on your line", "Your forces arrive".
-  Those were Kotlin turn-handover copy (`ThreatLine`). HUD
-  still names the phase: Your turn / Firing... / Enemy turn.
-  **Keep** the wave telegraph strip (L10/L11, pillar 7) and
-  boss announcements (L6/L12). `BattleRunner` feeds
-  `SetEvents(BossAnnouncement, TelegraphText)` only. Do not
-  restore `ThreatLine` or flash `levelGoal`.
+- **L5 no tank.** Rob: *"ok, fine for now."* Crew folded into
+  the ground line (2+5→7). No HP retune. TankArrive still jogs
+  the infantry. Rule 4 falls back to front rank → dominant.
+  L3 still has a tank. Shop parked in `_plans/BACKLOG.md`.
+- **L5 roles.** Those "snipers" were six MG on the platform.
+  Now 3 MG in the street, ONE sniper on the tower. Principle:
+  MG forward, snipers elevated/back. Not applied to L4/L6/L9/
+  L10/L11. L3 left at one sniper from the mix-up.
+- L4 fail cards (garrison teach; second loss nudged Airstrike).
+  APK still says "a Airstrike"; code is "an". L1 Smoke nudge
+  uncalled. Campaign +2 past L1 not walked as a set.
 
-`PortSelfTest.Run` last ran ALL PASS. **Ask git what is committed.**
+**Do not start:** city-road option 2; L4 march zoom as its own
+beat. Wind blocked. Overwatch Flare not sold. Next biome/unit
+only if he names one. Do not drop gravity. Do not sell the
+tank until L5 is felt without it. Do not restore L3's three
+snipers or campaign-wide MG/sniper swaps unprompted.
 
-**Device.** APK on the phone is no-banner (`-r`).
-**RIGS is the test supply.**
+**If he asks for the leftover:** lose L1 twice to a volley —
+Smoke, not Overwatch. Rebuild to show "an Airstrike". L5: if
+the tower reads as a wall, cut `hpScale` before a shop.
 
-**On the phone, not signed as taste — do not start these:**
-
-- **City road, option 2** (things ON the road: jersey, bollards,
-  manhole, drain, dashes). First furniture pass he called
-  *"ok these are fine."* Then: shapes without texture. He
-  chose objects on the road over buying a texture. That
-  second pass has not been called. A road at 6° is kerbs and
-  slabs, not a decal — see trap 13.
-- **L4 march zoom.** Aiming was never the bug (lock holds;
-  L4 aim height matched L5). Kotlin `MarchHalfWidthMin` 4
-  pulled the assault cam to ~10 against aim ~6 — a plaza.
-  Now 2.5; `ContactHalfWidthMin` stays 4 (signed union —
-  do not share the march floor). Giant `wreck_car` off L4
-  (a keepColors z≤−6 lamp holds the slot). He signed the
-  aiming look, not the closer march as its own beat.
-
-**Open — ask, do not sequence:**
-
-- Look pass: next biome or unit. He has not named one.
-- Mid-ground or city-road taste only if he asks.
-- Wind still blocked. Overwatch Flare still not sold.
+**Product stack:** 0, 1.1, 1.3, 2.1–2.4 built. 1.2 = waves
+only. 1.4 heli shut. Plans: `_plans/RANGE.md`,
+`_plans/FAIL_JUICE.md`.
 
 **Traps this sitting paid for — do not re-learn:**
 
-1. **Kenney Nature Kit GLBs have no atlas.** `leafsDark` is aqua
+1. **Cannot slide the enemy +2 at v=9.** Flat max is 20.25;
+   a roofed garrison goes over 100%. Raise `MaxAimMagnitude`
+   (now 9.5, range 22.56) **with** `ProjectileSpeedScale` so
+   a ~525 px drag is still 100%. Rule 4 checker max is 20.
+2. **`FireEnemyVolley` fired melee.** GAME_DESIGN_LOCKS said
+   shield bearers never volley; the path did not skip
+   `meleeDamage > 0`. Skip in Prepare and Fire. L11 heavies
+   are a firing line — do not make them melee.
+3. **L5's "snipers" were machine gunners.** Six MG crowd on
+   `tow_top`. Assert the class (`enemy_sniper` vs
+   `machine_gunner`), not the silhouette. MG belong in the
+   street; snipers on the far elevated deck.
+4. **No tank → rule 4 uses the front rank**, not "not
+   measurable". `TankArrive` still jogs ground troops.
+5. **Do not widen the aim frame.** Seeing both lines during
+   the drag is a mechanic change. The emptiness is vertical.
+6. **Kenney Nature Kit GLBs have no atlas.** `leafsDark` is aqua
    `(0.17, 0.65, 0.67)`, `woodBarkDark` is peach `(0.80, 0.46,
    0.37)`. That is the kit. We left those colours on once as a
    control shot; Rob: *"now the trees are like an aqua color.
    what is this."* `PlaceStripLayer` paints `leaf*` with the
    layer's silhouette green and `wood*`/`Bark*` brown. **Do not
    restore the kit colours.**
-2. **Do not copy the kit into `Assets/Models`.** The scene builder
+7. **Do not copy the kit into `Assets/Models`.** The scene builder
    wires every GLB there. Source lives in
    `tools/blender/kenney_nature/` (CC0, builder input only).
-3. **Forest foreground stays off.** `StripFore` returns null.
+8. **Forest foreground stays off.** `StripFore` returns null.
    The 2026-08-17 shrubs were magnified ~7x and were never the
    ask. `ForeZ` / `build_fore` stay so a later biome can opt in.
    Do not re-wire Forest. The unused `backdrop_forest_fore.glb`
    can sit.
-4. **A snow solid at 6° is a white object**, not snow. L7's cap
+9. **A snow solid at 6° is a white object**, not snow. L7's cap
    mesh read as icebergs, then a mesa, then a chimney. Winter
    already has a white ground and `snowfall`. `snow_from=2` so
    `make_snow_mesh` emits nothing. Do not put a cap mesh back
    on Winter or Mountains.
-5. **Isolated cones / high-octave ridge = a picket.** L1 far was
+10. **Isolated cones / high-octave ridge = a picket.** L1 far was
    `cycles=10, octaves=4` with a white triangle on every horn.
    Far mountains use `kind=range` (broad massifs, 2 octaves),
    `far_foothill`, snow only on wide crests (and Winter none).
    Do not go back to isolated cones.
-6. **Do not flip Kenney's hold 180°.** The body already faces
+11. **Do not flip Kenney's hold 180°.** The body already faces
    Unity −X (screen-right / the enemy). Flipping the arms made
    them reach backward — Rob: *"now they're facing the wrong
    direction."* The first "opposite gun" was the mesh vs the
    imported root's +X, not the clip.
-7. **Assert the rendered rifle, not `TransformPoint(+X)`.**
+12. **Assert the rendered rifle, not `TransformPoint(+X)`.**
    glTFast wraps a root. Span-along-X was GREEN while every
    muzzle pointed at the tank. Mesh bounds-centre along
    `facing.forward` is the check. `LookRotation(forward, left)`.
-8. **Mid-ground is z ≈ −8, not the play plane.** z −0.75 sat
+13. **Mid-ground is z ≈ −8, not the play plane.** z −0.75 sat
    on the squad. Scale 4.1 there was two office towers.
    Backdrop NearZ is −30 and cannot fill the tan.
-9. **`keepColors` on wreck / cactus / tree.** Default Tone
+14. **`keepColors` on wreck / cactus / tree.** Default Tone
    paints every prop player-olive. Sandbags and wire stay
    painted.
-10. **Do not play `die` in the air.** It is a sit-down pose.
+15. **Do not play `die` in the air.** It is a sit-down pose.
     The GO tumbles; landing flops to ±90.
-11. **Dirt rest is `RagdollRestY(0)`.** `RagdollRestY(spin)` at
+16. **Dirt rest is `RagdollRestY(0)`.** `RagdollRestY(spin)` at
     ±90 is a 0.5-unit phantom floor. Roofs and wreck lids raise
     the surface; the live spin does not.
-12. **Wreck.Y is the visual BASE** (`st.Y - size/2`), same as
+17. **Wreck.Y is the visual BASE** (`st.Y - size/2`), same as
     the wreck GO. The standing centre plus 0.32 sat bodies at
     ~1.6 after the hut had collapsed to the dirt.
-13. **A road is kerbs and slabs, not a decal.** 6° turns a
+18. **A road is kerbs and slabs, not a decal.** 6° turns a
     flat strip into a smear. `PropPlacement.absoluteScale`
     skips Normalize — a 14-unit boulevard at scale 1 would
     otherwise become a postage stamp.
-14. **Do not restore the narration banners.** Phase copy is
-    gone on purpose. The telegraph strip and the boss flash
-    are the remaining event channels. HUD phase labels stay.
-15. **Do not share `MarchHalfWidthMin` with contact.** 2.5 on
+19. **Do not restore the narration banners.** Phase copy and
+    arrival headlines are gone on purpose. The telegraph strip
+    is the remaining event channel. HUD phase labels stay.
+    The camera still holds on an arrived group.
+20. **Do not share `MarchHalfWidthMin` with contact.** 2.5 on
     contact crops the tank. The self-test failed at
     cam −6.67 ±2.82 vs tank rear −9.59 when they were one
     constant. Contact is the signed union; march is the
@@ -268,6 +153,11 @@ Do not reopen any of that as taste.
 
 **Do not widen the aim frame.** That analysis still stands.
 The collapse follow was a separate, explicit ask and is signed.
+
+---
+
+**Stop.** Everything below is scar tissue. Pickup above is current.
+A dated heading is history, not a job list.
 
 **2026-08-17 — WINTER/MOUNTAINS AND FOREST REWORKED.** History.
 The 08-18 sitting superseded the forest cones and the mountain
@@ -594,8 +484,10 @@ Never `bpy.ops.wm.read_factory_settings` in a live MCP Blender.
   airstrike cut, Kenney aqua, Forest foreground, or a snow-cap
   mesh.
 - **Whole-body aim / enemy raise / authored funnel / narration
-  banners.** 2026-08-19. Do not restore `ThreatLine` or the
-  levelGoal flash. Do not reopen the aim pose as taste.
+  banners.** 2026-08-19. Arrival headlines gone 2026-08-20.
+  Do not restore `ThreatLine`, the levelGoal flash, or
+  "The Sovereign will not yield". Do not reopen the aim pose
+  as taste.
 
 **City strip — traps that cost a device session:**
 

@@ -19,13 +19,13 @@ MonoBehaviour:
   enemyGroups:
   - definition: {fileID: 11400000, guid: b51688fb293b69e5cab2885bcaa975b8, type: 2}
     count: 5
-    anchorX: 3
+    anchorX: 5
     anchorZ: 0
     standingOnStructureId: 
     advancePerTurn: 0
   - definition: {fileID: 11400000, guid: 83aeca5cec8486eaf95c85703d65c4e7, type: 2}
     count: 12
-    anchorX: 6.5
+    anchorX: 8.5
     anchorZ: 0.12
     standingOnStructureId: post
     advancePerTurn: 0
@@ -42,7 +42,7 @@ MonoBehaviour:
     hpScale: 1
   - id: post
     definition: {fileID: 11400000, guid: fbbfacb3df61fd8f492723bbb6150200, type: 2}
-    x: 6.5
+    x: 8.5
     y: 0
     z: 0
     collapseWith: 
@@ -67,7 +67,7 @@ MonoBehaviour:
   heliChance: 0
   props:
   - modelAsset: models/barbed_wire.glb
-    x: 1.6
+    x: 3.6
     z: 0.4
     scale: 0.9
     slowsAdvance: 0

@@ -223,9 +223,11 @@ Two stages of six (`ValleyFront` 1-6, `EnemyStronghold` 7-12), bosses on 6 and 1
 The eight composition rules live in **`LEVEL_AUTHORING.md`** (moved out of the Kotlin 2026-08-06)
 and all eight are checked by `LevelComposition.Report`. Shortest form: the Aiming camera frames the
 PLAYER LINE ONLY (~6 wide), scout/resolve framing is set by the enemy cluster INCLUDING structure
-edges (under ~11), one dominant structure plus at most two small supports, 14-18 units of
-separation TANK→DOMINANT STRUCTURE, garrison the MAJORITY of the enemy roster on structures,
-(rule 7, added 2026-08-06) every enemy UNIT must be physically REACHABLE — max range is 20.25 flat
+edges (under ~11), one dominant structure plus at most two small supports, 14-20 units of
+separation TANK→DOMINANT STRUCTURE (checker max 20 while L1 trials 18.5; was 14-18 at v=9),
+garrison the MAJORITY of the enemy roster on structures,
+(rule 7, added 2026-08-06) every enemy UNIT must be physically REACHABLE — max range is 22.56
+flat at v=9.5 (was 20.25 at v=9)
 and HEIGHT spends it twice, so a garrison on a tall structure at full separation can be unwinnable
 while passing all of rules 1-6 — and **(rule 8, added 2026-08-11) every GROUND unit must stand
 clear of every structure's COLLISION BOX**, which is `hitWidth` wide and nothing like the width of

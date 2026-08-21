@@ -140,6 +140,9 @@ namespace ArmedConflict.Game
 
         public const float ShakeDecayPerSecond = 2.5f;
         public const float ShakePerKill = 0.15f;
+        /// <summary>Extra punch once a tick drops this many bodies. One scream is not a volley.</summary>
+        public const int MultiKillAt = 3;
+        public const float ShakeMultiKillBonus = 0.35f;
 
         /// <summary>
         /// Decays camera shake. This MUST run on every tick path, including the one taken once
@@ -157,7 +160,8 @@ namespace ArmedConflict.Game
             => Mathf.Max(shake - dt * ShakeDecayPerSecond, 0f);
 
         public static float AddShakeForKills(float shake, int kills)
-            => shake + kills * ShakePerKill;
+            => shake + kills * ShakePerKill
+             + (kills >= MultiKillAt ? ShakeMultiKillBonus : 0f);
 
         // ---- ragdolls -------------------------------------------------------------------
 
@@ -532,6 +536,11 @@ namespace ArmedConflict.Game
         // ---- scorch ---------------------------------------------------------------------
 
         public const float ScorchWorldRadius = 0.30f;
+        /// <summary>
+        /// Same projection argument as unit shadows: at ~6° a round decal is a smear, and
+        /// WIDTH cannot buy screen height. Stretch along depth so a miss still reads.
+        /// </summary>
+        public const float ScorchDepthStretch = 3.2f;
         /// <summary>A new mark within this fraction of an existing one merges into it.</summary>
         public const float ScorchMergeFraction = 0.75f;
         public const float ScorchMergeGrowth = 1.07f;
