@@ -379,19 +379,23 @@ namespace ArmedConflict.Game
         /// <summary>
         /// Defeat pays a consolation so a loss still feels like income, records the fail
         /// streak, and (after a repeat) names a consumable that would have helped.
+        /// <paramref name="testSupply"/> is RIGS: the loadout already treats every item as
+        /// owned there, and without it here the you-have-one branch of the nudge is
+        /// unreachable on any build worth measuring — a real balance would have to be earned
+        /// to read one line of copy.
         /// </summary>
-        public static DefeatAward AwardDefeat(LevelDefinitionSO level, GameState s)
+        public static DefeatAward AwardDefeat(LevelDefinitionSO level, GameState s,
+                                              bool testSupply = false)
         {
             int coins = EconomyStore.GrantDefeatPayout(level);
             int streak = ProgressStore.RecordDefeat(level.id);
             var item = NudgeItem(s);
+            int owned = testSupply ? 1 : ProgressStore.OwnedConsumables(item);
             return new DefeatAward
             {
                 Coins = coins,
                 Reason = DefeatReason(s),
-                Nudge = streak >= FailNudgeAfter
-                    ? NudgeLine(item, ProgressStore.OwnedConsumables(item))
-                    : null,
+                Nudge = streak >= FailNudgeAfter ? NudgeLine(item, owned) : null,
             };
         }
     }

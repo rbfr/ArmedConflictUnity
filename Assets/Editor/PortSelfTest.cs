@@ -2203,6 +2203,28 @@ public static class PortSelfTest
             Check(afterWin.Reason == TurnFlow.DefeatCharge,
                   "and still names the charge that ended it");
 
+            // PUT IT IN A STATE WHERE IT COULD FAIL: nothing owned in the real economy, RIGS on.
+            // The you-have-one branch is the one that read "a Airstrike" on device, and without
+            // the test supply reaching AwardDefeat it cannot be shown on a release build at all
+            // without earning 250 coins. afterWin left the streak at 1, so this loss is the
+            // repeat that arms the nudge.
+            var garrisonLoss = new GameState
+            {
+                LastPlayerDeathCause = CasualtyCause.Volley,
+                EnemyUnits = new List<UnitEntity> { garrison },
+            };
+            Check(ProgressStore.OwnedConsumables(ConsumableType.Airstrike) == 0,
+                  "the economy really is empty — the supply below is RIGS, not a balance");
+            var onRigs = TurnFlow.AwardDefeat(lvl, garrisonLoss, testSupply: true);
+            Check(onRigs.Nudge != null && onRigs.Nudge.Contains("You have an Airstrike"),
+                  "RIGS carries the fail card too — it reads 'You have an Airstrike', the "
+                  + "line that shipped as 'a Airstrike'");
+            Check(ProgressStore.OwnedConsumables(ConsumableType.Airstrike) == 0,
+                  "and the test supply still writes nothing to the economy");
+            var offRigs = TurnFlow.AwardDefeat(lvl, garrisonLoss);
+            Check(offRigs.Nudge != null && offRigs.Nudge.Contains("would"),
+                  "with RIGS off and none owned it is still a would-have-helped, not a lie");
+
             ProgressStore.ResetAll();
             ProgressStore.AllLevels = new List<LevelDefinitionSO>();
         }

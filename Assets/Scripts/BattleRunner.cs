@@ -1386,7 +1386,7 @@ public class BattleRunner : MonoBehaviour
         }
         else
         {
-            var award = TurnFlow.AwardDefeat(level, state);
+            var award = TurnFlow.AwardDefeat(level, state, TestSupply);
             ui.ShowDefeat(award);
             Debug.Log($"[Battle] defeat: +{award.Coins} coins" +
                       (award.Nudge != null ? $" ({award.Nudge})" : "") +

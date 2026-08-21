@@ -16,9 +16,10 @@ for structures, ammo, or consumables. Android repo is RETIRED.
 before restoring L3's three snipers, rolling MG/sniper roles
 across the campaign, or selling the tank.
 
-**Dirty tree (ask git):** fail juice + banners + `an Airstrike`
-+ range slide + L5 no-tank + L5 roles. Look sitting `6249e7a`
-is committed, not necessarily pushed.
+**Tree is CLEAN and pushed as of 08-21.** The range slide, fail
+juice, banners, `an Airstrike`, L5 no-tank and L5 roles are all
+in `main` and on the remote. Ask git anyway — this file still
+does not record commits.
 
 **Signed — do not reopen as taste**
 
@@ -53,9 +54,20 @@ is committed, not necessarily pushed.
   Now 3 MG in the street, ONE sniper on the tower. Principle:
   MG forward, snipers elevated/back. Not applied to L4/L6/L9/
   L10/L11. L3 left at one sniper from the mix-up.
-- L4 fail cards (garrison teach; second loss nudged Airstrike).
-  APK still says "a Airstrike"; code is "an". L1 Smoke nudge
-  uncalled. Campaign +2 past L1 not walked as a set.
+- **L4 fail cards — WALKED ON DEVICE 08-21, both losses.** Loss 1
+  "Charge reached your line", no nudge. Loss 2 "The garrison is
+  still firing" + **"You have an Airstrike — take it on the
+  retry."** Both +24. The reason tracks the ACTUAL last blow, so
+  the same level gives a different card run to run — L4 is not
+  reliably the charge card. `a Airstrike` is dead; seen right.
+  L1 Smoke nudge still uncalled. Campaign +2 past L1 not walked
+  as a set.
+- **RIGS now carries the fail card.** `AwardDefeat(level, state,
+  testSupply)`. It read `ProgressStore.OwnedConsumables` direct,
+  so on a release build the you-have-one branch — the one that
+  shipped as "a Airstrike" — could not be reached without
+  earning 250 real coins. The new check was seen RED against the
+  old code and asserts the economy stays at zero after.
 
 **Do not start:** city-road option 2; L4 march zoom as its own
 beat. Wind blocked. Overwatch Flare not sold. Next biome/unit
@@ -64,7 +76,7 @@ tank until L5 is felt without it. Do not restore L3's three
 snipers or campaign-wide MG/sniper swaps unprompted.
 
 **If he asks for the leftover:** lose L1 twice to a volley —
-Smoke, not Overwatch. Rebuild to show "an Airstrike". L5: if
+Smoke, not Overwatch. L5: if
 the tower reads as a wall, cut `hpScale` before a shop.
 
 **Product stack:** 0, 1.1, 1.3, 2.1–2.4 built. 1.2 = waves
@@ -150,6 +162,13 @@ only. 1.4 heli shut. Plans: `_plans/RANGE.md`,
     cam −6.67 ±2.82 vs tank rear −9.59 when they were one
     constant. Contact is the signed union; march is the
     distant escort.
+
+21. **RIGS is not a global — it is a parameter, and every path
+    that reads the economy has to take it.** The loadout honoured
+    the test supply; `AwardDefeat` read PlayerPrefs directly, so
+    one branch of the fail card was unreachable on the only build
+    worth measuring. When a feature is verified under RIGS, ask
+    which OTHER reads of the balance it goes through.
 
 **Do not widen the aim frame.** That analysis still stands.
 The collapse follow was a separate, explicit ask and is signed.
