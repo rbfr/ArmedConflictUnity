@@ -11,123 +11,113 @@ not tidy unpushed work unprompted.
 supply (consumables, camo, classes, ammo). **Do not use Auto**
 for structures, ammo, or consumables. Android repo is RETIRED.
 
-**Last sitting (08-20/21): range + L5.** On the phone. L5 is
-3 MG in the street, one sniper on the tower, no tank. Ask
-before restoring L3's three snipers, rolling MG/sniper roles
-across the campaign, or selling the tank.
+**START HERE: L4 is owed an honest play.** Three changes landed on
+that level over 08-21/24 and NOT ONE of them has been played as a
+player. Every verification run fired into the dirt on purpose to force
+the charge beat, so nothing on record says L4 is still winnable. The
+phone's build is also STALE — it carries the new gait but the OLD 0.5
+armour. Rebuild and reinstall before judging anything (that wipes the
+coin balance; it was 4045 on 08-24).
 
-**Tree is CLEAN and pushed as of 08-21.** The range slide, fail
-juice, banners, `an Airstrike`, L5 no-tank and L5 roles are all
-in `main` and on the remote. Ask git anyway — this file still
-does not record commits.
+**Tree is CLEAN and pushed as of 08-24**, through `f33f621`. Ask git
+anyway — this file still does not record commits.
 
-**Last sitting (08-21): L4's charge and L4's contact frame.**
-Both asked, both on the phone.
+**The L4 arc (08-21 → 08-24).** Three asks, one level. Read all three
+before touching it; the second and third exist because of the first.
 
-- **The enemy shield bearer had no armour.** `EnemyShieldBearer.asset`
-  was missing `damageTakenMultiplier` entirely while the player's
-  carried 0.5 — so the class that CHARGES was a bare 40 hp body a
-  converged volley wiped on approach. Rob: *"the melee force should
-  not die immediately."* Now 0.5, effective 80. On device the charge
-  crosses the street wounded (partial health bars, enemy count
-  unchanged), arrives intact, and still dies — all five fell in the
-  melee mutual-kill. **RETUNED 08-24 to 0.75** — see that block below.
-  **This is a real difficulty change to L4 and it has NOT been played
-  honestly**: the verification run fired into the dirt on purpose for
-  six turns, so nothing here says L4 is still winnable. Feel it before
-  touching anything else on that level.
-  Same family as the machine gunner's burst — a signature living on
-  one side's asset only. Checked now over EVERY authored melee class,
-  resolved through the shipped assets, seen red at `worst 8 of 8`.
-- **The contact frame was 70% wider than its own engagement.**
-  `ContactHalfWidthMin = 4f` on a fight that wants ±2.36. That 4 was
-  spring lag, not geometry. Floor is 2.5 now and the union carries
-  `ContactSpringMargin = 0.7`; L4 goes ±4.00 → ±3.06, tank rear still
-  held by 0.61. The signed-off UNION is untouched — the whole player
-  force is still in shot. See `CAMERA_ARCHITECTURE.md`.
+1. **The enemy shield bearer had no armour at all.**
+   `EnemyShieldBearer.asset` was missing `damageTakenMultiplier`
+   entirely while the player's carried 0.5 — so the class whose whole
+   mechanic IS armour, and the one that actually CHARGES, was a bare
+   40 hp body a converged volley wiped on approach. Rob: *"the melee
+   force should not die immediately."* Same family as the machine
+   gunner's burst: **a signature living on one side's asset only.**
+   Set to 0.5, then **retuned to 0.75 on 08-24** — Rob: *"should not
+   have double hp but just a bit more than they originally had."* A
+   rifle round does 6 instead of 8: **7 rounds to kill against 5
+   bare**, up 40% rather than 100%.
 
-**Last sitting (08-24): the charge is a RUN.** Asked, on the phone.
+2. **The contact frame was 70% wider than its own engagement.**
+   `ContactHalfWidthMin = 4f` on a fight that wants ±2.36. That 4 was
+   never geometry — it was paying for SPRING LAG, and a fixed lag
+   needs a fixed addition, not a minimum: a floor over-pays a small
+   engagement and is swallowed by a large one. Floor 2.5, union
+   carries `ContactSpringMargin = 0.7`; L4 goes ±4.00 → ±3.06 with the
+   tank rear still held by 0.61. The signed-off UNION is untouched.
+   See `CAMERA_ARCHITECTURE.md`. **Both existing camera checks only
+   asked whether the frame HOLDS the force**, which any frame big
+   enough passes — ±4.00 stood on a ±2.36 fight under two green tests.
+   There is a ceiling now as well as a floor.
 
-Rob: *"the leg movements are too dramatic — can we make it look
-more like a run?"* The charge had been playing Kenney's `walk`
-raw, stride 1 / speed 1. **Measured, that clip is not a run and
-never was:** ±60° at the hip (120° of scissor) at 1.5 cycles/s =
-**3 steps a second**. A sprinter's amplitude on a stroller's
-cadence, which is exactly backwards — a run is contained swing
-and quick legs.
+3. **The charge is a RUN.** Rob: *"the leg movements are too dramatic
+   — can we make it look more like a run?"* It played Kenney's `walk`
+   raw. **Measured, that clip is not a run and never was: ±60° at the
+   hip (120° of scissor) at 3 steps a second** — a sprinter's
+   amplitude on a stroller's cadence, exactly backwards.
+   `UnitAnim.ChargeStride = 0.75` puts the hip at ±45° (measured 44.9
+   on the rendered rig against 59.9), and the cadence is **DERIVED**,
+   not a second constant: `GaitSpeed` solves the clip speed that makes
+   the feet carry the body. Charge lands on the `MaxGaitSpeed` clamp
+   at x1.70 = 5.1 steps/s.
+   - **The clamp, and the skate it leaves, are deliberate.** Matching
+     2.4 u/s outright wants 7.9 steps/s, a blur. It is affordable only
+     because the camera FOLLOWS the charge: with no still ground to
+     measure against, amplitude and cadence are what the eye reads.
+   - **It fixed a live bug nobody had filed** — a wire-slowed charger
+     (`WireSlowFactor` 0.35) crawled at 0.84 u/s while windmilling at
+     full rate. `AdvanceSystems.MarchSpeed` was pulled out of `March`
+     so the renderer asks the same question instead of keeping a
+     second copy of the wire test.
+   - **`AdvanceSpeed` 2.4 was NOT touched** — signed off 08-13,
+     *"the march is fine."* Slowing the ground to ~1.0 u/s is the only
+     way to kill the skate outright, and that is a pacing call, not a
+     gait one. **Ask first.**
 
-- `UnitAnim.ChargeStride = 0.75` → hip ±45°, measured 44.9 on the
-  rendered rig against 59.9 raw.
-- Cadence is **DERIVED**, not a second constant:
-  `UnitAnim.GaitSpeed(groundSpeed, stride)` solves the clip speed
-  that makes the feet carry the body, off `CycleCarryUnits` (one
-  cycle = two steps of 2·L·sin θ). Charge lands on the
-  `MaxGaitSpeed` clamp at **x1.70 = 5.1 steps/s**.
-- **The clamp is deliberate and so is the skate it leaves.**
-  Matching 2.4 u/s outright wants 7.9 steps/s, a blur. It is
-  affordable only because the camera FOLLOWS the charge: with no
-  still ground to measure against, amplitude and cadence are what
-  the eye reads, and both are now a run's.
-- **This fixed a live bug nobody had filed.** A wire-slowed
-  charger (`WireSlowFactor` 0.35) crawls at 0.84 u/s and nothing
-  told his legs — he windmilled at full rate to do it. Derived
-  cadence gives him x0.92. `AdvanceSystems.MarchSpeed` was pulled
-  out of `March` so the renderer asks the same question rather
-  than keeping a second copy of the wire test.
-- **`AdvanceSpeed` 2.4 was NOT touched** — it is signed off (item
-  3 below, 08-13, *"the march is fine"*). Slowing the ground to
-  ~1.0 u/s is the only way to kill the skate outright, and that
-  is a pacing call, not a gait one. **Ask before doing it.**
-- **A DOC LIED AND THE ASSET SETTLED IT.** `UnitAnim` said "a 60°
-  hip jog"; the clip is ±60°, i.e. 120°. The self-test now SAMPLES
-  the clip for swing, cycle length and foot carry and asserts the
-  constants against it, so the numbers cannot drift from the rig.
-  Same family as the TMP "ASCII only" note. Three new checks, all
-  three seen red against the raw clip at `charge 59.9`, `x1.00 =
-  3.0 steps/s`, `x1.00 against x1.00`.
-- **No device control shot was taken.** The before/after claim
-  here is the self-test's measured degrees and cadence, not two
-  recordings. The phone was used only to answer "does it read as a
-  run" — it does. Rob's call.
+**Three traps banked from that arc — all of them cost a session:**
 
-**Last sitting (08-24b): the charge's armour, retuned.** Asked.
+- **`damageTakenMultiplier` IS QUANTISED. Do not tune it as if it were
+  continuous.** `CollisionSystem.Soaked` rounds to an int, so against
+  an 8-damage rifle round every multiplier in **[0.6875, 0.8125)
+  resolves to the same 6**, and 0.50 and 0.55 are indistinguishable.
+  There are only FOUR reachable settings between half and none. If an
+  ask wants a value between two steps, the knob is `maxHp`, which is
+  continuous. This is why the self-test states melee toughness in
+  ROUNDS-TO-KILL: asserting a multiplier would assert an input the
+  engine does not honour at that resolution.
+- **"They died right after taking a player unit out" is a LOCK, not a
+  bug, and not an HP consequence.** `StepSkirmishes` kills BOTH bodies
+  on `sk.Age >= SkirmishDuration` — no HP, no armour, no roll is read.
+  `GAME_DESIGN_LOCKS.md`: *"after ~1s BOTH fall as mutual kills. One
+  fighter through = one soldier lost, guaranteed."* **Armour only ever
+  buys the APPROACH; it can never buy survival of the fight.** Making
+  melee a damage roll would undo the guaranteed-trade maths the whole
+  mechanic is costed on — ask before doing it.
+- **A DOC LIED AND THE ASSET SETTLED IT.** `UnitAnim` said "a 60° hip
+  jog"; the clip is ±60°, i.e. twice that, and every conclusion drawn
+  from the comment was wrong by a factor of two. Same family as the
+  TMP "ASCII only" note. `PortSelfTest` now SAMPLES the clip for
+  swing, cycle length and foot carry and asserts the constants against
+  the rig, so a re-export that moves the hip goes red instead of
+  quietly regressing the gait.
 
-Rob: *"the shield bearers should not have double hp but just a bit
-more than they originally had. i just wanted to make sure they attack
-but it seems like they automatically died right after they took one
-of the player units out."*
+Every new check in this arc was **seen red against the old code
+first**, each naming its defect: `worst 8 of 8`, `±4.00 against 2.36
+needed + 0.70 air`, `charge 59.9`, `x1.00 = 3.0 steps/s`,
+`(enemy_shield_bearer)`.
 
-- **`EnemyShieldBearer.damageTakenMultiplier` 0.5 → 0.75.** Rifle
-  round 8 → 6, so **7 rounds to kill against 5 bare** — up 40%, not
-  the 100% he objected to. The PLAYER's shield bearer stays at 0.5;
-  being double is what its roster line sells (*"Outlasts two
-  riflemen"*), so the new bound is ENEMY-ONLY and reads sides off the
-  ROSTER asset, not off an id prefix.
-- **`damageTakenMultiplier` IS QUANTISED — do not tune it as if it
-  were continuous.** `CollisionSystem.Soaked` rounds to an int, so
-  against an 8-damage rifle round every multiplier in
-  **[0.6875, 0.8125) resolves to the same 6**, and 0.50 and 0.55 are
-  indistinguishable. There are only four reachable settings between
-  half and none. If a future ask wants a value BETWEEN two of those
-  steps, the knob is `maxHp`, which is continuous. The self-test now
-  states this in ROUNDS-TO-KILL for exactly that reason: asserting a
-  multiplier would assert an input the engine does not honour at that
-  resolution. Seen red on 0.5 at `(enemy_shield_bearer)`.
-- **"They died right after they took a player unit out" is a LOCK,
-  not a bug, and not an HP consequence.** `StepSkirmishes` kills BOTH
-  bodies on `sk.Age >= SkirmishDuration` — no HP, no armour, no roll
-  is read. `GAME_DESIGN_LOCKS.md`: *"after ~1s BOTH fall as mutual
-  kills. One fighter through = one soldier lost, guaranteed — legible
-  maths; the counter-play is killing the charge before it arrives."*
-  So armour only ever buys the APPROACH; it can never buy survival of
-  the fight. **Ask before making melee a damage roll** — it would undo
-  the guaranteed-trade maths the whole mechanic is costed on.
-- **Not device-verified.** The number changed after the phone pass,
-  and 7-rounds-vs-5 may or may not be enough to reach the line on L4.
-  That is the honest play test that is still owed.
+**Older, still current: 08-20/21 range + L5.** L5 is 3 MG in the
+street, one sniper on the tower, no tank. Ask before restoring L3's
+three snipers, rolling MG/sniper roles across the campaign, or selling
+the tank.
 
 **Signed — do not reopen as taste**
 
+- Charge gait (08-24). Rob: *"yes, that looks good."*
+  `ChargeStride` 0.75 + derived cadence. `AdvanceSpeed` 2.4
+  stays. Do not re-raise the stride to play the clip raw.
+- Enemy charge armour 0.75 (08-24). Rob: *"ok that's fine."*
+  Not 0.5 — he asked for a bit more, not double. The PLAYER's
+  shield bearer stays 0.5; its roster line sells being double.
 - New distance. Rob: *"that actually plays better"* / *"i
   like the new distance."* v 9→9.5 (flat max 22.56). SpeedScale
   0.0064→0.00677. L1 outpost 7→9, ground 4.5→6.5, tank −9.5.
