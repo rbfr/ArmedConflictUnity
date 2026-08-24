@@ -31,10 +31,11 @@ Both asked, both on the phone.
   not die immediately."* Now 0.5, effective 80. On device the charge
   crosses the street wounded (partial health bars, enemy count
   unchanged), arrives intact, and still dies — all five fell in the
-  melee mutual-kill. **This is a real difficulty change to L4 and it
-  has NOT been played honestly**: the verification run fired into the
-  dirt on purpose for six turns, so nothing here says L4 is still
-  winnable. Feel it before touching anything else on that level.
+  melee mutual-kill. **RETUNED 08-24 to 0.75** — see that block below.
+  **This is a real difficulty change to L4 and it has NOT been played
+  honestly**: the verification run fired into the dirt on purpose for
+  six turns, so nothing here says L4 is still winnable. Feel it before
+  touching anything else on that level.
   Same family as the machine gunner's burst — a signature living on
   one side's asset only. Checked now over EVERY authored melee class,
   resolved through the shipped assets, seen red at `worst 8 of 8`.
@@ -88,6 +89,42 @@ and quick legs.
   here is the self-test's measured degrees and cadence, not two
   recordings. The phone was used only to answer "does it read as a
   run" — it does. Rob's call.
+
+**Last sitting (08-24b): the charge's armour, retuned.** Asked.
+
+Rob: *"the shield bearers should not have double hp but just a bit
+more than they originally had. i just wanted to make sure they attack
+but it seems like they automatically died right after they took one
+of the player units out."*
+
+- **`EnemyShieldBearer.damageTakenMultiplier` 0.5 → 0.75.** Rifle
+  round 8 → 6, so **7 rounds to kill against 5 bare** — up 40%, not
+  the 100% he objected to. The PLAYER's shield bearer stays at 0.5;
+  being double is what its roster line sells (*"Outlasts two
+  riflemen"*), so the new bound is ENEMY-ONLY and reads sides off the
+  ROSTER asset, not off an id prefix.
+- **`damageTakenMultiplier` IS QUANTISED — do not tune it as if it
+  were continuous.** `CollisionSystem.Soaked` rounds to an int, so
+  against an 8-damage rifle round every multiplier in
+  **[0.6875, 0.8125) resolves to the same 6**, and 0.50 and 0.55 are
+  indistinguishable. There are only four reachable settings between
+  half and none. If a future ask wants a value BETWEEN two of those
+  steps, the knob is `maxHp`, which is continuous. The self-test now
+  states this in ROUNDS-TO-KILL for exactly that reason: asserting a
+  multiplier would assert an input the engine does not honour at that
+  resolution. Seen red on 0.5 at `(enemy_shield_bearer)`.
+- **"They died right after they took a player unit out" is a LOCK,
+  not a bug, and not an HP consequence.** `StepSkirmishes` kills BOTH
+  bodies on `sk.Age >= SkirmishDuration` — no HP, no armour, no roll
+  is read. `GAME_DESIGN_LOCKS.md`: *"after ~1s BOTH fall as mutual
+  kills. One fighter through = one soldier lost, guaranteed — legible
+  maths; the counter-play is killing the charge before it arrives."*
+  So armour only ever buys the APPROACH; it can never buy survival of
+  the fight. **Ask before making melee a damage roll** — it would undo
+  the guaranteed-trade maths the whole mechanic is costed on.
+- **Not device-verified.** The number changed after the phone pass,
+  and 7-rounds-vs-5 may or may not be enough to reach the line on L4.
+  That is the honest play test that is still owed.
 
 **Signed — do not reopen as taste**
 

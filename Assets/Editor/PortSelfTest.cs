@@ -1842,7 +1842,42 @@ public static class PortSelfTest
                 .ToList();
             Check(authored.Count >= 2,
                   $"both sides field a melee class at all ({authored.Count}) — else this is untested");
-            int worstHit = 0; string bareClass = null;
+            // STATED IN ROUNDS-TO-KILL, which is the only form of this the player experiences,
+            // and BOTH ENDS ARE REAL LIMITS:
+            //
+            //   lower — the class must outlast a bare body of the same HP, or its whole
+            //     signature is missing again. That is the bug this block was written for.
+            //   upper — and the ENEMY's must NOT take twice as many. Rob, 2026-08-24: "the
+            //     shield bearers should not have double hp but just a bit more than they
+            //     originally had." 0.5 was exactly double (10 rounds against 5) and this check
+            //     goes RED on it — the value it was written against is the value it forbids.
+            //
+            // THE UPPER BOUND IS ENEMY-ONLY, and that is not a loophole. The PLAYER's shield
+            // bearer is sold on being double: its roster line reads "Takes half damage from
+            // every round. Outlasts two riflemen." Holding both sides to one number would
+            // either break that promise or re-permit the thing Rob just asked to remove.
+            // Sides are read off the ROSTER — the loadout's own menu — because
+            // UnitDefinitionSO has no side flag and an id prefix is a naming convention, not
+            // a fact.
+            //
+            // WHY IT IS A BAND AND NOT A NUMBER: `damageTakenMultiplier` is QUANTISED. Soaked
+            // rounds to an int, so against an 8-damage rifle round every multiplier in
+            // [0.6875, 0.8125) resolves to the SAME 6, and 0.50 and 0.55 are indistinguishable.
+            // Asserting a multiplier would be asserting an input that the engine does not
+            // actually honour at that resolution; rounds-to-kill is what it honours.
+            var pickable = new HashSet<UnitDefinitionSO>(
+                AssetDatabase.FindAssets("t:RosterDefinitionSO")
+                    .Select(AssetDatabase.GUIDToAssetPath)
+                    .Select(AssetDatabase.LoadAssetAtPath<RosterDefinitionSO>)
+                    .Where(r => r != null)
+                    .SelectMany(r => r.slots)
+                    .Select(sl => sl.unit)
+                    .Where(u => u != null));
+            Check(pickable.Count > 0,
+                  $"the roster names the player's own classes ({pickable.Count}) — without it "
+                  + "the enemy-only bound below cannot tell the sides apart and is vacuous");
+
+            int fewest = int.MaxValue, most = 0; string thinnest = null, thickest = null;
             foreach (var def in authored)
             {
                 var body = new UnitEntity(94, def, 9f, 0.3f, 0f, def.maxHp, false);
@@ -1850,12 +1885,20 @@ public static class PortSelfTest
                     new[] { Shot(94, 9f, 3f, 9f, 0.3f, dmg: 8) },
                     new[] { body }, new List<UnitEntity>(), new StructureEntity[0]);
                 hit.UnitDamage.TryGetValue(94, out int took);
-                if (took > worstHit) { worstHit = took; bareClass = def.id; }
+                int rounds = took > 0 ? Mathf.CeilToInt((float)def.maxHp / took) : int.MaxValue;
+                int bareRounds = Mathf.CeilToInt(def.maxHp / 8f);
+                if (rounds - bareRounds < fewest) { fewest = rounds - bareRounds; thinnest = def.id; }
+                if (!pickable.Contains(def) && rounds >= bareRounds * 2 && rounds > most)
+                { most = rounds; thickest = def.id; }
             }
-            Check(worstHit <= 4,
-                  $"every authored MELEE class soaks a rifle round — the charge arrives wounded, "
-                  + $"not dead (worst {worstHit} of 8" + (worstHit > 4 ? $", {bareClass}" : "")
-                  + "). The enemy asset shipped without armour once");
+            Check(fewest > 0,
+                  $"every authored MELEE class SOAKS — it outlasts a bare body of its own HP by "
+                  + $"{fewest} rifle round(s) at the thinnest ({thinnest}). The enemy asset "
+                  + "shipped with no armour at all once, and the charge died on approach");
+            Check(most == 0,
+                  $"...and no ENEMY melee class is DOUBLE a bare body ({thickest ?? "none"}). "
+                  + "Rob asked for a bit more, not twice as much. The player's own shield "
+                  + "bearer is exempt — being double is what its roster line sells");
 
             // A shot that strikes no unit is blocked by the wall.
             var r2 = CollisionSystem.ResolveHits(
