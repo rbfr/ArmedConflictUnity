@@ -1825,6 +1825,38 @@ public static class PortSelfTest
                   $"does {armouredSplash}, and a 1-damage round still does {floorHit} " +
                   "(never 0 — that would be immortality, not toughness)");
 
+            // ...AND THE AUTHORED ENEMY CARRIES IT. The block above proves the MECHANIC on a
+            // synthetic definition; it says nothing about the assets that ship. On 2026-08-21
+            // `EnemyShieldBearer.asset` had no `damageTakenMultiplier` at all — the player's
+            // shield bearer soaked and the enemy's, the one that actually CHARGES, was a bare
+            // 40 hp body that a converged volley wiped on arrival. Rob: "the melee force should
+            // not die immediately." Same family as the machine gunner's burst: a signature that
+            // lives on one side's asset only.
+            //
+            // Resolved through the SHIPPED assets, and stated as survival rather than as a
+            // multiplier — the thing the player sees is that the charge arrives wounded.
+            var authored = AssetDatabase.FindAssets("t:UnitDefinitionSO")
+                .Select(AssetDatabase.GUIDToAssetPath)
+                .Select(AssetDatabase.LoadAssetAtPath<UnitDefinitionSO>)
+                .Where(u => u != null && u.meleeDamage > 0)
+                .ToList();
+            Check(authored.Count >= 2,
+                  $"both sides field a melee class at all ({authored.Count}) — else this is untested");
+            int worstHit = 0; string bareClass = null;
+            foreach (var def in authored)
+            {
+                var body = new UnitEntity(94, def, 9f, 0.3f, 0f, def.maxHp, false);
+                var hit = CollisionSystem.ResolveHits(
+                    new[] { Shot(94, 9f, 3f, 9f, 0.3f, dmg: 8) },
+                    new[] { body }, new List<UnitEntity>(), new StructureEntity[0]);
+                hit.UnitDamage.TryGetValue(94, out int took);
+                if (took > worstHit) { worstHit = took; bareClass = def.id; }
+            }
+            Check(worstHit <= 4,
+                  $"every authored MELEE class soaks a rifle round — the charge arrives wounded, "
+                  + $"not dead (worst {worstHit} of 8" + (worstHit > 4 ? $", {bareClass}" : "")
+                  + "). The enemy asset shipped without armour once");
+
             // A shot that strikes no unit is blocked by the wall.
             var r2 = CollisionSystem.ResolveHits(
                 new[] { Shot(2, 5f, 3f, 5f, 1f) }, new List<UnitEntity>(),
@@ -4294,6 +4326,85 @@ public static class PortSelfTest
                                       && marched > full * 0.30f,
                                       $"player arrive is a MARCH, not Kenney's 60° jog "
                                       + $"(full {full:F1} deg, marched {marched:F1})");
+
+                                // --- THE CHARGE IS A RUN, re-gaited 2026-08-24.
+                                //
+                                // Rob: "the leg movements are too dramatic ... make it look
+                                // more like a run." The charge had been playing the clip raw.
+                                // ASK THE ASSET, NOT THE COMMENT: the file said "60° hip jog"
+                                // and the clip is ±60° — 120° of scissor — at 3 steps a second.
+                                // That is a sprinter's amplitude on a stroller's cadence, which
+                                // is exactly backwards from a run and is what read as flailing.
+                                //
+                                // Measured off the clip so the constants cannot drift from it,
+                                // then asserted on the OUTPUT: less swing AND quicker legs.
+                                body.Play(UnitAnim.Walk);
+                                float lo = 999f, hi = -999f;
+                                for (int i = 0; i <= 24; i++)
+                                {
+                                    body[UnitAnim.Walk].time =
+                                        body[UnitAnim.Walk].clip.length * i / 24f;
+                                    body.Sample();
+                                    float a = leg.localEulerAngles.x;
+                                    if (a > 180f) a -= 360f;
+                                    lo = Mathf.Min(lo, a); hi = Mathf.Max(hi, a);
+                                }
+                                float hipSwing = (hi - lo) / 2f;
+                                float cycle = body[UnitAnim.Walk].clip.length;
+                                Check(Mathf.Abs(hipSwing - UnitAnim.FullSwingDegrees) < 2f
+                                      && Mathf.Abs(cycle - UnitAnim.WalkCycleSeconds) < 0.02f,
+                                      $"the walk clip is what UnitAnim says it is "
+                                      + $"(±{hipSwing:F1} deg over {cycle:F3}s)");
+
+                                // The feet's own carry, from the RIG: the hip joint's height is
+                                // the leg, a stride is two steps of 2·L·sin(hipSwing), and the
+                                // prefab scale puts it in world units. If a re-export moves the
+                                // joint or rescales the man, this goes red rather than quietly
+                                // regressing the gait match.
+                                float legLen = leg.localPosition.y;
+                                float carry = 4f * legLen
+                                              * Mathf.Sin(hipSwing * Mathf.Deg2Rad)
+                                              * go.transform.localScale.y;
+                                Check(Mathf.Abs(carry - UnitAnim.CycleCarryUnits) < 0.03f,
+                                      $"one walk cycle carries {carry:F3} world units "
+                                      + $"(UnitAnim.CycleCarryUnits {UnitAnim.CycleCarryUnits:F3})");
+
+                                // OUTPUT 1: the charge SWINGS LESS. Against the old code — the
+                                // charge at stride 1 — charged == full and this is red.
+                                ua.SetWalking(true, UnitAnim.ChargeStride,
+                                              UnitAnim.GaitSpeed(AdvanceSystems.AdvanceSpeed,
+                                                                 UnitAnim.ChargeStride));
+                                body[UnitAnim.Walk].time = 0.166f;
+                                body.Sample();
+                                ua.SendMessage("LateUpdate",
+                                               SendMessageOptions.DontRequireReceiver);
+                                float charged = Quaternion.Angle(rest, leg.localRotation);
+                                float chargeCadence =
+                                    UnitAnim.GaitSpeed(AdvanceSystems.AdvanceSpeed,
+                                                       UnitAnim.ChargeStride);
+                                Check(charged < full * 0.85f && charged > marched,
+                                      $"the charge is CONTAINED, and still bigger than the "
+                                      + $"march (full {full:F1}, charge {charged:F1}, "
+                                      + $"march {marched:F1} deg)");
+
+                                // OUTPUT 2: and QUICKER. A run is cadence, not amplitude — drop
+                                // the hipSwing without this and the charge is merely a smaller
+                                // stroll. Red against the old code, which walked at speed 1.
+                                Check(chargeCadence > 1.25f
+                                      && chargeCadence <= UnitAnim.MaxGaitSpeed,
+                                      $"the charge's legs are QUICKER than the raw clip "
+                                      + $"(x{chargeCadence:F2} = {chargeCadence / cycle * 2f:F1} steps/s)");
+
+                                // OUTPUT 3: and the cadence ANSWERS TO THE GROUND. The wire
+                                // slows a charger to 35% and nothing used to tell his legs —
+                                // he windmilled at full rate to crawl. Derived, so he cannot.
+                                float wireCadence =
+                                    UnitAnim.GaitSpeed(AdvanceSystems.AdvanceSpeed
+                                                       * AdvanceSystems.WireSlowFactor,
+                                                       UnitAnim.ChargeStride);
+                                Check(wireCadence < chargeCadence * 0.75f,
+                                      $"a WIRE-SLOWED charger slows his legs too "
+                                      + $"(x{wireCadence:F2} against x{chargeCadence:F2})");
                             }
                         }
                         finally
@@ -5580,6 +5691,18 @@ public static class PortSelfTest
                   $"the assault frame holds the FIGHT and the WHOLE player force including the " +
                   $"rear rank (centre {at:F2} ±{half:F2}, force {force.Min():F2}..{force.Max():F2}, " +
                   $"fight {fightAt:F2})");
+
+            // AND IT HOLDS THEM NO WIDER THAN THAT. Containment alone is a one-way check — it is
+            // satisfied by any frame big enough, which is how the contact shot sat at ±4.00 on an
+            // engagement that wanted ±2.36 until 2026-08-21 without a single test going red. Rob:
+            // "we're zooming out way too much here." The air is now exactly the spring margin, so
+            // the ceiling is stated in terms of the union rather than as another constant to drift.
+            var span = force.Concat(new[] { fightAt }).ToList();
+            float need = CameraFraming.HalfWidth((span.Min() + span.Max()) / 2f, span);
+            Check(half <= need + CameraDirector.ContactSpringMargin + 0.01f,
+                  $"...and no wider — the contact frame is the engagement plus the spring margin, "
+                  + $"not a pulled-back plaza (±{half:F2} against {need:F2} needed + "
+                  + $"{CameraDirector.ContactSpringMargin:F2} air)");
         }
 
         // --- 3e. THE CAMERA HOLDS AFTER THE KILL, and the volley waits for it -----------------

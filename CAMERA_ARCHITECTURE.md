@@ -199,6 +199,34 @@ distance. Not a new marker. Three discrete recaptures, never a live span:
 
 No new cut. The existing spring walks between these targets.
 
+## The contact floor became a spring margin (2026-08-21)
+
+Asked, on L4: *"we're zooming out way too much here."* The contact frame
+kept its signed-off UNION — the whole player force plus the fight, that
+did not change — but it was floored at `ContactHalfWidthMin = 4f`, and
+that 4 was never geometry. On L4 the engagement wants **±2.36** (force
+−9.59..−5.42, fight −4.87) and the camera showed **±4.00**: 70% more air
+than the fight needed, on every contact shot in the game.
+
+What the 4 actually paid for was SPRING LAG. The camera is smoothed, so
+at the moment a fight starts it trails its anchor — measured at ~0.55 on
+L4 (cam −6.68 against anchor −7.23) — and a floor was the crude way to
+keep the tank crew from falling off the left edge while it caught up.
+A fixed lag needs a fixed ADDITION, not a minimum: a floor over-pays on a
+small engagement and would be swallowed whole by a large one.
+
+So the floor drops to 2.5 (matching march) and the union carries
+`ContactSpringMargin = 0.7` instead. L4's contact frame goes **±4.00 →
+±3.06**, the live camera ±3.52, with the tank rear still contained by
+0.61. Verified on device: the tank sits at the left edge of the contact
+shot with no dead space beyond it.
+
+**Containment alone could never have caught this.** The two existing
+checks ask whether the frame HOLDS the force, which any big enough frame
+satisfies — which is how ±4.00 stood on a ±2.36 engagement without a
+single test going red. There is now a ceiling as well as a floor, stated
+as union + margin so it cannot drift into another magic constant.
+
 ## FramePad 1.2 → 0.6 (Unity, 2026-08-14)
 
 Asked: zoom in a little, camera feels far, hard to see. This is the air

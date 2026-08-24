@@ -193,6 +193,12 @@ flat, vertex colours or small shared textures.
   torso → (arm-left, arm-right, head)`. Three constraints bind and only these three — joint names
   and paths exact, model height ~2.70, and the soldier faces glTF **+Z** (so it is built facing
   Blender **-Y**). Kenney's CC0 clips drive it; joint POSITIONS are free.
+- **`walk` is ±60° at the hip over 0.667s — 120° of scissor at 3 steps a second.** Measured, not
+  read off a comment: this file's own note used to call it "a 60° hip jog" and it is twice that.
+  Its feet carry only ~0.75 world units per cycle, so ANY march faster than that skates, and the
+  fix for a gait that reads wrong is amplitude and cadence (`UnitAnim.ChargeStride` /
+  `GaitSpeed`), never a new clip. `PortSelfTest` SAMPLES the clip and asserts these numbers, so a
+  re-export that moves the hip or the joint height goes red instead of quietly regressing.
 - **Roster: 8 unit definitions, 7 models, 6 pickable.** Every survivor is meant to be distinct on
   a MECHANIC, not on stats — and that is an intent to VERIFY, not a fact to assume. As of
   2026-08-12 all six hold, but two only after that day's audit: the machine gunner's burst had

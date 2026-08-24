@@ -1775,15 +1775,24 @@ public class BattleRunner : MonoBehaviour
                 // bug rather than as a trade.
                 bool fighting = state.Skirmishes.Any(
                     sk => sk.AttackerId == u.Id || sk.VictimId == u.Id);
-                // Charge keeps Kenney's full jog (signed-off melee beat). The
-                // player's arrive / relief is the same clip at march stride —
-                // 60° hips on a slow 3.6-unit roll read as a cartoon run.
+                // THE CHARGE IS A RUN, re-gaited 2026-08-24. It used to play the clip raw,
+                // which is a ±60° scissor at 3 steps/s — a sprinter's amplitude on a
+                // stroller's cadence, and it read as flailing rather than running. Contained
+                // swing, quick legs, and the cadence DERIVED from how fast the man is
+                // actually moving, so a wire-slowed charger slows his legs instead of
+                // windmilling in place. The player's arrive / relief keeps its own authored
+                // march — 60° hips on a slow 3.6-unit roll read as a cartoon run.
                 bool charging = u.AdvanceRemaining > 0f;
                 bool arriving = u.MarchTargetX != null;
                 if (arriving && !charging)
                     anim.SetWalking(true, UnitAnim.MarchStride, UnitAnim.MarchAnimSpeed);
+                else if (charging)
+                    anim.SetWalking(true, UnitAnim.ChargeStride,
+                                    UnitAnim.GaitSpeed(
+                                        AdvanceSystems.MarchSpeed(u, state.Props),
+                                        UnitAnim.ChargeStride));
                 else
-                    anim.SetWalking(charging);
+                    anim.SetWalking(false);
                 anim.SetFighting(fighting);
                 if (aimingRight)
                     anim.AimDegrees = aimPose;

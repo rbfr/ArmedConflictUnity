@@ -165,10 +165,30 @@ namespace ArmedConflict.Game
 
         /// <summary>
         /// Floor on the CONTACT frame (a fight is on). The signed-off union is the
-        /// whole player force plus the fight; 4f is the air that keeps the tank crew
-        /// in shot while the camera springs. Do not share the march floor.
+        /// whole player force plus the fight. Do not share the march floor.
+        ///
+        /// Was 4f until 2026-08-21. That number was never geometry: on L4 the union
+        /// wants ±2.36 (force -9.59..-5.42, fight -4.87) and 4f showed ±4.00 — 70%
+        /// more air than the engagement needs, which is what Rob saw as "zooming out
+        /// way too much". The 4 was really SPRING SLACK, keeping the tank crew in
+        /// shot while a smoothed camera chased its anchor, and paying for that
+        /// transient with a permanently wide frame on every contact shot.
+        /// It is <see cref="ContactSpringMargin"/> now, added to the union rather
+        /// than floored over it, so the air scales with the engagement instead of
+        /// swamping a small one.
         /// </summary>
-        public const float ContactHalfWidthMin = 4f;
+        public const float ContactHalfWidthMin = 2.5f;
+
+        /// <summary>
+        /// The air the CONTACT union carries so the camera does not crop the rear of
+        /// the player force while it springs toward a new anchor. Measured, not
+        /// chosen: on L4 the live camera trails its anchor by ~0.55 at the moment a
+        /// fight starts (cam -6.68 vs anchor -7.23), against a rear rank 2.36 out.
+        /// A floor cannot express this — the lag is a fixed distance, so it needs a
+        /// fixed ADDITION, not a minimum that a wider fight would swallow anyway.
+        /// Containment is asserted against the LIVE smoothed camera, not the anchor.
+        /// </summary>
+        public const float ContactSpringMargin = 0.7f;
 
         /// <summary>
         /// How close a charger has to get before the player's line joins the march frame.
@@ -353,11 +373,14 @@ namespace ArmedConflict.Game
                     if (px >= lead - MarchIncludePlayerGap) all.Add(px);
             }
 
-            float floor = skirmishXs.Count > 0 ? ContactHalfWidthMin : MarchHalfWidthMin;
+            bool contact = skirmishXs.Count > 0;
+            float floor = contact ? ContactHalfWidthMin : MarchHalfWidthMin;
             if (all.Count == 0) { anchorX = 0f; return floor; }
 
             anchorX = (all.Min() + all.Max()) / 2f;
-            return Mathf.Max(CameraFraming.HalfWidth(anchorX, all), floor);
+            float union = CameraFraming.HalfWidth(anchorX, all);
+            if (contact) union += ContactSpringMargin;
+            return Mathf.Max(union, floor);
         }
 
         /// <summary>

@@ -1,4 +1,4 @@
-# Handover — Unity, as of 2026-08-21
+# Handover — Unity, as of 2026-08-24
 
 ## Pick up here
 
@@ -20,6 +20,74 @@ across the campaign, or selling the tank.
 juice, banners, `an Airstrike`, L5 no-tank and L5 roles are all
 in `main` and on the remote. Ask git anyway — this file still
 does not record commits.
+
+**Last sitting (08-21): L4's charge and L4's contact frame.**
+Both asked, both on the phone.
+
+- **The enemy shield bearer had no armour.** `EnemyShieldBearer.asset`
+  was missing `damageTakenMultiplier` entirely while the player's
+  carried 0.5 — so the class that CHARGES was a bare 40 hp body a
+  converged volley wiped on approach. Rob: *"the melee force should
+  not die immediately."* Now 0.5, effective 80. On device the charge
+  crosses the street wounded (partial health bars, enemy count
+  unchanged), arrives intact, and still dies — all five fell in the
+  melee mutual-kill. **This is a real difficulty change to L4 and it
+  has NOT been played honestly**: the verification run fired into the
+  dirt on purpose for six turns, so nothing here says L4 is still
+  winnable. Feel it before touching anything else on that level.
+  Same family as the machine gunner's burst — a signature living on
+  one side's asset only. Checked now over EVERY authored melee class,
+  resolved through the shipped assets, seen red at `worst 8 of 8`.
+- **The contact frame was 70% wider than its own engagement.**
+  `ContactHalfWidthMin = 4f` on a fight that wants ±2.36. That 4 was
+  spring lag, not geometry. Floor is 2.5 now and the union carries
+  `ContactSpringMargin = 0.7`; L4 goes ±4.00 → ±3.06, tank rear still
+  held by 0.61. The signed-off UNION is untouched — the whole player
+  force is still in shot. See `CAMERA_ARCHITECTURE.md`.
+
+**Last sitting (08-24): the charge is a RUN.** Asked, on the phone.
+
+Rob: *"the leg movements are too dramatic — can we make it look
+more like a run?"* The charge had been playing Kenney's `walk`
+raw, stride 1 / speed 1. **Measured, that clip is not a run and
+never was:** ±60° at the hip (120° of scissor) at 1.5 cycles/s =
+**3 steps a second**. A sprinter's amplitude on a stroller's
+cadence, which is exactly backwards — a run is contained swing
+and quick legs.
+
+- `UnitAnim.ChargeStride = 0.75` → hip ±45°, measured 44.9 on the
+  rendered rig against 59.9 raw.
+- Cadence is **DERIVED**, not a second constant:
+  `UnitAnim.GaitSpeed(groundSpeed, stride)` solves the clip speed
+  that makes the feet carry the body, off `CycleCarryUnits` (one
+  cycle = two steps of 2·L·sin θ). Charge lands on the
+  `MaxGaitSpeed` clamp at **x1.70 = 5.1 steps/s**.
+- **The clamp is deliberate and so is the skate it leaves.**
+  Matching 2.4 u/s outright wants 7.9 steps/s, a blur. It is
+  affordable only because the camera FOLLOWS the charge: with no
+  still ground to measure against, amplitude and cadence are what
+  the eye reads, and both are now a run's.
+- **This fixed a live bug nobody had filed.** A wire-slowed
+  charger (`WireSlowFactor` 0.35) crawls at 0.84 u/s and nothing
+  told his legs — he windmilled at full rate to do it. Derived
+  cadence gives him x0.92. `AdvanceSystems.MarchSpeed` was pulled
+  out of `March` so the renderer asks the same question rather
+  than keeping a second copy of the wire test.
+- **`AdvanceSpeed` 2.4 was NOT touched** — it is signed off (item
+  3 below, 08-13, *"the march is fine"*). Slowing the ground to
+  ~1.0 u/s is the only way to kill the skate outright, and that
+  is a pacing call, not a gait one. **Ask before doing it.**
+- **A DOC LIED AND THE ASSET SETTLED IT.** `UnitAnim` said "a 60°
+  hip jog"; the clip is ±60°, i.e. 120°. The self-test now SAMPLES
+  the clip for swing, cycle length and foot carry and asserts the
+  constants against it, so the numbers cannot drift from the rig.
+  Same family as the TMP "ASCII only" note. Three new checks, all
+  three seen red against the raw clip at `charge 59.9`, `x1.00 =
+  3.0 steps/s`, `x1.00 against x1.00`.
+- **No device control shot was taken.** The before/after claim
+  here is the self-test's measured degrees and cadence, not two
+  recordings. The phone was used only to answer "does it read as a
+  run" — it does. Rob's call.
 
 **Signed — do not reopen as taste**
 
@@ -163,7 +231,20 @@ only. 1.4 heli shut. Plans: `_plans/RANGE.md`,
     constant. Contact is the signed union; march is the
     distant escort.
 
-21. **RIGS is not a global — it is a parameter, and every path
+21. **Containment is a ONE-WAY check.** "The frame holds the force"
+    is satisfied by any frame big enough, so a contact shot sat at
+    ±4.00 on a ±2.36 engagement for months with two green camera
+    tests over it. Whenever a check asserts something FITS, ask what
+    stops it fitting with room to spare, and assert that too.
+22. **A floor cannot express a fixed lag.** The 4f contact floor was
+    paying for the camera's ~0.55 spring trail; a minimum over-pays on
+    a small set and vanishes on a large one. Lag is an ADDITION.
+23. **Armour, damage and every other signature exist PER ASSET, not
+    per class.** The player's shield bearer soaked and the enemy's did
+    not, from the same design note. When a mechanic is verified, ask
+    which OTHER asset was supposed to have it — every pair in
+    `Assets/GameData/Units` is now diffed and only this one differed.
+24. **RIGS is not a global — it is a parameter, and every path
     that reads the economy has to take it.** The loadout honoured
     the test supply; `AwardDefeat` read PlayerPrefs directly, so
     one branch of the fail card was unreachable on the only build
@@ -808,7 +889,8 @@ What that refining session looked at:
    see "The melee swing" below. Still no blood: the Kotlin's blood debris takes its colour from a
    STRUCTURE definition and does not port cleanly.
 3. ~~**The march's own pacing**~~ **SIGNED OFF 2026-08-13.** `AdvanceSpeed` 2.4 and the frozen
-   windup stay. Rob, L4: the march is fine.
+   windup stay. Rob, L4: the march is fine. **The GAIT was reopened 2026-08-24** — the pacing
+   was never the complaint, the legs were. Speed untouched; see the 08-24 block at the top.
 4. **Overwatch Flare**, which this unblocks. The advance is now a signed-off threat, so a
    counter is a real product call rather than a guess.
 

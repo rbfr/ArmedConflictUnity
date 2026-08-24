@@ -44,12 +44,63 @@ public class UnitAnim : MonoBehaviour
     /// with the idle — they are both full-body loops and only one may win.</summary>
     public const string Walk = "walk";
     /// <summary>
-    /// Kenney's walk is a 60° hip jog on a 0.67s cycle. The player's opening arrive (and
+    /// Kenney's walk is a ±60° hip swing on a 0.667s cycle. The player's opening arrive (and
     /// any later relief march) is a march: same clip, half the swing, slower cadence.
-    /// The enemy charge keeps the full clip — that beat is signed off.
     /// </summary>
     public const float MarchStride = 0.5f;
     public const float MarchAnimSpeed = 0.7f;
+
+    /// <summary>
+    /// THE ENEMY CHARGE, re-gaited 2026-08-24. It used to play the clip raw — stride 1,
+    /// speed 1 — and Rob read the result as “too dramatic” rather than as a run. Measured,
+    /// the clip is not a run at all: ±60° at the hip is a scissor no runner makes, and at
+    /// 1.5 cycles/s it is only 3 steps a second, which is a stroll's cadence attached to a
+    /// sprint's amplitude. A run is the other way round — quick legs, contained swing.
+    /// 0.75 puts the hip at ±45°; the cadence comes from <see cref="GaitSpeed"/>.
+    /// </summary>
+    public const float ChargeStride = 0.75f;
+
+    /// <summary>Hip swing at stride 1, one way, in degrees. MEASURED off the clip, not
+    /// authored here — <c>PortSelfTest</c> samples the asset and asserts this matches.</summary>
+    public const float FullSwingDegrees = 60f;
+
+    /// <summary>Seconds per walk cycle at speed 1. Measured off the clip, asserted in
+    /// <c>PortSelfTest</c>.</summary>
+    public const float WalkCycleSeconds = 0.667f;
+
+    /// <summary>
+    /// World distance the FEET carry the body over one cycle at stride 1 — two steps of
+    /// 2·L·sin(60°) with the leg joint 1.35 up a 2.70 model scaled to
+    /// <see cref="UnitGeometry.UnitScaleUnits"/>. Measured 0.748 on the shield bearer, 0.767
+    /// on the rifleman — the joint sits fractionally differently per class, which is why
+    /// PortSelfTest measures the rig and allows the spread rather than demanding one number.
+    /// </summary>
+    public const float CycleCarryUnits = 0.748f;
+
+    /// <summary>Cadence ceiling. 1.7 is ~5.1 steps/s — a sprinter's turnover, and the point
+    /// past which quick legs stop reading as a run and start reading as fast-forward.</summary>
+    public const float MaxGaitSpeed = 1.7f;
+
+    /// <summary>
+    /// Clip speed that makes the feet carry the body at <paramref name="groundSpeed"/>, so the
+    /// legs answer to the march instead of windmilling at a fixed rate. The wire-slowed charger
+    /// is why this is derived and not a second constant: at
+    /// <c>AdvanceSpeed * WireSlowFactor</c> he crawls, and a fixed cadence had him sprinting on
+    /// the spot to do it.
+    ///
+    /// The charge CLAMPS — matching 2.4 u/s outright wants 7.9 steps/s, which is a blur. The
+    /// residual skate is deliberate and is affordable only because the camera FOLLOWS the
+    /// charge: with no still ground to measure against, amplitude and cadence are what the eye
+    /// reads, and those are now a run's.
+    /// </summary>
+    public static float GaitSpeed(float groundSpeed, float stride)
+    {
+        float swing = FullSwingDegrees * Mathf.Clamp01(stride);
+        float carry = CycleCarryUnits * Mathf.Sin(swing * Mathf.Deg2Rad)
+                                      / Mathf.Sin(FullSwingDegrees * Mathf.Deg2Rad);
+        if (carry <= 0.0001f) return 1f;
+        return Mathf.Clamp(groundSpeed / carry * WalkCycleSeconds, 0.5f, MaxGaitSpeed);
+    }
     /// <summary>The melee swing, bound 2026-08-13. Without it a mutual kill is two bodies
     /// falling over at once: the mechanic is real and the player cannot read it.</summary>
     public const string Melee = "attack-melee-right";

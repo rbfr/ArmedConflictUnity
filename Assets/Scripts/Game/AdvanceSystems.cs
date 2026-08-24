@@ -140,6 +140,23 @@ namespace ArmedConflict.Game
             return banked;
         }
 
+        /// <summary>
+        /// Ground speed this advancer is actually moving at, wire included. Pulled out of
+        /// <see cref="March"/> 2026-08-24 so the RENDERER can ask the same question: the charge
+        /// gait is derived from ground speed (<c>UnitAnim.GaitSpeed</c>), and a renderer that
+        /// re-derived the wire test would be a second copy of it waiting to disagree.
+        /// </summary>
+        public static float MarchSpeed(UnitEntity u, IReadOnlyList<PropPlacement> props)
+        {
+            foreach (var w in props)
+            {
+                if (!w.slowsAdvance) continue;
+                if (Mathf.Abs(u.X - w.x) <= w.halfWidth * w.scale)
+                    return AdvanceSpeed * WireSlowFactor;
+            }
+            return AdvanceSpeed;
+        }
+
         /// <summary>True while any advancer still has budget to spend.</summary>
         public static bool Marching(IReadOnlyList<UnitEntity> enemyUnits)
         {
@@ -194,14 +211,7 @@ namespace ArmedConflict.Game
             {
                 if (u.AdvanceRemaining <= 0f || engaged.Contains(u.Id)) { marched.Add(u); continue; }
 
-                bool inWire = false;
-                foreach (var w in props)
-                {
-                    if (!w.slowsAdvance) continue;
-                    if (Mathf.Abs(u.X - w.x) <= w.halfWidth * w.scale) { inWire = true; break; }
-                }
-
-                float speed = inWire ? AdvanceSpeed * WireSlowFactor : AdvanceSpeed;
+                float speed = MarchSpeed(u, props);
                 float step = Mathf.Min(speed * dt, u.AdvanceRemaining);
                 float newX = Mathf.Max(u.X - step, holdX);
                 marched.Add(u with
