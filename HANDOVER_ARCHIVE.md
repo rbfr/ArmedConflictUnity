@@ -1,7 +1,11 @@
-# HANDOVER_ARCHIVE.md — closed sections from the port, 2026-08-05 and 2026-08-06
+# HANDOVER_ARCHIVE.md — closed sections, 2026-08-05 → 2026-08-11
 
-Split out of `HANDOVER.md` on 2026-08-11, when the live file had reached 3128 lines and the
-current state was buried under two days of finished port work.
+Split out of `HANDOVER.md` in TWO passes: 2026-08-11 (the port's first two days, 08-05/06) and
+2026-08-25 (the 08-07 → 08-11 build-and-fix entries). Each time the live file had grown past the
+point where the current state was findable — 3128 lines the first time, 4018 the second.
+
+**Read the per-pass heading before quoting anything**, and check for a STALE banner: one section
+here has been overtaken by later work and carries one.
 
 **Everything here is CLOSED.** These are the Unity port's first two days — the entries that record
 how a thing was built, not what is true now. They were kept in full rather than summarised because
@@ -1024,3 +1028,1298 @@ almost no headroom anywhere and every level's aim demands roughly the same drag.
 band means raising `AimSystem.MaxAimMagnitude`, which is a physics change touching all 29 levels
 and needs an explicit ask — it was offered on 2026-08-06 and NOT taken.
 
+---
+
+# Closed sections from 2026-08-07 → 2026-08-11, split out 2026-08-25
+
+Moved out of `HANDOVER.md` to stop it growing without bound — it had passed 4000 lines. These are
+CLOSED: each one is a system that was built, or a bug that was fixed, and none of them is a
+statement about current behaviour. **One of them has since been OVERTAKEN and says so in place**
+— the device balance audit, which was measured when the tank carried three shells.
+
+The live rules these sections paid for did not move with them: they live in `HANDOVER.md`'s
+"Traps already paid for — do not rediscover these", which is the file's reference half and was
+deliberately left behind.
+
+## Enemy factions — Tier 2.1, built 2026-08-11
+
+**Two stages, two armies**: Redguard (Valley Front) is the existing enemy red, UNCHANGED, and
+Ironclad Legion (Enemy Stronghold) is steel blue-grey. The full reasoning — what a faction may
+touch, why the data lives in `Assets/GameData/Factions` rather than in the UI layer as the Kotlin
+had it, and why only two — is in `DYNAMISM_DESIGN.md`'s "Phase D1 in UNITY" section. What belongs
+here is the traps.
+
+**IT IS A POOL RESET, NOT A PAINT.** Pools are built once and survive a level switch, so the enemy
+is repainted in `BattleRunner.ApplyFaction` on every `LoadLevel`, beside the scorch re-material and
+`TintShadows`. The failure mode is the one this repo already paid for in scorch marks, shadows and
+structure chunks: a recycled slot wearing the PREVIOUS level's colour. **A single paint cannot show
+it — the device run is L1 red → L7 blue → L1 red again, and the third leg is the evidence.**
+
+**Renderers are classified against the two build-time MATERIALS, not against the `skin*`/`trim*`/
+`accent*` mesh-name prefixes.** That convention belongs to `RiggedUnits.Tone` in the art pipeline,
+and a second copy of it at the render end is a copy that can disagree with the first. The
+classification runs once with the pools; the per-switch cost is a list walk.
+
+**`FactionPaint.Recolour` CLONES the material.** Tinting the source in place edits
+`Assets/Materials/EnemyUniform.mat` ON DISK — the negative run proved it, leaving both .mat assets
+modified in `git status` — and every faction then shares whichever colour was applied last, in the
+editor and in every build after it.
+
+**What is asserted and what is NOT.** The seven new checks cover the lookup (12/12 campaign levels
+field a faction, 0/17 rigs do), the palettes being visibly different armies, and the repaint itself
+on the SHIPPED rifleman prefab through three successive paints. **They do not cover the call
+site** — `PortSelfTest` does not drive `MonoBehaviour` frame callbacks, so "ApplyFaction is called
+on every LoadLevel" is device-verified only. Same considered gap as the loadout NRE guard.
+
+**The distinctness check was WRONG when written, and it is the lesson of the session.** It began as
+a luma-weighted rgb distance, which weights blue at 0.11; it scored steel blue-grey at 0.082 from
+the player's olive green — under its own threshold — and indicted a palette the Kotlin build
+shipped and played fine. **The metric, not the palette, was the thing that was three hours old.**
+Equal-brightness opposite hues are trivially told apart, and hue is the axis the whole feature
+works in. It is an opponent-colour distance now and is deliberately only a coarse floor. This is
+the same family as the "ASCII only" glyph check that flagged 23 strings a device screenshot then
+showed rendering perfectly: **be suspicious when a brand-new check indicts long-standing content.**
+
+**All three negative runs are recorded**, per the standing rule:
+
+```
+[FAIL] the shared EnemyUniform/EnemyGear ASSETS come out of it unchanged
+       (RGBA(0.270, 0.330, 0.420) was RGBA(0.520, 0.200, 0.180))   <- Recolour tinting in place
+[FAIL] the rifleman splits into uniform / gear / neither (5 / 6 / 0 renderers)
+                                                          <- skin+trim swept into the repaint
+[FAIL] every campaign level fields a faction and no rig does (12/12 campaign, 17/17 rigs)
+                                                          <- lookup ignoring stage membership
+```
+
+**A scene rebuild was required** — three new `[SerializeField]`s on `BattleRunner` (`stages`, and
+the two enemy side-materials the classification keys on). The materials must be the SAME asset
+references the enemy prefabs were toned with; reference equality is the whole mechanism.
+
+## Player camo — Tier 2.4, built 2026-08-11
+
+**The NINTH dead system** (factions, the other half of this session, were ABSENT rather than
+dead — see "assume NOTHING is wired"). `CosmeticSet`, `ProgressStore`'s cosmetic block and
+`EconomyStore.PurchaseCosmetic` were all ported and reached by nothing. Four sets now: Olive Drab
+free, Desert Tan 300c, Urban Grey 350c, Arctic White 400c, bought and worn in a strip below the
+consumables. Design detail is in `DYNAMISM_DESIGN.md`'s "Phase D4 in UNITY"; the traps are here.
+
+**It rides the faction repaint, pointed at the other army.** Same `FactionPaint` classify-once /
+apply-on-switch machinery, so the same pool-reset reasoning applies unchanged.
+
+**Olive stores NO colour and that is deliberate**: selecting it repaints back to the build-time
+material ASSETS. A default you can return to has to be a real destination — a "paint it once"
+implementation has nowhere to go back to.
+
+**RIGS lends the wardrobe** through `Cosmetics.TestOverride`, session-only, writing nothing. Switch
+RIGS off and the borrowed camo is withdrawn IN THE BATTLE YOU ARE STANDING IN — the repaint is
+otherwise only read by `LoadLevel`, which is the same round trip the consumable supply had to fix.
+
+**THE VANITY CHECK WAS UNFALSIFIABLE TWICE OVER, and this is the entry worth reading.** It fires
+the same seeded volley under two camo sets and demands identical damage. Against a deliberately
+broken build where the camo really did buff damage 50%, it passed — twice, for two different
+reasons:
+
+1. **The volley never landed.** Both runs did zero damage, and zero equals zero. It now asserts
+   the enemy's HP actually FELL as part of its own condition.
+2. **The camo was never worn.** `SelectedCosmetic` validates on read, so selecting a set the
+   player does not own silently returns Olive — the check was comparing Olive with Olive. It now
+   unlocks the set first (and locks it again afterwards, via a new `ProgressStore.LockCosmetic`
+   that exists for exactly this) and READS BACK what the store holds rather than trusting what it
+   asked for.
+
+Only after both fixes did it read `enemy 280/276` against the broken build. **Two independent
+reasons a check could not fail, in one check, in one session** — ask what state the failure needs
+and then verify you are actually in it.
+
+**The UI's tap path needed its own spy.** `PortSelfTest` tests `Cosmetics.TestOverride`, not
+`TapCamo`, so a test supply that quietly UNLOCKED the set for real passed every check.
+`BattleUIPreview` now taps the tile and asks the STORE whether anything moved — it caught the
+breakage immediately (`unlocked 0->1, worn Olive->Arctic`). That preview is the only harness that
+drives real MonoBehaviour UI.
+
+**Two palettes now compete for the same colour space.** Urban Grey is boxed in on three sides —
+Ironclad's steel, the player's own Olive (measured 0.159, barely over the floor) and Desert Tan.
+Before adding a fifth camo or a third faction, run the distinctness checks first and expect to
+have to move something.
+
+## Tier 1.3 — the consumables, built 2026-08-10
+
+Found fully ported and reached by nothing (the SIXTH such system), and now live: **Airstrike 250c,
+Early Reinforcements 200c, Trauma Kit 150c, Smoke Screen 200c** — bought and equipped on the
+loadout screen at the locked cap of TWO, triggered from the battle HUD on the player's own Aiming
+phase. `Consumables` is the catalog, `ConsumableActions` holds the effects, and each is confirmed
+on a device by what it DID, not by the fact a button existed.
+
+### Overwatch Flare is NOT built, and that is the most important line in this section
+
+It halves the enemy's next advance budget. **Nothing in this port ever advances.**
+`UnitEntity.AdvancePerTurn` is imported and read only to count advancers for a threat line;
+`AdvanceRemaining` is written NOWHERE; there is no enemy march step; and `SkirmishEntity` — the
+melee an arrival resolves into — is defined, counted in `IsVisuallyIdle`, and never created.
+**Advancing squads and melee are an EIGHTH dead system**, and a large one: they are what
+`PROGRESSION_DESIGN`'s whole survival/defend archetype is made of.
+
+A 200-coin button that changes nothing teaches the player that coins are decorative, which is
+worse than having no button. That is the same call already made about wind. `PortSelfTest` asserts
+BOTH halves — Overwatch is not sold, AND no enemy ever banks an advance — so the day advancing
+squads land, the check goes red and adding one catalog entry is the fix.
+
+### Confirmed on device, each by its output
+
+```
+Trauma Kit    [Consumable] TraumaKit: hp 304 -> 320      (clamped; front rank only)
+Airstrike     [Consumable] Airstrike armed=True -> Airstrike fired
+              [Battle] volley: 12 rounds   <- the volley alone is 11
+              Garrison Post 135 -> 87, round visibly falling NOSE-DOWN among the arcs
+Reinforce     [Consumable] reinforcements: 10 -> 13 player units, formed up right of the line
+Smoke         [Consumable] SmokeScreen armed=True (button reads `Smoke / ARMED`, still THERE)
+              [Consumable] Smoke Screen spent on the enemy volley
+```
+
+Bought with coins earned in play, because the release build is not debuggable and `run-as` cannot
+seed PlayerPrefs — which turned out to be a better test than seeding would have been: the purchase,
+the balance, the affordability tint and the carry cap were all exercised for real.
+
+### RESOLVED: the Airstrike now has an aircraft, and it flies BEFORE the volley
+
+Rob asked, the day Tier 1.3 shipped, whether anything actually flies across the screen. It did not:
+a single grenade popped into existence in mid-air and fell. **A 30 fps device capture then found
+something worse than ugly — the bomb was detonating OFF-SCREEN**, ~0.85s before the volley-follow
+camera finished panning to the target. Nobody had ever seen it.
+
+**A control run corrected two earlier write-ups in this file.** The same drag with nothing armed
+shows the identical "round falling nose-down among the arcs" that two sessions had taken for the
+airstrike. **That is the TANK SHELL**, which fires on every volley for free. Take the control shot.
+
+**The fix is a sequencing change, not an art change**, and Rob directed it: *"plane should fly first
+before the player volley."* A straight-wing attack aircraft (`Assets/Models/attack_plane.glb`, built
+by `build_attack_plane.py`) crosses from the player's side in a new `TurnPhase.AirstrikeRun`,
+releases the bomb, and exits; the infantry volley launches the moment that bomb lands. With no
+rounds in the air yet there is nothing for the camera to chase, so the pass owns the frame. The beat
+costs **1.10s** and no damage number moved.
+
+**THREE THINGS THIS COST, all of which a green test suite could not see:**
+
+- **The model had to be BANKED ~45 degrees, and the SIGN matters as much as the angle.** The
+  wingspan runs along DEPTH and `BattleCamera` looks UP ~14 degrees, so an unbanked aircraft
+  projects its span vertically and reads as a cross-shaped blob. Rolled the WRONG way it shows the
+  camera the bare top of the wing — the surface the builder deliberately leaves undetailed, because
+  the player only ever sees the underside. It is `-45` with no yaw. Free: a runtime rotation.
+- **IT SHIPPED FLYING BACKWARDS, and only Rob looking at it caught that.** The facing was reasoned
+  out from the axis conventions — "the GLB is authored nose toward +X" plus "GameSpace negates X" —
+  which produced a 180 degree yaw, a cannon trailing behind the tail, and a green test suite. The
+  import chain in fact lands the authored nose pointing screen-right already. **Do not re-derive
+  the facing from the conventions; ask `PlanePreview.Orientation`**, which renders all four
+  yaw/bank combinations against a rank of soldiers. Same family as every other "assert the artefact,
+  not the note about it" entry in this file, and the second time TODAY that reasoning about this
+  aircraft's axes was wrong.
+- **It flies at y=9.5 with a PASS-BY SOUND** (`Assets/Audio/plane_passby.wav`). The source is an
+  8.3s recording; it is cut to 3.0s starting at 2.01s so its PEAK — which sits at 3.30s in the
+  original — lands as the aircraft crosses the drop point, 1.29s into the run. Play the whole file
+  and the loudest part arrives over empty sky, seconds after the plane has gone. Height does NOT
+  move the release or the impact: the drop lead is `PlaneSpeed * BombFallTime`, and neither is a
+  function of height.
+- **`PlanePreview` was rendering a different aircraft than the game** and both halves are fixed: it
+  had a hardcoded camZ **11** against the run's real **14**, and defaulted to a yaw the game had
+  stopped using. It now derives camZ from `CameraDirector.AirstrikeRunHalfWidth` and reads
+  `BattleRunner.PlaneBank` / `PlaneScale` directly, so it cannot drift again. **Delete
+  `Builds/plane` before reading a sheet from it** — stale frames from an earlier run are glob-matched
+  alongside the new ones and produced one thoroughly misleading comparison.
+- ~~**STILL OPEN — Rob wants MORE ROUNDS coming from the plane**~~ **DONE** (2026-08-10) — 14
+  rounds over the same walk at half the damage each, and then STRETCHED INTO STREAKS, which is the
+  half that actually made a difference. See "The strafing burst" below.
+- **THE BOMB IS A BULLET, not a grenade** (2026-08-10). The grenade prefab is olive-lime at 0.16
+  scale and was, in Rob's words, hard to see; the bullet draws as the bright unlit TRACER. It is
+  told apart from the aircraft's own cannon fire by `IsAirstrike`, which the renderer scales 2.4x —
+  the flag had been set since Tier 1.3 and read NOWHERE. The scale is assigned on EVERY round
+  because the slots are POOLED, and exactly one round may carry the flag; both are asserted.
+  **AND IT IS MULTIPLIED ONTO THE PREFAB'S OWN SCALE, NEVER ONTO `Vector3.one`.** Every projectile
+  prefab is authored at its own size — bullet 0.22, grenade 0.16, rocket 0.30, shell 0.34 — so the
+  first version, which reset unflagged rounds to `Vector3.one`, drew EVERY ROUND IN THE GAME at
+  raw GLB size, about 4.5x too big. Rob caught it in one look. **No test covers a per-frame
+  transform write clobbering an authored value**, and the device is the only instrument that sees
+  it: check an ORDINARY volley after touching this path, not just the case being added.
+- **IT STRAFES, with REAL rounds** (added on Rob's ask, 2026-08-10). Seven cannon rounds at 4
+  damage, walked along the ground into the bomb's own impact point. The earlier decision NOT to add
+  gunfire is reversed and its reasoning survives: refusing a cue that does NOTHING was right, so
+  these do something. **The Airstrike is stronger for it — 24 damage becomes 52** — a deliberate
+  correction for the dearest item in the shop, but a balance change; `StrafeDamage` is the knob.
+  **The first version was mechanically perfect and INVISIBLE**: rounds inheriting the aircraft's
+  speed and dropping from 9.5 units arrive near-vertically at ~31 u/s and vanish in a few frames.
+  Gunfire rakes FORWARD — each round is now solved onto its own point of the walk, giving it 10 u/s
+  horizontally so it outruns the aircraft and draws a streak.
+- **It was too big at 1.0 and is rendered at 0.85** (`BattleRunner.PlaneScale`), Rob's call after
+  seeing it pass. Judged in the preview beside a rank of soldiers: 0.70 starts reading as distant
+  scenery rather than as the thing you just paid 250 coins for.
+- **The run inherited the AIMING framing and clipped the aircraft off the top of the frame.**
+  `TurnPhase.AirstrikeRun` fell through `PhaseHalfWidth`'s `default:` to the tightest camera in the
+  game (camZ 9.3). Fixed with an explicit case and a floor, `AirstrikeRunHalfWidth` -> camZ 14.
+- **The aircraft FROZE at handover and hung in the sky for the rest of the battle.** Its motion sat
+  inside the run's own step, which stops being called the instant the phase changes — and this
+  aircraft deliberately OUTLIVES its phase, exiting over the top of the volley. It is the same rule
+  as "anything that decays must decay on EVERY tick path". Motion moved to the physics section and
+  the despawn point is carried on the entity, so it depends on nothing the phase owns.
+
+### The strafing burst — doubled, and that ALONE CHANGED NOTHING. 2026-08-10
+
+**"Still want to see more rounds coming from the plane."** The count went **`StrafeRounds` 7 -> 14
+with `StrafeDamage` 4 -> 2** — twice the rounds over the same 4-unit walk, ~25 rounds/sec at
+`PlaneSpeed 7`, with the burst's contribution held at 28 so the Airstrike's total stays 52.
+
+**Rob then looked at the real thing and reported NO VISIBLE DIFFERENCE.** That verdict is the most
+useful thing in this section, so it is recorded before the fix:
+
+> "hmm i don't really see a difference — looks like only one."
+
+**The count was never the bottleneck, and the device capture that "confirmed" it was measuring the
+wrong thing.** The capture showed eight tracers in the air at once against seven with gaps, which is
+true, and irrelevant: a **0.22-scale bullet travelling ~25 u/s covers a fifth of the gap it opens
+between frames**, so seven of them and fourteen of them both draw a faint DOTTED CHAIN. A dot is the
+same shape whether it is moving or not. This is "assert the OUTPUT, not the input" wearing a new
+costume and it fooled a device screenshot: I asserted the round COUNT — an input — and read the
+frames for confirmation of it rather than for what the burst LOOKED like.
+
+**The fix is the round's SHAPE.** `ProjectileEntity.IsStrafe` marks the aircraft's cannon fire, and
+the renderer stretches those rounds **4.5x along their own flight and 0.7x across it**
+(`BattleRunner.StrafeRoundStretch` / `StrafeRoundWidth`), turning each into a tracer STREAK that
+bridges most of the gap to the next frame. It costs nothing — the round is already rotated onto its
+velocity, so local X is the direction of travel. **A bigger dot was the obvious change and is the
+wrong one**: what fails to read is the shape, not the area, and the bomb already owns "big round
+dot" (`IsAirstrike`, 2.4x). Three shapes now come out of one pooled prefab and the two flags are
+the whole distinction, so `PortSelfTest` asserts they are MUTUALLY EXCLUSIVE.
+
+**Density was still the only count lever with room.** The first round is fired
+`StrafeLength + StrafeLead` = **8 units** behind the target and the aircraft spawns
+`PlaneRunHalfLength` = **9** back — one unit of headroom — so a longer walk or lead needs the spawn
+moved, which lengthens the beat. A shorter `StrafeFallTime` would raise the cadence and must NOT be
+used: 0.40s is already short, and the first version proved short flights are what made these rounds
+invisible.
+
+**The damage budget was held deliberately.** More rounds at `StrafeDamage 4` would have been a
+straight buff to an item that had already gone 24 -> 52 the same day, smuggled in under a
+presentation ask. Count is presentation; the total is what the campaign feels, and `BalanceAudit`
+does not know about consumables at all. The guarding check asserts ABSOLUTES (`>= 12` rounds, total
+in `[24, 32]`) because the existing one asserted `Count == StrafeRounds` and `Damage ==
+StrafeDamage` — self-consistency with its own constants, green on the tap Rob rejected and green on
+a silent doubling. Run against both: `(7 rounds)` red, `(56, held at 28)` red.
+
+### The rake had to SPREAD, not just fire more. 2026-08-11
+
+> "the strafe should spread further horizontally. right now it seems to be directed at one or spots
+> that are close together. it's a strafe — as plane moves to the right, the rounds should also move
+> that way. it's more of a burst at the moment."
+
+**Third verdict on this burst, and the third time the wrong dimension had been turned up.** Count
+(7 -> 14) did nothing visible; SHAPE (dots -> streaks) made the rounds legible; neither moved the
+one thing that makes gunfire read as strafing, which is the impacts WALKING across the shot. Four
+units of walk inside a ~10.2-unit frame is a third of the screen — a cluster, whatever is in it.
+
+**`StrafeLength` 4 -> 6, paid for with `PlaneRunHalfLength` 9 -> 11.** The two are locked together
+by one inequality, and it is worth keeping in mind before touching either:
+
+```
+PlaneRunHalfLength >= StrafeLength + StrafeLead + 1
+```
+
+The first round is fired `StrafeLength + StrafeLead` behind the target, so the aircraft has to
+exist that far back. **The spare unit is not slack**: the firing loop fires every round whose point
+the plane has already passed, so a spawn at or beyond the first firing point dumps several rounds
+from ONE position in a single tick — a literal burst, which is the thing being fixed.
+
+**6 is the frame's limit, not a taste call.** The walk ends on the bomb, so it can only grow
+leftward, and the run's frame reaches `PlaneCameraBias + AirstrikeRunHalfWidth` = 6.6 units left of
+the target at the half-width FLOOR. Past that the opening rounds land off-screen: more spread, less
+visible strafe. 6 leaves 0.6 units of margin on the tightest level.
+
+**The cost is beat length** — the run is `(PlaneRunHalfLength - PlaneSpeed * BombFallTime) /
+PlaneSpeed + BombFallTime`, so +2 units is +0.29s, taking the beat ~1.15s -> ~1.44s. That is the
+price of a 50% wider rake and there is no cheaper lever: `StrafeLead` cannot shrink much (it is
+`lead / fall` = 10 u/s of forward speed, and below `PlaneSpeed 7` the rounds stop outrunning the
+aircraft, which is what made them invisible in the first place), and `StrafeFallTime` must not
+shorten for the same reason.
+
+**One thing to LISTEN to, not measurable from here: the pass-by sound.** Its peak is cut to land as
+the aircraft crosses the drop point, and the drop now happens 0.72s into the run rather than 0.44s.
+Nothing in the build can check that — `screenrecord` captures no audio — so it wants a human ear.
+
+### The rake had to CROSS the target, not stop on it. 2026-08-11
+
+> "the airstrike should continue to fire until the plane reaches the right side. it's not hitting
+> the structure."
+
+**A probe found the cause immediately, and it was not the walk's length.** The walk ENDED on the
+aim point and approached it from the left, so every round but the last landed SHORT of whatever the
+player aimed at:
+
+```
+[Geom] target=10.92   walk = [4.92, 10.92]
+[Geom] structure 'Outpost'  span=[6.00, 8.00]
+[Geom] enemyXs=4.0,4.3,4.7,4.9,6.8,7.0,7.2,6.9,7.1
+```
+
+Aim at a building and the burst rakes the dirt in front of it and stops at the near wall. **The fix
+is `StrafeOvershoot = 3` — the walk now crosses the bomb's own impact point** and carries on past
+it, so the rake goes over the target rather than up to it. Rounds land on BOTH sides.
+
+**3 is the frame's right-hand limit, and it is smaller than the left one, because the camera LEADS
+the aircraft.** `PlaneCameraBias` puts the frame 6.6 units left of the target and only 3.6 right of
+it — so the overshoot spends the short side, and 3 keeps the same 0.6 of margin the left end has.
+
+**Keeping the overshoot UNDER `StrafeLead` is what kept this a two-constant change.** The last
+round is fired when the aircraft is `StrafeLead` short of it, at `target + 3 - 4`, which is still
+before the bomb lands and the phase ends. Push it past the lead and rounds want to fire AFTER
+handover — and the firing loop lives inside the run's own step, which stops being called the
+instant the phase changes. That is the trap the aircraft's own motion already paid for. **The
+negative run at `StrafeOvershoot 7` shows it exactly: 21 of 28 rounds ever fired**, the rest
+silently dropped on the floor with no error anywhere.
+
+**Density held: `StrafeRounds` 14 -> 28 and `StrafeDamage` 2 -> 1.** The count has now been raised
+twice for the same reason — to hold the SPACING near 0.33 units as the walk grew 4 -> 6 -> 9 — and
+the damage halved each time so the burst's contribution stays 28 and the item's total stays 52.
+
+**One thing the budget arithmetic does NOT capture, and it is worth knowing before tuning:** a wider
+rake spreads the same nominal damage over more empty ground, so its EFFECTIVE damage falls even
+though the total is unchanged. The burst is presentation that happens to hurt. If it ever needs to
+hurt a FIXED amount, that is a different design and wants a different mechanism than a walk of
+independent rounds.
+
+### The volley and the pass now land TOGETHER. 2026-08-11
+
+> "i wonder if we can sync the player projectile volley with the plane. right now it's a little
+> awkward."
+
+**The two halves used to be ADDED.** The aircraft made its whole pass, its bomb landed, and only
+then did the volley launch. Measured across the power range before changing anything:
+
+```
+power   plane run -> impact   volley flight   TOTAL NOW   if synced
+ 40%          1.57s               1.47s         3.05s       1.57s
+ 65%          1.57s               2.24s         3.81s       2.24s
+ 86%          1.62s               2.91s         4.53s       2.91s
+100%          2.43s               3.36s         5.79s       3.36s
+```
+
+An ordinary shot cost **4.53 seconds** from release to impact, a third of it spent watching an
+aircraft with none of the player's own rounds in the air. That is the awkwardness, and the table is
+why it was not a matter of shaving a constant.
+
+**Whichever half takes LONGER to reach the target now starts first, and the other is delayed by the
+difference**, so both land together and the beat costs `max(flight, run)` instead of their sum.
+`GameState.AirstrikeSpawnDelay` and `PendingVolleyDelay` are the two halves of that one alignment
+and **at most one is ever non-zero**. At any usable power the volley is the slower half, so in
+practice the volley goes at the moment of release — the game feels responsive to the drag again —
+and the aircraft is held back to catch up.
+
+**The phase stays `AirstrikeRun` even though the volley is away.** That is deliberate and it is
+what keeps the earlier fixes intact: the run's camera cuts to the strike and HOLDS, so the aircraft
+still enters across the left edge and the player's rounds arc into the same held frame rather than
+dragging the camera off after them. Hits land either way — **collision runs on the always-run path,
+not inside a phase** — which is the fact that made this possible at all.
+
+**Everything the aircraft does moved to the always-run path.** Motion was already there; the guns
+went there when the rake started outliving the bomb; and the BOMB RELEASE went there now, because
+an aircraft held back is routinely still short of its drop point long after the phase has moved on.
+`AirstrikePlaneEntity.BombTargetX` carries the target, because the aim it came from is cleared the
+instant the volley launches — which is now usually BEFORE the aircraft is even released.
+
+**A held aircraft must not be drawn.** The entity exists from the moment of release so nothing has
+to be recomputed when it is let go, but a stationary aeroplane parked at its spawn for a second and
+a half is a worse artefact than the one the delay fixes. The renderer gates on the same value the
+tick does.
+
+**TWO THINGS THE DEVICE FOUND THAT NO CHECK DID**, both caused by the aircraft now being HELD:
+
+- **The pass-by sound fired at the moment of release**, over empty sky, a second before the plane
+  existed. It used to be the same instant; it is not any more. It now plays on the true->false edge
+  of `AirstrikeSpawnDelay` — the moment the aircraft is actually let go — because the clip is cut
+  so its peak lands as the plane crosses its drop point, and that offset is measured from the START
+  OF THE RUN. Anchor it anywhere else and the peak is silently thrown away, which is exactly what
+  the original 8.3s clip did.
+- **The release log said `volley held` when the volley was already away.** Third false reading from
+  that one line — `volley: 0 rounds`, then strafe tracers counted as volley rounds, now this. Each
+  time the beat changed under it. It reports the three real cases now: held, away with an airstrike
+  inbound, or a plain volley.
+
+**The check measures IMPACT TIMES out of a real stepped flight**, not the arithmetic that schedules
+them:
+
+```
+[ok  ] bomb at 3.08s, volley at 3.17s from release (0.08s apart)
+[FAIL] bomb at 1.92s, volley at 5.08s from release (3.17s apart)   <- the old added beat
+```
+
+That 3.17s gap in the negative run is the awkwardness, in numbers.
+
+### The rake belongs to the ENEMY, not to the volley. 2026-08-11 — the design change
+
+> "the strafe is independent of the player unit volley. it should start from the left, strafe
+> should cover the whole enemy position and its structures."
+
+**This is the change that made the previous three unnecessary.** The burst had always been defined
+relative to the player's landing point — walk to it, then walk 3 past it — so its ground moved with
+every drag: aim short and it raked open dirt, aim long and it raked past the line. Every fix before
+this one was tuning an offset from the wrong origin.
+
+**The rake is now derived from the enemy position and carried on the aircraft.**
+`BattleTick.StrafeSpan` takes the enemy units and the enemy STRUCTURE EDGES — edges, because an
+outpost is 2 units wide and raking to its centre leaves half the building unhit — plus
+`StrafeMargin` at each end. `AirstrikePlaneEntity.StrafeFromX/ToX` carry it, fixed at the moment the
+aircraft is committed. Carried rather than recomputed because the run outlives its own phase, and
+because the enemy set SHRINKS as the rake kills, which would walk the far end backwards mid-burst.
+
+**The bomb is the only part of an airstrike that cares where you aimed.** That split is the whole
+design and it is what `PortSelfTest` now asserts, by firing the item at two different aims and
+demanding the identical ground — the one property no arrangement of aim-relative constants can
+fake.
+
+**Three things had to move with it:**
+
+- **The SPAWN is derived, not a fixed offset.** The aircraft must exist `StrafeLead` before the
+  rake's first firing point AND still be short of the release when it drops, so it spawns at
+  whichever is further back. `PlaneRunHalfLength` is now a FLOOR, not the spawn. Consequence worth
+  knowing: **the beat is no longer one fixed length across the campaign** — a wider enemy line
+  costs a longer pass.
+- **The GUNS moved to the always-run physics path**, beside the aircraft's motion, for exactly the
+  reason that motion moved there. See below.
+- **The CAMERA frames the rake AND the bomb**, which are now different places. The anchor is the
+  midpoint of everything the pass must show; the half-width covers all three points and is still
+  floored by `AirstrikeRunHalfWidth`, so it can only ever pull back.
+
+### The guns had to leave the phase, and the check that proved it was itself broken first
+
+The rake reaches past the bomb's impact whenever the player aims short of the enemy's far edge —
+the ordinary case — so the last rounds are fired AFTER the phase has handed over to the volley.
+While the firing loop lived in the run's own step those rounds were **never fired at all**: no
+error, no log, just a burst that stopped early. Same family as the aircraft freezing in mid-air,
+and the second time this beat has paid for it.
+
+**The check written for it PASSED against the broken code.** It used the same synthetic aim as
+everything else in that block — one landing PAST the enemy's far edge — where the rake finishes
+before the bomb and a phase-bound loop drops nothing. Re-pointed at an aim landing SHORT, which is
+the only state where the failure is reachable, it reads:
+
+```
+[ok  ] a shot aimed SHORT ... fires the whole burst (28/28) — impact 3.16 vs rake end 10.13
+[FAIL] a shot aimed SHORT ... fires the whole burst (17/28)      <- guns confined to the phase
+```
+
+**Eleven of twenty-eight rounds, dropped in silence.** The check now asserts the aim IS short as
+part of its own condition, so it cannot quietly stop testing this if the geometry moves. This is
+the third time in two days that a check had to be put into the state where its failure was
+reachable before it was worth anything — see the empty purse and the null CameraFollowX.
+
+### The check that caught the burst outliving its own phase
+
+A pre-existing check went red on this change and was RIGHT to: "the volley that follows the run is
+the volley the player aimed" counted `!IsAirstrike`, which had quietly meant "the volley" only
+because the burst always finished before handover. It does not any more — the last rounds land
+after the bomb — so they were being counted as volley rounds. It now excludes `IsStrafe` as well.
+Worth recording because the check noticed a real behavioural change before any device did.
+
+### The check that guards it asserts the FRAME, and the FIRING POSITIONS
+
+Written against `StrafeLength` it would have been green through all three verdicts. It asks instead
+for an impact span of `>= 5.5` units with the first landing inside the frame's left edge — the
+frame being the thing the spread is actually competing with.
+
+**And it asserts where the rounds were FIRED FROM, which the landings cannot see.** Every round is
+solved onto its own point, so a clumped burst still produces a perfect walk of landing points. The
+negative run proves it: spawning the aircraft too far forward left the impacts spanning a flawless
+`6.00` while the firing positions collapsed from `5.95` to `3.97`.
+
+```
+[FAIL] ... impacts span 4.00 units ...          <- the old 4-unit walk
+[FAIL] ... fired from 3.97 units ... not one    <- the clump, invisible in the impacts
+```
+
+### The aircraft did not FLY IN — the camera swept past it. 2026-08-10
+
+> "the plane should come from the left side of the screen. it seems to just appear in the
+> middle/left middle of the shot."
+
+**It was never the spawn point, and no spawn distance could have fixed it.** A probe against L1:
+
+```
+target=10.92  spawn=1.92
+AIMING frame  centre=-7.54  half=2.05  left=-9.59   spawnInside=False
+RUN    frame  centre= 9.42  half=5.10  left= 4.32   spawnInside=False
+```
+
+The aircraft spawns off-frame under BOTH framings. But the run BEGINS with the camera still over
+the player's own line at **-7.54**, and it then springs **17 units right** at
+`MarchEscortSmoothTime` while the plane sits at 1.92 doing 7 u/s. **The camera overtakes the
+aircraft and arrives to find it already mid-frame.** A camera travelling the same direction faster
+than the plane always will.
+
+**So the run CUTS to its anchor and holds, and it is the only phase that does.** Everything else
+keeps the one continuous spring, deliberately — "every phase change TELEPORTED the camera" is a bug
+this project already fixed once. `CAMERA_ARCHITECTURE.md` is LOCKED, so **this exception was asked
+for and granted, not assumed**. It also delivers what the phase always claimed ("a hold, not a
+chase"): the aircraft now crosses a frame that is already still, entering across the left edge
+~0.34s into the run.
+
+**The check that shipped this bug had the answer in its own failure message.** It read "aircraft
+spawned off-frame" and asserted only `spawn == target - PlaneRunHalfLength` — the message named a
+property about the FRAME that nothing in the check ever looked at. That is a doc asserting itself
+one level down, and it is why the bug reached a device. The replacement asserts the camera is AT
+the run anchor and the spawn is outside its left edge.
+
+**And the first version of that replacement was worthless, for this file's favourite reason.**
+`fresh` has never ticked, so its `CameraFollowX` is NULL — the spring then begins AT the anchor,
+travels nothing, and sweeps past nothing. **The check passed against the sweeping code it was
+written to catch.** Seeding the camera onto the player line first — where a real battle leaves it —
+is what gave it teeth, and the negative run then read:
+
+```
+[FAIL] the run CUTS to its own framing and the aircraft enters across the LEFT EDGE —
+       camera -7.44 (anchor 9.42, edge 4.32), spawn 1.92
+```
+
+That is Rob's bug, in numbers. Same family as the empty-purse check and the `ReferenceEquals`
+refusal test: **ask what STATE the failure needs to be reachable in, then put the check in it.**
+
+### Both confirmed on device, L1, 2026-08-10 — with the control in the same capture
+
+Fresh install, RIGS test supply, armed from the HUD, a real drag
+(`input swipe 300 900 631 1231 600`), recorded at 60 fps:
+
+```
+[Consumable] Airstrike armed=True -> Airstrike fired (TEST supply)
+[Battle] airstrike run, volley held at 86% / 45.0deg
+[Battle] volley: 11 rounds, after the airstrike          <- 1.15s later, beat unchanged
+```
+
+On the frames: the camera CUTS to the strike, holds on an empty frame for ~0.3s, and the aircraft's
+nose crosses the LEFT EDGE — the frame at 2.02s catches it half in. The cannon fire is now a line
+of distinct elongated TRACERS running from the aircraft to the ground, with impacts kicking up
+across the enemy rank; outpost 90 -> 82 and the burst visible on every frame of the pass.
+
+**The control is the same capture's ordinary volley**, which is where the pooled-scale regression
+would show: the eleven infantry rounds arrive at normal size and normal shape, so the stretch does
+not leak into a recycled slot. That is asserted nowhere and can only be seen — the same class of
+bug as the `Vector3.one` scale regression, and the reason the volley is now checked on every device
+run that touches this path.
+
+**And the release log was lying — TWICE, for different reasons.** First it reported
+`volley: 0 rounds`, because the volley had not been built yet. Then, once the burst began outliving
+the run, a raw `Projectiles.Count` swept its tracers into the total and reported **18 rounds for an
+11-round volley** on device. It now counts the volley and nothing else. A lying instrument is worse
+than a missing one when it is the only instrument a release build has, and this line has now earned
+that warning twice:
+
+```
+[Battle] airstrike run, volley held at 86% / 45.0deg
+[Battle] volley: 11 rounds, after the airstrike        <- 1.10s later
+```
+
+### The arm/spend split, which is the one piece of this that cost something
+
+**Airstrike and Smoke are ARMED and spent only when they FIRE. Trauma Kit and Reinforcements
+resolve on the tap.** A first Kotlin implementation spent at arm time and the HUD button — whose
+visibility is gated on the equipped count — vanished the instant it was tapped, with no ARMED state
+to see and no way to change your mind. That was found on a device, not in a test suite. The device
+shot above showing `Smoke / ARMED` still on screen is the evidence that this port did not repeat it,
+and `PortSelfTest` asserts arming does not decrement.
+
+**The permanent `ProgressStore` spend lives in `BattleRunner`, never in the tick.** The two armed
+items are consumed inside pure tick functions, and a `PlayerPrefs` write in there would fire on
+every `PortSelfTest` call to `FireVolley` and quietly drain the editor's own inventory. The runner
+watches the armed flag's true→false transition — which is NOT the "inferred from a list-length
+delta" trap this project has been bitten by, because the flag exists for exactly this and nothing
+else clears it.
+
+### Early Reinforcements dragged a second port in with it
+
+The relief squad did not exist here either — no builder, no march. It enters a formation's width
+BEHIND the player line and runs to its slots on `MarchTargetX`, so **without a march step the men
+bought and paid for would stand off the framed edge for the rest of the battle.** `BattleTick
+.StepMarch` is that step, and it runs on the battle-over tick path too: a jogging man frozen the
+instant victory lands is on screen, because that path deliberately re-frames onto the survivors.
+
+The squad is built from the player's OWN commonest ground unit rather than a hardcoded Rifleman as
+the Kotlin does — `BattleTick` has no asset table, and giving it one means a serialized reference
+and a scene rebuild for a squad the player already described at the loadout screen.
+
+*A claim in the first draft of the plan was WRONG and the compiler caught it: I wrote that an
+unwalked march would hang the turn via `GameState.Settled`. The property is `IsVisuallyIdle`, the
+handover is `TurnFlow.EvaluateVolley` and does not consult it, and nothing in the port reads it yet.
+The real cost is a permanent latch on a ported facility. Recorded because it is this file's own
+standing rule — assert the artefact, not the name you remember — catching the person applying it.*
+
+### The checks: 576, and every new one was seen to fail first
+
+`PortSelfTest` went 559 → 576 (17 checks, deliberately consolidated — see below). Per the standing rule, the new block was run against **nine
+deliberate breakages** and each one turned the intended check red: smoke wired to nothing
+(`1.87 -> 1.97` spread, refused), the airstrike aimed 3 units off (`13.92 vs 10.92`), the march
+removed, the trauma kit healing everyone, arming spending the carry, the cap truncating instead of
+refusing, Overwatch sold, and — the ninth, added after the first pass — the airstrike reusing the
+PLAYER's flight time, the real Kotlin bug, which a flat drag compresses to 0.63s and an arced one
+stretches to 3.08s against its own fixed 1.4s.
+
+**The block was then CONSOLIDATED, on Rob's instruction** — 50 assertions over 307 lines became
+18 over 232, and the same nine breakages were re-run to prove nothing was lost. Coverage went UP:
+a merged check caught the flight-time constant the split version had missed. Related facts belong
+in ONE check whose message names them all; a failure naming three properties is as diagnostic as
+three checks, and this file is read by people. Keep a check separate only when it can fail
+independently for a reason worth naming. **Consolidating is not a licence to drop coverage —
+re-run the breakages after merging.**
+
+**One of the first-pass checks was worthless and was rewritten**: a refusal test written as
+`ReferenceEquals(Use(hurt with {...}), hurt with {...})` allocates two different records, so it was
+false whatever the code did — a check that could never fail, wearing the costume of a refusal test.
+The same family as the phase-spread check deleted during the flame work.
+
+**And one check was self-referential**: the airstrike's fall time was asserted against the same
+constant that defines it, so setting that constant to 0.18s passed every check. It now carries an
+absolute floor (`>= 0.8f`, "legible means SECONDS, not frames") alongside the flat-drag comparison
+that does the real work.
+
+### What the headless preview caught before the device
+
+`BattleUIPreview.Shots` now renders the loadout panel in three states (nothing owned, owned, and
+carrying) and **fails the run if any Button lays out off screen**. That is precisely the failure the
+Kotlin hit when it added a consumables section: Confirm was pushed past the bottom of the screen,
+not clipped but ABSENT from the tree and unreachable by any input, found on a locked device with no
+way to start a battle. The strip here is positioned from the panel's own top rather than stacked
+after the roster rows, so a longer roster cannot push it anywhere, and `PortSelfTest` pins the
+arithmetic against the live roster's row count.
+
+## The loadout screen's per-frame NullReferenceException — FIXED 2026-08-10
+
+**The tick was running before there was a battle to tick.** `Start` calls `EnterLevel(0)`, which for
+a campaign level opens the picker and RETURNS — `LoadLevel` does not run until the player presses
+BEGIN. `GameState` is a `record`, so it is a CLASS and `state` is null for that whole screen, and
+`Update` entered `BattleTick.Step` anyway. Its first line is `s.SelectedAmmo`. One thrown exception
+and one stack capture per frame, on the one screen where the player is sitting still and reading.
+
+The guard is `if (state == null) return;` at the top of `Update`, and it is on the STATE rather than
+on `ui.LoadoutOpen` deliberately: a LATER picker (RETRY, NEXT LEVEL) opens over a state that exists
+and ticks through it perfectly well. What must not run is a tick with nothing to tick.
+
+**Why it hid.** Nothing looked wrong, because the picker is uGUI on its own canvas and both
+`HandleInput` and `OnGUI` already stand down while it is open — so the screen drew correctly, BEGIN
+worked, and the battle ran clean at 60 fps. The release build's IL2CPP trace carries no line
+numbers, and `BattleRunner.Update` was the only frame in it.
+
+**Measured both ways, same instrument, same 3-second window, same screen** — which is what makes the
+numbers mean anything, per the standing rule:
+
+```
+OLD code   186 NullReferenceExceptions in 3s on the LOADOUT screen  (~62/s = one per frame)
+FIXED        0 in 3s on the LOADOUT screen, 0 in 3s in battle, 0 across a real volley
+```
+
+The negative run cost one extra build and is the only thing proving the guard reaches the bug. The
+instrument was proved too, because a silent logcat is not evidence: the same capture shows
+`[Battle] L1 Patrol Encounter: 10 player, 9 enemy, 2 structures` on the BEGIN press, and a real drag
+(`input swipe 300 900 631 1231 600`) took the enemy line 9 -> 4 at a steady 60 fps.
+
+**No self-test covers this**, and that is a considered choice rather than an omission: `PortSelfTest`
+does not drive `MonoBehaviour` frame callbacks, and a check on the guard's CONDITION would assert the
+fix's own restatement of itself — the "assert the output, not the input" trap in its purest form. The
+device count IS the assertion here, and both halves of it are recorded above.
+
+**The diagnosis was READ, not probed** — the backlog entry recommended a probe and the code answered
+faster. That is not a correction to the rule: the probe is right when a static read leaves a
+hypothesis, and here the read produced a null field, a dereference of it, and an exact match to both
+measured contexts (null only before the first `LoadLevel`; zero after). The negative run then did the
+job the probe would have.
+
+## The incendiary flame — 2026-08-09
+
+The burn had dealt damage since Tier 1.1 with **nothing to see**. The only way to confirm from a
+device that it had fired was the `[Burn]` log, which is why that log was kept and why it stays.
+
+**It needs no new tick state.** The flame is drawn straight off `GameState.BurningEnemyIds` — a set
+that is filled when the round lands and cleared when the burn resolves at the turn handover. That
+window is the whole post-volley pause, which makes the fire a **telegraph** as well as a cue: it
+says these men are about to take damage, and the health bars drop as it goes out.
+
+**Two tongues per man, one quad each, flickering out of phase.** One tongue is a shape that changes
+size; two are a fire. The flicker is `CosmeticSystems.FlameScale`, a **sine of absolute time** — dt
+VARIES, so anything integrated per frame would run at a different rate on a stuttering one, and a
+phase accumulated per slot would need clearing on recycle. Height and width swing in ANTIPHASE (a
+flame narrows as it licks up); swung together the tongue just zooms and reads as a throbbing
+sticker.
+
+**`FlamePhase` is keyed on the UNIT ID, not the render slot.** Slots are handed out in roster order
+and shift down as men die, so a slot-keyed phase would make every surviving flame jump the instant
+a neighbour fell — the same reasoning as `UnitAnim.Desync`.
+
+**The colour is in the TEXTURE, not in a tint.** Hot yellow core, deep orange tips: that gradient is
+the whole difference between "fire" and "an orange triangle" at this size, and a per-instance tint
+can only scale the lot. The property block is left for the guttering alpha, which is per-slot.
+
+**A pooled flame, bounded and pre-warmed**, sized from the enemy roster including waves and boss
+phases. Minting one the frame a volley lands — alongside the blast, scorch and debris pools — is
+exactly the mid-session mint the Filament build kept paying for.
+
+**It gutters out over half a second rather than stopping.** The burn resolves on ONE frame, and a
+bright orange object vanishing in one frame is the artefact this repo has already paid for twice
+(the health bar and a backdrop layer both held full strength and then blinked out). There is no
+matching fade IN — fire catches instantly and dies slowly.
+
+**And the flame follows a body the burn KILLS.** A man the fire finishes leaves `EnemyUnits` on the
+frame he dies, so drawing only the living would snuff his flame at the exact moment it did the most
+work. `DyingUnitEntity` carries the same `Id`, so the corpse keeps its own guttering half-second and
+the fire falls with him.
+
+### Two things the preview caught that no test could
+
+`FlamePreview.Shots` renders the flame on a rank of soldiers at gameplay framing, in seconds,
+**through `Render/FlameRig` and the shipped `Flame.prefab`** — the same placement and the same art
+the game uses. It is deliberately NOT a second implementation: `BackdropPreview` once was, and spent
+a whole session producing plausible, wrong pictures.
+
+Its first render found both of these in one frame:
+
+- **The flame was UPSIDE DOWN** — fat hot base licking down at the boots, tapering to a point above
+  the head. The prefab copied the health bar's 180-degree turn about **X**, which mirrors the
+  VERTICAL, and the texture is already generated the right way up. It is a turn about **Y** now,
+  which mirrors the horizontal and costs only the direction of the tip's lean. *The health bar takes
+  the opposite choice for the mirror-image reason: its fill anchors to one END, so it cannot afford
+  a horizontal mirror and can afford a vertical one.* Both are 180-degree turns that "face the quad
+  at the camera", and they are not interchangeable.
+- **It read as a CANDLE, not a man alight** — a taper of `(1-t)^0.62` kept the tongue
+  narrow-but-present all the way up and drew a needle, so six burning soldiers looked like six
+  rocket exhausts. Steeper taper (0.85), a wider body (0.50), and a tip fade tripled to 0.34 so the
+  fade ends the flame rather than the profile. Shorter and broader overall: 1.05x body height at
+  0.76x width, from 1.15 and 0.60.
+
+### Confirmed on device, L1, 2026-08-10
+
+A real drag (`input swipe 300 900 631 1231 600`) into L1's bunker, incendiary selected:
+
+```
+[Probe] ammo=Incendiary unitsHit=5 incendiaryHits=5 survivorsMarked=5
+[Burn] 4 burning took 8 (4 died)
+```
+
+And on the frames: **two garrison soldiers alight on the bunker DECK** — standing on the deck, not
+the world floor, so the entity-relative y is right — each flame the correct way up, wide hot base at
+the boots licking just past the helmet, and the two **visibly different in size and lean on the same
+frame**, which is the per-unit phase doing its job. Fire-coloured and unmistakable against the red
+enemy uniforms.
+
+Then the whole death sequence, which is better than designed: the burn kills them, **the ragdoll is
+thrown and the fire goes with it**, guttering out as the body tumbles. **60 fps throughout**, read
+off the HUD on four consecutive samples during the burn.
+
+**One artefact, UNRESOLVED and deliberately not chased** — tracked in `_plans/BACKLOG.md` as
+"Flames outlive their bodies by a frame or two". For a frame or two at the moment of death the two
+flames stand on the deck with NO BODIES under them, before the corpses appear in flight. Best
+current reading is the already-documented "a unit's slot is not stable across frames"
+corpse-handover timing, which the flame has made visible for the first time — but that is a
+hypothesis from one contact sheet at 12 fps, not a diagnosis.
+
+**What the preview could not show and the device did:** the guttering, the flame on a garrison
+rather than on flat ground, the frame rate, and the death sequence.
+
+### The trap that cost most of the session: AUTO IGNORES THE AMMO SELECTION
+
+Six incendiary volleys were fired with the AUTO button and **not one man ever caught fire.** Nothing
+was wrong with the flame, the burn, or the marking. `AutoFire` builds its own `ProjectileEntity` and
+**never sets `Ammo`**, so every round it throws is Standard however loudly the HUD says Incendiary.
+
+It is deliberate — `CannonShells` documents the identity default in as many words — and it is the
+exact sibling of the long-standing "**Auto cannot test STRUCTURES**". Auto is a test harness, not
+the player, and the list of what it cannot test is now two items long.
+
+**What settled it was a PROBE, after two rounds of guessing had not.** One build, one line, both
+ends of the path:
+
+```
+[Probe] ammo=Incendiary unitsHit=1 incendiaryHits=0 survivorsMarked=0    <- AUTO
+[Probe] ammo=Incendiary unitsHit=5 incendiaryHits=5 survivorsMarked=5    <- a real DRAG
+```
+
+The state said Incendiary in BOTH. Only the rounds differed — which is precisely the "assert the
+OUTPUT, not the input" rule wearing yet another costume, and the reason the probe printed the state
+and the rounds side by side instead of either alone.
+
+**Both facts are now `PortSelfTest` checks**, so nobody has to rediscover this against a phone:
+Auto's rounds must be Standard while the state says Incendiary, and a real volley must carry the
+selection. The second is not decoration — without it the first would still pass if ammo were broken
+everywhere. The Auto limitation is also in `CLAUDE.md` beside its structures sibling, with the drag
+that clears L1's 16 units.
+
+### The checks, and the one that was deleted for failing its own negative test
+
+`PortSelfTest` asserts the flicker arithmetic directly, and asks the TEXTURE about its shape —
+because the failure being guarded is "the texture is wrong, so the game draws an orange RECTANGLE
+over every burning soldier", which no test of the generator's inputs can see. The shape checks carry
+their **own negative case in the same run**: a plain white square must fail every one of them.
+
+Every check was then run against deliberately broken code, per the standing rule. That is how three
+of them were confirmed (taper, neck, antiphase all went red) — and how one was found worthless:
+
+- A check asserted the **spread between the largest and smallest neighbour phase gap**, claiming to
+  catch "a wave marching along the rank". A ramp (`unitId * 0.1f`) sailed through it at 6.08 rad,
+  because the wrap-around manufactures one enormous gap. **Deleted.** A check that names a failure it
+  cannot detect is worse than no check: it reads as coverage.
+- Its neighbour, "neighbouring units rarely flicker together", scored **394 of 400 pairs** on that
+  same ramp. That is the one that works.
+- An earlier version asserted a FLOOR on the closest pair, and failed on the honest implementation:
+  among 40 random phases some pair is almost certainly within a few hundredths of a radian. That is
+  what randomness looks like, and it is invisible in a crowd of thirty. **Assert the distribution,
+  not the extreme.**
+
+## Tier 1.2 — the telegraph and the schedule, 2026-08-07
+
+The mechanism was already firing (Phase D wired arrival). This is the half that makes a wave
+something the player can PLAY AGAINST rather than something that happens to them.
+
+**The countdown is composed, not authored.** `ReinforcementWave.telegraphText` — one authored
+sentence with the number baked into it — is now `telegraphLabel` (what is coming) plus
+`telegraphLeadTurns`. `EventSystems.TelegraphLine` builds the line every tick from the live turn
+gap. A number in the label held still for the whole warning, which tells the player the clock has
+stopped, and sat one copy-paste from disagreeing with `arrivesOnTurn` with nothing checking it.
+`ReinforcementWaveBeat` takes the lead; a lead below 1 is CLAMPED, not honoured — an individual
+wave does not get to opt out of pillar 7. Where two leads overlap the strip shows the NEAREST
+wave, because there is one strip and a flickering one reads as neither.
+
+**Confirmed on device, whole cycle, L10 Rubble Yard:** turn 2 `Heavy support inbound - 2 turns`,
+turn 3 `Heavy support inbound - 1 turn`, turn 4 the strip clears and enemy units go 8 -> 12. The
+strip also sits correctly UNDER the "Enemy turn" banner when both are up — the two channels were
+built to stack and this is the first build in which both have been on screen together.
+
+**The schedule is two levels, both stage 2, both 2-turn leads.** L10 is the beat chart's
+"reinforcement race" and went 1 -> 2 to match the chart's own words ("armor in 2 turns"). L11
+Oceanfront was the only stage-2 level `CampaignAudit` called NO MECHANIC — its beat offers a heli
+it cannot have — so its own "else elite push" fallback is delivered as a telegraphed wave (3
+heavies, turn 4) instead of three more bodies in the opening formation. **L11's wave was NOT
+device-tested**; it is the same code path and data shape as L10's and is driven by `PortSelfTest`.
+
+**L12 was deliberately left alone.** It already combines the boss phase with the charge, and its
+`designNotes` record a device-measured margin against the 288 siege capacity. Adding enemies to
+the finale would have quietly undone a number someone paid a defeat to find.
+
+**`BalanceAudit` now checks reach for units that are not on the field yet.** Rule 7 measured the
+opening roster only, so a wave could be authored past maximum range and every rule-7 check would
+pass while the level was unwinnable from turn 4 — the L7 bug, one turn later. It STEPS the tick to
+the wave's arrival and re-runs the reach rule on the real spawned positions rather than
+re-deriving them from `anchorX`, which would be a second implementation to disagree. Proved by
+pushing L11's wave to x 22: `121% power ... UNWINNABLE`, 2 errors. At the authored x 8 both wave
+levels clear (L10 89%/97%, L11 89%/98%).
+
+### The check that was right about the mechanism and wrong about the rule
+
+A glyph-coverage check over every authored string that reaches TMP was written as **"ASCII only"**,
+because that is what `CLAUDE.md` said. It flagged **23 strings on its first run** — every campaign
+`levelGoal` and all 17 test-rig names, all of which use an em dash — and all 23 were "fixed".
+
+**A device screenshot then showed an em dash rendering perfectly in the loadout panel.**
+LiberationSans SDF covers Latin-1 and General Punctuation; what it lacks is SYMBOLS — `★` U+2605,
+`◆` U+25C6, emoji, arrows — which is why the star and coin are drawn as sprites. All 23 edits were
+reverted, and the check now asks `TMP_Settings.defaultFontAsset.HasCharacter` instead of asserting
+a range. It carries its own negative case in the same run (the star must be reported MISSING), and
+it does catch one real thing: wind's announcement strings came from the Kotlin with a wind emoji
+and two arrows.
+
+**The lesson, and it is a new costume on the standing rule:** a check written against a NOTE IN A
+DOC asserts the note. The doc was a compressed heuristic that had been true about the two symbols
+it was written for. Ask the thing itself — the font, the engine, the device.
+
+### The state of the checks, as of the handover
+
+```
+PortSelfTest.Run          592 checks, ALL PASS
+LevelComposition.Report   12 campaign levels, 0 errors, 2 accepted warnings (L3, L5 rule 7 —
+                          reasons in their designNotes; both beats are about height)
+BalanceAudit.Report       0 errors, 19 warnings (race-ratio flags on the dearest-squad
+                          extreme, which is informational)
+```
+
+**A scene rebuild is NOT pending** — one was run on 2026-08-10 after `BattleRunner` gained its
+`planePrefab` field (and earlier the same day for `flamePrefab`), so `Assets/Scenes/Battle.unity` and several materials are dirty because of it.
+**The APK on the device is current** — rebuilt on 2026-08-11 with the whole airstrike rework: tracer
+streaks, the run's camera cut, the enemy-derived rake, the impact realignment, the pass-by sound's
+new anchor, the honest release log, and test supply carrying all four consumables. Everything above
+was confirmed on that build. **All of 2026-08-11 is CODE-ONLY — no scene rebuild is pending.**
+The device is on L1 with RIGS ON and a fresh install's zero coins, which costs nothing because test
+supply is free.
+
+## The balance audit, DEVICE half — run 2026-08-07
+
+> **STALE, 2026-08-25 — READ THIS BEFORE QUOTING ANY NUMBER BELOW.** Every result here was
+> measured when the player tank carried **THREE** shells. It now carries **FIVE**
+> (`PlayerTank.cannon.ammoPerBattle`, per-level `shellsOverride`), which moved siege capacity
+> from 288 to **480** on every level with a tank. The clearability verdicts — including "L9 and
+> L12 are NOT clearable at stock" — have **not been re-measured** since. The one finding that did
+> survive is the L4 one, and it survived by being rediscovered the hard way on 08-25: the shells
+> are the whole demolition budget and nothing in the game says so.
+
+Real drags on the Pixel 10 Pro XL, stock squad (8 riflemen + 2 tank crew, 0 coins, nothing
+unlocked — the level list steps straight into battle with the default loadout, so this is exactly
+the baseline the arithmetic half modelled). Aim was DERIVED, not guessed: `BalanceAudit.Drags`
+prints a 45-degree adb swipe per level from the level's own geometry.
+
+**Result: L9 and L12 are NOT clearable at stock. L4 is, but only if the tank shells are spent
+correctly, and nothing in the game says so.**
+
+### The mechanism, and it is one number
+
+**A rifleman's `structureDamageMultiplier` is 0.25.** His 8-damage round does **2** to a building,
+so a ten-strong volley does **20 a volley if every round lands**. The tank shell is
+`32 x 3 = 96`, and `ammoPerBattle` is **3**. So a stock squad's entire anti-structure capacity is
+a FIXED **288**, spent in the first three volleys, after which a wall is effectively immune.
+
+That collides head-on with composition rule 5, which REQUIRES the majority of the enemy roster to
+be garrisoned. Where garrisoned structure HP exceeds 288, most of the enemy roster is standing
+behind something the stock squad cannot break:
+
+| Level | Garrisoned structure HP | vs 288 | Device result |
+|---|---|---|---|
+| L3 Watchpost Ridge | 340 | **deficit 52** | not run |
+| L5 Tower Assault | 340 | **deficit 52** | not run |
+| L6 Ridge Bastion | 392 | **deficit 104** | not run |
+| L9 Dusk Redoubt | 330 | **deficit 42** | **3 runs, 3 total defeats** |
+| L12 The Citadel | 425 | **deficit 137** | **defeat** |
+| L4 Ash Boulevard | 240 | ok | every structure razed by shells alone |
+| L1/L2/L7/L8/L10/L11 | 90-240 | ok | not run |
+
+`BalanceAudit` now checks this directly (the SIEGE DEFICIT finding), and it is **predictive**: the
+level with no deficit razed everything, the levels with one could not.
+
+### What the runs actually showed
+
+**L9, run 1** (fixed aim at the enemy mean): 22 -> 17 enemies, player 10 -> 0. Kills stopped DEAD
+at 17 the moment the shells ran out, and structure damage fell to ~8 a volley.
+
+**L9, run 2** (all fire on the bunker): bunker destroyed, but I kept firing at the empty site while
+the barracks sat untouched. Defeat. Worth recording as an ERROR OF MINE, not a game fault — the
+HUD's single "Structure HP" total cannot say WHICH structure still stands, and that is a genuine
+readability gap.
+
+**L9, run 3** (advancers first, then structures — the correct play): 22 -> 11 in three volleys with
+only one loss, and the bunker's five machine gunners died with it, confirming the garrison-collapse
+path works. Then the wall: ~6-10 structure damage a volley against 118 remaining, while losing ~1
+unit a volley. Ended 1 unit vs 9 enemies.
+
+**L12**: 18 -> 10 in three volleys (a roof garrison CAN be shot directly, as the self-tests claim),
+then the same wall — ~12 a volley against 231 remaining. Player 10 -> 4 by volley 8.
+
+**L4, run 1** (shells spent on the advancing shield bearers): 17 -> 7 with no losses, but the
+structures were untouched and it stalled at the wall.
+**L4, run 2** (all three shells into the structures): 17 -> 7 with **zero** losses, every enemy
+structure destroyed by volley 10. It then stalled 7v7 because the survivors had closed to melee
+range and my long derived drags flew over them — a limit of driving this from adb, since a real
+player has the aim preview and would simply shorten the drag.
+
+### Honest limits of this pass
+
+- Drags were computed, not felt. In the endgame, when survivors close on the line, a computed
+  45-degree drag overshoots and I had no preview to correct against. **A human is better than this
+  harness at short range**, so L4's stall is not evidence that L4 is unwinnable.
+- L3, L5, L6 were not run. Their deficits are known and L6's is large.
+- Every run used the stock squad. Unlocking the rocket trooper (`structureDamageMultiplier` 6)
+  changes the siege arithmetic completely, which is presumably the intent — but 0.4b says a level
+  must be clearable at STOCK, and these are not.
+
+### What this asks for — a decision, not a task
+
+Three ways out, and this is Rob's call:
+
+1. **Cut garrisoned structure HP under 288** on L3/L5/L6/L9/L12. Smallest change, keeps every beat,
+   and the audit check enforces it from then on.
+2. **Raise `ammoPerBattle`** from 3. One number, fixes all five at once, but it makes the tank the
+   answer to every level and weakens the reason to ever buy a rocket trooper.
+3. **Raise the rifleman's 0.25 structure multiplier.** Most invasive — it changes every level at
+   once, including the seven that are currently fine.
+
+My recommendation is **1**, plus a HUD change worth doing regardless: **"Structure HP" is a single
+total across all enemy structures**, so it cannot tell the player which building is still standing.
+That is what made run 2 waste four volleys on rubble, and a player has no better information than
+I did.
+
+## THE TANK SHELL DOES NOT LAND WHERE YOU AIM — found 2026-08-07
+
+The most useful thing the whole balance audit turned up, and it was invisible until the HUD listed
+structures separately.
+
+**Measured on L12, one volley per drag, reading per-structure damage:**
+
+| Drag (px per axis) | near tier | far tier | enemies |
+|---|---|---|---|
+| 272 | **-16** | 0 | 0 |
+| **300** | -10 | **-96** | **-6** |
+| 316 | -6 | -10 | -5 |
+
+96 is exactly the shell (`cannon.damage 32 x structureDamageMultiplier 3`). So the shell lands on
+the FAR tier when the infantry is aimed roughly at the NEAR one.
+
+**The exact overshoot was pinned afterwards, in the harness rather than by eye: 2.5 to 3.9 units
+depending on the aim** — at aim (6,6) the volley lands at 10.92 and the shell at 14.86. (The
+device drag-deltas suggested ~1.3; that estimate was low, and the analytic figure supersedes it.)
+`velocityBoost` is 1.12 and range goes as v², so the shell flies 1.2544x the infantry range. The
+boost exists to stop the shell falling SHORT of the line's own volley (`BattleTick.CannonShells`
+says so), and it overshoots instead.
+
+**Why this matters more than any HP number.** The shell is the only weapon a stock squad has that
+can break a structure — 96 against a rifleman's 2. The player aims ONE reticle and fires TWO
+weapons that land in different places, and the one that matters is the one they cannot place. Every
+failed run in this audit is at least partly this: shells thrown at a building and landing behind
+it. My own first L12 run spent all three shells for ~58 total structure damage; the sweep above
+put a single shell on target for 96.
+
+**This is a candidate root cause for "levels are not clearable" that is INDEPENDENT of the HP
+retune**, and it should be settled before any more level tuning. Three options, none taken:
+
+1. **Aim the shell at the infantry's impact point** — solve the shell's velocity to match the
+   volley's landing x rather than scaling the aim velocity by a constant. Most correct; it makes
+   the single reticle honest. `TrajectoryPhysics.SolveVelocity` already solves speed to a target.
+2. **Re-derive `velocityBoost` from the actual muzzle offset** rather than leaving it a hand-tuned
+   1.12. Smallest change, still approximate, and it drifts the moment a tank moves on a level.
+3. **Show the shell's own landing hint.** Rejected on sight — `CAMERA_ARCHITECTURE.md` and the
+   HUD comment are explicit that a predicted landing marker was tried and reverted, because
+   guessing angle and power IS the mechanic.
+
+My recommendation is **1**.
+
+### Structure HP is now listed PER STRUCTURE — done, confirmed on device
+
+`BattleRunner.DrawHud` listed one summed "Structure HP" across all enemy structures, which cannot
+say WHICH building still stands; it cost an earlier run four volleys fired into the site of an
+already-destroyed bunker. It now lists each surviving enemy structure by `displayName`, nearest
+first (which is also left-to-right on screen). Destroyed structures leave `state.Structures`, so
+the list is automatically what is left to do.
+
+**Duplicate names are real and would have rebuilt the exact ambiguity:** L12 places
+`FortressTierSmall` and `FortressTierWide` and BOTH are called "Fortress Tier". A positional
+qualifier is appended only when a name actually collides, so the common case stays clean.
+Confirmed on device: `Fortress Tier (near): 115` / `Fortress Tier (far): 165`, and the qualifier
+correctly disappears when one of them falls. Code-only, IMGUI — no scene rebuild.
+
+### L9 roster cut 22 -> 15
+
+L9 fielded 22 against the player's 10, the widest body ratio in the campaign, and the volley race
+flagged it worst at 4.1x. Its garrisons were also over the decks they stand on:
+`LEVEL_AUTHORING.md`'s capacity table rates a MountainBunker at ~2 and a BarracksBlock at ~4, and
+this level had **5 and 8** on them. Now shields 6->4, forward rifles 3->2, bunker gunners 5->3,
+barracks rifles 8->6. Garrison stays the majority at 9 of 15.
+
+Effect on the audit: **race ratio 4.1x -> 1.9x**, under the warn threshold, with siege, melee clock
+and all seven composition rules clean. Not re-run on device after the cut.
+
+### Where L12 stands
+
+Still not cleared, across two runs — but neither was an optimal line: the first mis-aimed all three
+shells, the second spent them on the sweep above. Knowing that drag 300 puts a shell on the far
+tier for 96, the untried optimal line is two volleys at 300 (far tier 165 dead, ten garrison with
+it), then the near tier. **Try that before concluding anything about L12's tuning**, and ideally
+after fixing the shell aim, which would change the answer for every level at once.
+
+## The shell now lands where you aim — FIXED 2026-08-07
+
+`BattleTick.FireVolley` no longer scales the aim velocity by `velocityBoost`. It takes the
+**volley's own landing point** — `TrajectoryPhysics.LandingPoint` from the mean muzzle of the
+firing line — and solves the gun onto it at the **same launch angle**, so the shell stays visually
+part of the same volley.
+
+`velocityBoost` survives with a real meaning: it is now the gun's speed **HEADROOM** over the drag
+that ordered the shot — how much further back the tank may stand and still make it. A muzzle ~2
+units behind the line needs about 1.07x, so the authored 1.12 covers it with room. It is a CAP on
+the solved speed rather than a blind multiplier.
+
+`InfantryMuzzleY` (0.35) is now a named constant used by the volley, the auto-fire path and the
+shell's aim point. Two copies of that number would put the shell on a subtly different target.
+
+### The size of the bug, pinned in the harness rather than by eye
+
+The new self-tests were run against the OLD code before the fix was kept — because a check that
+has never been seen to fail is not evidence. It failed exactly as it should:
+
+| aim | volley lands | shell landed | overshoot |
+|---|---|---|---|
+| (5,5) | 5.41 | 7.95 | **+2.54** |
+| (6,6) | 10.92 | 14.86 | **+3.94** |
+| (7,5) | 10.60 | 14.50 | **+3.90** |
+
+**The device drag-deltas had suggested ~1.3 units; that estimate was low and this supersedes it.**
+After the fix all three agree to 0.01.
+
+`PortSelfTest` now asserts the shell and the volley land together from their real (different)
+origins across three aims, and that the shell never exceeds its boost headroom. Comparing LANDING
+POINTS rather than velocities is the point — equal velocity from different origins is precisely
+the bug.
+
+### This did NOT make the siege retune unnecessary
+
+Worth stating, because it was the open question when the fix was chosen. Shell capacity is
+`3 x 96 = 288` either way; the fix lets the player RELIABLY LAND it rather than raising it. Every
+pre-retune value (L3 340, L5 340, L6 392, L9 330, L12 425) still exceeds 288, so those levels were
+unclearable on the arithmetic alone and the cuts stand. **Do not walk them back.**
+
+What the fix does change is that the seven levels already under 288 got easier, because their tank
+now reliably delivers 96s it used to throw past the target. None have been re-checked for being
+too SOFT — that is the open risk from this change.
+
+### On device: the structure phase now works, the ending is unconfirmed
+
+L12, aiming directly at each structure (which is the whole point of the fix):
+
+| volley | player | enemy | near tier | far tier |
+|---|---|---|---|---|
+| 0 | 10 | 18 | 115 | 165 |
+| 1 | 10 | 18 | 109 | **59** |
+| 2 | 9 | 13 | 107 | destroyed |
+| 3 | 9 | 8 | destroyed | — |
+
+**Both structures down by volley 3, the roster halved, nine of ten units alive.** Before the fix
+the same level ate three shells for ~58 total structure damage. That is the fix working.
+
+The ending is still unconfirmed, and honestly so: a second run with slightly looser drags left one
+tier standing at 53 and sat at 6 v 13, and lost. Outcome is very sensitive to shell placement —
+which is arguably RIGHT for a finale (three shells, 96 each, place them well) but means my adb
+harness cannot reliably reproduce a win. **L12 is now plausibly winnable and has not been won.**
+
+### Still owed — ALL SINCE RESOLVED
+
+**Rob played the campaign after this fix and reported the levels feel fine (2026-08-07).** That
+answered all three at once: a level clearing by hand, whether the seven levels already under 288
+had gone too soft once the tank reliably landed, and L3/L5/L6 never having been played.
+
+## Tier 1.1 — AMMO TYPES, built 2026-08-07
+
+`PRODUCT_DIRECTION.md` Tier 1.1, spec `DYNAMISM_DESIGN.md` Phase A. **A fifth dead system**: the
+`AmmoType` enum, `ProjectileEntity.Ammo`, `GameState.SelectedAmmo`, `GameState.BurningEnemyIds`,
+the unlock/selection persistence in `ProgressStore`, `EconomyStore.PurchaseAmmo` and
+`CollisionSystem.IncendiaryHitUnitIds` ALL existed since the port, and `FireVolley` never set
+`Ammo`. Every round the game had ever fired was Standard, forever. This was wiring, not a build.
+
+### What is there now
+
+| | |
+|---|---|
+| `AmmoCatalogSO` + `Assets/GameData/AmmoCatalog.asset` | the four types, their prices and their numbers. Authored by `AmmoSetup.Build`, which is idempotent and safe to re-run |
+| `AmmoModifiers` | the pure, testable projection the spec asks for — no ScriptableObject reaches the damage math |
+| `BattleTick.FireVolley(.., ammoCatalog)` | stamps `Ammo` on every round INCLUDING the tank shell, and applies the scales |
+| `BattleTick.Step(.., ammoCatalog)` | applies the incendiary burn on the handover edge |
+| `BattleRunner.DrawAmmoSelector` | the in-battle selector, which also SELLS |
+
+| Type | Effect | Price |
+|---|---|---|
+| Standard | the identity — cannot change a volley | free |
+| Incendiary | 0.85x damage, and hit survivors take **8** at the enemy windup | 300c |
+| AP | **2x to structures**, 0.6x to men | 400c |
+| Cluster | **3.2x spread**, 0.65x damage — the wide-formation counter-pick | 500c |
+
+**Standard is the IDENTITY and that is asserted**, which is what makes PRODUCT_DIRECTION's "no
+ammo may be REQUIRED to clear a level" a checkable property rather than a promise: a level cleared
+on Standard is a level cleared with every modifier at 1.
+
+### The bug the DEVICE caught that the tests had passed over
+
+Firing AP at L12's 165hp citadel took **128** off it where ~192 was intended.
+
+The engine computes structure damage as `Damage * StructureDamageMultiplier`. The first version
+scaled `Damage` down by AP's soft-target penalty, which then flowed through to masonry too — so
+AP's real structure effect was `0.6 * 2 = 1.2x`, not 2x, and the type had almost no reason to
+exist. **The test that passed was asserting the FACTOR (`StructureDamageScale == 2`) instead of
+the PRODUCT.** `StructureMultiplier` now divides by `UnitDamageScale` so the two knobs are
+independent and both read against the base round.
+
+The replacement check asserts the NET per-round damage across three unit profiles, and was proven
+to fail on the old form first: it reports 1.19x / 1.25x / 1.25x. Its tolerance is DERIVED from
+integer rounding (`Damage` is an int, so an 8-damage round at 0.6 lands on 5, giving 2.08x) rather
+than guessed, because a fixed epsilon would either fail that honestly-correct case or be too loose
+to catch a 1.2x regression.
+
+**The lesson is the one this file already records in four costumes: assert the OUTPUT, not the
+input.** A multiplier being 2 is not the same claim as the damage being doubled.
+
+### Decisions worth knowing
+
+- **The selector SELLS.** Purchase lives in the in-battle selector rather than the loadout panel:
+  the coin balance is already on that HUD and the panel is a fixed eight-row uGUI layout. Buying
+  mid-battle is deliberately allowed — coins are earned, no ammo is required to clear anything,
+  and "I want that one now" is the impulse a coin sink exists to catch. Buying also SELECTS, since
+  buying then picking is a second step with no decision in it.
+- **A tap on the selector can never start an aim drag.** `AmmoSelectorRect` is one definition read
+  by both the drawing and the touch exclusion — the same trap the free-camera pad paid for, where
+  a finger on a button also threw a volley and ended the turn.
+- **No mid-drag switching, aiming phase only**, per the spec.
+- The choice PERSISTS via `ProgressStore`, and is re-read on every level load, which also
+  downgrades a selection the player no longer owns after a reset.
+- **The burn is ONE tick, cleared as it is spent.** A unit that kept burning every turn off a
+  single round would make the type a win button.
+- `burnDamage` is **8**, re-derived against the CURRENT roster (it must chip, not one-shot, the
+  frailest unit — now the 16hp Sniper). HANDOVER's old note about 6 being calibrated against an
+  8hp Sniper is resolved; the check anchors to the live roster so it cannot expire silently again.
+
+### Verified on device
+
+- **The selector** renders and behaves. Purchase works end to end: 455 -> 55 buying AP, 325 -> 25
+  buying Incendiary, 745 -> 245 buying Cluster, each button going gold and losing its price.
+- **AP, after the correction.** One AP volley destroyed L12's 115hp gate outright and killed its
+  five-man garrison with it. Standard could NOT have: its shell is 96, plus ~10 infantry, leaving
+  the gate alive at 9. The 2x observed rather than derived.
+- **The incendiary burn**, via the probe: `[Burn] 1 burning took 8 (0 died)` on L3. This is the
+  one that could not be confirmed any other way — the burn has NO VISUAL, so unit counts cannot
+  see an 8-point chip. The `[Burn]` log is KEPT for exactly that reason.
+- The structure-HP retune is visible on device too: L3's Command Bunker now reads 125.
+
+**Cluster's SPREAD was not isolated.** Four volleys — two Standard, two Cluster, same drag on a
+fresh L4 — killed nothing either way, because the drag was aimed at the barracks rather than at
+bodies. That measures MY AIM, not the ammo. The spread is one multiplier on the jitter the volley
+already had, is covered by the tests, and shares the code path AP and Incendiary were confirmed
+on. What is genuinely open is the BALANCE question — whether 3.2x is so wide that Cluster misses
+everything — and that wants a human playing it rather than a scripted drag.
+
+### Not done
+
+- **Cluster's spread is unmeasured in play** — see above. Is 3.2x too wide to connect?
+- **No flame VFX.** The burn is a damage event with no visual yet; the spec asks for a flicker on
+  a burning unit, and `DYNAMISM_DESIGN` requires any new effect to use a BOUNDED slot pool.
+- The spec mentions AP being strong against "armored units". **There is no armour concept in the
+  roster** — no unit has such a field — so AP is implemented as structures-versus-men only.
+
+## Corpses levitating onto roofs — FIXED 2026-08-07
+
+Rob: "dead units can have physically impossible interactions with structures." Found by reading,
+reproduced in the harness, fixed, and both halves covered by checks.
+
+**`BlockOnStructures` rested a body on a structure's ROOF whenever it was horizontally inside the
+footprint and at or above the box's BASE — and a ground structure's base IS the ground.** So a
+corpse flung into a wall at chest height was snapped up the face and left standing on top of the
+building. The condition's own comment already said *"a body that CLEARED THE WALL should land on
+the roof"*; `y >= baseY` was never that test.
+
+### Reproducing it took three attempts, and the first two passing is the interesting part
+
+- A body resting ON the ground dips a hair BELOW `baseY` between ticks, so it escapes the branch.
+- A single tick does not carry a thrown body far enough to enter the box at all.
+- Only stepping until it actually penetrates shows it: **peak y 4.00 against a roof of 4.0, from a
+  launch height of 1.50.**
+
+**A check that never reaches the code it is testing is a green light that means nothing**, which
+is the same lesson this file records for the hit flash, the backdrop and the AP multiplier.
+
+### The fix is not simply `y >= topY`
+
+That stops the levitation and then drops a body FALLING onto the roof straight through it, because
+once it dips below the roof it no longer qualifies. Whether a body belongs on a roof is a question
+about where it CAME FROM — exactly like the existing face test, which is why `fromX` was already
+a parameter. `BlockOnStructures` now takes **`fromY`** and asks whether the body was above the
+roof LAST tick. Both behaviours are asserted: thrown-at-a-wall never rises, fallen-from-above
+still lands.
+
+### Checked and NOT a bug, so nobody re-investigates it
+
+`StepRagdolls` is handed the tick's OPENING structure list (`s.Structures`, before this tick's
+destruction is applied), so a razed building keeps blocking ragdolls for at most one extra frame
+at 1/60s. That was my first hypothesis and it is wrong.
+
+### What the device pass did and did not show
+
+The free camera was parked at the L3 bunker (x 6.84) and volleys fired into it. It confirmed the
+garrison stands correctly ON the deck, and that the destroyed Watch Tower leaves flat ruin slabs —
+no impossible placement visible. **It did not catch a corpse-against-a-wall moment**: ragdolls are
+short-lived and the volleys that landed did not kill. The harness evidence is stronger and more
+precise than a screenshot would have been here, so that is what this fix rests on.
+
+**Caveat worth keeping:** this fixes ONE reproducible mechanism. Rob reported the symptom from his
+own play without a screenshot, so if bodies still do something impossible, it is a DIFFERENT
+mechanism and this section should not be taken as closing the report. The next things to suspect
+are the "spawned inside: just stop, do not teleport" branch (a body whose x begins inside a
+footprint stays inside it) and the fact that the collision box is an AABB while the models are not.

@@ -499,3 +499,37 @@ number per tier. Not done deliberately: per-tier `deckStandZOffset` tuning was t
 explicitly declined when this pass was scoped.
 - [x] Parapet height derived from unit scale; `standingYFor` stacking bug fixed (2026-08-02)
 - [ ] Fortress MID tier `deckStandZOffset` — row still submerged behind its own course
+
+## Garrisons hidden behind their own roof, 2026-08-25
+
+Rob, on L2: *"for the units on top of the structure, you can't see them — they're behind a
+barrier or something. let's make the barrier smaller... modify the model if needed."*
+
+**It was not a barrier, and no model was changed.** The garrison stood mid-deck, and the game
+camera sits at y 1.2 while that deck is at 2.5 — you look UP at the building, so the roof's own
+front mass hides anyone standing back from its edge, the way a table edge hides what is on the
+far side of the table. Proof, two frames at an IDENTICAL free-camera position (x 6.1, z 8.35):
+at y 1.20 the deck reads empty; at y 5.06 all twelve men are plainly there.
+
+The fix is `StructureDefinition.deckStandZOffset`, which already existed for exactly this and was
+0 on every affected structure while the FortressTiers had been given -0.19 and -0.80 years
+earlier. **+z is the camera side** (the builders put the front deck lip at glTF +z and the rear
+cupola at -z), so the row moves FORWARD on positive values. Set from the real deck extents with a
+0.30-unit margin so nobody overhangs: GarrisonPost +0.955, WatchTower +0.48, BarracksBlock and
+TowerPlatform +0.355, MountainBunker +0.33.
+
+**THE FIRST SURVEY OF THIS WAS WRONG, and the codebase had already written down why.** Measuring
+"how far does geometry rise above the deck" off per-mesh BOUNDING BOXES ranked the Outpost worst
+at 3.4x body height — but that number was its ROOF CUPOLA, and for GarrisonPost the tall mesh was
+`accent_GarrisonPost`, a JOINED mesh whose top is the rear cupola, not anything in front of
+anybody. `StructureDefinitionSO.deckY`'s own comment says it: *"the deck is the largest UP-FACING
+surface — measured with tools/measure_decks.py, NEVER off a node's bounding box. A bbox top is as
+likely to be a chimney, a guard rail, a cupola or a damage chunk; that mistake stood four of five
+garrisons in mid-air."* The same trap, one field over. **On this model set a bbox tells you almost
+nothing about what occludes what — measure the deck, then LOOK.**
+
+The Outpost was left at 0 and verified visible: its deck runs REARWARD (model z -0.624..+0.176),
+so its row already stands within 0.32 of the front edge and there is nowhere to move it.
+
+Verified on device, garrison visible: L1 (unchanged), L2 (the report, fixed as a matched A/B),
+L3, L4, L5. MountainBunker (L6/L8) is measured the same way but was NOT looked at.

@@ -27,6 +27,29 @@
   real target, so the shell visibly diverged from the rest of the volley (read as "the tank
   round is way ahead, hard to tell what to aim at"). Keeps its zero jitter — still the most
   precise round in the volley, just precise onto a real target.
+- The shell is ARMED OR HELD, and the player decides (2026-08-24, Rob's ask: *"the player can
+  choose whether to arm the shell or not"* — restoring the Kotlin/Compose behaviour). The tank
+  carries **5** shells (`PlayerTank.cannon.ammoPerBattle`), and a level may override that on the
+  placement (`StructurePlacement.shellsOverride`) without minting a second tank asset.
+  - WHY IT MATTERS MORE THAN IT LOOKS: the shells are the squad's ENTIRE demolition budget. A
+    rifleman does 8 x 0.25 = **2** damage to a wall, so the cannon is the only thing that brings a
+    garrisoned structure down in a sane number of turns. While the shell fired itself on every
+    volley, a player who spent their opening turns shooting at an advancing charge — which is
+    exactly what L4's `levelGoal` tells them to do — put the whole budget into the dirt and
+    reached a state no skill could win, unwarned. Found by PLAYING L4 on 2026-08-24: the run that
+    chased the charge died on turn 9 having killed 5 of 27; the run that razed the buildings
+    reached 1 v 1.
+  - **DEFAULT IS ARMED, and it is NOT yet signed.** Held-by-default kills the trap outright but
+    lets a player who never notices the panel reach the same dead end by a quieter road. Armed is
+    what the game did before the switch, so no level's measured balance moves on the default
+    alone. Ask Rob before changing it.
+  - The choice PERSISTS across turns. Arming consumes nothing, so re-arming every volley would be
+    a tax on a player who wants to shell straight through; what the HUD owes in exchange is that
+    the state is unmissable, which is the magazine panel's job.
+  - The panel is PINNED UNDER THE TANK and lives only during the player's aim (Rob, same day:
+    *"should not follow across the screen... it should be underneath the tank as well"*). It is
+    gone the instant the volley leaves — the decision has been taken by then. Reads `ARMED` /
+    `NOT ARMED`, his wording.
 - ONE ROUND PER UNIT (2026-07-25 — REPLACES the 2026-07 "fire teams" lock). Every firing
   unit puts its own projectile in the air: one round, one entity, one visible model, one
   unit's damage. Nothing cosmetic stands in for a round that isn't simulated, and nothing

@@ -25,8 +25,9 @@ being unmerged is deliberate.
 
 **READ `HANDOVER.md` FIRST.** It carries the full trap list, every one of which cost a build or a
 device session to find. This file is the standing rules; that file is the accumulated scar tissue.
-Its closed 2026-08-05/06 port entries live in `HANDOVER_ARCHIVE.md` (split 2026-08-11) — history,
-never a statement about current behaviour.
+Its closed entries live in `HANDOVER_ARCHIVE.md` — the 08-05/06 port (split 2026-08-11) and the
+08-07 → 08-11 builds and fixes (split 2026-08-25). History, never a statement about current
+behaviour, and one section there is marked STALE where later work overtook it.
 
 ## Where things are
 

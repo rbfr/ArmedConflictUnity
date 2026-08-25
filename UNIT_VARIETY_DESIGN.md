@@ -1034,3 +1034,87 @@ Reverted. Assert the rendered bounds centre vs the grip along
 `facing.forward`, not local +X of the imported gun root. Attach is
 `LookRotation(forward, left)`. One-bone arms cannot shoulder; rest is a
 16° low-ready. Do not reopen as a taste pass.
+
+## Attempt 8 (applied 2026-08-25) — the light was backwards, and the face was buried
+
+Rob: *"i feel like the units are too dark... can we make them more humanlike?"* Three causes, in
+descending order of how much they mattered, and only the third was a modelling problem.
+
+### 1. The key light lit the army from BEHIND
+
+`SpikeSceneBattle` built the sun at `Euler(50, -30)`, forward `(-0.32, -0.77, +0.56)`. The camera
+sits at +Z looking toward -Z and every unit faces glTF +Z, so a camera-facing surface has normal
++Z and its `N.L` was **-0.56, clamped to zero**. Every soldier, and the front of every structure,
+was lit by AMBIENT ALONE. Fixed to yaw **210** — same pitch, z mirrored, ground untouched
+(normal +Y, `N.L` unchanged at 0.77).
+
+**The tell costs nothing to check and was visible in every screenshot ever taken of this game:**
+a structure's horizontal TOP bright, its vertical camera-facing FRONT nearly black, both wearing
+the same material. If that is on screen, suspect the light before the art. Five OTHER scene
+builders and previews carried the same -30 and were judging art under it; all now match.
+
+### 2. Gear was a black mass — the same failure this doc already recorded
+
+Helmet, webbing and boots sat at ~0.17 and merged with the body. PlayerGear -> 0.27/0.29/0.25,
+EnemyGear and Redguard -> 0.31/0.23/0.21, UnitSkin -> 0.85/0.65/0.50.
+
+**Unit colour is NOT in the model.** The GLB supplies geometry and mesh NAMES; the tones are Unity
+materials assigned by `RiggedUnits.Tone` on the `skin*`/`accent*`/`trim*` prefixes and repainted at
+runtime by `FactionPaint` (enemy) and `ApplyCamo` (player). Anything painted in Blender is
+overwritten before it is seen.
+
+### 3. The face existed and was under the helmet
+
+`build_units_rigged.py`'s rifleman head already had a skin sphere, a NOSE, a jaw, ears and a neck.
+The ACH pot — `cylinder(head_r * 1.18, 0.38, at HEAD_C + 0.10)` — reached down to `HEAD_C - 0.09`,
+below the head sphere's own centre, so the nose at `HEAD_C - 0.02` was entirely inside it.
+Brim raised to `HEAD_C + 0.02` (height 0.38 -> 0.27, centre -> `HEAD_C + 0.155`), visor moved up
+with it. **The CROWN did not move**: `Normalize` scales by the tallest point and `AttachGun` is in
+model units, so shortening from above would rescale the figure and hang the rifle at the crown.
+Verified: the exported bbox is byte-for-byte the same extents as before.
+
+### 4. The hold — one bone per arm, and what that can and cannot buy
+
+Rob: *"both arms are sticking out/raised, and the gun is in the right hand."* Kenney's
+`holding-both` pitches BOTH arms -90 about X, parallel, at shoulder width; on Kenney's own
+character the hands meet a weapon in the middle, on ours the rifle hangs off `arm-right` alone, so
+the left hand held air. Corrected in `UnitAnim.LateUpdate` (where the aim lift already runs, i.e.
+after legacy `Animation` has written the arms) — left arm 35 inward / 4 down, right 5 / 4.
+
+**The first attempt at this was WRONG IN THE SIGN and shipped to the device.** Rob: *"still see
+the same - one arm out, other arm holds weapon."* Measured in rig space, the "inward" yaw was
+swinging the left hand OUTWARD: left hand x went -0.421 -> -0.979 while the rifle sat at +0.625,
+so the gap between them GREW from 0.84 to 1.51. It passed a look at a 3/4 render because an arm
+swinging outward reads as "crossing" from that angle. **Two arms and a weapon are three lateral
+positions; judge them as numbers, because the picture cannot tell you which side the hand went.**
+
+**And no arm angle alone could ever have fixed it.** The rifle hung OUTBOARD of the right
+shoulder (+0.625 against shoulders at +/-0.421) and one bone per arm reaches at most an arm's
+length across — the hand physically cannot get there. The weapon had to come inboard too:
+`AttachGun` x 0.10 -> **-0.15**, paired with left 45 / right 6. Shipped state measures **left hand
+0.138, gun 0.268, right hand 0.338** — the weapon between the hands. Going further (50/-0.35,
+55/-0.45) closes the gap and then re-opens it on the other side as the rifle passes the left hand.
+
+**Honest limit, the eighth time this doc has written one:** there is ONE BONE PER ARM and no
+elbow, so this is not a firing stance — the forward hand sits at the receiver rather than out on
+the forestock, because yawing 45 degrees inward also costs 30% of the arm's forward reach. Fixing
+that means an elbow, which is a rig change that invalidates every clip.
+
+### The instrument: `UnitPosePreview`
+
+`-executeMethod UnitPosePreview.Shots` renders the shipped prefab, sampling the shipped clip, in
+~2 minutes against ~8 for a device round trip. It made three of its own mistakes visible, all of
+which would otherwise have been tuned into the game:
+
+- sampling the RAW GLB clip posed nothing (`RiggedUnits` RETARGETS clips before binding them) —
+  the probe printed every joint at identity while the picture looked like a plausible rest pose;
+- reusing `AimSign` for the arm drop RAISED the arms, because `AimSign` is -1 precisely so a
+  positive aim lifts the muzzle;
+- **the FIRST render of a batchmode session comes out unlit**, and the control is always rendered
+  first — so `a_current` came out black beside a green `c_natural`, which reads as the pose change
+  having fixed the colour. A discarded warm-up frame fixes it. A preview whose control is invalid
+  is worse than no preview.
+
+It also applies `ReadyDrop` before judging, because the runtime always has it: the first tuning
+pass chose a 14-degree drop against a preview missing it, which would have shipped the arms ~16
+degrees too low.
