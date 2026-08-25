@@ -108,7 +108,7 @@ public static class SpikeSceneL1
         light.type = LightType.Directional;
         light.shadows = LightShadows.None;
         light.intensity = 1.1f;
-        lightGo.transform.rotation = Quaternion.Euler(50f, -30f, 0f);
+        lightGo.transform.rotation = Quaternion.Euler(50f, 210f, 0f);   // see SpikeSceneBattle: -30 lit the army from BEHIND
 
         var camGo = new GameObject("Main Camera");
         camGo.tag = "MainCamera";

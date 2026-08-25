@@ -138,6 +138,65 @@ public class UnitAnim : MonoBehaviour
     // pivot is ABOVE the torso.
     const float AimSign = -1f;
 
+    // ---- the weapon hold -------------------------------------------------------------------
+    //
+    // Kenney's `holding-both` pitches BOTH arms -90 degrees about X, so they point straight
+    // downfield, parallel, at shoulder width. On Kenney's own character the hands meet a weapon
+    // in the middle; on ours the rifle hangs off `arm-right` alone (RiggedUnits.AttachGun), so
+    // the left hand holds air and the weapon sits out at one shoulder. Rob, 2026-08-25:
+    // *"it's not a natural pose. both arms are sticking out/raised, and the gun is in the right
+    // hand. Can we try to get the model to show them holding the gun as a person would?"*
+    //
+    // The correction is applied HERE rather than by re-authoring the clip, for the reason the
+    // aim lift is: this is the one place that runs after legacy `Animation` has written the arms,
+    // and it composes with the aim instead of fighting it. Re-authoring would also have to be
+    // redone against every future Kenney re-import.
+    //
+    // ONE BONE PER ARM, no elbow — so this cannot be a real firing stance. What it can do is
+    // bring both hands onto the centreline where the weapon is and take the arms off the
+    // horizontal, which is the difference between "carrying a rifle" and "sleepwalking".
+    // The RIGHT arm carries the rifle and the rifle points where the barrel points, so its yaw
+    // stays small — every degree inward is a degree the muzzle stops facing downfield. The LEFT
+    // arm is free to reach across to the forestock, which is the whole read.
+    // Chosen off UnitPosePreview's grid, candidate `c_natural`, judged WITH the ready drop
+    // applied — the idle already pitches the arms down by ReadyDrop, so the hold's own drop only
+    // has to take the last few degrees off the horizontal. Tuned to 14 first, against a preview
+    // that was missing the ready drop, which would have shipped the arms ~16 degrees too low.
+    // Chosen by MEASUREMENT, not by eye — UnitPosePreview prints both hands and the weapon in
+    // rig space, and this is the pair that puts the rifle BETWEEN them: left hand x 0.138,
+    // gun 0.268, right hand 0.338, against a control where the hands sat at -0.421 and +0.421
+    // with the gun outboard at +0.625. Going further (50/-0.35, 55/-0.45) pushes the weapon back
+    // out past the LEFT hand — the gap closes and then re-opens on the other side.
+    public const float HoldLeftInward = 45f;
+    public const float HoldLeftDrop = 4f;
+    public const float HoldRightInward = 6f;
+    public const float HoldRightDrop = 4f;
+
+    /// <summary>
+    /// One arm's hold correction, in the SHOULDER's frame — pre-multiply it, exactly as the aim
+    /// lift is pre-multiplied, or it rolls the arm about its own length instead of swinging it.
+    ///
+    /// `inward` yaws the hand toward the body's centreline (mirrored per side, since the two
+    /// shoulders face opposite ways); `drop` pitches it down off the horizontal.
+    /// </summary>
+    /// The drop is -AimSign, NOT AimSign: AimSign is -1 precisely so that a POSITIVE AimDegrees
+    /// LIFTS the muzzle, so reusing it here raised the arms instead of lowering them. The preview
+    /// caught it on the first render — both rifles pointing up over the shoulder.
+    /// <summary>The arm pitch for a shown elevation. Shared with UnitPosePreview so the preview
+    /// cannot drift from the runtime.</summary>
+    public static Quaternion ArmLift(float armAim)
+        => Quaternion.AngleAxis(AimSign * armAim, Vector3.right);
+
+    /// The left arm yaws by +inward and the right by -inward, NOT the other way round. The first
+    /// pass had it mirrored and swung the left hand AWAY from the weapon: measured in the rig's
+    /// own space the left hand went from x -0.421 to -0.979 while the rifle sat at +0.625, so the
+    /// gap between them GREW from 0.84 to 1.51. It survived a look at a 3/4 render because an
+    /// arm swinging outward reads as "crossing" from that angle. Measure the hand, not the
+    /// picture — `UnitPosePreview.Measure` prints both.
+    public static Quaternion HoldCorrection(float inward, float drop, bool isLeft)
+        => Quaternion.AngleAxis(-AimSign * drop, Vector3.right)
+         * Quaternion.AngleAxis(isLeft ? inward : -inward, Vector3.up);
+
     Animation anim;
     Transform armL, armR;
     Transform legL, legR;
@@ -283,9 +342,15 @@ public class UnitAnim : MonoBehaviour
             head.localRotation = Quaternion.AngleAxis(AimSign * torsoAim * HeadFollow, Vector3.right)
                                  * head.localRotation;
 
-        var lift = Quaternion.AngleAxis(AimSign * armAim, Vector3.right);
-        if (armL != null) armL.localRotation = lift * armL.localRotation;
-        if (armR != null) armR.localRotation = lift * armR.localRotation;
+        var lift = ArmLift(armAim);
+        // The hold correction rides UNDER the aim lift: the lift is the elevation the drag asked
+        // for and must stay the outermost rotation, or the muzzle stops matching the shot.
+        if (armL != null)
+            armL.localRotation = lift * HoldCorrection(HoldLeftInward, HoldLeftDrop, true)
+                               * armL.localRotation;
+        if (armR != null)
+            armR.localRotation = lift * HoldCorrection(HoldRightInward, HoldRightDrop, false)
+                               * armR.localRotation;
     }
 
     /// <summary>

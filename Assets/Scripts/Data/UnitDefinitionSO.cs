@@ -25,6 +25,26 @@ namespace ArmedConflict.Data
         public int meleeDamage = 0;
 
         /// <summary>
+        /// Shoots on a FLAT, direct line instead of lobbing (2026-08-24, Rob on L5's tower
+        /// sniper: *"make their shot more on a direct line instead of an arc"*).
+        ///
+        /// `EnemyAI.AimAt` normally rolls a 35-60 degree arc for everyone, and its own comment
+        /// explains why: the flattest solve "reads as shooting directly at them", and a lobbed
+        /// arc looks fairer. That reasoning is right for a rifleman and WRONG for a sniper —
+        /// reading as a shot aimed straight at you is precisely what a sniper is supposed to be,
+        /// and a marksman dropping mortar arcs on you is the wrong character entirely.
+        ///
+        /// It is a per-class trait rather than a per-level tweak because it is characterisation,
+        /// not balance: any sniper anywhere should shoot like this.
+        ///
+        /// COSTS RANGE. A flat shot needs far more speed to cover the same ground, and
+        /// `MaxEnemyLaunchSpeed` caps it — so a flat shooter placed too far back simply cannot
+        /// reach and quietly stops mattering. PortSelfTest measures where the round actually
+        /// LANDS, not the angle it left at, for exactly that reason.
+        /// </summary>
+        public bool flatTrajectory = false;
+
+        /// <summary>
         /// ARMOUR. What fraction of an incoming round's damage this unit actually takes — 1 is
         /// unarmoured and every class but one is 1. It is the shield bearer's whole mechanic:
         /// `meleeDamage` is unported (nothing reads it, no SkirmishEntity is ever built, and a

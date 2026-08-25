@@ -54,7 +54,7 @@ public static class SpikeScene
         var light = lightGo.AddComponent<Light>();
         light.type = LightType.Directional;
         light.shadows = LightShadows.None;
-        lightGo.transform.rotation = Quaternion.Euler(50f, -30f, 0f);
+        lightGo.transform.rotation = Quaternion.Euler(50f, 210f, 0f);   // see SpikeSceneBattle: -30 lit the army from BEHIND
 
         var camGo = new GameObject("Main Camera");
         camGo.tag = "MainCamera";
@@ -107,7 +107,7 @@ public static class SpikeScene
         var light = lightGo.AddComponent<Light>();
         light.type = LightType.Directional;
         light.shadows = LightShadows.None; // the game draws its own blob contact shadows
-        lightGo.transform.rotation = Quaternion.Euler(50f, -30f, 0f);
+        lightGo.transform.rotation = Quaternion.Euler(50f, 210f, 0f);   // see SpikeSceneBattle: -30 lit the army from BEHIND
 
         var camGo = new GameObject("Main Camera");
         camGo.tag = "MainCamera";

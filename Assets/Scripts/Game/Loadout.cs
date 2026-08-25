@@ -227,7 +227,11 @@ namespace ArmedConflict.Game
             int total = UnitsUsed(picks);
             if (total <= 0) return groups;
 
-            const float spacing = Formation.DefaultColumnSpacing;
+            // The level may pack its line tighter — see LevelDefinitionSO.playerSpacingScale.
+            // Applied to the TILING here and to the intra-group cluster in LevelBuilder, because
+            // both contribute to how wide the finished line is.
+            float spacing = Formation.DefaultColumnSpacing
+                          * Mathf.Max(level.playerSpacingScale, 0.05f);
             float centre = GroundAnchorX(level);
             float fullWidth = (Slots(level) - 1) * spacing;
             float cursor = centre - fullWidth / 2f;

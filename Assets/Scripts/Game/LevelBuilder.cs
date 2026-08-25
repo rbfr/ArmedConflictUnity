@@ -94,13 +94,25 @@ namespace ArmedConflict.Game
         ///  - hero-scale class -> stands apart individually, not gridded with the crowd
         ///  - everyone else -> loose clusters, never one rigid line
         /// </summary>
+        /// <summary>
+        /// The level's player-line packing, floored so a level authored to 0 cannot collapse the
+        /// whole squad onto one point. `Loadout.ToPlayerGroups` floors it the same way, and the
+        /// two must agree or the tiling and the clusters would disagree about how wide the line is.
+        /// </summary>
+        public static float PlayerSpacingScale(LevelDefinitionSO level)
+            => level == null ? 1f : Mathf.Max(level.playerSpacingScale, 0.05f);
+
         static List<Vector2> FormationFor(EnemyGroup group,
                                           IReadOnlyDictionary<string, StructurePlacement> byLevelId,
                                           System.Random random,
-                                          IReadOnlyDictionary<string, Queue<Vector2>> deckSpots)
+                                          IReadOnlyDictionary<string, Queue<Vector2>> deckSpots,
+                                          float spacingScale = 1f)
         {
             float renderScale = group.definition != null ? group.definition.renderScale : 1f;
-            float columnSpacing = Formation.DefaultColumnSpacing * renderScale;
+            // spacingScale is the LEVEL's player-line packing, 1 everywhere else. It multiplies
+            // the ground cluster only — a GARRISON is laid out to fit its deck, and squeezing a
+            // row that is already clamped to a ledge would just stack men on the same plank.
+            float columnSpacing = Formation.DefaultColumnSpacing * renderScale * spacingScale;
 
             StructurePlacement placement = null;
             if (!string.IsNullOrEmpty(group.standingOnStructureId))
@@ -196,7 +208,8 @@ namespace ArmedConflict.Game
                     ? tierResolver(group.definition)
                     : group.definition;
 
-                foreach (var spot in FormationFor(group, byLevelId, random, deckSpots))
+                foreach (var spot in FormationFor(group, byLevelId, random, deckSpots,
+                                          isPlayerSide ? PlayerSpacingScale(level) : 1f))
                 {
                     outp.Add(new UnitEntity(
                         Id: nextId++,
@@ -311,9 +324,15 @@ namespace ArmedConflict.Game
                     BurstsLeft: 0);
             }
 
-            int tankShells = structures
-                .Where(s => s.Definition.isPlayerSide && s.Definition.hasCannon)
-                .Sum(s => s.Definition.cannon.ammoPerBattle);
+            // Read from the PLACEMENTS, not the built entities, because the per-level override
+            // lives on the placement — the same reason MaxHp has to carry hpScale a few lines up.
+            // The two lists are 1:1 (the loop above walks level.structures by index), so this
+            // counts the same cannons either way.
+            int tankShells = level.structures
+                .Where(p => p.definition != null && p.definition.isPlayerSide
+                            && p.definition.hasCannon && p.definition.cannon != null)
+                .Sum(p => p.hasShellsOverride ? Mathf.Max(p.shellsOverride, 0)
+                                              : p.definition.cannon.ammoPerBattle);
 
             return new GameState
             {
@@ -332,6 +351,7 @@ namespace ArmedConflict.Game
                 Props = level.props,
                 Helicopter = heli,
                 TankShellsRemaining = tankShells,
+                InitialTankShells = tankShells,
                 PlayerCamXAnchor = playerCamXAnchor,
                 EnemyCamXAnchor = enemyCamXAnchor,
                 PlayerCamHalfWidth = playerHalf,

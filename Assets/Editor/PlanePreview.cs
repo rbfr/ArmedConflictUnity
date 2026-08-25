@@ -138,7 +138,7 @@ public static class PlanePreview
             lightGo.AddComponent<UnityEngine.Rendering.Universal.UniversalAdditionalLightData>();
         light.type = LightType.Directional;
         light.intensity = 1.1f;
-        lightGo.transform.rotation = Quaternion.Euler(50f, -30f, 0f);
+        lightGo.transform.rotation = Quaternion.Euler(50f, 210f, 0f);   // see SpikeSceneBattle: -30 lit the army from BEHIND
         RenderSettings.ambientMode = UnityEngine.Rendering.AmbientMode.Flat;
         RenderSettings.ambientLight = new Color(0.55f, 0.56f, 0.6f);
 

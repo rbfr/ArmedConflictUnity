@@ -34,7 +34,7 @@ MonoBehaviour:
     muzzleOffsetX: 1.08
     muzzleOffsetY: 0.72
     velocityBoost: 1.12
-    ammoPerBattle: 3
+    ammoPerBattle: 5
   hasCannon: 1
   flagMount:
     offsetX: 0

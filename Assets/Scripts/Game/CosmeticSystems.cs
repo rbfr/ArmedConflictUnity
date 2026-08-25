@@ -240,6 +240,34 @@ namespace ArmedConflict.Game
         public const float RagdollAirborneTiltMax = 55f;
         public const float RagdollTiltHalf = 15f;
 
+        /// <summary>
+        /// THE GROUND DEATH — knocked back, not tipped over (2026-08-25). Rob: *"when a unit is
+        /// on the ground and they die, they just tip over. let's make them get blown back but not
+        /// as dramatic as the one falling off the building."*
+        ///
+        /// It used to be a 0.35-0.80 shove with a 0.05-0.20 hop, and it went the WRONG WAY: the
+        /// old branch threw at `-sign`, i.e. TOWARD the enemy, on reasoning about shoving bodies
+        /// off a building — a comment that no longer described this branch at all, since a body
+        /// on a structure takes the tumble path. So a man shot on the dirt fell forwards, into
+        /// the fire that killed him.
+        ///
+        /// These sit deliberately BETWEEN the old tip-over and the deck tumble (Vx 0.90-2.10,
+        /// Vy 1.60-3.40, spin 120-200): far enough to read as a hit, nowhere near a body thrown
+        /// off a roof. At `RollFrictionPerTick` the throw carries about `Vx / 2.3` units, so this
+        /// range slides a body roughly 0.3-0.6 — a few body widths.
+        ///
+        /// NO yaw or tilt spin, unlike the tumble. The 3-axis cartwheel is most of what makes the
+        /// deck fall dramatic, and it is the half not wanted here.
+        /// </summary>
+        public const float RagdollKnockVxMin = 0.75f;
+        public const float RagdollKnockVxMax = 1.35f;
+        public const float RagdollKnockVyMin = 0.30f;
+        public const float RagdollKnockVyMax = 0.70f;
+        public const float RagdollKnockLeanMin = 12f;
+        public const float RagdollKnockLeanMax = 24f;
+        public const float RagdollKnockSpinMin = 100f;
+        public const float RagdollKnockSpinMax = 150f;
+
         public readonly struct RagdollImpulse
         {
             public readonly float Vx, Vy, Vz, Rotation, RotationSpeed;
@@ -285,15 +313,16 @@ namespace ArmedConflict.Game
             float sign = isPlayerSide ? -1f : 1f;
             if (!tumble)
             {
-                // Tip-over, not a launch. Shove them OFF the building
-                // (enemy −X, into no-man's-land) so they do not flop into
-                // the wall and flail against the wreck.
+                // KNOCKED BACK. `sign`, not `-sign`: the same "still backwards" convention the
+                // tumble uses, so a body goes away from whatever shot it instead of toward it.
                 return new RagdollImpulse(
-                    vx: -sign * Mathf.Lerp(0.35f, 0.80f, Hash01(unitId, 1u)),
-                    vy: Mathf.Lerp(0.05f, 0.20f, Hash01(unitId, 2u)),
+                    vx: sign * Mathf.Lerp(RagdollKnockVxMin, RagdollKnockVxMax, Hash01(unitId, 1u)),
+                    vy: Mathf.Lerp(RagdollKnockVyMin, RagdollKnockVyMax, Hash01(unitId, 2u)),
                     vz: Mathf.Lerp(-0.15f, 0.15f, Hash01(unitId, 3u)),
-                    rotation: -sign * Mathf.Lerp(18f, 32f, Hash01(unitId, 4u)),
-                    rotationSpeed: -sign * Mathf.Lerp(70f, 110f, Hash01(unitId, 5u)),
+                    rotation: sign * Mathf.Lerp(RagdollKnockLeanMin, RagdollKnockLeanMax,
+                                                Hash01(unitId, 4u)),
+                    rotationSpeed: sign * Mathf.Lerp(RagdollKnockSpinMin, RagdollKnockSpinMax,
+                                                     Hash01(unitId, 5u)),
                     yawSpeed: 0f,
                     tiltSpeed: 0f);
             }
@@ -374,7 +403,8 @@ namespace ArmedConflict.Game
                 ? 90f : -90f;
             float error = Mathf.DeltaAngle(r, nearest);
             float accel = error * FlopSpring - rotationSpeed * FlopDamping;
-            newRotationSpeed = rotationSpeed + accel * dt;
+            newRotationSpeed = Mathf.Clamp(rotationSpeed + accel * dt,
+                                           -FlopMaxSettleSpeed, FlopMaxSettleSpeed);
             newRotation = r + newRotationSpeed * dt;
         }
 
@@ -458,6 +488,29 @@ namespace ArmedConflict.Game
             return -RagdollSinkDepth * t;
         }
         public const float RollMinSpeed = 0.30f;
+
+        /// <summary>
+        /// Ceiling on how fast the settle spring may turn a body, in deg/s.
+        ///
+        /// Rob, 2026-08-25: *"when they are at/near the ground, they seem to start
+        /// glitching/going into some kind of animation loop before they finally disappear."*
+        /// Measured on a real deck fall, that is the roll-to-settle handover: the body rolls to
+        /// an ARBITRARY angle, and `StepFlopToSide` then has to cross up to 90 degrees to the
+        /// nearest side-lie. At FlopSpring 140 it crosses it in about an eighth of a second and
+        /// REVERSES on the way — +57 deg/s of roll became -158 in the same fifth of a second,
+        /// which is the snap being reported.
+        ///
+        /// The spring is not the wrong model and its constants are right for the small errors a
+        /// DIRT death hands it (a ~20 degree lean). What it needed was a speed limit, so a large
+        /// error eases over ~0.3s instead of snapping. Small errors never reach this cap, so the
+        /// tip-over is untouched.
+        ///
+        /// Two things tried first and reverted, because measurement said they missed: dropping
+        /// RollMinSpeed to bleed the roll off (it made the handover error WORSE, 32 -> 49
+        /// degrees) and bleeding the opposing inherited spin (the spring's own error term
+        /// dominates it).
+        /// </summary>
+        public const float FlopMaxSettleSpeed = 120f;
         public const float RollFrictionPerTick = 0.962f;   // per tick at 60Hz — see DecayPerTick60
         public const float RollDegPerUnit = 150f;
         public const float FlopSpring = 140f;

@@ -1275,6 +1275,8 @@ public class BattleRunner : MonoBehaviour
 
         Render();
         ApplyCamera();
+        // AFTER the camera moves, and ONCE per frame — see shellPanelRect.
+        shellPanelRect = ComputeShellToggleRect();
 
         if (dragging) { dragFrames++; if (dragFrames > 2) worstDragDt = Mathf.Max(worstDragDt, dt); }
     }
@@ -1302,6 +1304,7 @@ public class BattleRunner : MonoBehaviour
             // start an aim drag, or picking ammo throws a volley and ends the turn.
             if (AmmoSelectorRect.Contains(fromTop)) return;
             if (ConsumableBarRect.Contains(fromTop)) return;
+            if (ShellToggleRect.Contains(fromTop)) return;
             dragging = true; dragStart = t.position; dragFrames = 0; worstDragDt = 0f;
         }
         else if (dragging && (t.phase == TouchPhase.Moved || t.phase == TouchPhase.Stationary))
@@ -1920,6 +1923,90 @@ public class BattleRunner : MonoBehaviour
         ? new Rect(0f, 0f, 0f, 0f)
         : new Rect(30f, Screen.height - 470f, Screen.width - 60f, 104f);
 
+    /// <summary>
+    /// How many shell pips the magazine will draw before it gives up and prints a number instead.
+    /// The rig tank carries 999 (`PlayerTank__LevelDamageMarksTest`), which is not a magazine.
+    /// </summary>
+    const int MaxShellPips = 8;
+
+    const float ShellPanelW = 360f, ShellPanelH = 88f, ShellPanelDrop = 26f;
+
+    /// <summary>
+    /// The tank shell toggle's footprint. Same ONE-definition rule as the ammo row and the
+    /// consumable bar — the drawing and the drag exclusion read this identical rect, because a
+    /// tap that both toggled the gun and started an aim drag would fire the volley on release.
+    ///
+    /// IT IS PINNED TO THE TANK, NOT TO THE SCREEN (2026-08-24, Rob: *"should not follow across
+    /// the screen — it should be selectable during the player aim... and it should be underneath
+    /// the tank as well"*). A screen-anchored panel rode the camera through the whole volley and
+    /// the resolve, which made it read as a permanent HUD fixture rather than as a property of
+    /// the gun it belongs to. Anchored under the tank's base it says WHICH gun it is talking
+    /// about without a word of label doing that work.
+    ///
+    /// It exists ONLY during the player's aiming phase, so it is gone the instant the volley
+    /// leaves — the decision it carries has been taken by then, and a control that lingers past
+    /// its decision is a control that invites a tap that does nothing.
+    ///
+    /// CLAMPED to the screen, which can pull it off true centre under the tank. An unreachable
+    /// control is worse than an off-centre one, and the tank sits at the far end of the player
+    /// line where a tight aim frame can put it near the edge.
+    /// </summary>
+    /// <summary>
+    /// The panel's rect for THIS FRAME, computed once in Update and then held still.
+    ///
+    /// IT MUST NOT BE RECOMPUTED PER IMGUI EVENT, and that is not a performance note. OnGUI runs
+    /// several times a frame — Layout, then Repaint, then one pass per input event — and IMGUI
+    /// hands out control IDs in call order, matching them across those passes by POSITION IN THE
+    /// SEQUENCE. A control that exists in one pass and not the next shifts the ID of every
+    /// control declared after it, and their events are then delivered to the wrong control or to
+    /// nothing at all.
+    ///
+    /// This panel is anchored to the tank through `cam.WorldToScreenPoint`, so a live rect moved
+    /// (and could vanish, when the phase flipped) BETWEEN passes of a single frame. `DrawLevelNav`
+    /// is called immediately after it, so what that broke was the whole top bar — RIGS, CAM and
+    /// the ◀ ▶ stepper all drew correctly and none of them answered a tap. Reported from device
+    /// 2026-08-24: "now i can't switch levels and none of the top buttons work".
+    ///
+    /// Caching in Update fixes it because Update runs exactly once per frame, so every OnGUI pass
+    /// in that frame sees the identical rect.
+    /// </summary>
+    Rect shellPanelRect;
+
+    Rect ComputeShellToggleRect()
+    {
+        if (state == null || state.InitialTankShells <= 0) return new Rect(0f, 0f, 0f, 0f);
+        if (state.Phase != GamePhase.Playing || state.TurnPhase != TurnPhase.Aiming)
+            return new Rect(0f, 0f, 0f, 0f);
+        var tank = PlayerCannon();
+        if (tank == null || cam == null) return new Rect(0f, 0f, 0f, 0f);
+
+        // The tank's BASE, not the entity's Y — a structure entity's Y is the centre of its
+        // box, so anchoring on it would hang the panel through the hull.
+        var sp = cam.WorldToScreenPoint(GameSpace.ToUnity(tank.X, 0f, tank.Z));
+        if (sp.z <= 0f) return new Rect(0f, 0f, 0f, 0f);   // behind the camera
+
+        float x = sp.x - ShellPanelW * 0.5f;
+        float y = Screen.height - sp.y + ShellPanelDrop;   // Input y is bottom-up, GUI's is not
+        const float Margin = 20f;
+        x = Mathf.Clamp(x, Margin, Screen.width - ShellPanelW - Margin);
+        y = Mathf.Clamp(y, Margin, Screen.height - ShellPanelH - Margin);
+        return new Rect(x, y, ShellPanelW, ShellPanelH);
+    }
+
+    /// <summary>The frame's panel rect, shared by the drawing and the drag exclusion.</summary>
+    Rect ShellToggleRect => shellPanelRect;
+
+    /// <summary>The player-side structure that mounts the gun, or null. One source of truth for
+    /// "is there a tank", so the panel and <see cref="HasCannon"/> cannot disagree.</summary>
+    StructureEntity PlayerCannon()
+    {
+        if (state?.Structures == null) return null;
+        foreach (var st in state.Structures)
+            if (st.Definition != null && st.Definition.isPlayerSide && st.Definition.hasCannon)
+                return st;
+        return null;
+    }
+
     Rect FreeCamPadRect => new(PadX, PadTop,
                                3f * PadButton + 2f * PadGap, 2f * PadButtonH + PadGap);
 
@@ -2095,6 +2182,7 @@ public class BattleRunner : MonoBehaviour
 
         DrawAmmoSelector();
         DrawConsumables();
+        DrawShellToggle();
         DrawLevelNav();
         DrawFreeCamPad();
         DrawHud();
@@ -2251,6 +2339,172 @@ public class BattleRunner : MonoBehaviour
             GUI.color = prev;
             GUI.enabled = true;
         }
+    }
+
+    /// <summary>
+    /// THE TANK SHELL TOGGLE — the player's control over the heaviest round they own.
+    ///
+    /// WHY THIS EXISTS. The shells are the squad's ENTIRE demolition budget: a rifleman does
+    /// 8 x 0.25 = 2 damage to a wall, so the only thing that brings a garrisoned structure down
+    /// in a sane number of turns is the cannon. Before this switch the shell fired itself on
+    /// every volley, at whatever the infantry were aimed at — so a player who spent their first
+    /// turns shooting at an advancing charge (which is exactly what L4's `levelGoal` tells them
+    /// to do) put the whole budget into the dirt and reached a state no skill could win, with
+    /// nothing on screen having warned them. That was found by PLAYING L4 on 2026-08-24, twice;
+    /// the run that razed the buildings got to 1 v 1 and the run that chased the charge died on
+    /// turn 9 having killed 5 of 27.
+    ///
+    /// So the decision the switch adds is a real one: SPEND or HOLD, made before each volley
+    /// rather than discovered afterwards.
+    ///
+    /// DEFAULT IS ARMED, and that is a judgement rather than an obvious call. Held-by-default
+    /// would make every shell deliberate and would kill the trap outright — but it also means a
+    /// player who never notices this panel never fires a shell at all, and reaches the SAME
+    /// unwinnable state by a quieter road. Armed-by-default is what the game did before the
+    /// switch existed, so no level's measured balance moves on account of the default alone.
+    ///
+    /// The state PERSISTS across turns (`GameState.CannonArmed`) — arming does not consume
+    /// anything, so re-arming every turn would be a tax on the player who wants to shell straight
+    /// through. What the panel owes in exchange is that the current state is unmissable, which is
+    /// what the border and the magazine are for.
+    ///
+    /// It is drawn, not styled, because a `GUI.skin` button cannot show a magazine: the pips are
+    /// the read that a plain count is not — five slots with two gone says "you have spent two of
+    /// five" in one glance, where "Tank shells: 3" makes the player remember what they started
+    /// with.
+    /// </summary>
+    void DrawShellToggle()
+    {
+        // The rect itself carries the phase gate — it is empty outside the player's aim.
+        //
+        // NO EARLY RETURN, and the button below is declared UNCONDITIONALLY: both would change
+        // how many IMGUI controls this method contributes, which shifts the control IDs of
+        // everything drawn afterwards. See `shellPanelRect` for what that cost.
+        var r = ShellToggleRect;
+        bool show = r.width > 0f;
+
+        bool dry = state.TankShellsRemaining <= 0;
+        bool armed = state.CannonArmed && !dry;
+        bool canUse = !dragging && !dry;
+
+        var amber = new Color(1f, 0.78f, 0.25f);
+        var cold = new Color(0.55f, 0.60f, 0.66f);
+        var dead = new Color(0.42f, 0.42f, 0.44f);
+        var accent = dry ? dead : armed ? amber : cold;
+
+        // Visuals only when there IS a panel. These draw nothing interactive, so moving them
+        // behind a condition cannot disturb the control stream — the button below is what must
+        // stay unconditional.
+        if (show) DrawShellPanel(r, armed, dry, accent);
+
+        // ONE control, ALWAYS, whatever the panel is doing. When there is no panel it is parked
+        // off-screen at zero size rather than skipped, so the count of IMGUI controls this
+        // method contributes never changes.
+        GUI.enabled = show && canUse;
+        bool tapped = GUI.Button(show ? r : new Rect(-10f, -10f, 0f, 0f),
+                                 GUIContent.none, GUIStyle.none);
+        GUI.enabled = true;
+        if (tapped && show && canUse) ToggleCannon();
+    }
+
+    /// <summary>The panel's pixels. Split out so <see cref="DrawShellToggle"/> reads as what it
+    /// is: one control, declared once, with the artwork hung off a condition.</summary>
+    void DrawShellPanel(Rect r, bool armed, bool dry, Color accent)
+    {
+        var prev = GUI.color;
+
+        GUI.color = new Color(0.07f, 0.09f, 0.12f, 0.92f);
+        GUI.DrawTexture(r, Texture2D.whiteTexture);
+
+        // The border is the loudest half of the read, and it is deliberately ASYMMETRIC: an armed
+        // gun is a thick gold box, a held one a thin grey outline. Colour alone would not carry
+        // it — this HUD is looked at in a hurry, and the weight difference reads before the hue.
+        float b = armed ? 5f : 2f;
+        GUI.color = accent;
+        GUI.DrawTexture(new Rect(r.x, r.y, r.width, b), Texture2D.whiteTexture);
+        GUI.DrawTexture(new Rect(r.x, r.yMax - b, r.width, b), Texture2D.whiteTexture);
+        GUI.DrawTexture(new Rect(r.x, r.y, b, r.height), Texture2D.whiteTexture);
+        GUI.DrawTexture(new Rect(r.xMax - b, r.y, b, r.height), Texture2D.whiteTexture);
+
+        // ---- magazine, right-aligned ------------------------------------------------------
+        const float PipW = 14f, PipH = 30f, PipGap = 6f, Pad = 14f;
+        bool countable = state.InitialTankShells <= MaxShellPips;
+        float pipsWidth = 0f;
+        if (countable)
+        {
+            int total = state.InitialTankShells;
+            int left = Mathf.Clamp(state.TankShellsRemaining, 0, total);
+            pipsWidth = total * PipW + (total - 1) * PipGap;
+            float px = r.xMax - Pad - pipsWidth;
+            float py = r.y + (r.height - PipH) * 0.5f;
+
+            for (int i = 0; i < total; i++)
+            {
+                var pip = new Rect(px + i * (PipW + PipGap), py, PipW, PipH);
+                bool full = i < left;
+                GUI.color = full ? accent : new Color(0.20f, 0.22f, 0.25f);
+                GUI.DrawTexture(pip, Texture2D.whiteTexture);
+
+                // The NEXT round to leave the tube gets a bright cap while the gun is armed —
+                // the one pip that is about to become a hole. Nothing marks it when held,
+                // because then no round is going anywhere.
+                if (armed && i == left - 1)
+                {
+                    GUI.color = Color.white;
+                    GUI.DrawTexture(new Rect(pip.x, pip.y, PipW, 5f), Texture2D.whiteTexture);
+                }
+            }
+        }
+        else
+        {
+            // The rig tank's 999. A magazine is the wrong picture for it, so it gets a number.
+            GUI.color = accent;
+            var big = new GUIStyle(GUI.skin.label)
+            {
+                fontSize = 40, alignment = TextAnchor.MiddleRight,
+                normal = { textColor = accent },
+            };
+            pipsWidth = 110f;
+            GUI.Label(new Rect(r.xMax - Pad - pipsWidth, r.y, pipsWidth, r.height),
+                      $"{state.TankShellsRemaining}", big);
+        }
+
+        GUI.color = prev;
+
+        // ---- label ------------------------------------------------------------------------
+        float textW = r.width - Pad * 2f - pipsWidth - 10f;
+        var title = new GUIStyle(GUI.skin.label)
+        {
+            fontSize = 18, alignment = TextAnchor.LowerLeft,
+            normal = { textColor = new Color(0.80f, 0.84f, 0.88f) },
+        };
+        var status = new GUIStyle(GUI.skin.label)
+        {
+            fontSize = 25, fontStyle = FontStyle.Bold, alignment = TextAnchor.UpperLeft,
+            normal = { textColor = accent },
+        };
+        GUI.Label(new Rect(r.x + Pad, r.y + 8f, textW, 26f), "TANK SHELL", title);
+        // Rob's words, 2026-08-24 — "ARMED" / "NOT ARMED". An earlier pass wrote the CONSEQUENCE
+        // here ("FIRES THIS VOLLEY" / "HOLDING") on the theory that a state needs explaining;
+        // the panel only exists during the aim now, so "this volley" is the only volley it could
+        // mean and the extra words were noise on a smaller panel.
+        GUI.Label(new Rect(r.x + Pad, r.y + 34f, textW, 40f),
+                  dry ? "SPENT" : armed ? "ARMED" : "NOT ARMED", status);
+    }
+
+    /// <summary>
+    /// One tap on the shell panel. Nothing is spent and nothing is fired here — this only decides
+    /// whether the NEXT volley carries the heavy round, which `BattleTick.CannonShells` reads off
+    /// `CannonArmed`.
+    /// </summary>
+    void ToggleCannon()
+    {
+        state = state with { CannonArmed = !state.CannonArmed };
+        if (audioFx != null) audioFx.PlayUiUp();
+        // Reports the RESULTING state and the ammo behind it, so a device log settles what the
+        // player's tap actually did rather than that a handler ran.
+        Debug.Log($"[Cannon] armed={state.CannonArmed}, " +
+                  $"shells {state.TankShellsRemaining}/{state.InitialTankShells}");
     }
 
     /// <summary>
@@ -2428,13 +2682,7 @@ public class BattleRunner : MonoBehaviour
 
     /// <summary>Whether this level fields a player cannon at all — so the ammo readout appears
     /// on a level that HAS a tank and has spent its shells, and never on one that has none.</summary>
-    bool HasCannon()
-    {
-        foreach (var st in state.Structures)
-            if (st.Definition != null && st.Definition.isPlayerSide && st.Definition.hasCannon)
-                return true;
-        return false;
-    }
+    bool HasCannon() => PlayerCannon() != null;
 
     /// <summary>
     /// Flies the camera while the pad is held. Reads the direction OnGUI recorded, integrates it

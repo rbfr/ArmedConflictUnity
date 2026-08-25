@@ -18,6 +18,7 @@ MonoBehaviour:
   gunModelAsset: models/gun_sniper.glb
   maxHp: 16
   damage: 20
+  flatTrajectory: 1
   projectileType: 0
   bulletVariant: 2
   projectilesPerVolley: 1

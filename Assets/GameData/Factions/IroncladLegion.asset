@@ -15,5 +15,5 @@ MonoBehaviour:
   id: stage_stronghold
   displayName: Ironclad Legion
   uniformColor: {r: 0.27, g: 0.33, b: 0.42, a: 1}
-  gearColor: {r: 0.14, g: 0.17, b: 0.22, a: 1}
+  gearColor: {r: 0.24, g: 0.28, b: 0.34, a: 1}
   bannerColor: {r: 0.56, g: 0.72, b: 0.92, a: 1}

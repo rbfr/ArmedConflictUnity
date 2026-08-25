@@ -24,6 +24,10 @@ public static class RiggedUnits
 
     const string Model = "Assets/Models/unit_rifleman_rigged.glb";
     const string Clips = "Assets/Models/Kenney/character-m.glb";
+    /// <summary>Where the shared clips live, for tools that need to sample one
+    /// (UnitPosePreview). Exposed rather than copied — a second path string is a path
+    /// that can go stale on its own.</summary>
+    public static string RigPath => Clips;
 
     /// <summary>
     /// The rigged roster, keyed by the `modelAsset` the Kotlin data names — minus the `_rigged`
@@ -255,7 +259,13 @@ public static class RiggedUnits
         // the rifle over" read. Align barrel with the bone and magazine with arm +Z; after
         // the hold that is downfield and hanging down.
         float armLen = SHOULDER_Z - HIP_Z;
-        gun.transform.localPosition = new Vector3(0.10f, -armLen * 0.88f, 0.04f);
+        // x moved 0.10 -> -0.15 on 2026-08-25: the rifle used to hang OUTBOARD of the right
+        // shoulder (measured at rig x +0.625 against shoulders at +/-0.421), and with one bone
+        // per arm the left hand cannot reach that far across however hard it yaws — no arm angle
+        // alone could ever have fixed the one-armed look. Bringing the weapon toward the
+        // centreline is the other half of UnitAnim's hold correction; the two were chosen
+        // together off UnitPosePreview's measurements and only work as a pair.
+        gun.transform.localPosition = new Vector3(-0.15f, -armLen * 0.88f, 0.04f);
         // LookRotation(forward, right) put local +X (the barrel) down the bone
         // toward the shoulder — 180° off the hands. The phone showed every
         // muzzle at the tank. This is the opposite roll so the barrel continues

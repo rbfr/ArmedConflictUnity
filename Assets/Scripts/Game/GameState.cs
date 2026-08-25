@@ -186,6 +186,24 @@ namespace ArmedConflict.Game
 
         // ---- player armament ------------------------------------------------------------
         public int TankShellsRemaining { get; init; }
+
+        /// <summary>
+        /// What the battle STARTED with, so the HUD can show spent slots as well as remaining
+        /// ones — a magazine that only ever shrinks reads as "three shells" where one that shows
+        /// two dark slots reads as "three of five, you have spent two". Same role as
+        /// `InitialPlayerCount`, and set once by LevelBuilder.
+        /// </summary>
+        public int InitialTankShells { get; init; }
+
+        /// <summary>
+        /// Whether the tank fires with the volley. The player owns this — see the shell toggle in
+        /// BattleRunner. It PERSISTS across turns rather than re-arming each volley: the shell is
+        /// not consumed by arming, so auto-disarming would tax every turn of a level the player
+        /// wants to shell straight through.
+        ///
+        /// Defaults to ARMED, which is what the game did before there was a switch. It is not a
+        /// neutral default — see the shell toggle's own comment for why it is still the right one.
+        /// </summary>
         public bool CannonArmed { get; init; } = true;
         public IReadOnlyDictionary<ConsumableType, int> LoadedConsumables { get; init; }
             = new Dictionary<ConsumableType, int>();

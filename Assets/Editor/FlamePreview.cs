@@ -73,7 +73,7 @@ public static class FlamePreview
             lightGo.AddComponent<UnityEngine.Rendering.Universal.UniversalAdditionalLightData>();
         light.type = LightType.Directional;
         light.intensity = 1.1f;
-        lightGo.transform.rotation = Quaternion.Euler(50f, -30f, 0f);
+        lightGo.transform.rotation = Quaternion.Euler(50f, 210f, 0f);   // see SpikeSceneBattle: -30 lit the army from BEHIND
         // An empty scene has no ambient probe, so the lit unit materials came out as black
         // silhouettes on the first run — which is a fine way to see the flame and a useless way to
         // judge it against a soldier. The game gets its ambient from the real scene's lighting.

@@ -15,5 +15,5 @@ MonoBehaviour:
   id: stage_valley
   displayName: Redguard
   uniformColor: {r: 0.52, g: 0.2, b: 0.18, a: 1}
-  gearColor: {r: 0.2, g: 0.14, b: 0.13, a: 1}
+  gearColor: {r: 0.31, g: 0.23, b: 0.21, a: 1}
   bannerColor: {r: 0.92, g: 0.38, b: 0.33, a: 1}

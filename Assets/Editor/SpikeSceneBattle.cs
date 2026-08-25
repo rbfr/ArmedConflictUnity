@@ -95,7 +95,22 @@ public static class SpikeSceneBattle
         light.type = LightType.Directional;
         light.shadows = LightShadows.None;
         light.intensity = 1.1f;
-        lightGo.transform.rotation = Quaternion.Euler(50f, -30f, 0f);
+        // THE KEY LIGHT MUST TRAVEL AWAY FROM THE CAMERA, and for a long time it did the
+        // opposite. The camera sits at +Z looking toward -Z and every unit faces glTF +Z, so a
+        // camera-facing surface has normal +Z. At Euler(50, -30) the light's forward was
+        // (-0.32, -0.77, +0.56) — a POSITIVE z, i.e. travelling from behind the army toward the
+        // lens — so N.L on every camera-facing face was -0.56, clamped to zero. The whole army,
+        // and the front of every structure, was lit by AMBIENT ALONE.
+        //
+        // That is what "the units are too dark" was (Rob, 2026-08-25). It was never the albedo:
+        // the tell is in any pre-fix screenshot, where a bunker's horizontal TOP is bright and
+        // its vertical camera-facing FRONT is nearly black — a light-direction signature, since
+        // the two share one material.
+        //
+        // Yaw 210 keeps the same 50-degree pitch and mirrors z to (-0.32, -0.77, -0.56), which
+        // lights the faces the player actually sees while leaving the ground (normal +Y, N.L
+        // unchanged at 0.77) exactly as it was.
+        lightGo.transform.rotation = Quaternion.Euler(50f, 210f, 0f);
 
         var camGo = new GameObject("Main Camera");
         camGo.tag = "MainCamera";

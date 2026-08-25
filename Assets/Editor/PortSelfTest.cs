@@ -2609,10 +2609,17 @@ public static class PortSelfTest
                       "deck and garrison deaths tumble; dirt deaths do not");
                 var dirt = CosmeticSystems.ImpulseFor(10, false, tumble: false);
                 var deck = CosmeticSystems.ImpulseFor(10, false, tumble: true);
-                Check(dirt.Vy < 0.4f && dirt.Vx < 0f
+                // THIS CHECK USED TO ASSERT `dirt.Vx < 0f` — a dirt death thrown at -sign, i.e.
+                // TOWARD the enemy. That was the old tip-over, and it is the behaviour Rob asked
+                // to change on 2026-08-25, so the assertion was retargeted rather than deleted:
+                // a dirt death now leaves on the SAME side as a deck fall (both "backwards"),
+                // but shorter, flatter, and without the cartwheel.
+                Check(Mathf.Sign(dirt.Vx) == Mathf.Sign(deck.Vx)
+                      && Mathf.Abs(dirt.Vx) < Mathf.Abs(deck.Vx)
                       && deck.Vy > dirt.Vy + 1f
                       && Mathf.Abs(dirt.YawSpeed) < 1f && Mathf.Abs(deck.YawSpeed) > 10f,
-                      $"dirt tips AWAY from the building ({dirt.Vx:F2}, {dirt.Vy:F2} up); "
+                      $"dirt is knocked BACK the same way a deck fall goes, but shorter and " +
+                      $"flatter and with no cartwheel ({dirt.Vx:F2}, {dirt.Vy:F2} up); "
                       + $"a deck fall launches ({deck.Vy:F2})");
             }
             Check(CosmeticSystems.HealthBarTrackAlpha(CosmeticSystems.HealthBarSeconds - 0.2f)
@@ -2620,6 +2627,69 @@ public static class PortSelfTest
                   "and it is visibly GONE first, so a bar dissolves to colour, not to black");
 
             CheckFlame();
+
+            // A BODY SETTLING ONTO ITS SIDE MUST NOT SNAP. Rob, 2026-08-25: a corpse "at/near
+            // the ground" appeared to "start glitching/going into some kind of animation loop".
+            // Measured on a real deck fall, the roll hands over to the settle spring at an
+            // ARBITRARY angle, so the spring can have up to 90 degrees to cross; at FlopSpring
+            // 140 it crossed it in an eighth of a second and REVERSED — a body rolling at
+            // +57 deg/s was whipped to -158.
+            //
+            // Asserted as the fastest rotation the settle ever applies — the thing on screen —
+            // rather than as the cap constant, and driven from a real rolling handover rather
+            // than from a hand-placed angle, because the whip only exists when a roll feeds it.
+            {
+                float flopRot = 302f, flopSpin = 57f;   // the measured handover, mid-roll
+                float worst = 0f;
+                for (int i = 0; i < 240; i++)
+                {
+                    CosmeticSystems.StepFlopToSide(flopRot, flopSpin, 1f / 60f,
+                                                   out flopRot, out flopSpin);
+                    worst = Mathf.Max(worst, Mathf.Abs(flopSpin));
+                }
+                bool onSide = Mathf.Abs(Mathf.DeltaAngle(flopRot, 90f)) < 1f
+                           || Mathf.Abs(Mathf.DeltaAngle(flopRot, -90f)) < 1f;
+                Check(worst <= CosmeticSystems.FlopMaxSettleSpeed + 1f && onSide,
+                      $"a corpse settles onto its side without snapping — fastest settle turn " +
+                      $"{worst:F0} deg/s (cap {CosmeticSystems.FlopMaxSettleSpeed:F0}; uncapped this " +
+                      $"harness reaches 148 and a real deck fall reached 231), ending at " +
+                      $"{flopRot:F1} degrees");
+            }
+
+            // A GROUND DEATH IS KNOCKED BACK, and "back" is a DIRECTION with a sign that has
+            // been wrong before — the old branch threw at -sign, so a man shot on the dirt fell
+            // TOWARD the enemy, into the fire that killed him. Rob, 2026-08-25: "when a unit is
+            // on the ground and they die, they just tip over. let's make them get blown back but
+            // not as dramatic as the one falling off the building."
+            //
+            // Asserted as the DISPLACEMENT a real ragdoll step produces, not as the constant:
+            // the impulse is a launch, friction eats it, and what anyone can see is where the
+            // body ends up. Both sides are checked because the sign is mirrored per side and a
+            // single-side test passes on a bug that flips only the other one.
+            {
+                float Travel(bool playerSide, bool tumble)
+                {
+                    var imp = CosmeticSystems.ImpulseFor(4242, playerSide, tumble);
+                    float vx = imp.Vx, x = 0f;
+                    for (int i = 0; i < 90; i++)      // 1.5s at 60Hz — long past the slide
+                    {
+                        x += vx * (1f / 60f);
+                        vx *= CosmeticSystems.DecayPerTick60(0.962f, 1f / 60f);
+                    }
+                    return x;
+                }
+
+                float pGround = Travel(true, false), eGround = Travel(false, false);
+                float pDeck = Travel(true, true);
+                // Enemy stands at +x and must be thrown further +x; the player is the mirror.
+                bool backwards = pGround < 0f && eGround > 0f;
+                bool between = Mathf.Abs(pGround) > 0.20f
+                               && Mathf.Abs(pGround) < Mathf.Abs(pDeck);
+                Check(backwards && between,
+                      $"a body killed on the DIRT is knocked BACKWARDS, and less far than one " +
+                      $"thrown off a deck — player {pGround:F2}, enemy {eGround:F2} " +
+                      $"(want opposite signs, player negative), deck fall {pDeck:F2}");
+            }
 
             // Ragdoll rest height: a body must never sink through the floor at any rotation.
             for (int deg = 0; deg < 360; deg += 7)
@@ -4887,6 +4957,62 @@ public static class PortSelfTest
                 Check(st0.TankShellsRemaining > 0,
                       $"a level with a cannon starts with ammo ({st0.TankShellsRemaining})");
 
+                // THE SHELL BUDGET — the authored count, the record of it, and the level's right
+                // to override it, in one check because they are one fact with three faces.
+                //
+                // Asserted against the BUILT STATE, never against the asset field: the total is
+                // summed over PLACEMENTS through a side/cannon filter, so a filter that quietly
+                // dropped the tank would leave `ammoPerBattle: 5` sitting in the asset while the
+                // battle started with nothing. That is the whole "assert the output" rule — the
+                // number the player is handed, not the number somebody typed.
+                //
+                // The override half runs on a CLONE. Mutating the loaded asset would dirty a real
+                // campaign level to run a test, and an editor that later saved would write the rig
+                // value into the game.
+                {
+                    var tankPlacement = withCannon.structures
+                        .First(p => p.definition != null && p.definition.isPlayerSide
+                                    && p.definition.hasCannon);
+                    int authored = tankPlacement.definition.cannon.ammoPerBattle;
+
+                    var clone = UnityEngine.Object.Instantiate(withCannon);
+                    int overridden = -1;
+                    try
+                    {
+                        var cl = clone.structures
+                            .First(p => p.definition != null && p.definition.isPlayerSide
+                                        && p.definition.hasCannon);
+                        // 2 is not the authored 5 and not zero, so neither "ignored the override"
+                        // nor "zeroed everything" can pass this by accident.
+                        cl.hasShellsOverride = true;
+                        cl.shellsOverride = 2;
+                        overridden = LevelBuilder
+                            .BuildInitialState(clone, 1, levels.Count, new System.Random(7))
+                            .TankShellsRemaining;
+                    }
+                    finally { UnityEngine.Object.DestroyImmediate(clone); }
+
+                    Check(authored == 5
+                          && st0.TankShellsRemaining == authored
+                          && st0.InitialTankShells == authored
+                          && overridden == 2,
+                          $"the tank brings FIVE shells and the level may say otherwise — " +
+                          $"{withCannon.displayName} built {st0.TankShellsRemaining} " +
+                          $"(want {authored}), start-of-battle record {st0.InitialTankShells}, " +
+                          $"same level with a placement override of 2 built {overridden}");
+
+                    // The record of what the battle STARTED with must not move as rounds are
+                    // spent — it is what the magazine draws its empty slots from, so a value that
+                    // tracked the remaining count would render a magazine that never empties.
+                    var spentOnce = BattleTick.FireVolley(st0, new Vector3(6f, 6f, 0f),
+                                                          new System.Random(3));
+                    Check(spentOnce.InitialTankShells == st0.InitialTankShells
+                          && spentOnce.TankShellsRemaining < st0.TankShellsRemaining,
+                          $"spending a shell moves the REMAINING count and not the starting one " +
+                          $"({st0.TankShellsRemaining} -> {spentOnce.TankShellsRemaining} of " +
+                          $"{spentOnce.InitialTankShells})");
+                }
+
                 var fired = BattleTick.FireVolley(st0, new Vector3(6f, 6f, 0f), new System.Random(3));
                 int shellsOut = fired.Projectiles.Count(p => p.Type == ProjectileType.Shell);
                 Check(shellsOut > 0, $"the player volley includes a tank shell ({shellsOut})");
@@ -5108,8 +5234,119 @@ public static class PortSelfTest
               "L5 fields no player tank");
         Check(l5.playerGroups.All(g => string.IsNullOrEmpty(g.standingOnStructureId)),
               "L5's squad stands on the ground (crew folded into the line)");
-        Check(l5.playerGroups.Sum(g => g.count) == 10,
-              $"L5 still fields 10 bodies ({l5.playerGroups.Sum(g => g.count)})");
+        // L5 PLAYS HARD, so 2026-08-25 gave it more men in a tighter line (Rob: "we should group
+        // player units together more closely, add a few more player units.... plays difficult").
+        // Asserted as what a DEFAULT PLAYER ACTUALLY FIELDS AND WHERE HE STANDS, because the two
+        // halves fail in different, silent ways:
+        //   - counts: a squad the deployBudget cannot afford is silently truncated by the picker,
+        //     so the level would field the old 10 with a bigger number sitting in the asset;
+        //   - spacing: a picked squad THROWS THE AUTHORED ANCHORS AWAY (Loadout.ToPlayerGroups
+        //     tiles its own line), so tightening anchorX would move the ◀ ▶ stepper's line and
+        //     nothing the player ever sees. Measured as the width of the BUILT line, against the
+        //     same level built at scale 1.
+        {
+            var roster5 = AssetDatabase.LoadAssetAtPath<RosterDefinitionSO>(
+                "Assets/GameData/Roster.asset");
+            ProgressStore.ResetAll();
+            var picks5 = Loadout.Default(l5, roster5, ProgressStore.IsUnitUnlocked);
+            int fielded = picks5.Sum(p => p.Count);
+            int points = Loadout.PointsUsed(picks5, roster5);
+
+            float WidthOf(LevelDefinitionSO lv)
+            {
+                var built = LevelBuilder.BuildInitialState(
+                    lv, 5, 12, new System.Random(9),
+                    playerGroupsOverride: Loadout.ToPlayerGroups(
+                        lv, Loadout.Default(lv, roster5, ProgressStore.IsUnitUnlocked)));
+                var ground = built.PlayerUnits.Where(u => u.StandingOnStructureId == null).ToList();
+                return ground.Count == 0 ? 0f
+                     : ground.Max(u => u.X) - ground.Min(u => u.X);
+            }
+
+            float tight = WidthOf(l5);
+            var loose = UnityEngine.Object.Instantiate(l5);
+            float wide;
+            try { loose.playerSpacingScale = 1f; wide = WidthOf(loose); }
+            finally { UnityEngine.Object.DestroyImmediate(loose); }
+
+            // THE AUTHORED MIX must fit the budget, and that is NOT what `points` above measures.
+            // ResetAll leaves the grenadier and the sniper LOCKED, so Loadout.Default substitutes
+            // cheap riflemen and the squad comes to 13 points — while the real unlocked mix
+            // (10 rifle + 2 grenadier + 1 sniper) costs 16 against a budget of exactly 16. The
+            // device showed "16/16 points" where this test said 13. Measured unlock-independently
+            // here, because the truncation it guards against is silent: the picker just fields
+            // fewer men and the level looks authored-but-easier.
+            int authoredPoints = l5.playerGroups
+                .Where(g => string.IsNullOrEmpty(g.standingOnStructureId) && g.definition != null)
+                .Sum(g => g.count * Loadout.PointCost(g.definition, roster5));
+
+            Check(l5.playerGroups.Sum(g => g.count) == 13
+                  && fielded == 13 && points <= l5.deployBudget
+                  && authoredPoints <= l5.deployBudget
+                  && tight < wide - 0.2f,
+                  $"L5 fields THIRTEEN bodies in a line packed to {l5.playerSpacingScale:F2} — " +
+                  $"authored {l5.playerGroups.Sum(g => g.count)}, a default squad fields " +
+                  $"{fielded} for {points} of {l5.deployBudget} points (the AUTHORED mix costs " +
+                  $"{authoredPoints}), and the built line is " +
+                  $"{tight:F2} wide against {wide:F2} at scale 1");
+        }
+
+        // THE TOWER SNIPER SHOOTS FLAT (2026-08-25, Rob: "make their shot more on a direct line
+        // instead of an arc"). Asserted on the ROUND, not on the flag: a flat solve needs far
+        // more speed than a lob, MaxEnemyLaunchSpeed caps it, and a shot that cannot reach is a
+        // sniper that has quietly stopped being a threat. So this measures BOTH the departure
+        // angle and where the round comes down, over many rolls because the angle is a band and
+        // the aim is jittered.
+        {
+            var s5 = LevelBuilder.BuildInitialState(l5, 5, 12, new System.Random(9))
+                with { Phase = GamePhase.Playing, TurnPhase = TurnPhase.Aiming };
+            var sniper = s5.EnemyUnits.FirstOrDefault(
+                u => u.Definition != null && u.Definition.id == "enemy_sniper");
+            float lineMin = s5.PlayerUnits.Min(u => u.X) - 2.5f;   // aim jitter is +/-2
+            float lineMax = s5.PlayerUnits.Max(u => u.X) + 2.5f;
+
+            // SEEDED. AimAt rolls its angle and its jitter off UnityEngine.Random, so without
+            // this the check is a coin flip re-tossed every run — it passed four runs and then
+            // reported a round 0.94 short on the fifth. A check that only sometimes goes red is
+            // not a check. State is saved and restored so nothing downstream inherits the seed.
+            var rngState = Random.state;
+            Random.InitState(20260825);
+            int rounds = 0, flat = 0, onTheLine = 0; float steepest = 0f, worstShort = 0f;
+            for (int i = 0; i < 60 && sniper != null; i++)
+            {
+                var v = BattleTick.FireEnemyVolley(
+                    s5 with { TurnPhase = TurnPhase.EnemyWindup }, new System.Random(i));
+                var shot = v.Projectiles.FirstOrDefault(
+                    pr => !pr.OwnerIsPlayer && Mathf.Abs(pr.X - sniper.X) < 0.01f
+                                            && Mathf.Abs(pr.Y - (sniper.Y + 0.35f)) < 0.01f);
+                if (shot == null) continue;
+                rounds++;
+                float deg = Mathf.Atan2(shot.Vy, Mathf.Abs(shot.Vx)) * Mathf.Rad2Deg;
+                steepest = Mathf.Max(steepest, deg);
+                if (deg <= 20f) flat++;
+                float land = TrajectoryPhysics.LandingPoint(
+                    new Vector3(shot.X, shot.Y, shot.Z),
+                    new Vector3(shot.Vx, shot.Vy, shot.Vz)).x;
+                if (land >= lineMin && land <= lineMax) onTheLine++;
+                else if (land > lineMax) worstShort = Mathf.Max(worstShort, land - lineMax);
+            }
+
+            // The bar that matters is SHORT, not wide. A round that cannot reach means the speed
+            // cap has eaten the flat solve and the sniper has quietly stopped being a threat;
+            // a round that sails LONG is aim jitter on a shallow trajectory, which is the honest
+            // cost of shooting flat and is allowed. Two thirds arriving still makes it a threat.
+            Random.state = rngState;
+
+            Check(sniper != null && rounds > 0 && flat == rounds
+                  && worstShort <= 1.5f && onTheLine >= rounds * 0.66f,
+                  $"L5's tower sniper fires a DIRECT shot that still arrives — {rounds} rounds, " +
+                  $"{flat} under 20 degrees (steepest {steepest:F1}, a lobbed shot is 35-60), " +
+                  $"{onTheLine} landing on the player line ({lineMin:F1}..{lineMax:F1})" +
+                  (worstShort > 0f
+                      ? $", worst round {worstShort:F2} short of it (over 1.5 means the speed " +
+                        "cap has eaten the flat solve and the gun cannot reach)"
+                      : ", none falling short"));
+        }
 
         var st = LevelBuilder.BuildInitialState(l5, 1, 12, new System.Random(9));
         Check(st.TankShellsRemaining == 0, "L5 starts with no shells");

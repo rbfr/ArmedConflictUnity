@@ -2366,7 +2366,8 @@ namespace ArmedConflict.Game
             var target = playerUnits[random.Next(playerUnits.Count)];
             return EnemyAI.AimAt(new Vector3(e.X, e.Y + 0.35f, e.Z),
                                  new Vector3(target.X, target.Y, target.Z),
-                                 jitterMultiplier);
+                                 jitterMultiplier,
+                                 e.Definition != null && e.Definition.flatTrajectory);
         }
 
         /// <summary>The enemy's answering volley, aimed with jitter at random player units.</summary>

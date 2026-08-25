@@ -22,7 +22,7 @@ MonoBehaviour:
   modelAbsoluteScale: 1
   modelScaleUnits: 2.5
   standWidth: 2.25
-  deckStandZOffset: 0
+  deckStandZOffset: 0.355
   hitWidth: 2.5
   hasHitWidth: 1
   deckY: -1

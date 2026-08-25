@@ -32,7 +32,24 @@ namespace ArmedConflict.Data
         /// compute a negative damage fraction and never shed anything however hard it was hit.
         /// </summary>
         public float hpScale = 1f;
+
+        /// <summary>
+        /// A level can override how many shells this cannon brings, the same way `hpScale`
+        /// overrides its HP. The definition's `cannon.ammoPerBattle` is the default (5 on
+        /// PlayerTank as of 2026-08-24) and it is the right number for most levels; this exists
+        /// because the shell budget is the player's ENTIRE demolition capacity, so a level whose
+        /// garrisoned HP is unusually low or high needs to move it without minting a second tank
+        /// asset. `BalanceAudit` reads it, so a level that dials shells down shows up in the siege
+        /// line rather than silently becoming unwinnable.
+        ///
+        /// Paired with a HAS flag rather than using a sentinel, because zero is a legitimate
+        /// override — "this level's tank has a cold gun" — and -1 as "unset" reads as a bug the
+        /// first time somebody sees it in the inspector.
+        /// </summary>
+        public int shellsOverride = 0;
+        public bool hasShellsOverride = false;
     }
+
 
     [Serializable]
     public class PropPlacement
@@ -126,6 +143,30 @@ namespace ArmedConflict.Data
         public List<PropPlacement> props = new();
         public int levelBase = 60;
         public int deployBudget = 0;
+
+        /// <summary>
+        /// How tightly this level packs the PLAYER's ground line. 1 is the campaign default;
+        /// below 1 is tighter.
+        ///
+        /// IT HAS TO BE A SPACING KNOB AND CANNOT BE THE AUTHORED ANCHORS, because a picked
+        /// squad throws `playerGroups`' anchorX away: `Loadout.ToPlayerGroups` tiles the chosen
+        /// units on a uniform pitch centred on `GroundAnchorX`, and `Formation.Clustered` lays
+        /// each group out from `DefaultColumnSpacing`. The authored anchors are only read when
+        /// there is no picker in the loop — the ◀ ▶ stepper — so editing them tunes the debug
+        /// path and leaves the player's real line exactly where it was.
+        ///
+        /// IT CHANGES DIFFICULTY, not just the picture. Every unit fires with ONE shared launch
+        /// velocity from its OWN x, so the volley's beaten zone is about as wide as the line that
+        /// threw it. Tightening the line concentrates the same rounds onto a smaller patch, which
+        /// is the difference between wounding four men and killing two.
+        ///
+        /// A SCALE, not an absolute, so it rides any future change to the global spacing instead
+        /// of pinning one level to a number that used to mean "tight". Do not take it far below
+        /// ~0.75: `Formation.Clustered` packs within a group at 0.62x of this, and a body is
+        /// ~0.131 wide, so the men start to intersect. PortSelfTest measures the tightest pair on
+        /// every level and goes red before that happens.
+        /// </summary>
+        public float playerSpacingScale = 1f;
         public List<BossPhaseTrigger> bossPhases = new();
         public float windAccelZ = 0f;
         public List<ReinforcementWave> reinforcementWaves = new();

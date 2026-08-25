@@ -31,7 +31,7 @@ MonoBehaviour:
     advancePerTurn: 0
   - definition: {fileID: 11400000, guid: db1f649e9127f6c1b8ed266c10d64185, type: 2}
     count: 1
-    anchorX: 10
+    anchorX: 9.4
     anchorZ: 0.12
     standingOnStructureId: tow_top
     advancePerTurn: 0
@@ -68,7 +68,7 @@ MonoBehaviour:
     hpScale: 1
   playerGroups:
   - definition: {fileID: 11400000, guid: 42221a45b5be3eb57b1b2bd28b9aaac0, type: 2}
-    count: 7
+    count: 10
     anchorX: -7.4
     anchorZ: 0
     standingOnStructureId: 
@@ -103,7 +103,8 @@ MonoBehaviour:
     halfWidth: 0.6
     keepColors: 1
   levelBase: 110
-  deployBudget: 13
+  playerSpacingScale: 0.8
+  deployBudget: 16
   bossPhases: []
   windAccelZ: 0
   reinforcementWaves: []
@@ -122,4 +123,15 @@ MonoBehaviour:
     Tower garrison 2026-08-21: those were MACHINE GUNNERS (6 crowd), not snipers.
     MG belong in the street (3, at 3.5). ONE sniper on the platform \u2014 elevated,
     back, hard to reach. The loft is still the beat; the payload is one 16-hp gun,
-    not a roof of burst fire."
+    not a roof of burst fire. PLAYS HARD \u2014 2026-08-25, Rob: "we should group
+    player units together more closely, add a few more player units.... plays
+    difficult." Squad 10 -> 13 (riflemen 7 -> 10) and deployBudget 13 -> 16, which
+    the extra bodies need or the picker silently truncates them. Line packed to
+    playerSpacingScale 0.8: the built line is 1.15 wide holding 13 where it was 1.44
+    holding 10. That is a DIFFICULTY change, not dressing \u2014 one shared launch
+    velocity fired from each unit's own x means the beaten zone is about as wide as
+    the line, so a tighter line puts more of the same volley on the same men. Race
+    went 0.7x -> 0.4x (player 3.0 -> 2.4 clean volleys, enemy 4.5 -> 6.0). Sniper
+    pulled to the LEDGE, anchorX 10 -> 9.4 (deck spans 9.25..10.75), and given
+    flatTrajectory so it fires a direct 12-20 degree shot instead of a 35-60 lob.
+    The 11.6 separation warning is OLDER than all of this and unchanged by it."
