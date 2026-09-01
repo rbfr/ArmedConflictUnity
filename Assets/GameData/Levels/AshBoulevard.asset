@@ -52,6 +52,8 @@ MonoBehaviour:
     standWidth: -1
     hasStandWidth: 0
     hpScale: 1
+    shellsOverride: 3
+    hasShellsOverride: 1
   - id: block
     definition: {fileID: 11400000, guid: 95d24e4e2581b55ea876178f5d94a3b4, type: 2}
     x: 6.8
@@ -133,4 +135,8 @@ MonoBehaviour:
     buys one extra volley for the player who reads the board. Moved up from L6 \u2014
     panic and relief belong early, not after the elevation lesson. Checkpoint pulled
     8.6 -> 7.2 (separation was 18.1, and the enemy cluster was 11.4 wide, over rule
-    2) and the garrison raised to 10 of 17."
+    2) and the garrison raised to 10 of 17. Tank is shellsOverride 3 (2026-08-27):
+    the global 5 dropped both buildings by turn 4 with 2 left; 4 would still raze
+    both before contact. 3x96=288 against 240 garrisoned HP, so the magazine is
+    again the whole demolition budget and HOLD for the charge is the skill the
+    panel teaches."

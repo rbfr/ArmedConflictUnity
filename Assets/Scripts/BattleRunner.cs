@@ -177,6 +177,14 @@ public class BattleRunner : MonoBehaviour
     Vector2 dragStart;
     Vector3 aimVel;
     readonly List<Vector3> arc = new();
+    /// <summary>
+    /// Last fired drag, kept after the finger comes up so the next aim has a number
+    /// to adjust from. The Kotlin HUD showed this as "Last: Angle / Power"; the port
+    /// dropped it and the live readout vanished with the drag. Cleared on LoadLevel,
+    /// not on a cancelled micro-drag, and not on the enemy's turn.
+    /// </summary>
+    bool hasLastAim;
+    float lastAimPower, lastAimAngle;
 
     // The elevation the player's line is HOLDING. Live while dragging, then held through the
     // volley — the rounds are still in the air, so dropping the arms at release would have the
@@ -192,6 +200,7 @@ public class BattleRunner : MonoBehaviour
     GUIStyle style;
     Texture2D dot;
     MaterialPropertyBlock blastProps;
+    MaterialPropertyBlock tracerProps;
 
     // ---- health bars ---------------------------------------------------------------------
     //
@@ -444,6 +453,7 @@ public class BattleRunner : MonoBehaviour
         enemyWindup = 0f;
         dragging = false;
         aimVel = Vector3.zero;
+        hasLastAim = false;
         aimPoseDegrees = 0f;
         arc.Clear();
 
@@ -1188,6 +1198,66 @@ public class BattleRunner : MonoBehaviour
     const float StrafeRoundStretch = 4.5f;
     const float StrafeRoundWidth = 0.7f;
 
+    /// <summary>
+    /// Ordinary rifle tracers are a flat un-tapered dash. Do not stretch them
+    /// along flight — that is what made a slug into a spear (08-28). The
+    /// aircraft cannon still uses 4.5x because a burst of dots read as a
+    /// dotted chain.
+    /// </summary>
+    const float BulletStreak = 1.0f;
+    const float BulletStreakWidth = 1.0f;
+
+    static Vector3 ShotScale(ProjectileEntity pr, Vector3 baseScale)
+    {
+        if (pr.IsStrafe)
+            return new Vector3(baseScale.x * StrafeRoundStretch,
+                               baseScale.y * StrafeRoundWidth,
+                               baseScale.z * StrafeRoundWidth);
+        if (pr.IsAirstrike) return baseScale * AirstrikeRoundScale;
+        if (pr.Type != ProjectileType.Bullet) return baseScale;
+
+        float along = BulletStreak;
+        float across = BulletStreakWidth;
+        if (pr.BulletVariant == BulletVariant.Sniper) { along *= 1.15f; across *= 0.9f; }
+        else if (pr.BulletVariant == BulletVariant.MachineGun) { along *= 0.95f; across *= 1.1f; }
+        return new Vector3(baseScale.x * along, baseScale.y * across, baseScale.z * across);
+    }
+
+    /// <summary>
+    /// Per-variant tracer colour, via a property block so pooled slots do not
+    /// recode the shared Unlit. Sniper is a white needle; MG is a stubbier
+    /// yellow; rifle stays the orange the Kotlin tracer used.
+    /// </summary>
+    void TintTracer(GameObject go, ProjectileEntity pr)
+    {
+        tracerProps ??= new MaterialPropertyBlock();
+        Color body, tail;
+        if (pr.BulletVariant == BulletVariant.Sniper)
+        {
+            body = new Color(0.82f, 0.93f, 1f);
+            tail = new Color(0.35f, 0.50f, 0.62f);
+        }
+        else if (pr.BulletVariant == BulletVariant.MachineGun)
+        {
+            body = new Color(1f, 0.88f, 0.28f);
+            tail = new Color(0.62f, 0.45f, 0.10f);
+        }
+        else
+        {
+            body = new Color(1f, 0.647f, 0f);
+            tail = new Color(0.541f, 0.353f, 0.071f);
+        }
+        foreach (var r in go.GetComponentsInChildren<MeshRenderer>())
+        {
+            bool accent = r.gameObject.name.StartsWith("accent");
+            var c = accent ? tail : body;
+            tracerProps.Clear();
+            tracerProps.SetColor("_BaseColor", c);
+            tracerProps.SetColor("_Color", c);
+            r.SetPropertyBlock(tracerProps);
+        }
+    }
+
     GameObject Spawn(GameObject prefab, string name)
     {
         var go = Instantiate(prefab, poolRoot);
@@ -1327,6 +1397,9 @@ public class BattleRunner : MonoBehaviour
         arc.Clear();
         if (aimVel.sqrMagnitude < 0.01f) return;
         if (state.TurnPhase != TurnPhase.Aiming) return;
+        lastAimPower = AimSystem.StrengthPercent(aimVel);
+        lastAimAngle = AimSystem.AngleDegrees(aimVel);
+        hasLastAim = true;
         var beforeVolley = state;
         state = BattleTick.FireVolley(state, aimVel, random, ammoCatalog);
         SettleArmedSpend(beforeVolley, state);
@@ -1547,11 +1620,8 @@ public class BattleRunner : MonoBehaviour
             // framing is not the round's area, it is that a dot is the same shape whether it is
             // moving or not. Seven of these and fourteen of them looked identical on a device.
             var baseScale = shotBaseScale.TryGetValue(pr.Type, out var bs) ? bs : Vector3.one;
-            go.transform.localScale =
-                pr.IsStrafe ? new Vector3(baseScale.x * StrafeRoundStretch,
-                                          baseScale.y * StrafeRoundWidth,
-                                          baseScale.z * StrafeRoundWidth)
-                            : baseScale * (pr.IsAirstrike ? AirstrikeRoundScale : 1f);
+            go.transform.localScale = ShotScale(pr, baseScale);
+            if (pr.Type == ProjectileType.Bullet) TintTracer(go, pr);
         }
 
         // Explosions: swell fast, then FADE. Without the fade an opaque sphere just sits there
@@ -2131,6 +2201,15 @@ public class BattleRunner : MonoBehaviour
                 $"power {AimSystem.StrengthPercent(aimVel):F0}%    angle {AimSystem.AngleDegrees(aimVel):F0}°",
                 small);
         }
+        else if (hasLastAim && state.Phase == GamePhase.Playing)
+        {
+            // Same numbers as the live drag, prefixed so it is the last shot and not a
+            // stuck finger. Kotlin kept this through the enemy turn; wiping it with the
+            // drag is what made the next aim a guess from memory.
+            GUI.Label(new Rect(28, y, 900, 50),
+                $"Last:  power {lastAimPower:F0}%    angle {lastAimAngle:F0}°",
+                small);
+        }
 
         // Diagnostics, deliberately bottom-right and dim — useful while porting, not part of
         // the game's own presentation.
@@ -2384,18 +2463,19 @@ public class BattleRunner : MonoBehaviour
         bool show = r.width > 0f;
 
         bool dry = state.TankShellsRemaining <= 0;
-        bool armed = state.CannonArmed && !dry;
-        bool canUse = !dragging && !dry;
+        bool unmanned = !BattleTick.CannonHasOperator(state);
+        bool armed = state.CannonArmed && !dry && !unmanned;
+        bool canUse = !dragging && !dry && !unmanned;
 
         var amber = new Color(1f, 0.78f, 0.25f);
         var cold = new Color(0.55f, 0.60f, 0.66f);
         var dead = new Color(0.42f, 0.42f, 0.44f);
-        var accent = dry ? dead : armed ? amber : cold;
+        var accent = dry || unmanned ? dead : armed ? amber : cold;
 
         // Visuals only when there IS a panel. These draw nothing interactive, so moving them
         // behind a condition cannot disturb the control stream — the button below is what must
         // stay unconditional.
-        if (show) DrawShellPanel(r, armed, dry, accent);
+        if (show) DrawShellPanel(r, armed, dry, unmanned, accent);
 
         // ONE control, ALWAYS, whatever the panel is doing. When there is no panel it is parked
         // off-screen at zero size rather than skipped, so the count of IMGUI controls this
@@ -2409,7 +2489,7 @@ public class BattleRunner : MonoBehaviour
 
     /// <summary>The panel's pixels. Split out so <see cref="DrawShellToggle"/> reads as what it
     /// is: one control, declared once, with the artwork hung off a condition.</summary>
-    void DrawShellPanel(Rect r, bool armed, bool dry, Color accent)
+    void DrawShellPanel(Rect r, bool armed, bool dry, bool unmanned, Color accent)
     {
         var prev = GUI.color;
 
@@ -2489,7 +2569,9 @@ public class BattleRunner : MonoBehaviour
         // the panel only exists during the aim now, so "this volley" is the only volley it could
         // mean and the extra words were noise on a smaller panel.
         GUI.Label(new Rect(r.x + Pad, r.y + 34f, textW, 40f),
-                  dry ? "SPENT" : armed ? "ARMED" : "NOT ARMED", status);
+                  unmanned && !dry ? "NO GUNNER"
+                  : dry ? "SPENT"
+                  : armed ? "ARMED" : "NOT ARMED", status);
     }
 
     /// <summary>

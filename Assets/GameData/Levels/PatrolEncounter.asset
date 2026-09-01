@@ -52,13 +52,13 @@ MonoBehaviour:
     hpScale: 1
   playerGroups:
   - definition: {fileID: 11400000, guid: 42221a45b5be3eb57b1b2bd28b9aaac0, type: 2}
-    count: 2
+    count: 1
     anchorX: -9.5
     anchorZ: 0.12
     standingOnStructureId: player_tank
     advancePerTurn: 0
   - definition: {fileID: 11400000, guid: 42221a45b5be3eb57b1b2bd28b9aaac0, type: 2}
-    count: 8
+    count: 9
     anchorX: -7
     anchorZ: 0
     standingOnStructureId: 
@@ -87,7 +87,7 @@ MonoBehaviour:
     halfWidth: 0.6
     keepColors: 1
   levelBase: 40
-  deployBudget: 8
+  deployBudget: 9
   bossPhases: []
   windAccelZ: 0
   reinforcementWaves: []
@@ -97,4 +97,7 @@ MonoBehaviour:
     \u2014 one small objective, no elevation, no threat priority. Garrison raised
     3->5 of 9 so the outpost reads as the target rather than as scenery (rule 5);
     the ground group stays wide and forgiving because a first multi-kill is the whole
-    point. 2026-08-20 range trial: outpost 7->9, ground squad 4.5->6.5 (unsigned)."
+    point. 2026-08-20 range trial: outpost 7->9, ground squad 4.5->6.5 (unsigned).
+    2026-08-28: one operator rides the hull; the other nine stand as the ground
+    line. If he dies the cannon is silent (NO GUNNER) and the magazine is not
+    spent. deployBudget 9 so the picker fields the nine."

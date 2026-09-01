@@ -68,6 +68,13 @@ MG forward, snipers elevated/back. L3 left at one sniper from the
 wrong-level cut. Do not restore L3's three or retune L4/L6/L9/L10/L11
 unprompted.
 
+### F. L5 bodies walked back — 2026-08-27, play owed
+
+08-25 packed the line (0.8) and added three riflemen (7→10, budget 13→16).
+Device: bunker down T6, 13 standing, zero casualties. Race 0.4x. Overshot.
+Walk-back: riflemen 10→7, budget 16→13, packing **kept** at 0.8. Sniper
+ledge/flat untouched. Tank stays off. Play through the picker.
+
 ## Do not
 
 - Widen the aim frame

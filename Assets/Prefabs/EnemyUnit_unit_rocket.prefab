@@ -165,6 +165,10 @@ PrefabInstance:
       propertyPath: 'm_Materials.Array.data[0]'
       value: 
       objectReference: {fileID: 2100000, guid: d0144ad314f3786e88794707877ae932, type: 2}
+    - target: {fileID: 4557209070427511725, guid: c112b6be643cbcf558096562087c719d, type: 3}
+      propertyPath: 'm_Materials.Array.data[0]'
+      value: 
+      objectReference: {fileID: 2100000, guid: ae2ae812bc9c5de60b4f3d50096d9054, type: 2}
     - target: {fileID: 6273503512926234890, guid: c112b6be643cbcf558096562087c719d, type: 3}
       propertyPath: m_Name
       value: unit_rocket_rigged
@@ -173,6 +177,10 @@ PrefabInstance:
       propertyPath: 'm_Materials.Array.data[0]'
       value: 
       objectReference: {fileID: 2100000, guid: e53547ed532d11042876b4d340fa300c, type: 2}
+    - target: {fileID: 7624636254949446414, guid: c112b6be643cbcf558096562087c719d, type: 3}
+      propertyPath: 'm_Materials.Array.data[0]'
+      value: 
+      objectReference: {fileID: 2100000, guid: ae2ae812bc9c5de60b4f3d50096d9054, type: 2}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects:

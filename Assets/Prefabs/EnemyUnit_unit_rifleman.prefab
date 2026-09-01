@@ -161,22 +161,30 @@ PrefabInstance:
       propertyPath: 'm_Materials.Array.data[0]'
       value: 
       objectReference: {fileID: 2100000, guid: ae2ae812bc9c5de60b4f3d50096d9054, type: 2}
-    - target: {fileID: 3691487248339214196, guid: fab180a2a7c943ed89394d4f89d19872, type: 3}
+    - target: {fileID: 3205265436668392499, guid: fab180a2a7c943ed89394d4f89d19872, type: 3}
       propertyPath: 'm_Materials.Array.data[0]'
       value: 
       objectReference: {fileID: 2100000, guid: cf079c89afaa7501aa6cfc9540eb242c, type: 2}
-    - target: {fileID: 4177685876137999526, guid: fab180a2a7c943ed89394d4f89d19872, type: 3}
+    - target: {fileID: 4557209070427511725, guid: fab180a2a7c943ed89394d4f89d19872, type: 3}
       propertyPath: 'm_Materials.Array.data[0]'
       value: 
-      objectReference: {fileID: 2100000, guid: cf079c89afaa7501aa6cfc9540eb242c, type: 2}
+      objectReference: {fileID: 2100000, guid: ae2ae812bc9c5de60b4f3d50096d9054, type: 2}
     - target: {fileID: 6273503512926234890, guid: fab180a2a7c943ed89394d4f89d19872, type: 3}
       propertyPath: m_Name
       value: unit_rifleman_rigged
       objectReference: {fileID: 0}
+    - target: {fileID: 7069181289126497591, guid: fab180a2a7c943ed89394d4f89d19872, type: 3}
+      propertyPath: 'm_Materials.Array.data[0]'
+      value: 
+      objectReference: {fileID: 2100000, guid: cf079c89afaa7501aa6cfc9540eb242c, type: 2}
     - target: {fileID: 7520434925284269411, guid: fab180a2a7c943ed89394d4f89d19872, type: 3}
       propertyPath: 'm_Materials.Array.data[0]'
       value: 
       objectReference: {fileID: 2100000, guid: e53547ed532d11042876b4d340fa300c, type: 2}
+    - target: {fileID: 7624636254949446414, guid: fab180a2a7c943ed89394d4f89d19872, type: 3}
+      propertyPath: 'm_Materials.Array.data[0]'
+      value: 
+      objectReference: {fileID: 2100000, guid: ae2ae812bc9c5de60b4f3d50096d9054, type: 2}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects:

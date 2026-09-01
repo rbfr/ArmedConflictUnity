@@ -234,8 +234,8 @@ namespace ArmedConflict.Game
         public float TiltSpeed { get; init; }
 
         /// <summary>
-        /// True when this body fell off a deck. Dirt deaths tip over and do not
-        /// tumble or flail against masonry.
+        /// True when this body fell off a deck. Dirt deaths hop backwards and do
+        /// not cartwheel or flail against masonry.
         /// </summary>
         public bool Tumble { get; init; }
         public float Age { get; init; }

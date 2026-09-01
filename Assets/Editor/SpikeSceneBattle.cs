@@ -179,9 +179,9 @@ public static class SpikeSceneBattle
         Fill(so.FindProperty("enemyUnitClassPrefabs"), enemyClassPrefabs);
         so.FindProperty("projectilePrefab").objectReferenceValue = shotPrefab;
         so.FindProperty("bulletPrefab").objectReferenceValue = MakeProjectilePrefab(
-            "Bullet", "projectile_bullet", 0.22f, mats.tracer, mats.tracerTail);
+            "Bullet", "projectile_bullet", 0.34f, mats.tracer, mats.tracerTail);
         so.FindProperty("rocketPrefab").objectReferenceValue = MakeProjectilePrefab(
-            "Rocket", "projectile_rocket", 0.30f, mats.rocketBody, mats.rocketGlow);
+            "Rocket", "projectile_rocket", 0.42f, mats.rocketBody, mats.rocketGlow);
         so.FindProperty("grenadePrefab").objectReferenceValue = MakeProjectilePrefab(
             "Grenade", "projectile_grenade", 0.16f, mats.grenade, mats.grenadeBand);
         so.FindProperty("gunPrefab").objectReferenceValue = gunPrefab;

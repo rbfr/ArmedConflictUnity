@@ -217,8 +217,10 @@ public static class UnitPosePreview
             return rig.InverseTransformPoint(r != null ? r.bounds.center : t.position);
         }
 
-        var lh = rig.Find("torso/arm-left/skin_arm-left");
-        var rh = rig.Find("torso/arm-right/skin_arm-right");
+        var lh = rig.Find("torso/arm-left/elbow-left/skin_elbow-left")
+              ?? rig.Find("torso/arm-left/skin_arm-left");
+        var rh = rig.Find("torso/arm-right/elbow-right/skin_elbow-right")
+              ?? rig.Find("torso/arm-right/skin_arm-right");
         var gun = rig.Find("torso/arm-right/gun");
         if (lh == null || rh == null)
         { Debug.LogWarning($"[PosePreview] {label}: hand meshes not found"); return; }
@@ -269,5 +271,9 @@ public static class UnitPosePreview
                                              * armL.localRotation;
         if (armR != null) armR.localRotation = UnitAnim.HoldCorrection(rightInward, rightDrop, false)
                                              * armR.localRotation;
+        var elbowL = rig.Find("torso/arm-left/elbow-left");
+        if (elbowL != null) elbowL.localRotation = UnitAnim.ElbowFlex(UnitAnim.HoldElbowFlex);
+        var elbowR = rig.Find("torso/arm-right/elbow-right");
+        if (elbowR != null) elbowR.localRotation = Quaternion.identity;
     }
 }

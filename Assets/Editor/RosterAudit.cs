@@ -131,12 +131,9 @@ public static class RosterAudit
                     "player's copy earns its distinctness from ARMOUR, not from this field.");
         }
 
-        // `bulletVariant` is a three-value enum on every unit asset and on the projectile record,
-        // and it is written by the importer and read by no one. Reported once rather than per
-        // class, because it is one dead field, not six findings.
-        Warns(ref warns,
-            "[Roster] `bulletVariant` (Standard/MachineGun/Sniper) is authored on every unit and " +
-            "read by no runtime code — it distinguishes nothing, visually or mechanically.");
+        // `bulletVariant` used to be dead data. It now tints and stretches the tracer
+        // (rifle orange, MG yellow stub, sniper white needle). It is still not a
+        // mechanical difference — that is Type (Bullet/Rocket/Grenade/Shell).
 
         // --- 2. IDENTICAL PAIRS ---------------------------------------------------------------
         foreach (var pair in profiles.SelectMany((a, i) => profiles.Skip(i + 1).Select(b => (a, b)))

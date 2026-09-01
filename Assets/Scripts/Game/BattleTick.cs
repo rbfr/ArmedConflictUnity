@@ -1400,7 +1400,16 @@ namespace ArmedConflict.Game
                 if (y <= surface)
                 {
                     float rot = d.Rotation, rotSpeed = d.RotationSpeed;
-                    if (CosmeticSystems.ShouldRoll(vx))
+                    if (!d.Tumble)
+                    {
+                        // Dirt: skid backwards WHILE falling over. A hop was a bounce;
+                        // a log-roll (StepRoll) was a barrel onto the side. Keep vx and
+                        // let the flop spring lay them down.
+                        CosmeticSystems.StepFlopToSide(rot, rotSpeed, dt, out rot, out rotSpeed);
+                        vx *= CosmeticSystems.DecayPerTick60(CosmeticSystems.RollFrictionPerTick, dt);
+                        if (Mathf.Abs(vx) < CosmeticSystems.RollMinSpeed) vx = 0f;
+                    }
+                    else if (CosmeticSystems.ShouldRoll(vx))
                     {
                         CosmeticSystems.StepRoll(vx, dt, out vx, out rotSpeed);
                         rot += rotSpeed * dt;
@@ -1551,6 +1560,7 @@ namespace ArmedConflict.Game
                         // correctly. The rocket trooper's 6x against buildings and the grenadier's 2x
                         // existed only under the debug driver, and a rocket rendered as a tracer.
                         Type = u.Definition != null ? u.Definition.projectileType : ProjectileType.Bullet,
+                        BulletVariant = u.Definition != null ? u.Definition.bulletVariant : BulletVariant.Standard,
                         SplashRadius = u.Definition != null ? u.Definition.splashRadius : 0f,
                         StructureDamageMultiplier = ammo.StructureMultiplier(
                             u.Definition != null ? u.Definition.structureDamageMultiplier : 1f),
@@ -2158,12 +2168,25 @@ namespace ArmedConflict.Game
         }
 
         /// <summary>
+        /// True when a living player unit is standing on this cannon. The shell is the operator's
+        /// gun — if he dies, the tank is a hull. Rob, 2026-08-28.
+        /// </summary>
+        public static bool CannonHasOperator(GameState s, StructureEntity st)
+            => st != null && s.PlayerUnits.Any(u => u.StandingOnStructureId == st.Id && u.Hp > 0);
+
+        /// <summary>Any player cannon still has a living rider.</summary>
+        public static bool CannonHasOperator(GameState s)
+            => s.Structures.Any(st => st.Definition != null && st.Definition.isPlayerSide
+                                      && st.Definition.hasCannon && CannonHasOperator(s, st));
+
+        /// <summary>
         /// The player tank's contribution: one heavy shell per player-side structure that mounts
         /// a cannon, added to the volley the infantry just threw.
         ///
-        /// It is OFF-ROSTER — there is no UnitEntity behind it, which is why it is built from the
-        /// STRUCTURE rather than in the unit loop. Losing every soldier does not silence the tank,
-        /// and the tank is not a body the enemy can shoot at.
+        /// Built from the STRUCTURE (there is no UnitEntity for the gun itself) but it is not
+        /// OFF-ROSTER: a living operator has to be standing on the hull. Losing him silences
+        /// the cannon; the magazine is not spent. The tank is still not a body the enemy can
+        /// shoot at — they shoot the operator.
         ///
         /// Ammo is FINITE (`CannonSpec.ammoPerBattle`, totalled into TankShellsRemaining when the
         /// level is built) and `CannonArmed` gates it, so a level can field a tank with a cold gun
@@ -2193,6 +2216,7 @@ namespace ArmedConflict.Game
                 if (shells.Count >= allowed) break;
                 var def = st.Definition;
                 if (def == null || !def.isPlayerSide || !def.hasCannon || def.cannon == null) continue;
+                if (!CannonHasOperator(s, st)) continue;
                 var c = def.cannon;
 
                 // A structure entity's Y is the CENTRE of its box (placement.y * worldScale +
@@ -2292,6 +2316,7 @@ namespace ArmedConflict.Game
                         OwnerIsPlayer: true)
                     {
                         Type = u.Definition != null ? u.Definition.projectileType : ProjectileType.Bullet,
+                        BulletVariant = u.Definition != null ? u.Definition.bulletVariant : BulletVariant.Standard,
                         SplashRadius = u.Definition != null ? u.Definition.splashRadius : 0f,
                         StructureDamageMultiplier =
                             u.Definition != null ? u.Definition.structureDamageMultiplier : 1f,
@@ -2412,7 +2437,17 @@ namespace ArmedConflict.Game
                     X: e.X, Y: e.Y + 0.35f, Z: e.Z,
                     Vx: v.x, Vy: v.y, Vz: 0f,
                     Damage: e.Definition != null ? e.Definition.damage : 8,
-                    OwnerIsPlayer: false));
+                    OwnerIsPlayer: false)
+                {
+                    // Same fields the player's FireVolley sets. Leaving them at defaults
+                    // made every enemy round a plain bullet — rocket troopers and
+                    // grenadiers looked like rifle tracers (and did not splash).
+                    Type = e.Definition != null ? e.Definition.projectileType : ProjectileType.Bullet,
+                    BulletVariant = e.Definition != null ? e.Definition.bulletVariant : BulletVariant.Standard,
+                    SplashRadius = e.Definition != null ? e.Definition.splashRadius : 0f,
+                    StructureDamageMultiplier =
+                        e.Definition != null ? e.Definition.structureDamageMultiplier : 1f,
+                });
             }
 
             return s with

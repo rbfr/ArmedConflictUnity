@@ -253,20 +253,24 @@ namespace ArmedConflict.Game
         ///
         /// These sit deliberately BETWEEN the old tip-over and the deck tumble (Vx 0.90-2.10,
         /// Vy 1.60-3.40, spin 120-200): far enough to read as a hit, nowhere near a body thrown
-        /// off a roof. At `RollFrictionPerTick` the throw carries about `Vx / 2.3` units, so this
-        /// range slides a body roughly 0.3-0.6 — a few body widths.
+        /// off a roof.
+        ///
+        /// NO hop. 08-28 lifted them and gave Vy; that was the "strange bounce then settle
+        /// horizontally". They stay on the dirt, skid backwards, and the flop spring lays
+        /// them down. Kenney's `die` is a sit-down — do not play it; a new clip is a later
+        /// ask if a rigid fall still reads wrong.
         ///
         /// NO yaw or tilt spin, unlike the tumble. The 3-axis cartwheel is most of what makes the
         /// deck fall dramatic, and it is the half not wanted here.
         /// </summary>
-        public const float RagdollKnockVxMin = 0.75f;
-        public const float RagdollKnockVxMax = 1.35f;
-        public const float RagdollKnockVyMin = 0.30f;
-        public const float RagdollKnockVyMax = 0.70f;
-        public const float RagdollKnockLeanMin = 12f;
-        public const float RagdollKnockLeanMax = 24f;
-        public const float RagdollKnockSpinMin = 100f;
-        public const float RagdollKnockSpinMax = 150f;
+        public const float RagdollKnockVxMin = 0.85f;
+        public const float RagdollKnockVxMax = 1.75f;
+        public const float RagdollKnockVyMin = 0f;
+        public const float RagdollKnockVyMax = 0f;
+        public const float RagdollKnockLeanMin = 18f;
+        public const float RagdollKnockLeanMax = 36f;
+        public const float RagdollKnockSpinMin = 0f;
+        public const float RagdollKnockSpinMax = 0f;
 
         public readonly struct RagdollImpulse
         {
@@ -281,9 +285,9 @@ namespace ArmedConflict.Game
         }
 
         /// <summary>
-        /// A deck fall gets the full tumble. Dirt deaths do not — they tip over
-        /// where they stood. Tank deck is 0.60; anything at or above that came
-        /// off a structure.
+        /// A deck fall gets the full tumble. Dirt deaths skid backwards and
+        /// fall over on the dirt. Tank deck is 0.60; anything at or above that
+        /// came off a structure.
         /// </summary>
         public const float RagdollTumbleMinY = 0.40f;
         /// <summary>Kick the limbs only on the throw, not while they sit in the wreck.</summary>

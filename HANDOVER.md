@@ -1,22 +1,188 @@
-# Handover — Unity, as of 2026-08-25
+# Handover — Unity, as of 2026-09-01
 
 ## Pick up here
 
-A new session starts here. **Ask which beat.** Do not sequence
-look work or unsigned phone items. **Ask git** — this file does
-not record commits. Rob commits/pushes on an explicit ask; do
+Last sitting **08-28**. Nothing since — a couple of days off, not a
+new decision. A new session starts here. **Ask which beat.** Do not
+sequence look work or unsigned phone items. **Ask git** — this file
+does not record commits. Rob commits/pushes on an explicit ask; do
 not tidy unpushed work unprompted.
 
 `PortSelfTest.Run` after every change. **RIGS** is the test
 supply (consumables, camo, classes, ammo). **Do not use Auto**
 for structures, ammo, or consumables. Android repo is RETIRED.
+`DISPLAY=:0` (not `:1`).
 
-### What the 08-25 session shipped — the index
+The phone should still have the 08-28 APK (operator, tracers, dirt
+skid, L5 walk-back). If it was uninstalled, rebuild; do not rebuild
+just to play L5.
+
+### Closed 08-27 → 08-28 — do not reopen as taste
+
+- **L4 shellsOverride = 3.** Played HOLD-then-ARM, defeat T12. 2 of 3
+  shells missed walls — does **not** ask to bump. Leave it. Do not
+  widen the aim frame. PlayerTank stays at 5.
+- **L5 walk-back is on the APK** (riflemen 10→7, budget 16→13,
+  packing **0.8** kept). Authored mix 7 rifle + 2 grenadier + 1
+  sniper = 13/13. Tank stays off. **Not yet played through the
+  picker** — that is the owed beat.
+- **Elbow kept.** All seven classes. Aiming is still the
+  hold-the-gun read. Rob: *"elbow is fine, let's keep it."*
+- **Last-aim HUD.** `Last: power N%    angle N°` under Your turn.
+- **Rifle tracer signed.** Un-tapered flat orange dash, opaque, no
+  tail. Rob: *"ok, we can use this. kind of goes with the theme...
+  not super realistic, maybe mid-90s feel."* Teardrop = rocket;
+  Kenney `trace_01` = glow streak; both rejected. Rockets /
+  grenades / shells keep their meshes. `GAME_DESIGN_LOCKS.md`.
+- **L1 tank operator.** One rider on the hull, nine on the ground,
+  `deployBudget` 9. If he dies: panel `NO GUNNER`, no shell, ammo
+  unspent. Loadout cannot replace him. **Other campaign tanks still
+  field two** until asked.
+- **Dirt deaths skid.** Stay on the dirt, slide backwards, flop
+  over. No hop (that bounced), no log-roll, no Kenney `die`. Rob:
+  *"ok this is fine."* A crumple clip is not the next move unless
+  he asks. Deck falls unchanged.
+
+### Ask which beat
+
+1. **L5 at 10 packed, through the picker** (not the stepper). The
+   walk-back is on the phone; it has not been played.
+2. Anything else he names. Do not open tracer look, Kenney
+   particles, or a new death clip unprompted.
+
+Leftover from the Kenney tracer try: untracked
+`Assets/Models/Kenney/Particles/` and `Assets/Materials/TracerSprite.mat`.
+Not wired. Do not tidy unless he asks.
+
+### Played 08-27 — L4 shells=3; L5 bodies walked back
+
+Beat 1 of the owed list. Override is 3. PlayerTank stays at 5.
+Played on device: stock 8 riflemen (L1 picker → stepper to L4),
+Standard, HOLD T1–T4 then ARM T5–T7. **Defeat turn 12.**
+
+- Magazine on L4 Aiming: 3 pips, `Tank shells: 3`. `[Cannon]`
+  HOLD then ARM both logged. `PortSelfTest` ALL PASS.
+  `BalanceAudit` L4 240 vs **288**. `DISPLAY=:1` is gone; `:0`.
+
+**The HOLD-then-ARM line, as thrown:**
+
+| Turn | Gun | Result |
+|---|---|---|
+| T1 | HOLD 62% | miss, 10 v 27, barracks 150 |
+| T2 | HOLD 68% | 10→9 / 27→26 |
+| T3 | HOLD 56% | miss, 9 v 26 |
+| T4 | HOLD 69% | 9→8 / 26→25 |
+| T5 | ARM cluster 76% | **shell missed the wall**, 150→142, 8 v 25, 2 left. Chargers on the right edge of Aiming. |
+| T6 | ARM deepest 84% | melee, 8→3 / 25→13, barracks 142→138, 1 left |
+| T7 | ARM deepest 83% | **shell hit**, 138→36, 3→2 / 13→12, SPENT |
+| T8–11 | dry | rifle chip 36→32→30→28→24, 2→1 |
+| T12 | — | **0 v 11**, barracks 22, outpost 90 |
+
+Fail card: *"The garrison is still firing — bring the building
+down."* +24 (4085→4109). Same card as 08-24 run 1 and the 08-25
+five-into-dirt throwaway. Correct.
+
+**Honest limit of this play:** 2 of 3 shells did not hit a wall
+(T5 +8, T6 +4). Only T7 delivered the 96. A HOLD that then
+lands all three on the barracks would still be 288 vs 240 —
+this run does **not** prove 3 is too tight, and it does not
+ask to bump it. The 08-24 raze-from-T1 at 3 (auto-fire, no
+panel) was the coin-flip; this is the other line, thrown
+crooked. Leave the override. Do not widen the aim frame.
+
+**L5 bodies walked back, packing kept.** Riflemen 10→7 (squad
+13→10), `deployBudget` 16→13, `playerSpacingScale` **stays 0.8**.
+The 08-25 grouping read as men; the extra three bodies were the
+T6 wipe (13 standing, zero casualties). Authored mix is 7 rifle
++ 2 grenadier + 1 sniper = 13/13. Sniper ledge/flat/miss-long
+untouched. Tank stays off. `PortSelfTest` ALL PASS — ten bodies,
+line 1.20 wide vs 1.49 at scale 1. `BalanceAudit` stock race
+**0.7x** again (player 3.0 / enemy 4.5, HP 288). That is the
+pre-ease arithmetic; packing still concentrates the volley.
+**Play through the picker still owed** (see pick-up). The APK
+has the walk-back; do not rebuild just to play it.
+
+**Elbow kept.** Rob: *"elbow is fine, let's keep it."* Phase 2:
+all seven GLBs have the child joints, scene rebuilt. Gameplay
+Aiming is still the hold-the-gun read; close CAM showed two
+hands on the rifle. Not a new silhouette at 6°, and that is
+accepted.
+
+**Last-aim on the phone.** After an 86% / 45° drag, T2 HUD
+reads `Last: power 86%    angle 45°` under Your turn. Matches
+the volley log. Outpost down, 14→4, shells 5→4.
+
+### Signed 08-25 evening sitting
+
+- **Default ARMED.** Keep it. `GAME_DESIGN_LOCKS.md` updated.
+  The panel teaches the hold; flipping the default is not taste.
+- **Flat sniper miss-long.** Leave it. L5 play took no hits; the
+  54/60 vs 58/60 is characterisation. Per-class jitter is off
+  the table unless a later play shows rounds sailing over the
+  line as the problem.
+- **Weapon hold is a carry.** Shipped. Elbow is a plan, not a
+  LateUpdate tweak and not a clip rewrite.
+
+### Played / looked 08-25 evening sitting — the numbers
+
+**L4 at 5 shells.** Stock 8 riflemen via RETRY picker, Standard,
+ARMED. Raze-the-buildings line. T1 barracks 150→42, T2 collapsed
+(27→15), T3–4 outpost gone (15→7), **2 shells left**. Contact
+turn 6 at **10 v 4**. T7 9 v 2. Then the tail: last two in the
+WRECK, off-screen during Aiming. Free camera x −2 / y 4.4 / z
+17.6. Deepest derived drag missed. Stopped turn 11 at 9 v 2.
+**Readability, not a miss-fest. Do not widen the aim frame.**
+Throwaway (stepper leftover 10, dirt, ARMED) died turn 8 on
+*"The garrison is still firing"* +24. Five into the dirt is the
+same dead end as three. Contact union holds player line +
+chargers, tank in; next Aiming beat the chargers sit on the
+right edge.
+
+**L5 eased race.** Picker 13 (10 rifle + 2 grenadier + 1 sniper,
+16/16), Standard, no tank. Packed line reads as men. Bunker
+down T6, **13 standing, zero casualties**, then 13 v 3. Leftover
+street MG off-screen during Aiming (same family as L4 wreck).
+Sniper on the ledge is visible. Overshot.
+
+**MountainBunker.** Handover said L6/L8; **L8 does not field
+one.** Campaign: L6 x 4 (8 authored) and L9 x 4.5 (6 authored).
+Both at y 1.20: garrison on the player-facing lip, not under
+the roof. L6 A/B x 5.11 z 9.75: four red on the front edge at
+y 1.20, same four from y 8.85. **Honest count: 4 visible on a
+deck authored for 8** (`standWidth` 1). Overhead the rest of
+the roof is empty, so the other four are packed into that same
+lip, not hidden by it. Offset +0.33 holds. No model change.
+
+**08-07 L9/L12 siege audit, re-run at 5 shells.** Headless
+`BalanceAudit.Report`: 0 errors, 21 warnings. Stock siege **ok**
+on every tanked campaign level (L9 229 vs 480, L12 280 vs 480).
+Only remaining SIEGE DEFICIT is L5 (no tank). Device: L9 both
+structures down by turn 4, 2 shells left; L12 both fortress
+tiers gone by turn 6, shells spent, 9 v 10. **Neither is
+unclearable at five.** Caveat: L9/L12 were played with L5's
+carried 13, not each level's stock — the shells are the siege,
+and stock L12 fields rockets besides.
+
+### Tree
+
+**Ask git.** Branch `session/2026-08-25-shell-art-ragdoll`. Last
+commit is still `8e6ba38` (08-25 docs/archive). Working tree is
+dirty from 08-25 through 08-28: L4 override, L5 walk-back, elbows,
+last-aim, tracers, L1 operator, dirt skid, docs. Untracked:
+`_plans/ELBOW.md`, leftover Kenney `Particles/` +
+`TracerSprite.mat` (not wired). Do not tidy and do not commit
+unless he asks. A gap of days does not make that work stale.
+
+**This file is 4000+ lines.** 08-05/06 is in
+`HANDOVER_ARCHIVE.md`. 08-13 → 08-21 is closed history and
+the obvious next split — **ask before archiving**.
+
+### What the 08-25 CODE sitting shipped — the index
 
 Every one has a block further down with the numbers and the traps (5
 and 6 share one). **The blocks are in REVERSE order below** — newest
 first, with the L4 play at the top because it is the oldest debt and
-the one that started the session. This list is only so a new session
+the one that started that sitting. This list is only so a new session
 can find them.
 
 1. **L4 played honestly, twice** (the 08-24 debt). Both defeats, and
@@ -49,48 +215,6 @@ device round trip) and `RagdollProbe.Run` (prints a dying body's own
 numbers per tick). Each one caught a defect in its first run that the
 code read as innocent, and each caught MY OWN mistakes too — read their
 docstrings before reusing them.
-
-### What is OWED — nothing here has been played or signed
-
-- **Nobody has played a level at 5 shells.** Siege capacity went
-  **288 -> 480** on every level with a tank; L4 now has 480 against 240
-  of garrisoned HP and **may well be too easy**. `shellsOverride` is
-  the knob.
-- **Default ARMED is MY call, not Rob's.** It is the pre-switch
-  behaviour so no measured balance moves on it alone. Ask.
-- **L5's race moved 0.7x -> 0.4x** and has not been played either. It
-  may have overshot into too easy.
-- **The flat sniper is slightly LESS accurate** by mechanism (54/60 on
-  the line against 58/60 lobbed). Fixing that means per-class aim
-  jitter, which nobody asked for.
-- **The weapon hold is a CARRY, not a firing stance** — one bone per
-  arm, so the forward hand sits at the receiver. Going further needs an
-  elbow, which invalidates every clip.
-- **`MountainBunker`'s deck offset (L6/L8) was measured but never
-  looked at.**
-- **The 08-07 DEVICE balance audit is now STALE** (archived, and marked
-  so in place). It found L9 and L12 unclearable at stock — measured at
-  THREE shells, against today's five. Nobody has re-run it.
-- **L4's 14-turn 1 v 1 tail** (turns 16-30, neither side landing a hit)
-  is unmeasured and was never diagnosed.
-- **L4's contact framing and the run gait have still never been WATCHED
-  in a real play.** Both are signed and both were seen in the HUD (the
-  charge traded 5-for-5 on turn 6, on schedule), but neither was
-  recorded. Carried over from 08-24 and still owed.
-
-### Tree
-
-**`8fb6eba` plus 60 UNCOMMITTED files** — nothing has been committed
-this session. Roughly: 7 editor tools (2 new), 12 game/data scripts,
-9 data assets, 7 materials, 1 GLB, 16 unit prefabs + the scene (both
-regenerated by the scene build, not hand-edited), and 4 docs. Ask git;
-this file still does not record commits.
-
-**This file is 4000+ lines.** Its 08-05/06 port entries were split into
-`HANDOVER_ARCHIVE.md` once already. The 08-13 -> 08-21 material below
-is now closed history and is the obvious next split — **ask before
-archiving**, since the whole point of the file is that nothing gets
-quietly dropped.
 
 **L4 WAS PLAYED — 08-24. The debt is paid; read what it found.**
 Fresh build, fresh install, stock 8 riflemen, real drags, no Auto and
@@ -530,11 +654,7 @@ is in `GAME_DESIGN_LOCKS.md`; what a new session needs:
 - **The state PERSISTS across turns** and does NOT re-arm per volley.
   Arming spends nothing, so auto-disarm would tax the player who wants
   to shell straight through.
-- **Default is ARMED and is NOT signed** — my call, not Rob's. It is
-  the pre-switch behaviour, so no level's measured balance moves on the
-  default alone; held-by-default would kill the L4 trap outright but
-  lets a player who never finds the panel reach the same dead end
-  quietly. **Ask before flipping it.**
+- **Default is ARMED. Signed 2026-08-25.** Do not flip it as taste.
 
 **IT BROKE THE WHOLE TOP BAR ONCE — the trap is worth more than the
 feature.** Rob, from the phone: *"now i can't switch levels and none of

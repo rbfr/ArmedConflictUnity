@@ -1426,7 +1426,10 @@ public static class PortSelfTest
             {
                 var st = LevelBuilder.BuildInitialState(l1, battleId: 1, totalLevels: 29,
                                                         random: new System.Random(7));
-                Check(st.PlayerUnits.Count == 10, $"L1 builds 10 player units (2 on tank + 8 line)");
+                Check(st.PlayerUnits.Count == 10
+                      && st.PlayerUnits.Count(u => u.StandingOnStructureId != null) == 1
+                      && st.PlayerUnits.Count(u => u.StandingOnStructureId == null) == 9,
+                      "L1 fields one tank operator and a nine-man ground line");
                 // 14 since the crowd split (Tier 2.2 part four): the outpost's five riflemen
                 // became ten crowd bodies at half HP and half damage each, so this number moved
                 // while L1's enemy HP and damage per volley did not. The old message said
@@ -2348,9 +2351,9 @@ public static class PortSelfTest
                     Check(scout.TurnPhase == TurnPhase.Aiming && scout.ScoutTimer <= 0f,
                           "then the first aim is handed over");
 
-                    // TANK ROLL-IN. A level with a cannon starts left of its park; the crew
-                    // ride the same delta; a drag does not fire; after the beat the vehicle
-                    // is ON its authored slot and the signed-off scout begins.
+                    // TANK ROLL-IN. A level with a cannon starts left of its park; the
+                    // operator rides the same delta; a drag does not fire; after the beat
+                    // the vehicle is ON its authored slot and the signed-off scout begins.
                     var arrive = TurnFlow.StartBattle(
                         LevelBuilder.BuildInitialState(l1, 91, 12, new System.Random(1)));
                     var tank0 = arrive.Structures.First(st => st.Definition.hasCannon);
@@ -2359,8 +2362,8 @@ public static class PortSelfTest
                     Check(arrive.TurnPhase == TurnPhase.TankArrive
                           && Mathf.Abs(tank0.X - (arrive.TankParkX - TurnFlow.TankArriveDistance)) < 0.001f,
                           $"L1 opens on the tank roll ({arrive.TurnPhase}, x {tank0.X:F2} vs park {arrive.TankParkX:F2})");
-                    Check(riders0.Count > 0 && riders0.All(u => u.X < arrive.TankParkX),
-                          $"the crew ride the hull ({riders0.Count} on deck, starting left of the park)");
+                    Check(riders0.Count == 1 && riders0[0].X < arrive.TankParkX,
+                          $"one operator rides the hull (starting left of the park)");
                     var arriveFired = BattleTick.FireVolley(arrive, new Vector3(8f, 8f, 0f),
                                                             new System.Random(1));
                     Check(arriveFired.TurnPhase == TurnPhase.TankArrive
@@ -2378,11 +2381,11 @@ public static class PortSelfTest
                     Check(parked.TurnPhase == TurnPhase.PlayerScout
                           && Mathf.Abs(tank1.X - parked.TankParkX) < 0.02f,
                           $"the tank parks and the scout begins (phase {parked.TurnPhase}, x {tank1.X:F2})");
-                    Check(Mathf.Abs(gap1 - gap0) < 0.02f,
-                          $"the crew stay on the deck (gap {gap1:F2} vs {gap0:F2})");
+                    Check(riders1.Count == 1 && Mathf.Abs(gap1 - gap0) < 0.02f,
+                          $"the operator stays on the deck (gap {gap1:F2} vs {gap0:F2})");
                     var line0 = arrive.PlayerUnits.Where(u => u.StandingOnStructureId == null).ToList();
                     var line1 = parked.PlayerUnits.Where(u => u.StandingOnStructureId == null).ToList();
-                    Check(line0.Count > 0 && line0.All(u => u.MarchTargetX != null),
+                    Check(line0.Count == 9 && line0.All(u => u.MarchTargetX != null),
                           $"the ground line jogs in ({line0.Count} with a march slot)");
                     Check(line1.All(u => u.MarchTargetX == null)
                           && Mathf.Abs(line1[0].X - line0[0].MarchTargetX.Value) < 0.02f,
@@ -2616,7 +2619,7 @@ public static class PortSelfTest
                 // but shorter, flatter, and without the cartwheel.
                 Check(Mathf.Sign(dirt.Vx) == Mathf.Sign(deck.Vx)
                       && Mathf.Abs(dirt.Vx) < Mathf.Abs(deck.Vx)
-                      && deck.Vy > dirt.Vy + 1f
+                      && deck.Vy > dirt.Vy + 0.3f
                       && Mathf.Abs(dirt.YawSpeed) < 1f && Mathf.Abs(deck.YawSpeed) > 10f,
                       $"dirt is knocked BACK the same way a deck fall goes, but shorter and " +
                       $"flatter and with no cartwheel ({dirt.Vx:F2}, {dirt.Vy:F2} up); "
@@ -2662,33 +2665,41 @@ public static class PortSelfTest
             // on the ground and they die, they just tip over. let's make them get blown back but
             // not as dramatic as the one falling off the building."
             //
-            // Asserted as the DISPLACEMENT a real ragdoll step produces, not as the constant:
-            // the impulse is a launch, friction eats it, and what anyone can see is where the
-            // body ends up. Both sides are checked because the sign is mirrored per side and a
-            // single-side test passes on a bug that flips only the other one.
+            // Asserted as the DISPLACEMENT a REAL ragdoll step produces. The 08-25
+            // version integrated vx by itself and passed while dirt deaths spawned
+            // under rest height and flopped in place — the tip-over still on device.
             {
                 float Travel(bool playerSide, bool tumble)
                 {
                     var imp = CosmeticSystems.ImpulseFor(4242, playerSide, tumble);
-                    float vx = imp.Vx, x = 0f;
-                    for (int i = 0; i < 90; i++)      // 1.5s at 60Hz — long past the slide
+                    float y0 = tumble ? 1.4f : 0f;
+                    var body = new DyingUnitEntity(
+                        4242, null, playerSide, 0f, y0, 0f, imp.Vx, imp.Vy, imp.RotationSpeed)
                     {
-                        x += vx * (1f / 60f);
-                        vx *= CosmeticSystems.DecayPerTick60(0.962f, 1f / 60f);
-                    }
-                    return x;
+                        Vz = imp.Vz, Rotation = imp.Rotation,
+                        YawSpeed = imp.YawSpeed, TiltSpeed = imp.TiltSpeed,
+                        Tumble = tumble,
+                    };
+                    var walk = new GameState
+                    {
+                        Phase = GamePhase.Playing,
+                        DyingUnits = new List<DyingUnitEntity> { body },
+                    };
+                    for (int i = 0; i < 90; i++)
+                        walk = BattleTick.Step(walk, 1f / 60f, null, new System.Random(1));
+                    var end = walk.DyingUnits.FirstOrDefault(d => d.Id == 4242);
+                    return end != null ? end.X : 0f;
                 }
 
                 float pGround = Travel(true, false), eGround = Travel(false, false);
                 float pDeck = Travel(true, true);
-                // Enemy stands at +x and must be thrown further +x; the player is the mirror.
                 bool backwards = pGround < 0f && eGround > 0f;
-                bool between = Mathf.Abs(pGround) > 0.20f
+                bool between = Mathf.Abs(pGround) > 0.35f
                                && Mathf.Abs(pGround) < Mathf.Abs(pDeck);
                 Check(backwards && between,
                       $"a body killed on the DIRT is knocked BACKWARDS, and less far than one " +
                       $"thrown off a deck — player {pGround:F2}, enemy {eGround:F2} " +
-                      $"(want opposite signs, player negative), deck fall {pDeck:F2}");
+                      $"(want opposite signs, player negative, |dirt| > 0.35), deck fall {pDeck:F2}");
             }
 
             // Ragdoll rest height: a body must never sink through the floor at any rotation.
@@ -4670,6 +4681,28 @@ public static class PortSelfTest
                         var helm = go.GetComponentsInChildren<MeshRenderer>(true)
                             .FirstOrDefault(r => r.gameObject.name.StartsWith("accent_head"));
                         var gunR = gun != null ? gun.GetComponentInChildren<MeshRenderer>() : null;
+                        // Every class, not just the rifleman: copying one GLB is how
+                        // the face pass left six on the old brim.
+                        var missingElbow = new List<string>();
+                        foreach (var k in RiggedUnits.Models)
+                            foreach (var side in new[] { "Player", "Enemy" })
+                            {
+                                var pf2 = AssetDatabase.LoadAssetAtPath<GameObject>(
+                                    $"Assets/Prefabs/{side}Unit_{k}.prefab");
+                                var a2 = pf2 == null ? null : pf2.GetComponentInChildren<Animation>();
+                                var el = a2 == null ? null
+                                    : a2.transform.Find("torso/arm-left/elbow-left");
+                                if (el == null
+                                    || Mathf.Abs(el.localPosition.x) >= 0.05f
+                                    || el.localPosition.y >= -0.25f
+                                    || Mathf.Abs(el.localPosition.z) >= 0.05f)
+                                    missingElbow.Add($"{side}Unit_{k}" +
+                                        (el == null ? " (missing)" : $" {el.localPosition:F3}"));
+                            }
+                        Check(missingElbow.Count == 0,
+                              missingElbow.Count == 0
+                                  ? $"all {RiggedUnits.Models.Length * 2} unit prefabs have a child elbow-left down the arm"
+                                  : $"ELBOW MISSING OR WORLD-LOC (rebuild): {string.Join(", ", missingElbow)}");
                         Check(hold != null && gunR != null && helm != null,
                               "rifleman prefab has a hold clip, a gun mesh and a helmet");
                         if (hold != null && gunR != null && helm != null)
@@ -4945,10 +4978,58 @@ public static class PortSelfTest
                       "45° line, which is one streak however many rounds it is)");
             }
 
-            // is exactly how it went missing from the port in the first place.
-            var withCannon = levels.FirstOrDefault(l => l.playerGroups.Count > 0 &&
+            // The round's LOOK is the class's signature in the air. `bulletVariant` sat on
+            // every unit and every projectile and nothing read it; Type on the enemy
+            // volley was the same default-Bullet hole the player's FireVolley used to have.
+            {
+                var rosterShots = AssetDatabase.LoadAssetAtPath<RosterDefinitionSO>(
+                    "Assets/GameData/Roster.asset");
+                Pick One(string id) => new(rosterShots.slots.First(s => s.unit != null && s.unit.id == id).unit, 1);
+                GameState VolleyOf(Pick pick)
+                {
+                    // L5 has no tank crew — L1's garrisoned riflemen would be the FIRST
+                    // round in the volley and a sniper check would read them instead.
+                    var lv = levels.First(l => !l.isTestLevel && l.levelNumber == 5);
+                    var gs = Loadout.ToPlayerGroups(lv, new List<Pick> { pick });
+                    var st = LevelBuilder.BuildInitialState(lv, 1, levels.Count,
+                                 new System.Random(9), playerGroupsOverride: gs)
+                             with { Phase = GamePhase.Playing, TurnPhase = TurnPhase.Aiming };
+                    return BattleTick.FireVolley(st, new Vector3(6f, 6f, 0f), new System.Random(3));
+                }
+                var sniperRound = VolleyOf(One("sniper")).Projectiles
+                    .FirstOrDefault(p => p.OwnerIsPlayer && p.Type != ProjectileType.Shell);
+                var rifleRound = VolleyOf(One("rifleman")).Projectiles
+                    .FirstOrDefault(p => p.OwnerIsPlayer && p.Type != ProjectileType.Shell);
+                var rocketRound = VolleyOf(One("rocket_trooper")).Projectiles
+                    .FirstOrDefault(p => p.OwnerIsPlayer && p.Type != ProjectileType.Shell);
+                Check(sniperRound != null && sniperRound.Type == ProjectileType.Bullet
+                      && sniperRound.BulletVariant == BulletVariant.Sniper,
+                      $"a sniper round carries the SNIPER tracer variant " +
+                      $"(type={sniperRound?.Type}, variant={sniperRound?.BulletVariant})");
+                Check(rifleRound != null && rifleRound.BulletVariant == BulletVariant.Standard,
+                      $"a rifle round is the STANDARD tracer (variant={rifleRound?.BulletVariant})");
+                Check(rocketRound != null && rocketRound.Type == ProjectileType.Rocket,
+                      $"a rocket trooper fires a ROCKET, not a tracer (type={rocketRound?.Type})");
+
+                var enemyRockets = levels.FirstOrDefault(l => !l.isTestLevel
+                    && l.enemyGroups.Any(g => g.definition != null
+                        && g.definition.projectileType == ProjectileType.Rocket));
+                Check(enemyRockets != null, "a campaign level fields enemy rocket troopers");
+                if (enemyRockets != null)
+                {
+                    var er = LevelBuilder.BuildInitialState(enemyRockets, 1, levels.Count,
+                                 new System.Random(9))
+                             with { Phase = GamePhase.Playing, TurnPhase = TurnPhase.EnemyWindup };
+                    var ev = BattleTick.FireEnemyVolley(er, new System.Random(3));
+                    Check(ev.Projectiles.Any(p => !p.OwnerIsPlayer && p.Type == ProjectileType.Rocket),
+                          "an enemy rocket trooper's volley is a ROCKET, not a default bullet");
+                }
+            }
+
+            var withCannon = levels.FirstOrDefault(l =>
                 l.structures.Any(p => p.definition != null && p.definition.isPlayerSide
-                                      && p.definition.hasCannon));
+                                      && p.definition.hasCannon && !p.hasShellsOverride)
+                && l.playerGroups.Any(g => g.standingOnStructureId == "player_tank"));
             Check(withCannon != null, "at least one level fields a player cannon");
             if (withCannon != null)
             {
@@ -5091,6 +5172,23 @@ public static class PortSelfTest
                 Check(coldFired.Projectiles.All(p => p.Type != ProjectileType.Shell),
                       "CannonArmed=false fires no shell");
 
+                // NO OPERATOR, NO SHELL. The gun is the rider's — strip him and the hull is
+                // silent, and the magazine is not spent. Put the world in the state where
+                // it could fail: operator gone, ammo left, CannonArmed true.
+                Check(BattleTick.CannonHasOperator(st0), "the built tank has a living operator");
+                var unmanned = st0 with
+                {
+                    PlayerUnits = st0.PlayerUnits
+                        .Where(u => u.StandingOnStructureId == null).ToList(),
+                };
+                Check(!BattleTick.CannonHasOperator(unmanned),
+                      "removing the rider leaves the cannon unmanned");
+                var unmannedFired = BattleTick.FireVolley(
+                    unmanned, new Vector3(6f, 6f, 0f), new System.Random(3));
+                Check(unmannedFired.Projectiles.All(p => p.Type != ProjectileType.Shell)
+                      && unmannedFired.TankShellsRemaining == unmanned.TankShellsRemaining,
+                      "an unmanned tank fires no shell and spends no ammo");
+
                 // The PLAYER's volley must carry each unit's own projectile type — it did not,
                 // and only AutoFire did, so a rocket trooper's round was a plain bullet with no
                 // splash and a 1x structure multiplier whenever a human fired it.
@@ -5133,6 +5231,7 @@ public static class PortSelfTest
         CheckFactions();
         CheckCosmetics();
         CheckL1RangeTrial();
+        CheckL4ThreeShells();
         CheckL5NoTank();
         CheckL3OneSniper();
         CheckHeroStaging();
@@ -5215,6 +5314,35 @@ public static class PortSelfTest
     }
 
     /// <summary>
+    /// L4's demolition budget is THREE shells, via the placement override, not by
+    /// shrinking PlayerTank. The tank still carries 5 everywhere else; five on this
+    /// street dropped both buildings by turn 4 with two left (08-25 play). Asserted
+    /// against the BUILT magazine so a filter that dropped the override would still
+    /// go red — the number the player is handed, not the number in the YAML.
+    /// </summary>
+    static void CheckL4ThreeShells()
+    {
+        var l4 = AssetDatabase.FindAssets("t:LevelDefinitionSO")
+            .Select(AssetDatabase.GUIDToAssetPath)
+            .Select(AssetDatabase.LoadAssetAtPath<LevelDefinitionSO>)
+            .FirstOrDefault(l => l != null && !l.isTestLevel && l.levelNumber == 4);
+        Check(l4 != null, "L4 Ash Boulevard loads");
+        if (l4 == null) return;
+
+        var tank = l4.structures.FirstOrDefault(p => p.id == "player_tank");
+        Check(tank != null && tank.hasShellsOverride && tank.shellsOverride == 3
+              && tank.definition != null && tank.definition.cannon.ammoPerBattle == 5,
+              "L4's tank is a 3-shell OVERRIDE of the 5-shell asset " +
+              $"(has={tank != null && tank.hasShellsOverride}, " +
+              $"override={tank?.shellsOverride}, " +
+              $"asset={tank?.definition?.cannon.ammoPerBattle})");
+
+        var st = LevelBuilder.BuildInitialState(l4, 1, 12, new System.Random(9));
+        Check(st.InitialTankShells == 3 && st.TankShellsRemaining == 3,
+              $"L4 starts with 3 shells ({st.TankShellsRemaining}/{st.InitialTankShells})");
+    }
+
+    /// <summary>
     /// L5 is the loft beat. The tank's three shells were the structure-killer and
     /// turned "fight upward" into a 3-shell errand. Rob 2026-08-21: take it off
     /// this level. Shop comes later; this level must play without it.
@@ -5234,12 +5362,14 @@ public static class PortSelfTest
               "L5 fields no player tank");
         Check(l5.playerGroups.All(g => string.IsNullOrEmpty(g.standingOnStructureId)),
               "L5's squad stands on the ground (crew folded into the line)");
-        // L5 PLAYS HARD, so 2026-08-25 gave it more men in a tighter line (Rob: "we should group
-        // player units together more closely, add a few more player units.... plays difficult").
-        // Asserted as what a DEFAULT PLAYER ACTUALLY FIELDS AND WHERE HE STANDS, because the two
-        // halves fail in different, silent ways:
+        // L5 PLAYS HARD, so 2026-08-25 packed the line and added three bodies (Rob: "group
+        // player units together more closely, add a few more player units"). The packing
+        // stayed; the extra three were walked back 2026-08-27 after a device wipe (bunker
+        // down T6, 13 standing, zero casualties). Asserted as what a DEFAULT PLAYER
+        // ACTUALLY FIELDS AND WHERE HE STANDS, because the two halves fail in different,
+        // silent ways:
         //   - counts: a squad the deployBudget cannot afford is silently truncated by the picker,
-        //     so the level would field the old 10 with a bigger number sitting in the asset;
+        //     so the level would field fewer men with a bigger number sitting in the asset;
         //   - spacing: a picked squad THROWS THE AUTHORED ANCHORS AWAY (Loadout.ToPlayerGroups
         //     tiles its own line), so tightening anchorX would move the ◀ ▶ stepper's line and
         //     nothing the player ever sees. Measured as the width of the BUILT line, against the
@@ -5271,20 +5401,22 @@ public static class PortSelfTest
 
             // THE AUTHORED MIX must fit the budget, and that is NOT what `points` above measures.
             // ResetAll leaves the grenadier and the sniper LOCKED, so Loadout.Default substitutes
-            // cheap riflemen and the squad comes to 13 points — while the real unlocked mix
-            // (10 rifle + 2 grenadier + 1 sniper) costs 16 against a budget of exactly 16. The
-            // device showed "16/16 points" where this test said 13. Measured unlock-independently
-            // here, because the truncation it guards against is silent: the picker just fields
-            // fewer men and the level looks authored-but-easier.
+            // cheap riflemen and the squad prices at 10 — while the real unlocked mix
+            // (7 rifle + 2 grenadier + 1 sniper) costs 13 against a budget of exactly 13. The
+            // 08-25 16/16 mix was the overshoot. Measured unlock-independently here, because
+            // the truncation it guards against is silent: the picker just fields fewer men
+            // and the level looks authored-but-easier.
             int authoredPoints = l5.playerGroups
                 .Where(g => string.IsNullOrEmpty(g.standingOnStructureId) && g.definition != null)
                 .Sum(g => g.count * Loadout.PointCost(g.definition, roster5));
 
-            Check(l5.playerGroups.Sum(g => g.count) == 13
-                  && fielded == 13 && points <= l5.deployBudget
-                  && authoredPoints <= l5.deployBudget
+            Check(l5.playerGroups.Sum(g => g.count) == 10
+                  && fielded == 10 && points <= l5.deployBudget
+                  && authoredPoints <= l5.deployBudget && authoredPoints == 13
+                  && l5.deployBudget == 13
+                  && Mathf.Abs(l5.playerSpacingScale - 0.8f) < 0.001f
                   && tight < wide - 0.2f,
-                  $"L5 fields THIRTEEN bodies in a line packed to {l5.playerSpacingScale:F2} — " +
+                  $"L5 fields TEN bodies in a line packed to {l5.playerSpacingScale:F2} — " +
                   $"authored {l5.playerGroups.Sum(g => g.count)}, a default squad fields " +
                   $"{fielded} for {points} of {l5.deployBudget} points (the AUTHORED mix costs " +
                   $"{authoredPoints}), and the built line is " +
@@ -5571,6 +5703,31 @@ public static class PortSelfTest
             Check(worstCount < BattleRunner.ProjectilePoolSize,
                   $"no volley can outrun the projectile pool — worst is {worstWhere} at " +
                   $"{worstCount} rounds against a pool of {BattleRunner.ProjectilePoolSize}");
+        }
+
+        // Camera-facing tracer: long in X, tall in Y (the face), almost no Z.
+        // Un-tapered bar — a teardrop read as a rocket, Kenney's glow as a VFX
+        // streak. A 3D capsule (chubby) has Z ≈ Y. A spear has X/Y ≳ 8. Device 08-28.
+        {
+            var bullet = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/Bullet.prefab");
+            Check(bullet != null, "Bullet prefab exists");
+            if (bullet != null)
+            {
+                var b = new Bounds();
+                bool any = false;
+                foreach (var r in bullet.GetComponentsInChildren<MeshRenderer>())
+                {
+                    if (any) b.Encapsulate(r.bounds); else { b = r.bounds; any = true; }
+                }
+                float face = Mathf.Max(b.size.y, 0.0001f);
+                float ratio = b.size.x / face;
+                Check(any && ratio > 2.5f && ratio < 8f && b.size.z < face * 0.45f,
+                      $"the rifle tracer is a FLAT DASH — length/face {ratio:F1} " +
+                      $"(want 2.5-8), z {b.size.z:F3} vs face {face:F3} (chubby if z≈face). " +
+                      $"size {b.size:F3}");
+                Check(bullet.GetComponentsInChildren<MeshRenderer>().Length == 1,
+                      "the rifle tracer has no tail mesh — the taper was the rocket read");
+            }
         }
 
         // Every crowd body must survive an incendiary tick, or the burn is a wipe.

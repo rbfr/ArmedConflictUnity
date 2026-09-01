@@ -6,7 +6,9 @@
 - Strict alternating "I go, you go" turns.
 - One shared drag aims for the player's entire roster. Preview stays the short direction
   hint + angle%/power% readout ONLY — no landing marker, no arc-to-ground, no camera pan to
-  the aim point. Guessing angle/power to deliver the volley to the right place IS the
+  the aim point. After the finger comes up the same two numbers stay on screen as
+  `Last:` through the rest of the turn and the enemy's — Kotlin did this and the
+  port dropped it. Guessing angle/power to deliver the volley to the right place IS the
   mechanic; this was tried (landing marker + aim-pan) and explicitly reverted. CONVERGENT
   FIRE (revised 2026-07): the drag defines a target ZONE — the reference arc (formation
   centroid, the aim hint's arc) is solved to its landing point and flight time; every shot
@@ -30,7 +32,10 @@
 - The shell is ARMED OR HELD, and the player decides (2026-08-24, Rob's ask: *"the player can
   choose whether to arm the shell or not"* — restoring the Kotlin/Compose behaviour). The tank
   carries **5** shells (`PlayerTank.cannon.ammoPerBattle`), and a level may override that on the
-  placement (`StructurePlacement.shellsOverride`) without minting a second tank asset.
+  placement (`StructurePlacement.shellsOverride`) without minting a second tank asset. L4 is 3:
+  five dropped both buildings by turn 4 with two left (08-25 play); four would still raze both
+  before contact. Three is 288 against 240 garrisoned HP — the magazine is the whole demolition
+  budget again.
   - WHY IT MATTERS MORE THAN IT LOOKS: the shells are the squad's ENTIRE demolition budget. A
     rifleman does 8 x 0.25 = **2** damage to a wall, so the cannon is the only thing that brings a
     garrisoned structure down in a sane number of turns. While the shell fired itself on every
@@ -39,10 +44,10 @@
     reached a state no skill could win, unwarned. Found by PLAYING L4 on 2026-08-24: the run that
     chased the charge died on turn 9 having killed 5 of 27; the run that razed the buildings
     reached 1 v 1.
-  - **DEFAULT IS ARMED, and it is NOT yet signed.** Held-by-default kills the trap outright but
+  - **DEFAULT IS ARMED. Signed 2026-08-25.** Held-by-default kills the L4 trap outright but
     lets a player who never notices the panel reach the same dead end by a quieter road. Armed is
     what the game did before the switch, so no level's measured balance moves on the default
-    alone. Ask Rob before changing it.
+    alone. The panel exists to teach the hold. Do not flip this as taste.
   - The choice PERSISTS across turns. Arming consumes nothing, so re-arming every volley would be
     a tax on a player who wants to shell straight through; what the HUD owes in exchange is that
     the state is unmissable, which is the magazine panel's job.
@@ -50,6 +55,11 @@
     *"should not follow across the screen... it should be underneath the tank as well"*). It is
     gone the instant the volley leaves — the decision has been taken by then. Reads `ARMED` /
     `NOT ARMED`, his wording.
+  - **A living operator has to be on the hull.** Rob, 2026-08-28: *"one guy in the tank as
+    the operator... if he dies, the tank can't fire the shell."* The shell is his gun. If he
+    is gone the panel reads `NO GUNNER`, the magazine is not spent, and `CannonArmed` cannot
+    fire a round. He is level geometry (loadout never touches him). L1 fields one; other
+    tanks may still carry two until asked.
 - ONE ROUND PER UNIT (2026-07-25 — REPLACES the 2026-07 "fire teams" lock). Every firing
   unit puts its own projectile in the air: one round, one entity, one visible model, one
   unit's damage. Nothing cosmetic stands in for a round that isn't simulated, and nothing
@@ -182,10 +192,11 @@
   dying on its own deck stays free to fall off the edge. Nothing in the ragdoll consulted the
   structures before that; it was invisible while bodies barely travelled and obvious once they
   were thrown far enough to reach a wall. Death spawns a `DyingUnitEntity` whose impulse follows the KILLING BLOW: bullets
-  and melee CRUMPLE (no launch — the body tips over via the flop spring, steered away from
-  the shot), explosive blasts THROW (modest launch, apex ~half a body height, moderate
-  tumble), structure-collapse deaths topple gently toward their own side and let the drop
-  supply the energy. No universal arcade pop — that read as cartoonish.
+  and melee on the DIRT SKID BACKWARDS and flop (no hop — that bounced; signed
+  2026-08-28 *"ok this is fine."* Kenney `die` stays off). Explosive blasts THROW
+  (modest launch, apex ~half a body height, moderate tumble). Deck and
+  structure-collapse deaths keep the roof throw. No universal arcade pop — that
+  read as cartoonish.
 - Ragdoll pipeline: gravity 9.8 + light drag in flight → dead-weight ground thud
   (restitution 0.16, most spin/horizontal speed absorbed) → brief heavy-friction roll with
   rotation locked to distance traveled → critically-damped angular spring flops the body to
@@ -262,6 +273,11 @@
   2026-08-18 ask: after a garrisoned structure falls, the camera rides the
   falling bodies for 1.25s then pans back to the remaining enemy line
   (`CameraDirector.CollapseFollowSeconds`).
+- **Rifle tracers are an un-tapered flat orange dash.** Opaque unlit, camera-facing,
+  no tail. Signed 2026-08-28: mid-90s arcade, not realistic. A teardrop read as a
+  rocket; Kenney Particle Pack streaks read as VFX, not rounds. Do not re-open as a
+  mesh or sprite pass without an ask. Rockets, grenades, and the tank shell keep
+  their own meshes.
 
 ## V1 Scope
 - Single-player campaign vs AI only. No networking or PvP.

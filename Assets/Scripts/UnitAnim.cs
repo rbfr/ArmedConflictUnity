@@ -171,6 +171,15 @@ public class UnitAnim : MonoBehaviour
     public const float HoldLeftDrop = 4f;
     public const float HoldRightInward = 6f;
     public const float HoldRightDrop = 4f;
+    /// <summary>
+    /// Forearm flex on the LEFT elbow child, about local Z. The clips never write
+    /// this joint — that is the whole point of parenting a child rather than
+    /// inserting into torso/arm-*. Local Y is the bone axis (twist); X lifts the
+    /// hand off the gun; Z is the hinge that puts the left hand on the forestock.
+    /// −40 chosen off UnitPosePreview's 3/4 (the camera's view). Right elbow stays
+    /// at identity so the gun (still on arm-right) and the right hand do not part.
+    /// </summary>
+    public const float HoldElbowFlex = -40f;
 
     /// <summary>
     /// One arm's hold correction, in the SHOULDER's frame — pre-multiply it, exactly as the aim
@@ -199,6 +208,7 @@ public class UnitAnim : MonoBehaviour
 
     Animation anim;
     Transform armL, armR;
+    Transform elbowL, elbowR;
     Transform legL, legR;
     Transform torso, head;
     float shownAim;
@@ -241,6 +251,8 @@ public class UnitAnim : MonoBehaviour
         head = anim.transform.Find("torso/head");
         armL = anim.transform.Find("torso/arm-left");
         armR = anim.transform.Find("torso/arm-right");
+        elbowL = anim.transform.Find("torso/arm-left/elbow-left");
+        elbowR = anim.transform.Find("torso/arm-right/elbow-right");
         // `walk` drives the legs; `idle` does not. Capture the authored stance so a march
         // that stops mid-stride can stand back up — same trap as the root, one joint family
         // down. See RestoreStance.
@@ -313,6 +325,7 @@ public class UnitAnim : MonoBehaviour
         if (dead) return;
 
         if (armL == null && armR == null) return;
+        ApplyElbows();
 
         // A man swinging a rifle butt is not sighting down it. Without this the PLAYER's victim
         // holds the live drag elevation through the whole fight, because SyncUnits hands his
@@ -351,6 +364,23 @@ public class UnitAnim : MonoBehaviour
         if (armR != null)
             armR.localRotation = lift * HoldCorrection(HoldRightInward, HoldRightDrop, false)
                                * armR.localRotation;
+    }
+
+    /// <summary>
+    /// Rest bend on the child elbow joints. Local Z is the hinge that reaches the
+    /// forestock after the hold has pointed the arm downfield; see HoldElbowFlex.
+    /// Only the left arm flexes: the gun is parented to arm-right, and bending that
+    /// elbow would walk the hand off the grip.
+    /// </summary>
+    public static Quaternion ElbowFlex(float degrees)
+        => Quaternion.AngleAxis(degrees, Vector3.forward);
+
+    void ApplyElbows()
+    {
+        if (elbowL != null)
+            elbowL.localRotation = ElbowFlex(HoldElbowFlex);
+        if (elbowR != null)
+            elbowR.localRotation = Quaternion.identity;
     }
 
     /// <summary>

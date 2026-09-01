@@ -23,8 +23,9 @@ Sits outside `Assets/`, so Unity never imports it.
 | Plan | Covers | State |
 |---|---|---|
 | `FAIL_JUICE.md` | Fail teaching + nudge; kill-confirm / near-miss | Punch and scorch signed 2026-08-20; L1 Smoke nudge uncalled |
-| `RANGE.md` | Campaign distance; L5 no tank + MG/sniper roles | L1 distance signed; L5 on phone 2026-08-21 ("fine for now"); ask next |
+| `RANGE.md` | Campaign distance; L5 no tank + MG/sniper roles | L1 distance signed; L5 no-tank 08-21; 08-25 ease overshot; bodies walked back 08-27 (10 packed at 0.8), **picker play still owed** |
 | `BACKLOG.md` | Asked for, not yet scheduled — one section per idea, with why | Not sequenced; pick one and give it its own plan file |
+| `ELBOW.md` | Firing-stance elbow; clips stay if the joint is a child | Kept 08-27. All seven classes on device |
 
 ## Archived — `archive/`
 

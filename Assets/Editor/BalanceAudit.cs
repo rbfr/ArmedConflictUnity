@@ -316,20 +316,22 @@ public static class BalanceAudit
         //
         // Measured on device 2026-08-07, and it is the sharpest number in this file. A rifleman's
         // structureDamageMultiplier is 0.25, so his 8-damage round does TWO to a building; ten of
-        // them is 20 a volley if every round lands. The tank shell is 32 x 3 = 96, and there are
-        // exactly ammoPerBattle of them. So a stock squad's anti-structure capacity is a FIXED
-        // number, spent in the first three volleys, after which the wall is effectively immune.
+        // them is 20 a volley if every round lands. The tank shell is 32 x 3 = 96, and the magazine
+        // is InitialTankShells — the battle's actual count, which is ammoPerBattle unless the
+        // placement overrode it. Reading the definition instead would audit L4 at the tank's
+        // default 5 while the player is handed 3, and the siege line would lie.
         //
         // That matters because composition rule 5 REQUIRES the majority of the enemy roster to be
         // garrisoned. Where garrisoned structure HP exceeds the shell capacity, the majority of
         // the roster sits behind something the stock squad cannot break, and the level resolves on
         // whether the player can pick the garrison off the deck by direct fire — which works (a
         // roof garrison is shootable) but is slow enough that the enemy wins the attrition race.
-        float shellCapacity = state.Structures
-            .Where(st => st.Definition.isPlayerSide && st.Definition.hasCannon
-                         && st.Definition.cannon != null)
-            .Sum(st => st.Definition.cannon.ammoPerBattle * st.Definition.cannon.damage
-                       * st.Definition.cannon.structureDamageMultiplier);
+        var playerCannon = state.Structures
+            .Select(st => st.Definition)
+            .FirstOrDefault(d => d != null && d.isPlayerSide && d.hasCannon && d.cannon != null);
+        float perShell = playerCannon == null ? 0f
+            : playerCannon.cannon.damage * playerCannon.cannon.structureDamageMultiplier;
+        float shellCapacity = state.InitialTankShells * perShell;
         float rifleVolleyVsStructure = state.PlayerUnits.Sum(
             u => u.Definition != null ? u.Definition.damage * u.Definition.structureDamageMultiplier : 2f);
         float garrisonedHp = state.Structures.Where(st => garrisonedOn.Contains(st.Id)).Sum(st => st.Hp);
