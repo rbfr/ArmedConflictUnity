@@ -5819,11 +5819,25 @@ public static class PortSelfTest
     /// rather than a comment about it: a rank's 0.16 of depth is deliberately shallow (deeper and
     /// the rear rank stands off the roof), and at the camera's real height it buys a few percent
     /// of a body in screen rise. So two men on one deck read apart only if their x differs.
+    ///
+    /// THE FLOOR IS A FULL BODY WIDTH, raised 2026-09-04 from `body * 0.3`. The old floor was
+    /// written against the 0.000 eclipse and caught it, but 0.3 of a body asserts NOT PERFECTLY
+    /// HIDDEN under a name that promises COUNTABLE — and the gap between those two is where L6's
+    /// staggered bunker deck lived for two days. It passed at a gap of 0.094, 4.3x the floor, and
+    /// still read as four men holding eight: half a pitch is 72% of a body, and the rear man is
+    /// also further back, so he is drawn higher and smaller with his feet behind his neighbour's
+    /// shoulder. Only a 10x crop separated the pairs. A full body width means the bodies do not
+    /// overlap at all, which is the thing the player is actually being asked to do.
+    ///
+    /// This floor is reachable ONLY because no deck stands in two ranks any more (L6's bunker
+    /// went 8 -> 6 the same day, its two men moved to the keep). Re-introduce a staggered rank
+    /// and this check goes red — deliberately. It is the standing lesson in this file's own
+    /// Debugging section: assert the OUTPUT, not the input.
     /// </summary>
     static void CheckEveryGarrisonBodyReadsOnScreen()
     {
         float body = Formation.BodyWidth;
-        float floor = body * 0.3f;
+        float floor = body;   // a full body: adjacent men must not overlap AT ALL. See summary.
 
         // A representative resolve framing. Nearer is worse for the rear rank, so this is the
         // generous end: any closer camera makes the rise smaller still.

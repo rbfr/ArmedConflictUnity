@@ -1119,6 +1119,27 @@ and retires the staggered path from the shipping product — but it moves a unit
 level. If the 8 is kept instead, the floor should be raised to mean countable (a full body width),
 and **that would go red against L6 today** — so it ships WITH the level edit, never ahead of it.
 
+### Closed the same day — the count never had to move
+
+The fix landed 2026-09-04 and it was **not** the 8 -> 6 above. Reading L6's asset showed the
+bunker and the keep are garrisoned by **the same unit definition**, which makes this a placement
+question rather than a roster one: `bunker` 8 -> 6, `keep`'s group of that definition 4 -> 6.
+**Enemy count stays 27, no definition or stat moves, and the men are literally the same men
+standing somewhere else.** Strictly better than cutting two, which would have made a boss ~7%
+easier to buy a legibility fix — and a reminder to read the asset before costing a design change,
+because the expensive version of this was the obvious one.
+
+**All 21 campaign decks now stand in one rank.** The staggered path is gone from the shipping
+product, which is what let the floor rise from `body * 0.3` to a **full body width** — adjacent
+men may not overlap at all. Proven the way this project requires: **red against the old level
+first** (7 hidden, gap 0.094, exit 1), then green (tightest gap now 0.152, on L1). Re-introduce a
+staggered rank and it goes red again, by design.
+
+Device: six countable men on the bunker where there were four merged pairs, sixteen on the keep.
+**The balance is NOT signed** — the play that verified the look threw ten blind drags and never
+hit the bunker, so L6 has still never been played to a win, before or after. The neutrality
+argument here is structural, not empirical.
+
 ## Rifleman v2 — same skinny class, not a new silhouette, 2026-08-13
 
 Rob rejected the current rifleman as a model, not as a role. The body was a vest slab, four

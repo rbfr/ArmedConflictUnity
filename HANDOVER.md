@@ -12,11 +12,13 @@ supply (consumables, camo, classes, ammo). **Do not use Auto**
 for structures, ammo, or consumables. Android repo is RETIRED.
 `DISPLAY=:0` (not `:1`).
 
-The phone has the **09-02 APK** — the garrison one-rank fix. It was
-played on 09-04 (below) and left mid-battle on **L6 at turn 5**,
-Fortress Tier collapsed, enemy 27 -> 15, all ten player units alive.
-DND, stay-awake and auto-rotate were all restored. Coins 4085
-untouched, RIGS off — nothing was spent.
+The phone has a **09-04 APK** — L6's deck move plus the raised
+legibility floor, built and installed this sitting (clean
+uninstall/reinstall; coins survived and read **4113**, up 28 from a
+defeat, nothing spent). It was left on **L6's DEFEAT screen at turn
+9** — see the caveat in the 09-04 block: that defeat measures my
+blind drag, not the balance. DND, stay-awake and auto-rotate all
+restored. RIGS off.
 
 Two things closed 09-02, both in the blocks below: L5's angle
 claim (the notes moved, the level did not) and **the deck
@@ -30,6 +32,50 @@ Not pushed unless asked. Still untracked and deliberately NOT
 wired: `Assets/Models/Kenney/Particles/` and
 `Assets/Materials/TracerSprite.mat`, leftovers from the tracer try.
 Do not tidy unless he asks.
+
+### Closed 09-04 — L6's last two-rank deck, moved rather than cut
+
+The residual above, fixed the same sitting. **The bunker and the keep
+are garrisoned by the SAME unit definition**, so the fix was never a
+unit-count call at all — it is two men moving four units right:
+
+| group | deck | seats | was | now |
+|---|---|---|---|---|
+| `bunker` (MountainBunker) | 1.00 | 6 | 8 | **6** — 100% fill |
+| `keep` (FortressTier) `83aeca…` | 3.00 | 17 | 4 | **6** |
+| `keep` `036d9a…` | | | 10 | 10 |
+
+**Enemy count stays 27. No definition, stat or new group.** That is
+strictly better than the 8 -> 6 first proposed, which would have made
+a boss ~7% easier to buy a legibility fix.
+
+**All 21 campaign decks now stand in ONE rank** — the staggered path
+is gone from the shipping product. So the check's floor was raised
+from `body * 0.3` (0.039) to a **full body width** (0.131): adjacent
+men may not overlap at all. **Run against the old level first and it
+went RED** — 7 bodies hidden, tightest gap 0.094, exit 1 — then green
+with the level fixed, tightest gap now 0.152 on L1. Re-introduce a
+staggered rank and it goes red again, deliberately.
+
+`LevelComposition.Report`: L6 **all eight rules ok**, unchanged, and
+the campaign's three standing warnings (L3 rule 7, L5 separation
+11.6, L12 rule 8) are exactly as before. `DeckFillReport`:
+MountainBunker 79% -> **100%**, FortressTier 85% -> **98%**.
+
+**Device, 09-04 APK.** Both L6 decks read: six countable men on the
+bunker, sixteen on the keep, every one distinct. The before/after on
+the bunker is the whole story — four merged pairs, then six men.
+
+**WHAT THIS PLAY DID NOT ESTABLISH, and it matters.** I threw ten
+near-identical blind drags and lost at turn 9 with the **Mountain
+Bunker untouched at 118** — I never once aimed at it. That defeat
+measures the drag, not the level. **L6 has still never been played to
+a win, before the change or after**, so nothing here signs its
+balance. The case for neutrality is STRUCTURAL — same count, same
+definitions — with one honest caveat: the two men moved from a
+shorter structure at x=4 to a taller one at x=8, so they are
+marginally further out, and a shell on the keep now catches 16 where
+it caught 14. If the balance matters, L6 wants a real played win.
 
 ### Played 09-04 — L6 on the 09-02 APK. The fix holds; ONE deck still does not read
 
@@ -110,12 +156,11 @@ The 08-28 list is spent. Beat 1 below was TAKEN and closed 09-04
 unranked and none of them started:
 
 1. ~~Play a level on the 09-02 APK and look at a deck.~~ **DONE
-   09-04.** It threw off one live question, which is now the
-   cheapest thing on this list: **L6's `MountainBunker` garrison,
-   8 -> 6.** That makes the campaign single-rank throughout and
-   retires the staggered path; it moves a unit count on a BOSS
-   level, so it needs Rob. See the 09-04 block for why the check
-   cannot be tightened before the level is.
+   09-04**, and the deck question it raised is CLOSED the same day
+   (L6's two men moved to the keep, floor raised). What it leaves
+   owed is smaller and named: **L6 has never been played to a WIN,
+   before the change or after.** The count is preserved by
+   construction, but no play has signed the balance.
 2. **The ballistic-shadow checker**, offered 09-02 and NOT taken:
    rule 7 checks flat range at 45° only, so a garrison behind a
    tall narrow face passes it while being a 2-point needle (L5's

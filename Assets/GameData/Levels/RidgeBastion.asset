@@ -24,7 +24,7 @@ MonoBehaviour:
     standingOnStructureId: 
     advancePerTurn: 0
   - definition: {fileID: 11400000, guid: 83aeca5cec8486eaf95c85703d65c4e7, type: 2}
-    count: 8
+    count: 6
     anchorX: 4
     anchorZ: 0.12
     standingOnStructureId: bunker
@@ -36,7 +36,7 @@ MonoBehaviour:
     standingOnStructureId: 
     advancePerTurn: 0
   - definition: {fileID: 11400000, guid: 83aeca5cec8486eaf95c85703d65c4e7, type: 2}
-    count: 4
+    count: 6
     anchorX: 8
     anchorZ: 0.12
     standingOnStructureId: keep
