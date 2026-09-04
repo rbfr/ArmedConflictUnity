@@ -6,7 +6,7 @@ using ArmedConflict.Data;
 using ArmedConflict.Game;
 
 /// <summary>
-/// Checks levels against the eight composition rules in LEVEL_AUTHORING.md.
+/// Checks levels against the nine composition rules in LEVEL_AUTHORING.md.
 ///
 /// Run over the whole campaign, headless — which is how it will actually be used, because the
 /// editor GUI here runs over VNC on llvmpipe and nobody opens it:
@@ -75,7 +75,7 @@ public static class LevelComposition
 
             if (bad.Count == 0)
             {
-                Debug.Log($"[Composition] L{level.levelNumber} {level.displayName}: all eight rules ok");
+                Debug.Log($"[Composition] L{level.levelNumber} {level.displayName}: all nine rules ok");
                 continue;
             }
             foreach (var f in bad)
@@ -94,7 +94,7 @@ public static class LevelComposition
     }
 
     /// <summary>
-    /// The eight rules. A half-authored level legitimately fails to build (no background, a null
+    /// The nine rules. A half-authored level legitimately fails to build (no background, a null
     /// unit reference) — that comes back as buildError, and must not read as a rule violation.
     /// </summary>
     public static List<Finding> Check(LevelDefinitionSO level, out string buildError)

@@ -1,4 +1,4 @@
-# LEVEL_AUTHORING.md — the eight composition rules
+# LEVEL_AUTHORING.md — the nine composition rules
 
 **Read this before authoring or editing a level.** These are the constraints that actually govern
 whether a level can be framed and read; they are derived, not taste, and each one was paid for.
@@ -10,7 +10,7 @@ rules at the top of the campaign block" — they mean this file now.
 `LevelDefinitionInspector` checks rules 1, 2, 3, 5, 6, 7 and 8 live in the inspector. Rule 4 is
 rule 6's measure. A warning there is a warning about the level, not about the tool.
 
-**Rule 8 moved into `LevelComposition.CollisionBoxRule` on 2026-08-12**, so all eight rules now
+**Rule 8 moved into `LevelComposition.CollisionBoxRule` on 2026-08-12**, so all nine rules now
 report in the same place. It used to live only in `PortSelfTest.CheckNobodyStandsInAWall`, which
 meant it failed the SUITE rather than showing up beside the level you were editing — an author saw
 seven rules where there are eight. The suite still asserts it and now DELEGATES to the same

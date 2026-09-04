@@ -2,36 +2,67 @@
 
 ## Pick up here
 
-Last sitting **09-04**. Nothing is owed. **Ask which beat next.**
-Do not sequence look work or unsigned phone items. **Ask git** — this
-file does not record commits. Rob commits/pushes on an explicit ask;
-do not tidy unpushed work unprompted.
+Last sitting **09-04**, a long one. **Everything is committed AND
+PUSHED** — seven commits on `session/2026-08-25-shell-art-ragdoll`,
+`c9b8d40..670c643`. The working tree is clean apart from the untracked
+tracer leftovers below. **Ask git anyway** — this file does not track
+commits, and Rob commits/pushes on an explicit ask.
 
-`PortSelfTest.Run` after every change. **RIGS** is the test
-supply (consumables, camo, classes, ammo). **Do not use Auto**
-for structures, ammo, or consumables. Android repo is RETIRED.
-`DISPLAY=:0` (not `:1`).
+`PortSelfTest.Run` after every change; it now carries rules 8 AND 9.
+**RIGS** is the test supply (consumables, camo, classes, ammo) — the
+clean install RESETS it, so check the button rather than assuming.
+**Do not use Auto** for structures, ammo, or consumables. Android repo
+is RETIRED. `DISPLAY=:0` (not `:1`).
 
-The phone has the **09-04 END-OF-DAY APK** — everything below,
-including the boss telegraph at its committed **0.5**, rule 9's L10
-depot move, and the L9/L12 placements. Clean uninstall/reinstall,
-boots to L1's picker, coins **4085**, RIGS off. Smoke-checked on L1
-and L9 only. **L12's boss phase is NOT verified on device** — its
-escort and Sovereign moved, and reaching that phase needs the
-citadel brought down. DND, stay-awake and auto-rotate all restored.
+**The phone has the 09-04 END-OF-DAY APK** — all seven commits. Boots
+to L1's picker, coins **4085**, RIGS off, DND/stay-awake/auto-rotate
+restored. Smoke-checked on L1 and L9 only.
 
-Two things closed 09-02, both in the blocks below: L5's angle
-claim (the notes moved, the level did not) and **the deck
-undercount, which was never about three levels** — it was every
-garrisoned deck in the campaign.
+### What 09-04 shipped, in the order the blocks appear below
 
-**COMMITTED 09-04.** The whole 09-02 sitting plus the 09-04 play
-notes went in on `session/2026-08-25-shell-art-ragdoll` as one
-commit, after L6 was played on the APK built from that same tree.
-Not pushed unless asked. Still untracked and deliberately NOT
-wired: `Assets/Models/Kenney/Particles/` and
-`Assets/Materials/TracerSprite.mat`, leftovers from the tracer try.
+| | |
+|---|---|
+| Rule 8 tightened | no unit starts inside a building, at all. Found two the old silent exemption hid (L9, L12) |
+| **Rule 9, new** | the ballistic-shadow checker. FIRES REAL SHOTS. Found a man on L10 nobody could hit |
+| L6 tested properly | picker entry, RIGS, 14/14 points, ammo + consumables. Three defeats. The spike is entirely the boss phase |
+| Boss telegraph | pillar 7 finally reaches the boss. Threshold 0.5, measured |
+| Ragdoll flail | it was INTEGRATING — 179.9° of wind-up. Now an offset from rest |
+| Snow pine | had no snow in it. Rebuilt |
+| L6's last folded deck | bunker 8 -> 6, the two men moved to the keep. Campaign is single-rank throughout |
+
+### Owed, in the order I would take it
+
+1. **L12's boss phase has never been seen on device.** Its escort
+   moved 5.5 -> 7.0 and its Sovereign 7.5 -> 9.0 this sitting, and
+   `LevelComposition` is the only thing that has checked them.
+   Reaching that phase means bringing the citadel down. **This is the
+   one unverified change on the phone.**
+2. **L6 has never been won**, before or after any of today's work.
+   Rule 9 says the Sovereign IS reachable, so this is difficulty and
+   aim, not a bug — see the block on what three losses did establish.
+   It wants a player, not more of my drags.
+3. **A campaign run, L1 → L6, through the picker.** `PRODUCT_DIRECTION`
+   gates Tier 3 on *"after >= 5 fun sessions exist"* and nobody has
+   ever played the funnel end to end. Tiers 0-2 are otherwise closed.
+4. The two standing composition warnings — L3 rule 7, L5 separation
+   11.6 — both long-standing, both documented, neither touched today.
+
+**Do not open unprompted:** tracer look, Kenney particles, a new death
+clip. Leftover and deliberately NOT wired:
+`Assets/Models/Kenney/Particles/` and `Assets/Materials/TracerSprite.mat`.
 Do not tidy unless he asks.
+
+### Two lessons 09-04 kept re-teaching
+
+**An instrument beats a story.** I was sure L6's boss was unreachable —
+nine powers, nothing killed, and a documented hole in rule 7 to blame.
+Rule 9 cleared L6 on its first run. The bug was my aim. It then found a
+REAL unhittable man on L10, which no amount of playing had suggested.
+
+**A silent exemption is where things hide.** Rule 8 had waved
+clears-on-first-march through with a bare `continue` for as long as it
+had existed. Removing it surfaced a shield bearer standing 0.07 inside
+L9's bunker. Nothing would ever have reported that.
 
 ### Closed 09-04 — NO UNIT STANDS INSIDE A BUILDING, and the exemption that hid two
 
@@ -460,33 +491,11 @@ before it.
   *"ok this is fine."* A crumple clip is not the next move unless
   he asks. Deck falls unchanged.
 
-### Ask which beat
+### Ask which beat — SUPERSEDED 09-04
 
-The 08-28 list is spent. Beat 1 below was TAKEN and closed 09-04
-(L6 played, the block above). Nothing is owed. Candidates, all
-unranked and none of them started:
-
-1. ~~Play a level on the 09-02 APK and look at a deck.~~ **DONE
-   09-04**, and the deck question it raised is CLOSED the same day
-   (L6's two men moved to the keep, floor raised). What it leaves
-   owed is smaller and named: **L6's BALANCE IS UNSIGNED.** The
-   picker play was DONE 09-04 (block above) and lost — but it
-   located the spike precisely: the garrison half is well tuned,
-   and the whole level is decided in a boss phase that is a
-   MOVING-TARGET problem the campaign never teaches. The blindside
-   half of that is fixed (boss telegraph). **Whether the phase is
-   still too steep is unmeasured, and L6 has never been won.**
-2. **The ballistic-shadow checker**, offered 09-02 and NOT taken:
-   rule 7 checks flat range at 45° only, so a garrison behind a
-   tall narrow face passes it while being a 2-point needle (L5's
-   tower sniper) or unreachable outright. Offer again, do not
-   build unasked.
-3. Anything else he names. Do not open tracer look, Kenney
-   particles, or a new death clip unprompted.
-
-Leftover from the Kenney tracer try: untracked
-`Assets/Models/Kenney/Particles/` and `Assets/Materials/TracerSprite.mat`.
-Not wired. Do not tidy unless he asks.
+The 08-28 and 09-02 lists are both spent; every item on them was taken
+or closed. What is owed now is at the top of this file, under **Owed**.
+Kept only so a reader following a back-reference lands somewhere true.
 
 ### Closed 09-02 — half of every garrison was INVISIBLE
 

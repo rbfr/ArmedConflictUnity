@@ -45,7 +45,7 @@ anywhere:
 
 | | |
 |---|---|
-| `LEVEL_AUTHORING.md` | the EIGHT COMPOSITION RULES. Read before authoring or editing any level; all eight checked by `LevelComposition.Report` |
+| `LEVEL_AUTHORING.md` | the NINE COMPOSITION RULES. Read before authoring or editing any level; all nine checked by `LevelComposition.Report` |
 | `PRODUCT_DIRECTION.md` | **what to build next** — retention, dopamine model, campaign packaging, priority stack. Plan product work against this |
 | `GAME_DESIGN_LOCKS.md` | decisions that are CLOSED — turn structure, win/loss, physics, scope |
 | `PROGRESSION_DESIGN.md` | coins, loadout, unlocks, consumables — phased spec + build status |
@@ -109,7 +109,7 @@ references. A code-only change does not need one; a new `[SerializeField]` does.
 **The ScriptableObjects in `Assets/GameData/` ARE the source of truth.** Edit them directly. The
 Kotlin export pipeline is retired; the old repo is reference only.
 
-**Read `LEVEL_AUTHORING.md` before authoring or editing a level** — the eight composition rules,
+**Read `LEVEL_AUTHORING.md` before authoring or editing a level** — the nine composition rules,
 moved here from the Kotlin. They are checked, not merely documented:
 
 ```bash
@@ -230,8 +230,8 @@ BEAT from `PRODUCT_DIRECTION.md`'s chart, and its `designNotes` says which and w
 
 Two stages of six (`ValleyFront` 1-6, `EnemyStronghold` 7-12), bosses on 6 and 12.
 
-The eight composition rules live in **`LEVEL_AUTHORING.md`** (moved out of the Kotlin 2026-08-06)
-and all eight are checked by `LevelComposition.Report`. Shortest form: the Aiming camera frames the
+The nine composition rules live in **`LEVEL_AUTHORING.md`** (moved out of the Kotlin 2026-08-06)
+and all nine are checked by `LevelComposition.Report`. Shortest form: the Aiming camera frames the
 PLAYER LINE ONLY (~6 wide), scout/resolve framing is set by the enemy cluster INCLUDING structure
 edges (under ~11), one dominant structure plus at most two small supports, 14-20 units of
 separation TANK→DOMINANT STRUCTURE (checker max 20 while L1 trials 18.5; was 14-18 at v=9),
@@ -246,8 +246,22 @@ the building you see. A structure's ANCHOR is not its EDGE. Rule 8 is checked by
 renders in the inspector AND fails `PortSelfTest`, which delegates to it. It is an ERROR, not a
 warning — a unit that cannot be hit is not a rule a level may bend. **It judges turn 0 AND every
 boss/wave arrival**; reading the initial state alone hid four embedded units across L6/L10/L11.
-**Rule 7 still reads turn 0 only** — an arrival placed out of the ballistic envelope is caught by
-nothing.
+**Rule 8 tightened 2026-09-04** — an ADVANCING unit inside a box is an Error too, however fast it
+marches clear. Rob: *"i dont think we should have enemy units within the buildings."* The old
+exemption waved clears-on-first-march through SILENTLY and hid a shield bearer 0.07 inside L9's
+bunker for as long as the rule existed.
+
+**(Rule 9, added 2026-09-04) every enemy unit must be HITTABLE BY A REAL DRAG**, and this one
+FIRES THE SHOT — a sweep of real trajectories through `TrajectoryPhysics.Step` at the tick's own
+dt, against `CollisionSystem`'s boxes and `SweptCollision.UnitHitRadius`, counting how many land
+on the man. Zero is an ERROR, a handful is a NEEDLE warning. It closes what rule 7 could not see:
+**rule 7 reads flat range at 45° and turn 0 only**, so a man standing just PAST a wall is inside
+no box and within range and still unhittable — clearing the box top then falling to head height
+needs an angle too steep to carry that far. It found exactly that on L10, a shipped wave with a
+man no drag reached. It judges turn 0 AND every arrival, honouring `DeadByTrigger` (a boss bursts
+out of the structure that spawned it, and counting that rubble would condemn every boss).
+`PortSelfTest` delegates to `LevelComposition.BallisticShadowRule` — one implementation, never
+two.
 
 **Test rigs no longer need renumbering when the campaign changes size** (2026-08-06). The scene
 builder orders CAMPAIGN-then-RIGS, so the campaign block leads and is indexed by position while a
