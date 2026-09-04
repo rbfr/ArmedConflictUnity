@@ -327,24 +327,30 @@ public static class LevelComposition
                     // the same day advancing squads went live — the day the exemption started
                     // carrying real weight.
                     float owed = u.X - (st.X - halfW);
+
+                    // NO UNIT STARTS INSIDE A BUILDING — Rob, 2026-09-04: "i dont think we should
+                    // have enemy units within the buildings... that doesn't make sense."
+                    //
+                    // This REPLACES the advancing exemption, which used to wave a unit through if
+                    // it marched clear on its first turn and downgrade it to a Warning if it took
+                    // longer. That split was about HITTABILITY — how many turns the player is
+                    // asked to shoot at something they cannot reach — and on that axis it was
+                    // right. But it answers the wrong question. A man standing inside masonry is
+                    // not a pacing judgement, it is a man standing inside masonry, and no march
+                    // he makes later changes what the player sees on the turn he arrives.
+                    //
+                    // Rule 9 still carries the hittability half, and carries it better: it FIRES
+                    // THE SHOT and follows an advancer march by march. So nothing is lost by
+                    // making this rule mean the simple thing its name says.
                     if (u.AdvancePerTurn > 0f)
                     {
-                        // Clears on its FIRST march: the exemption's claim holds, no finding.
-                        if (u.AdvancePerTurn >= owed) continue;
-                        // Clears EVENTUALLY. Counted separately and reported as a WARNING, because
-                        // the severities mean different things and this project pays for conflating
-                        // them: an Error says the player is asked to kill something they cannot hit
-                        // AT ALL, which is not a rule a level may bend. A charger that is behind
-                        // masonry for its first turn and in the open on its second CAN be hit — it
-                        // is a pacing judgement, and those are Warnings a level may bend for a
-                        // reason it records in `designNotes`.
                         slowToClear++;
                         if (firstSlow == null)
                             firstSlow = $"{label} {u.Definition.name} at x {u.X:F2} starts " +
                                         $"{owed:F2} inside {st.Definition.name} and advances " +
                                         $"{u.AdvancePerTurn:F2}/turn — " +
                                         $"{Mathf.CeilToInt(owed / u.AdvancePerTurn)} turns to clear";
-                        continue;
+                        continue;   // counted once, in the advancing bucket
                     }
 
                     inside++;
@@ -362,14 +368,14 @@ public static class LevelComposition
         if (ground == 0)
             return new Finding(Severity.Ok, "rule 8: no ground units to place — nothing measured");
 
-        // An advancing unit that needs more than one march to clear masonry is a WARNING — see
-        // the severity note at the exemption. Reported only when nothing worse was found, so an
-        // Error is never softened by a Warning sharing the line.
+        // An advancer inside a box is an ERROR now, not a Warning — see the note at the
+        // exemption it replaced. It is reported on its own line so the message can say WHY it
+        // was counted, which the generic line below cannot.
         if (inside == 0 && slowToClear > 0)
-            return new Finding(Severity.Warn,
-                $"rule 8: {slowToClear} advancing unit(s) start inside a collision box and need " +
-                $"more than one march to clear it — {firstSlow}. Hittable, but not on the turn " +
-                "the player is first asked to deal with them.");
+            return new Finding(Severity.Error,
+                $"rule 8: {slowToClear} advancing unit(s) START INSIDE a collision box — " +
+                $"{firstSlow}. Marching clear later does not help: they are standing in masonry " +
+                "on the turn the player first sees them.");
 
         return new Finding(inside == 0 ? Severity.Ok : Severity.Error,
             $"rule 8: {inside} of {ground} ground unit(s) inside a structure's collision box " +

@@ -19,7 +19,7 @@ MonoBehaviour:
   enemyGroups:
   - definition: {fileID: 11400000, guid: aecf03c40cb9b8f4d85d97ef12b4289f, type: 2}
     count: 4
-    anchorX: 3
+    anchorX: 2.8
     anchorZ: 0
     standingOnStructureId: 
     advancePerTurn: 1.3

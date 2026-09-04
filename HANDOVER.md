@@ -33,6 +33,46 @@ wired: `Assets/Models/Kenney/Particles/` and
 `Assets/Materials/TracerSprite.mat`, leftovers from the tracer try.
 Do not tidy unless he asks.
 
+### Closed 09-04 — NO UNIT STANDS INSIDE A BUILDING, and the exemption that hid two
+
+Rob: *"i dont think we should have enemy units within the buildings...
+that doesn't make sense."* Rule 8 now ERRORS on an advancing unit
+inside a collision box, however fast it marches clear.
+
+**This overrides a deliberate split.** Until now, clears-on-first-march
+was waved through SILENTLY, clears-eventually was a Warning, and only a
+static embed was an Error. That split reasoned about HITTABILITY and on
+that axis it was right — but it answers the wrong question. A man
+standing inside masonry is not a pacing judgement, and no march he makes
+next turn changes what the player sees on the turn he arrives.
+
+**Nothing is lost: rule 9 carries the hittability half and carries it
+better**, firing real shots and following an advancer march by march.
+Rule 8 is now free to mean the simple thing its name says.
+
+**The tightening found two cases the old split had hidden:**
+
+- **L12's boss escort** spawned at anchorX 5.5, inside the GATE's box
+  [3.25, 5.75]. The citadel does not count — it is the phase's own
+  trigger and rubble by then — but the gate is a separate structure
+  still standing. Moved to **7.0**, with the **Sovereign 7.5 -> 9.0** to
+  keep the 2.0 gap the design notes asked for so the two groups do not
+  stand on each other. Deeper into the citadel footprint is where the
+  beat always wanted them: emerging from the breach.
+- **L9's charge group** — the one worth remembering. A shield bearer
+  **0.07 of a unit inside the mountain bunker**, exempt for as long as
+  the rule has existed because it cleared on its first march. Moved
+  anchorX **3 -> 2.8**. A silent exemption is exactly where that hides.
+
+**Red before green: 2 offending levels, exit 1**, with both named. Green
+after. **Campaign now 2 warnings, 0 errors** — the only two left are the
+long-standing L3 rule 7 and L5 separation.
+
+One bug of my own, caught by the report disagreeing with itself: the
+first cut of the change dropped a `continue`, so an advancing unit was
+counted in BOTH buckets and L9 was reported under the static-embed
+message. The numbers not adding up is what showed it.
+
 ### Built 09-04 — RULE 9, the ballistic-shadow checker, and it found a shipped bug
 
 Offered twice, declined twice as theoretical, then earned. **L6's boss

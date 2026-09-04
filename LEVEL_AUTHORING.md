@@ -157,17 +157,32 @@ Two further exemptions, both semantic rather than tolerances:
   inside the bunker purely on formation jitter and are hittable from turn one. A STATIC unit gets
   no such reprieve.
 
-  An advancer that clears the box **eventually but not on its first march** is a **WARNING**, not
-  an error, and the split is deliberate: an Error means the player is asked to kill a body they
-  cannot hit AT ALL, which no level may bend; a charger behind masonry for one turn and in the
-  open on the next is a PACING judgement, which a level may bend for a reason it records in
-  `designNotes`. The old blanket exemption told the two apart not at all — L11's wave, had it been
-  given an advance rather than moved, would have started 0.71 deep and needed THREE turns at 1.2 a
-  turn, and nothing would have said so.
+  **NO UNIT STARTS INSIDE A BUILDING — full stop, 2026-09-04.** Rob: *"i dont think we should have
+  enemy units within the buildings... that doesn't make sense."* An advancing unit inside a box is
+  an **ERROR**, however fast it marches clear.
 
-  **One level is currently in the warning state: L12's boss shield escort** starts 1.91 inside the
-  gate's box and advances 1.20/turn, so it takes two marches to appear. It is the same gate that
-  shadows the Sovereign, and both are Rob's call — see HANDOVER.md.
+  This REPLACES a deliberate split that stood until then: clears-on-first-march was waved through
+  silently, clears-eventually was a Warning, and only a static embed was an Error. That split
+  reasoned about HITTABILITY — how many turns the player is asked to shoot at something they
+  cannot reach — and on that axis it was right. **It answers the wrong question.** A man standing
+  inside masonry is not a pacing judgement; it is a man standing inside masonry, and no march he
+  makes on a later turn changes what the player sees on the turn he arrives.
+
+  Nothing is lost by the change, because **rule 9 carries the hittability half and carries it
+  better** — it fires real shots and follows an advancer march by march. Rule 8 is now free to
+  mean the simple thing its name says.
+
+  The tightening found **two cases the old split had hidden**: L12's boss escort spawning inside
+  the gate, and — this is the one worth remembering — **L9's charge group, 0.07 of a unit inside
+  the mountain bunker and exempt for years because it cleared on its first march.** A silent
+  exemption is where that hides.
+
+  **Both are fixed and the campaign is clean.** L12's escort moved to anchorX 7.0 and its
+  Sovereign to 9.0 — deeper into the CITADEL's footprint, which is the phase's own trigger and so
+  rubble when they arrive, and clear of the GATE, which is a separate structure still standing.
+  That serves the beat rather than fighting it: the design note always wanted them emerging from
+  the breach. The 2.0 gap between escort and boss is the one the notes asked for so the two groups
+  do not stand on each other. L9's charge group moved anchorX 3 -> 2.8.
 
 Only a box at **lower x** than the target can shadow it, since the shot travels left to right — so
 the practical rule when placing a ground group is: pick the leading EDGE of the foremost structure
