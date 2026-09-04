@@ -12,13 +12,11 @@ supply (consumables, camo, classes, ammo). **Do not use Auto**
 for structures, ammo, or consumables. Android repo is RETIRED.
 `DISPLAY=:0` (not `:1`).
 
-The phone has a **09-04 APK** — L6's deck move plus the raised
-legibility floor, built and installed this sitting (clean
-uninstall/reinstall; coins survived and read **4113**, up 28 from a
-defeat, nothing spent). It was left on **L6 at turn 12**, one unit
-against nine, in the boss phase — the second of two defeats that do
-NOT measure the balance (see the unsigned-balance block below). DND, stay-awake and auto-rotate all
-restored. RIGS off.
+The phone has the **latest 09-04 APK** — L6's deck move, the raised
+legibility floor, the ragdoll flail fix and the rebuilt snow pine.
+Clean uninstall/reinstall, coins **4085**, nothing spent. Left on
+**L7 at turn 1**, one volley thrown (17 -> 12). DND, stay-awake and
+auto-rotate all restored. RIGS off.
 
 Two things closed 09-02, both in the blocks below: L5's angle
 claim (the notes moved, the level did not) and **the deck
@@ -32,6 +30,66 @@ Not pushed unless asked. Still untracked and deliberately NOT
 wired: `Assets/Models/Kenney/Particles/` and
 `Assets/Materials/TracerSprite.mat`, leftovers from the tracer try.
 Do not tidy unless he asks.
+
+### Closed 09-04 — the flail INTEGRATED, and the snow pine had no snow
+
+Two reports off L7, unrelated, both mislabelled at the source.
+
+**"Their arms are spinning out of control."** Real, and worse than it
+looked. `UnitAnim.Wave` composed onto `t.localRotation` — its own
+previous value — every frame:
+
+```
+t.localRotation = Quaternion.Euler(...) * t.localRotation;   // WRONG
+```
+
+That reads as additive, and the aim lift does exactly the same thing.
+**The difference is what is underneath.** The aim lift sits on a clip
+that rewrites the joint every frame; a CORPSE HAS NO CLIP PLAYING —
+`Set(Die)` stops all of them — and `LateUpdate` deliberately skips
+`RestoreStance` for a flailing body. With nothing re-establishing a
+base the multiply INTEGRATED, so the longer the fall the faster the
+spin. L7 drops them off a building, which is why it showed there.
+`ApplySlump` had the identical defect on torso and head, and its
+easing gives the intent away: `rise = 1 - exp(-8·age)` converges on a
+FIXED fold, which means nothing if each frame stacks on the last.
+
+Both are offsets from a captured rest now (torso and head needed
+their rest capturing; the limbs already had theirs).
+
+**Red before green, with numbers: 179.9° on `arm-left` — fully
+inverted — against the old code, 20.5° with the fix**, which is the
+true composed amplitude of an 18° X / 9.9° Z flail.
+
+**Why nothing caught it, and the gap it leaves.** Every other ragdoll
+check in `PortSelfTest` tests `CosmeticSystems` — the ragdoll's
+PHYSICS, engine-independent and easy to assert. Its POSE lives in a
+MonoBehaviour and was covered by NOTHING. The new
+`CheckAFallingBodyDoesNotWindUp` drives the real `LateUpdate` on a
+real prefab through reflection, because **asserting the arithmetic in
+isolation would have stayed green** — the offset was always bounded;
+it was the COMPOSITION that diverged. Assume the same hole exists for
+anything else `UnitAnim` writes.
+
+**The green tree was not a colouring bug.** `keepColors: 1` was
+working correctly and faithfully drawing the tree it was handed:
+**`prop_snow_pine.glb` had no snow in it.** Three materials — `bark`,
+`needle`, `needle_dark` — and its needles were merely a DARKER GREEN
+than `prop_pine.glb`'s. A snow pine by filename only, and the
+filename is what everyone had been reading.
+
+Rebuilt: two green tiers with white cones sitting on them, a rim of
+green showing beneath each. At mid-ground scale (L7 plants it at
+z -8.5) snow has to be a COLOUR BLOCK, not a dusting. Blue-white
+`0.90, 0.93, 0.97`, not paper-white — the timberline backdrop is
+already pale and a 1.0 white flares against it. Device-checked on L7.
+
+**The builder is `tools/blender/build_snow_pine.py` in the RETIRED
+repo**, where CLAUDE.md says builders live — there was none for the
+pines, they had been authored ad hoc, which is how one shipped
+misnamed. It is left UNCOMMITTED there, alongside the other builders
+already sitting uncommitted on `projectile-refinement`; that repo is
+not maintained. **The GLB it produces is committed here.**
 
 ### Closed 09-04 — L6's last two-rank deck, moved rather than cut
 

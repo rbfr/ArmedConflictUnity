@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using System.Text;
 using TMPro;
 using UnityEditor;
@@ -5255,6 +5256,7 @@ public static class PortSelfTest
         CheckHeroStaging();
         CheckNobodyOverlaps();
         CheckEveryGarrisonBodyReadsOnScreen();
+        CheckAFallingBodyDoesNotWindUp();
         CheckNobodyStandsInAWall();
         CheckCrowdSplitKeptTheBalance();
         CheckAdvancingSquads();
@@ -5806,6 +5808,87 @@ public static class PortSelfTest
               $"(floor {floor:F3}, body {body:F3})");
     }
 
+
+    /// <summary>
+    /// A FALLING BODY'S LIMBS DO NOT WIND UP. Drives the REAL `UnitAnim.LateUpdate` on a real
+    /// unit prefab for a long fall and asserts every limb stays near its rest pose.
+    ///
+    /// The bug this exists for, reported from L7 on 2026-09-04 ("their arms are spinning out of
+    /// control" as they fall off a building): the flail composed onto `t.localRotation` each
+    /// frame instead of onto REST. That reads as additive — the aim lift does exactly the same
+    /// thing — but the aim lift sits on top of a clip that rewrites the joint every frame, and a
+    /// CORPSE HAS NO CLIP PLAYING (`Set(Die)` stops all of them) while `LateUpdate` deliberately
+    /// skips `RestoreStance` for a flailing body. With nothing re-establishing a base, the
+    /// multiply INTEGRATED, so the longer the drop the faster the spin.
+    ///
+    /// Every other ragdoll check in this file tests `CosmeticSystems` — the ragdoll's PHYSICS,
+    /// which is engine-independent and easy to assert. Its POSE lives in a MonoBehaviour and was
+    /// covered by nothing, which is the whole reason a limb could wind up for weeks in plain
+    /// sight. This check drives the component itself, through reflection, because asserting the
+    /// arithmetic in isolation would have stayed green: the offset was always bounded; it was the
+    /// COMPOSITION that diverged.
+    /// </summary>
+    static void CheckAFallingBodyDoesNotWindUp()
+    {
+        var path = AssetDatabase.FindAssets("t:Prefab")
+            .Select(AssetDatabase.GUIDToAssetPath)
+            .FirstOrDefault(a => a.Contains("Unit_unit_"));
+        var prefab = path == null ? null : AssetDatabase.LoadAssetAtPath<GameObject>(path);
+        if (prefab == null)
+        {
+            Check(false, "falling body: a unit prefab exists to pose (build the scene first)");
+            return;
+        }
+
+        var go = (GameObject)PrefabUtility.InstantiatePrefab(prefab);
+        try
+        {
+            var ua = go.GetComponentInChildren<UnitAnim>();
+            if (ua == null) { Check(false, $"falling body: {path} carries a UnitAnim"); return; }
+
+            const BindingFlags Priv = BindingFlags.Instance | BindingFlags.NonPublic;
+            var awake = typeof(UnitAnim).GetMethod("Awake", Priv);
+            var late = typeof(UnitAnim).GetMethod("LateUpdate", Priv);
+            if (awake == null || late == null)
+            {
+                Check(false, "falling body: UnitAnim still has Awake/LateUpdate to drive");
+                return;
+            }
+            awake.Invoke(ua, null);
+
+            var anim = go.GetComponentInChildren<Animation>();
+            var joints = new[] { "torso", "torso/head", "torso/arm-left", "torso/arm-right",
+                                 "leg-left", "leg-right" }
+                .Select(n => anim.transform.Find(n)).Where(t => t != null).ToList();
+            Check(joints.Count == 6, $"falling body: all six limbs found on {path} ({joints.Count}/6)");
+            var rest = joints.Select(t => t.localRotation).ToList();
+
+            ua.Set(UnitAnim.Die);
+
+            // A LONG fall — L7 drops them off a roof. 8 seconds at 60 fps is far past any real
+            // throw, and that is the point: a bounded offset does not care how long it runs,
+            // an integrating one is enormous by the end.
+            float worst = 0f; string worstJoint = "none";
+            for (int f = 0; f < 480; f++)
+            {
+                ua.SetRagdoll(7, f / 60f, airborne: true);
+                late.Invoke(ua, null);
+                for (int j = 0; j < joints.Count; j++)
+                {
+                    float a = Quaternion.Angle(joints[j].localRotation, rest[j]);
+                    if (a > worst) { worst = a; worstJoint = joints[j].name; }
+                }
+            }
+
+            // The flail is 18 deg on the arms about X with 55% of that on Z; composed that is
+            // ~21 deg. 40 leaves generous room for the pose while staying far below a wind-up,
+            // which reached hundreds of degrees within a second.
+            Check(worst < 40f,
+                  $"a falling body's limbs stay near rest — worst {worst:F1} deg on '{worstJoint}' " +
+                  $"over 8s of flail (bound 40; the wind-up this guards ran away past 180)");
+        }
+        finally { Object.DestroyImmediate(go); }
+    }
 
     /// <summary>
     /// EVERY MAN ON A DECK CAN BE SEEN. `CheckNobodyOverlaps` asks whether two men occupy one

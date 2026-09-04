@@ -235,6 +235,7 @@ public class UnitAnim : MonoBehaviour
     Quaternion restRot;
     Quaternion restLegL, restLegR;
     Quaternion restArmL, restArmR;
+    Quaternion restTorso, restHead;
 
     void Awake()
     {
@@ -262,6 +263,10 @@ public class UnitAnim : MonoBehaviour
         if (legR != null) restLegR = legR.localRotation;
         if (armL != null) restArmL = armL.localRotation;
         if (armR != null) restArmR = armR.localRotation;
+        // The flail and the slump are OFFSETS FROM REST, not per-frame increments — see
+        // ApplyFlail. torso and head need their rest captured for the same reason the limbs do.
+        if (torso != null) restTorso = torso.localRotation;
+        if (head != null) restHead = head.localRotation;
 
         Layer(Idle, 0, WrapMode.Loop);
         Layer(Walk, 0, WrapMode.Loop);
@@ -582,18 +587,27 @@ public class UnitAnim : MonoBehaviour
         // Per-limb rates, not harmonic, salted by id so a rank dying together does not
         // thrash as a chorus line — the same reason ImpulseFor and FlamePhase exist.
         float s = flailSeed * 0.618033988f;
-        Wave(armL, FlailArmDeg, 1.4f, 2.0f, s + 0.2f);
-        Wave(armR, FlailArmDeg, 1.2f, 1.8f, s + 1.1f);
-        Wave(legL, FlailLegDeg, 1.1f, 1.6f, s + 2.4f);
-        Wave(legR, FlailLegDeg, 1.0f, 1.5f, s + 3.3f);
+        Wave(armL, restArmL, FlailArmDeg, 1.4f, 2.0f, s + 0.2f);
+        Wave(armR, restArmR, FlailArmDeg, 1.2f, 1.8f, s + 1.1f);
+        Wave(legL, restLegL, FlailLegDeg, 1.1f, 1.6f, s + 2.4f);
+        Wave(legR, restLegR, FlailLegDeg, 1.0f, 1.5f, s + 3.3f);
     }
 
-    void Wave(Transform t, float deg, float hzA, float hzB, float phase)
+    /// <summary>
+    /// An OFFSET FROM REST, never a per-frame increment. It reads like the aim lift, which
+    /// composes onto whatever `Animation` wrote that frame — but a corpse has NO clip playing
+    /// (`Set(Die)` stops all of them) and `LateUpdate` deliberately skips `RestoreStance` while
+    /// a body is flailing, so there is nothing to re-establish a base. Multiplying into
+    /// `t.localRotation` therefore INTEGRATED: every frame of a fall compounded, and the longer
+    /// the drop the faster the spin. Reported from L7 2026-09-04, where they fall off a building
+    /// — "their arms are spinning out of control".
+    /// </summary>
+    void Wave(Transform t, Quaternion rest, float deg, float hzA, float hzB, float phase)
     {
         if (t == null) return;
         float a = Mathf.Sin((flailAge * hzA + phase) * Mathf.PI * 2f);
         float b = Mathf.Sin((flailAge * hzB + phase * 1.7f) * Mathf.PI * 2f);
-        t.localRotation = Quaternion.Euler(a * deg, 0f, b * deg * 0.55f) * t.localRotation;
+        t.localRotation = Quaternion.Euler(a * deg, 0f, b * deg * 0.55f) * rest;
     }
 
     void ApplySlump()
@@ -603,12 +617,13 @@ public class UnitAnim : MonoBehaviour
         // the wall" or "over the parapet" once the caller picked the sign.
         float rise = 1f - Mathf.Exp(-SlumpFollow * flailAge);
         float k = slump * rise;
+        // Offsets from REST, for the reason spelled out on Wave. The easing converges on a
+        // FIXED fold (rise -> 1), which only means anything if each frame replaces the last
+        // rather than stacking on it.
         if (torso != null)
-            torso.localRotation = Quaternion.Euler(k * SlumpTorsoDeg, 0f, 0f)
-                                  * torso.localRotation;
+            torso.localRotation = Quaternion.Euler(k * SlumpTorsoDeg, 0f, 0f) * restTorso;
         if (head != null)
-            head.localRotation = Quaternion.Euler(Mathf.Abs(k) * SlumpHeadDeg, 0f, 0f)
-                                 * head.localRotation;
+            head.localRotation = Quaternion.Euler(Mathf.Abs(k) * SlumpHeadDeg, 0f, 0f) * restHead;
     }
 
     /// <summary>A one-shot on its own layer — it ends by itself and the hold reappears under it.</summary>
