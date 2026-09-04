@@ -110,26 +110,40 @@ MonoBehaviour:
   reinforcementWaves: []
   staticCamera: 0
   isTestLevel: 0
-  designNotes: "Beat 5: fight upward. The platform garrison cannot be reached on
-    a flat arc, so the drag has to be lofted \u2014 the first level where the ANGLE
-    matters more than the power. NO PLAYER TANK (2026-08-21): the three shells
-    were the structure-killer (96x3=288) and turned the loft into a 3-shell errand.
-    Crew folded into the ground line (2+5 -> 7). HP not retuned yet \u2014 win is
-    units dead, so the loft onto the platform is the beat; if the tower then reads
-    as a wall, cut hpScale before inventing a shop. Bunker moved 1.8 -> 5.0; at 11.3
-    the separation was the worst in the campaign. Rule 7 used to warn because the
-    tank crew (back rank) could not reach the platform; without them the warning
-    may clear. Structure hp RETUNED 2026-08-07: bunker hpScale 0.55 (250 -> 137).
-    Tower garrison 2026-08-21: those were MACHINE GUNNERS (6 crowd), not snipers.
-    MG belong in the street (3, at 3.5). ONE sniper on the platform \u2014 elevated,
-    back, hard to reach. The loft is still the beat; the payload is one 16-hp gun,
-    not a roof of burst fire. PLAYS HARD \u2014 2026-08-25, Rob: 'group player
-    units together more closely, add a few more player units.' Squad 10 -> 13
-    (riflemen 7 -> 10) and deployBudget 13 -> 16. Line packed to playerSpacingScale
-    0.8. Race 0.7x -> 0.4x. Device 08-25: bunker down T6, 13 standing, ZERO
-    casualties. OVERSHOT. Walked back 2026-08-27: riflemen 10 -> 7 (squad 13 ->
-    10), deployBudget 16 -> 13, packing KEPT at 0.8. The grouping was the ask
-    that read; the extra three bodies were the wipe. Sniper pulled to the LEDGE,
-    anchorX 10 -> 9.4 (deck spans 9.25..10.75), and given flatTrajectory so it
-    fires a direct 12-20 degree shot instead of a 35-60 lob. The 11.6 separation
-    warning is OLDER than all of this and unchanged by it."
+  designNotes: "Beat 5: fight upward \u2014 the deck garrison is the target and the win is units dead.
+    This is a POWER beat, not an angle beat, and that is MEASURED (2026-09-02), not assumed.
+    NO PLAYER TANK (2026-08-21): the three shells were the structure-killer (96x3=288) and
+    turned the loft into a 3-shell errand. Crew folded into the ground line (2+5 -> 7). HP
+    not retuned yet \u2014 win is units dead, so the loft onto the platform is the beat; if
+    the tower then reads as a wall, cut hpScale before inventing a shop. Bunker moved 1.8 ->
+    5.0; at 11.3 the separation was the worst in the campaign. Rule 7 used to warn because
+    the tank crew (back rank) could not reach the platform; without them the warning may
+    clear. Structure hp RETUNED 2026-08-07: bunker hpScale 0.55 (250 -> 137). Tower garrison
+    2026-08-21: those were MACHINE GUNNERS (6 crowd), not snipers. MG belong in the street
+    (3, at 3.5). ONE sniper on the platform \u2014 elevated, back, hard to reach. The loft
+    is still the beat; the payload is one 16-hp gun, not a roof of burst fire. PLAYS HARD
+    \u2014 2026-08-25, Rob: 'group player units together more closely, add a few more player
+    units.' Squad 10 -> 13 (riflemen 7 -> 10) and deployBudget 13 -> 16. Line packed to
+    playerSpacingScale 0.8. Race 0.7x -> 0.4x. Device 08-25: bunker down T6, 13 standing,
+    ZERO casualties. OVERSHOT. Walked back 2026-08-27: riflemen 10 -> 7 (squad 13 -> 10),
+    deployBudget 16 -> 13, packing KEPT at 0.8. The grouping was the ask that read; the
+    extra three bodies were the wipe. Sniper pulled to the LEDGE, anchorX 10 -> 9.4 (deck
+    spans 9.25..10.75), and given flatTrajectory so it fires a direct 12-20 degree shot
+    instead of a 35-60 lob. The 11.6 separation warning is OLDER than all of this and
+    unchanged by it. ANGLE CLAIM RETIRED 2026-09-02. This file used to open 'the first level
+    where the ANGLE matters more than the power'. The 09-01 play won it in twelve volleys at
+    a FIXED 45 degrees, varying power alone (78 -> 82 -> 67 -> 86 -> 88), so the claim was
+    swept: at the recorded muzzle x of -8.6, EVERY angle from 25 to 65 degrees kills the
+    deck garrison, each with its own power band about 7 points of 100 wide. A 40-degree-wide
+    legal window is not a skill axis; a 7-point power band is. What the level actually
+    teaches is that band \u2014 78% grazes the bunker face for 24 chip damage and 82% clears
+    onto the deck for six dead, four points between nothing and the level. The cause is
+    geometric, not tuning: a round clears a structure's leading edge at tan(angle) x
+    half-hitWidth, and the bunker's half-width (1.25) already exceeds its deck height
+    (1.125), so 45 degrees clears the face at any power. FORCING a loft would need deck
+    height greater than half-width \u2014 do not attempt it here without an ask; the 2-star
+    balance was walked back twice to land. PRODUCT_DIRECTION's beat chart asks L5 for
+    elevation / deck fight, never for angle, and that is what it delivers. Sniper footnote
+    from the same sweep: the tower rider IS directly hittable, but only in a 2-3 point
+    needle (95-97% at 45 degrees) because the platform box shadows him \u2014 in practice he
+    is a COLLAPSE target, which is what the goal text already says."

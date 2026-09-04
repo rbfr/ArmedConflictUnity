@@ -33,7 +33,15 @@ namespace ArmedConflict.Game
 
         public const float MountedColumnSpacing = 0.30f * UnitGeometry.LegacyScaleRatio;
         const float MountedMinSpacing = 0.22f * UnitGeometry.LegacyScaleRatio;
-        const int MountedMinCountForTwoRanks = 5;
+
+        /// <summary>
+        /// How wide a man is on the ground. A deck seats CENTRES, so half a body hangs past the
+        /// outermost centre at each end and the room a rank really has is `width - BodyWidth`.
+        /// Ignoring that put shoulders over the lip of the narrow decks (L6 measured a row 113%
+        /// of its own roof). Lives here so the layout, the overlap check and DeckFillReport
+        /// cannot disagree about the size of a body.
+        /// </summary>
+        public const float BodyWidth = 0.21f * UnitGeometry.LegacyScaleRatio;
 
         /// <summary>Grid of (x, z) offsets for count units centred on anchorX/anchorZ.</summary>
         public static List<Vector2> Grid(int count, float anchorX, float anchorZ = 0f,
@@ -132,11 +140,25 @@ namespace ArmedConflict.Game
 
         /// <summary>
         /// Layout for a garrison standing ON a structure: compressed to fit the deck `width`
-        /// (up to two ranks for larger squads) with only a small z offset, so nobody stands off
-        /// the edge of the roof or hovers in front of the facade.
+        /// (extra ranks only when one will not hold them) with only a small z offset, so nobody
+        /// stands off the edge of the roof or hovers in front of the facade.
         ///
-        /// Two ranks at count >= 5 is a reference measurement, not a guess: the reference game's
-        /// castle tiers pack TWO ranks until the bodies overlap.
+        /// ONE RANK UNTIL THE DECK RUNS OUT — the reference measurement is "castle tiers pack two
+        /// ranks UNTIL THE BODIES OVERLAP", and the while-loop below is that sentence. This used
+        /// to open at `rows = 2` for any count >= 5, which inverted it: a rank was split the
+        /// moment it reached five men, however much deck was left. Every garrisoned deck in the
+        /// campaign shipped that way and HALF OF EACH GARRISON WAS INVISIBLE. The rear rank sits
+        /// 0.16 behind the front one and, because both ranks hold the same number of men, at
+        /// IDENTICAL x — and 0.16 of depth is 0.024 world units of screen rise at camY 1.2, 5% of
+        /// a 0.48 body, directly behind a man 0.131 wide. L5's eight-man bunker deck read as four,
+        /// which is what was reported from the device on three separate levels (L5, L6, L9).
+        ///
+        /// Nothing caught it because nothing was looking at the SCREEN. The overlap check calls
+        /// two men one rank apart legitimately non-overlapping however close in x — correct as
+        /// written, and it is why identical-x ranks passed for so long.
+        ///
+        /// Where a second rank is genuinely needed, it is STAGGERED half a pitch so it reads
+        /// between the front rank's shoulders instead of hiding behind them.
         /// </summary>
         public static List<Vector2> Mounted(int count, float anchorX, float width,
                                             float anchorZ = 0f,
@@ -147,14 +169,24 @@ namespace ArmedConflict.Game
             if (count <= 0) return outp;
             float deckCenter = deckCenterX ?? anchorX;
 
-            int rows = count < MountedMinCountForTwoRanks ? 1 : 2;
-            while (rows < count && width / (((count + rows - 1) / rows) - 1) < MountedMinSpacing)
+            // Room for CENTRES, not the full roof — see BodyWidth.
+            float usable = Mathf.Max(width - BodyWidth, 0f);
+
+            int rows = 1;
+            while (rows < count && usable / (((count + rows - 1) / rows) - 1) < MountedMinSpacing)
                 rows++;
 
             int columns = (count + rows - 1) / rows;
-            float spacing = columns > 1 ? Mathf.Min(columnSpacing, width / (columns - 1)) : 0f;
-            float halfRow = spacing * (Mathf.Min(columns, count) - 1) / 2f;
-            float halfDeck = width / 2f;
+            // A staggered pair of ranks is half a pitch WIDER than one rank of the same count, so
+            // the deck has to be divided by (columns - 0.5), not (columns - 1). Dividing by the
+            // unstaggered span put the outermost man 0.008 off the edge of a full deck — caught
+            // by the standing-off-the-deck check, which is exactly what it is there for.
+            float divisor = columns - (rows > 1 ? 0.5f : 1f);
+            float spacing = columns > 1 ? Mathf.Min(columnSpacing, usable / divisor) : 0f;
+            // Half a pitch between ranks, so the deck is clamped against the STAGGERED span.
+            float stagger = rows > 1 ? spacing * 0.5f : 0f;
+            float halfRow = spacing * (Mathf.Min(columns, count) - 1) / 2f + stagger / 2f;
+            float halfDeck = usable / 2f;
             float clampedAnchorX = halfRow >= halfDeck
                 ? deckCenter
                 : Mathf.Clamp(anchorX, deckCenter - halfDeck + halfRow, deckCenter + halfDeck - halfRow);
@@ -165,7 +197,8 @@ namespace ArmedConflict.Game
                 int unitsInRow = Mathf.Min(columns, count - row * columns);
                 int col = index % columns;
                 outp.Add(new Vector2(
-                    clampedAnchorX + (col - (unitsInRow - 1) / 2f) * spacing,
+                    clampedAnchorX + (col - (unitsInRow - 1) / 2f) * spacing
+                                   + (row % 2 == 0 ? -stagger / 2f : stagger / 2f),
                     anchorZ + (rows > 1 ? (row - (rows - 1) / 2f) * 0.16f : 0f)));
             }
             return outp;

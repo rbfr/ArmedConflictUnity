@@ -1,21 +1,80 @@
-# Handover — Unity, as of 2026-09-01
+# Handover — Unity, as of 2026-09-04
 
 ## Pick up here
 
-Last sitting **08-28**. Nothing since — a couple of days off, not a
-new decision. A new session starts here. **Ask which beat.** Do not
-sequence look work or unsigned phone items. **Ask git** — this file
-does not record commits. Rob commits/pushes on an explicit ask; do
-not tidy unpushed work unprompted.
+Last sitting **09-04**. Nothing is owed. **Ask which beat next.**
+Do not sequence look work or unsigned phone items. **Ask git** — this
+file does not record commits. Rob commits/pushes on an explicit ask;
+do not tidy unpushed work unprompted.
 
 `PortSelfTest.Run` after every change. **RIGS** is the test
 supply (consumables, camo, classes, ammo). **Do not use Auto**
 for structures, ammo, or consumables. Android repo is RETIRED.
 `DISPLAY=:0` (not `:1`).
 
-The phone should still have the 08-28 APK (operator, tracers, dirt
-skid, L5 walk-back). If it was uninstalled, rebuild; do not rebuild
-just to play L5.
+The phone has the **09-02 APK** — the garrison one-rank fix. It was
+played on 09-04 (below) and left mid-battle on **L6 at turn 5**,
+Fortress Tier collapsed, enemy 27 -> 15, all ten player units alive.
+DND, stay-awake and auto-rotate were all restored. Coins 4085
+untouched, RIGS off — nothing was spent.
+
+Two things closed 09-02, both in the blocks below: L5's angle
+claim (the notes moved, the level did not) and **the deck
+undercount, which was never about three levels** — it was every
+garrisoned deck in the campaign.
+
+**COMMITTED 09-04.** The whole 09-02 sitting plus the 09-04 play
+notes went in on `session/2026-08-25-shell-art-ragdoll` as one
+commit, after L6 was played on the APK built from that same tree.
+Not pushed unless asked. Still untracked and deliberately NOT
+wired: `Assets/Models/Kenney/Particles/` and
+`Assets/Materials/TracerSprite.mat`, leftovers from the tracer try.
+Do not tidy unless he asks.
+
+### Played 09-04 — L6 on the 09-02 APK. The fix holds; ONE deck still does not read
+
+The owed beat from the 09-02 list, and it closes it. **The one-rank
+fix is signed by play**: L1's outpost shows ten countable men and
+**L6's FortressTier shows fourteen in a single rank**, each one
+distinct — a 3.00 deck at 85% fill and the best-reading garrison in
+the game. Difficulty is unchanged as predicted (no count moved):
+turn 1 took the enemy 27 -> 19, turn 4 sat at 15 with all ten player
+units alive, and the Fortress collapsed to rubble and flame by turn 5.
+Route: L1 picker -> BEGIN -> stepper to L6, stock loadout, four real
+drags at 87% / 45°.
+
+**What the play found, and no check can see.** L6's `MountainBunker`
+— the campaign's ONLY two-rank deck, and the one case the new code
+path exists for — **still reads as four men when it holds eight**.
+At 1:1 on the phone: four. `DeckFillReport` says 8 in 2 ranks. The
+other four only resolve at 10x zoom, where each "man" turns out to
+be a PAIR sharing most of a torso, two heads out of one red mass.
+
+The numbers say why. The stagger is half a pitch — `0.094`, which is
+**72% of a body width** (`0.131`) — and the rear man is also 0.16
+further back, so he is drawn slightly higher and smaller with his
+feet behind his neighbour's shoulder.
+`CheckEveryGarrisonBodyReadsOnScreen` passes it because its floor is
+`body * 0.3` = `0.039`, **4.3x more permissive than the gap it is
+measuring**.
+
+That floor is not wrong about the bug it was written for — 0.000 vs
+0.094 is exactly the red-then-green the fix was proven with, and 18
+of the 19 decks genuinely do read. But it asserts NOT PERFECTLY
+ECLIPSED where the name on the tin says CAN BE COUNTED. **It is the
+house lesson in a new costume: it tests the input (is there a gap),
+not the output (can a player count the men).**
+
+**Not fixed, and deliberately not.** The cheap fix is not code.
+`MountainBunker` is a 1.00 deck seating 6 per rank; **L9 puts exactly
+6 on the same structure and gets 100% fill in one rank**, while L6
+asks it to carry 8. Dropping L6's bunker 8 -> 6 makes the whole
+campaign single-rank and deletes the staggered path from the shipping
+product. That moves a unit count on a BOSS level, so it is Rob's call
+and was left alone. If the 8 is kept instead, the check's floor wants
+to mean countable (a full body width, not 0.3 of one) — but that
+would go RED against L6 today, so it ships WITH the level edit, never
+before it.
 
 ### Closed 08-27 → 08-28 — do not reopen as taste
 
@@ -24,8 +83,9 @@ just to play L5.
   widen the aim frame. PlayerTank stays at 5.
 - **L5 walk-back is on the APK** (riflemen 10→7, budget 16→13,
   packing **0.8** kept). Authored mix 7 rifle + 2 grenadier + 1
-  sniper = 13/13. Tank stays off. **Not yet played through the
-  picker** — that is the owed beat.
+  sniper = 13/13. Tank stays off. **Played through the picker
+  09-01, won 2★** — the walk-back is signed. Do not walk it
+  back further.
 - **Elbow kept.** All seven classes. Aiming is still the
   hold-the-gun read. Rob: *"elbow is fine, let's keep it."*
 - **Last-aim HUD.** `Last: power N%    angle N°` under Your turn.
@@ -45,14 +105,215 @@ just to play L5.
 
 ### Ask which beat
 
-1. **L5 at 10 packed, through the picker** (not the stepper). The
-   walk-back is on the phone; it has not been played.
-2. Anything else he names. Do not open tracer look, Kenney
+The 08-28 list is spent. Beat 1 below was TAKEN and closed 09-04
+(L6 played, the block above). Nothing is owed. Candidates, all
+unranked and none of them started:
+
+1. ~~Play a level on the 09-02 APK and look at a deck.~~ **DONE
+   09-04.** It threw off one live question, which is now the
+   cheapest thing on this list: **L6's `MountainBunker` garrison,
+   8 -> 6.** That makes the campaign single-rank throughout and
+   retires the staggered path; it moves a unit count on a BOSS
+   level, so it needs Rob. See the 09-04 block for why the check
+   cannot be tightened before the level is.
+2. **The ballistic-shadow checker**, offered 09-02 and NOT taken:
+   rule 7 checks flat range at 45° only, so a garrison behind a
+   tall narrow face passes it while being a 2-point needle (L5's
+   tower sniper) or unreachable outright. Offer again, do not
+   build unasked.
+3. Anything else he names. Do not open tracer look, Kenney
    particles, or a new death clip unprompted.
 
 Leftover from the Kenney tracer try: untracked
 `Assets/Models/Kenney/Particles/` and `Assets/Materials/TracerSprite.mat`.
 Not wired. Do not tidy unless he asks.
+
+### Closed 09-02 — half of every garrison was INVISIBLE
+
+Picked as the next beat and it was not the bug it was reported as.
+L5's bunker deck showing 4 of 8 (and L6's, and L9's) is not an
+undercount, a pool fault or a render fault. Every man was built,
+placed and drawn. `Formation.Mounted` laid a garrison in two ranks
+of equal size, which puts **every rear man at exactly his front
+man's x**, 0.16 behind him — and at the camera's real height that
+is 0.024 of screen rise, 5% of a 0.48 body, behind a shoulder
+0.131 wide. Two ranks of four render as four men.
+
+**It was the whole campaign, not three levels: 85 of 178
+garrisoned bodies hidden across 19 decks, every one at a column
+gap of exactly 0.000.** That number is the check going red against
+the old code before the fix was trusted.
+
+**The fix.** One rank until the deck runs out — which is what the
+reference measurement always said (*castle tiers pack two ranks
+UNTIL THE BODIES OVERLAP*); the `while` loop that grows the rank
+count IS that sentence and the old code just never let it start at
+one. A genuinely-needed second rank is now STAGGERED half a pitch
+so it reads between shoulders. Unfolding the ranks then exposed a
+second error: the deck clamp compared CENTRES against the full
+roof, so a single rank of ten hung 109% of L1's outpost and 113%
+of L6's bunker. `Formation.BodyWidth` is a real constant now and a
+rank is laid into `width - BodyWidth`.
+
+**This reverses a deliberate 2026-08-02 decision** ("rank depth
+flipped back to two") and the argument is written up in
+`UNIT_VARIETY_DESIGN.md` Tier 2.2 part five, not just applied.
+Short form: that flip was right that the clump read was a SPACING
+problem, and wrong to assume a camera that can see depth. Spacing
+is untouched.
+
+**It also closes the deck-FILL question** that document has
+carried since 08-02, for free and without a roster call. Campaign
+median fill 34% -> 70% against a 75% target; L1's outpost 59% ->
+100%, L4/L9's barracks 47% -> 97%. The garrisons were never too
+small for their decks — they were folded in half. **This is not
+licence to spread a row**; nothing was widened, the row was
+unsplit.
+
+**Verified.** `PortSelfTest` ALL PASS, including a new
+`CheckEveryGarrisonBodyReadsOnScreen` (0 hidden over 178 on 19
+decks) whose depth premise is asserted rather than commented.
+`LevelComposition.Report` byte-identical before and after — the
+three standing warnings (L3 rule 7, L5 separation 11.6, L12 rule
+8) are unchanged and pre-existing. `DeckFillReport` shows 20 of 21
+decks in one rank; the exception is L6's MountainBunker, eight men
+on a 1.00 roof, staggered and countable. Device: L1's outpost deck
+at turn 1 shows **ten individually countable men** where it used
+to show five.
+
+No unit, stat, count or level asset moved. Code-only —
+`Formation.cs` plus the checks — so **no scene rebuild was
+needed** and none was run.
+
+### Closed 09-02 — L5's angle claim retired, the level untouched
+
+The 09-01 design question, answered by MEASUREMENT and signed by
+Rob: **the notes move, the level does not.** No code changed, no
+level data changed, no rebuild — `TowerAssault.asset` designNotes
+only. `PortSelfTest` **ALL PASS**.
+
+The 09-01 play was one line through the level, so it could not
+prove the angle was free — only that one angle worked. So the
+ballistics were rebuilt outside the engine (g=4, v=9.5×power,
+semi-implicit Euler at dt=1/60, the real structure AABBs and the
+0.38 unit hit radius) and **calibrated against the twelve recorded
+throws before being trusted**. At a launch x of **−8.6** it
+reproduces the whole line: 78% → bunker face, 82% → deck kills,
+86% → tower base once the deck is empty, 88% → collapse. Only
+then was it swept.
+
+| angle | power band that kills the deck | band that hits the tower sniper |
+|---|---|---|
+| 25° | 93–100% | — |
+| 30° | 87–95% | — |
+| 35° | 84–91% | — |
+| 40° | 82–88% | 97–99% |
+| **45°** | **81–87%** | 95–97% |
+| 50° | 81–88% | 95–96% |
+| 55° | 83–89% | 96–98% |
+| 60° | 87–93% | 99–100% |
+| 65° | 92–99% | — |
+| 70°+ | out of range | — |
+
+**Every angle from 25° to 65° wins the deck.** A 40-degree-wide
+legal window is not a skill axis; the ~7-point power band at each
+angle is. The level teaches power precision an order of magnitude
+more sharply than angle, so the old line — *"the first level where
+the ANGLE matters more than the power"* — was backwards, not
+merely unproven.
+
+**The cause is geometric and it generalises.** A round clears a
+structure's leading edge at `tan(angle) × half-hitWidth`. The
+bunker is 2.5 wide and 1.125 tall, so its half-width (1.25)
+already exceeds its deck height and **45° clears the face at any
+power**. Forcing a loft anywhere needs deck height GREATER than
+half-width. Do not reshape L5 to get it — the 2★ balance was
+walked back twice to land, and `PRODUCT_DIRECTION.md`'s chart asks
+L5 for *elevation / deck fight*, never for angle. It delivers the
+beat it was assigned.
+
+**Sniper footnote, same sweep.** The tower rider IS directly
+hittable, but only in a 2–3 point needle (95–97% at 45°) — the
+platform box shadows him. In practice he is a COLLAPSE target,
+which is what the goal text already said. That explains why the
+09-01 run killed him without ever hitting him.
+
+**Offered and NOT taken:** extending `LevelComposition` with this
+shadow rule, since rule 7 reads flat range at 45° and would pass a
+garrison that is a needle or unreachable. Rob took the notes-only
+option. Do not build the checker unasked.
+
+### Played 09-01 — L5 through the picker, WON 2★ (the owed beat)
+
+Beat 1 of the 08-28 list, and it closes it. Played on the 08-28
+APK, no rebuild. Route: L1 picker → BEGIN → stepper ▶ to L5 →
+throwaway defeat (short shots into the dirt, T14, +16) → **RETRY**,
+which is the only path that opens a level's OWN picker. `EnterLevel`
+raises the picker; the ◀ ▶ stepper calls `LoadLevel` and skips it.
+Stock, Standard, **no Airstrike taken** — RIGS was off, so spending
+it would have cost Rob's real inventory.
+
+**The picker reads exactly as authored: 10/10 troops, 13/13 points,
+7 Rifleman + 2 Grenadier + 1 Sniper.** Both caps saturate at the
+default mix — there is no room to re-compose without dropping a
+body or wasting a point. That is the walk-back landing coherently.
+
+**The line as thrown** (45° throughout, power varied):
+
+| Turn | Power | Result |
+|---|---|---|
+| T1 | 78% | **wall, not deck.** Bunker 137→113, no kills |
+| T2 | 82% | **deck loft — enemy 12→6.** Tower base 135→101 |
+| T3 | 83% | 6→4, **first casualty 10→9** (the sniper) |
+| T4 | 83% | no kills — survivors outside the box. Bunker 89→63 |
+| T5 | 67% | ground trio, 4→3 |
+| T6–7 | 66–67% | 3→1, player 9→8 |
+| T8–10 | 86% | tower base 67→19 |
+| T11 | 86% | tower base 19→**1**, player 8→7 |
+| T12 | 88% | **collapse. 1→0. VICTORY 2★**, 7/10 alive, +215 |
+
+**The three things the beat asked, answered:**
+
+- **Ten packed bodies read as MEN, not a wall.** The Aiming frame
+  shows two legible fire teams — 7 riflemen left, the bulkier 2
+  grenadiers + sniper right — separated by the anchor gap
+  (−7.4 / −5.9 / −4.6 at packing 0.8). The class silhouettes
+  are distinguishable at 6°. The walk-back did what it was for.
+- **The T6 wipe is GONE.** 08-25 at 13 bodies: bunker down T6,
+  13 standing, ZERO casualties — the overshoot that caused the
+  walk-back. At 10: first casualty T3, three dead by the end,
+  **2★ not 3★** (*"Lost 3 of 10 — keep 8 alive for 3 stars"*).
+  The level now costs something. **Do not walk it back further.**
+- **The tower collapse is literally the goal text.** *"Cut the
+  tower's legs — what stands on it falls with it."* The base fell
+  and took the platform AND its rider: enemy 1→0 without the
+  sniper ever being hit directly. Both Tower lines leave the HUD
+  while Command Bunker stays at 37 — it never had to fall, because
+  the win is units dead.
+
+**The honest limit, and it is a DESIGN finding.** L5's designNotes
+say *"the first level where the ANGLE matters more than the power."*
+**This run never changed the angle.** Every one of the twelve
+volleys was 45°; the whole level was solved by walking power
+78 → 82 → 67 → 86 → 88. What the level actually teaches is a
+POWER lesson with an unusually tight band: **78% hits the wall
+face for 24 chip damage and 82% clears onto the deck for six
+dead** — four points of power between nothing and the level.
+That band is a good beat. But it is not the angle beat the notes
+claim, and one of the two should move. **Ask Rob which.**
+
+Smaller, unresolved, not chased:
+
+- **The bunker deck shows 4 bodies where 8 are authored** — the
+  same undercount recorded 08-25 for L6 (4 visible on a deck
+  authored for 8) and L9. Third level, same shape. Not looked at
+  with CAM this sitting.
+- **The sniper died T3** having visibly delivered nothing. The
+  ledge placement and `flatTrajectory` are untested by this run.
+- Ballistics model that predicted every shot, for the next play:
+  power% is v/9.5, g=4, so a 45° round reaches height
+  `y = x − 4x²/v²`. 331 px per axis = v8. It matched the game on
+  all twelve throws.
 
 ### Played 08-27 — L4 shells=3; L5 bodies walked back
 
@@ -165,15 +426,16 @@ and stock L12 fields rockets besides.
 
 ### Tree
 
-**Ask git.** Branch `session/2026-08-25-shell-art-ragdoll`. Last
-commit is still `8e6ba38` (08-25 docs/archive). Working tree is
-dirty from 08-25 through 08-28: L4 override, L5 walk-back, elbows,
-last-aim, tracers, L1 operator, dirt skid, docs. Untracked:
-`_plans/ELBOW.md`, leftover Kenney `Particles/` +
-`TracerSprite.mat` (not wired). Do not tidy and do not commit
-unless he asks. A gap of days does not make that work stale.
+**Ask git** — but as of 09-01 the working tree is **CLEAN**, which
+is a correction: the 08-28 handover described it as dirty from
+08-25 through 08-28. That work is committed as `c9b8d40`
+(*"L4 at three shells, L5 walked back, mid-90s dash"*). Three
+commits sit **UNPUSHED** on `session/2026-08-25-shell-art-ragdoll`:
+`c9b8d40`, `8e6ba38`, `4d61ffc`. Untracked and not wired: Kenney
+`Particles/` + `TracerSprite.mat`. Do not push, commit or tidy
+unless he asks.
 
-**This file is 4000+ lines.** 08-05/06 is in
+**This file is 3000+ lines.** 08-05/06 is in
 `HANDOVER_ARCHIVE.md`. 08-13 → 08-21 is closed history and
 the obvious next split — **ask before archiving**.
 

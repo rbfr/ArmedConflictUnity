@@ -1004,6 +1004,121 @@ and the enemy-turn camera then framed the pair standing alone in open ground ahe
 plainly larger than the crowd on its roof. **609 checks green, 12 levels still pass all seven
 composition rules.**
 
+## Tier 2.2, part five — HALF OF EVERY GARRISON WAS INVISIBLE, 2026-09-02
+
+**Reported from the device on three levels: L5's eight-man bunker deck showed FOUR bodies, and so
+did L6's and L9's.** It is not a render bug, a pool bug or an undercount. Every man was built,
+placed and drawn. `Formation.Mounted` was laying a garrison in two ranks of equal size, which puts
+**every rear man at exactly his front man's x**, 0.16 behind him — and 0.16 of depth is 0.024
+world units of screen rise at the camera's real height, 5% of a 0.48 body, directly behind a
+shoulder 0.131 wide. Two ranks of four render as four men.
+
+**The scale, measured before the fix by the check written for it: 85 of 178 garrisoned bodies
+hidden across 19 decks, every one at a column gap of exactly 0.000.** Not three levels — the whole
+campaign, every deck that carried five or more.
+
+### Why nothing caught it
+
+- `CheckNobodyOverlaps` asks whether two men occupy one SPOT, and answers correctly. Its own
+  write-up says *"two men one RANK apart are not overlapping however close they are in x — that is
+  what a second rank IS"*, and that reasoning is sound. Nobody was asking the other question,
+  which is whether the player can COUNT them.
+- `LevelComposition` reads span and reach. A row of eight that is really four men twice over
+  measures exactly like a row of four.
+- `DeckFillReport` reported these decks at 33-69% fill and the fill was REAL — it counted the
+  hidden men.
+- `PortSelfTest` asserted the bug: *"5+ defenders pack into TWO ranks (reference: castle tiers)"*.
+  Green for months, against a layout that deleted half of every garrison.
+
+### This reverses the 2026-07-25 -> 08-02 flip, and the flip's reasoning was half right
+
+"Rank depth flipped back to two" above is the decision being undone, so it is worth being exact
+about what it got right. It said the clump-on-a-wide-tier read was caused by SPACING, not by the
+second rank, and at the derived pitch the same group reads as a formation with depth. The spacing
+half is correct and is untouched here.
+
+**The depth half assumed a camera that can see depth.** At 6 degrees above the ground plane, 0.16
+of z is nothing, and it is deliberately nothing — the rank offset is small precisely so the rear
+rank does not stand off the roof. A second rank cannot read as depth on this camera; it can only
+subtract bodies.
+
+So: **one rank until the deck runs out**, which is what the reference measurement said in the
+first place — *castle tiers pack two ranks UNTIL THE BODIES OVERLAP*. The `while` loop that grows
+the rank count IS that sentence; the old code just never let it start at one. Where a second rank
+is genuinely needed it is now **staggered half a pitch**, so it reads between the front rank's
+shoulders instead of behind them.
+
+### It also answers the deck-FILL question above, and answers it for free
+
+The open question in "Deck FILL is measured" was framed as a choice between two roster calls —
+more bodies at full strength, or more at split strength — after shrinking the structures had been
+measured and killed. **There was a third option nobody had measured: stop splitting the row.**
+
+| | before | after |
+|---|---|---|
+| L2/L8/L10/L11 GarrisonPost | 34% | **70%** |
+| L12 FortressTierWide | 32% | **65%** |
+| L4/L9 BarracksBlock | 47% | **97%** |
+| L6 FortressTier | 42% | **85%** |
+| L1 Outpost | 59% | **100%** |
+| L3/L5 CommandBunker | 33% | **68%** |
+
+Campaign median fill goes 34% -> 70%, against the 75% this document calls "a full rank with air".
+The garrisons were never too small for their decks; they were folded in half. **Do not now read
+this as licence to spread a row** — the 2026-07-25 mistake is still a mistake, and nothing here
+widened a pitch. The row was UNSPLIT, not stretched.
+
+### A body has a width, and a deck seats CENTRES
+
+Unfolding the ranks exposed a second error immediately: one rank of ten on L1's 1.50 outpost
+measured **109% of its own roof**, and L6's narrow mountain bunker 113%. The clamp had always
+compared CENTRES against the full deck width, so half a body hung past the lip at each end — the
+old two-rank layout was too narrow for it to show. `Formation.BodyWidth` is now a real constant
+and a rank is laid into `width - BodyWidth`. Every deck in the campaign is at or under 100%, and
+the one deck that genuinely cannot seat its garrison in a single rank (L6's MountainBunker, eight
+men on a 1.00 roof) takes a staggered second rank and stays countable.
+
+### The check, and the control shot
+
+`PortSelfTest.CheckEveryGarrisonBodyReadsOnScreen` asserts that every man on every campaign deck
+is separated in x from every other by at least a third of a body. It was **run against the old
+code before it was trusted** and went red with the 85/178 figure above; the depth claim it rests
+on is asserted too, not commented — 0.16 of depth, 0.024 of rise, 5% of a body — so the day the
+rank offset or the camera height changes, the reasoning goes red with it rather than silently
+becoming false.
+
+Device, 2026-09-02, L1's outpost deck at turn 1: **ten men, individually countable, evenly
+spaced, shoulder to shoulder.** Nine in frame and the tenth past the right edge.
+
+### The residual, found by PLAYING it — 2026-09-04
+
+L6 was played through on the 09-02 APK, and the single-rank half is **signed**: L1's outpost shows
+ten countable men, and **L6's `FortressTier` shows FOURTEEN in one rank**, each one distinct — a
+3.00 deck at 85% fill and the best-reading garrison in the game.
+
+**The staggered half is not.** L6's `MountainBunker` is the campaign's only two-rank deck — the
+one case the new code path exists for — and **it reads as four men while holding eight**. At 1:1
+on the phone: four. The other four resolve only at 10x zoom, where each "man" is a PAIR sharing
+most of a torso, two heads out of one red mass.
+
+Half a pitch is not enough. The stagger is `0.094`, **72% of a body width** (`0.131`), and the
+rear man is 0.16 further back as well, so he is drawn slightly higher and smaller with his feet
+behind his neighbour's shoulder. **The check passes it: its floor is `body * 0.3` = `0.039`, 4.3x
+more permissive than the gap it is measuring.**
+
+That floor is not wrong about the bug it was written for — 0.000 against 0.094 is exactly the
+red-then-green the fix was proven with, and 18 of 19 decks genuinely do read. But the check
+asserts NOT PERFECTLY ECLIPSED under a name that promises CAN BE COUNTED, which is this project's
+standing lesson wearing a new costume: **it tests the input (is there a gap), not the output (can
+a player count the men).** A check can only be as honest as the threshold in it.
+
+**The fix is a level edit, not code, and it is not mine to make.** `MountainBunker` is a 1.00 deck
+seating 6 per rank; **L9 puts exactly 6 on the same structure and fills it 100% in one rank**,
+while L6 asks it to carry 8. Taking L6's bunker 8 -> 6 makes the campaign single-rank throughout
+and retires the staggered path from the shipping product — but it moves a unit count on a BOSS
+level. If the 8 is kept instead, the floor should be raised to mean countable (a full body width),
+and **that would go red against L6 today** — so it ships WITH the level edit, never ahead of it.
+
 ## Rifleman v2 — same skinny class, not a new silhouette, 2026-08-13
 
 Rob rejected the current rifleman as a model, not as a role. The body was a vest slab, four

@@ -14,8 +14,9 @@ using ArmedConflict.Game;
 /// </summary>
 public static class DeckFillReport
 {
-    // Same body width the overlap check uses, so the two cannot disagree about a body.
-    static readonly float Body = 0.21f * UnitGeometry.LegacyScaleRatio;
+    // Formation owns the body width now, so the layout, the overlap check and this report
+    // cannot disagree about the size of a man.
+    static readonly float Body = Formation.BodyWidth;
 
     static readonly float[] Sweep = { 1f, 0.80f, 0.6234f, 0.50f, 0.40f, 0.30f };
 

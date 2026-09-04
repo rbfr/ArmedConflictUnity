@@ -1203,10 +1203,28 @@ public static class PortSelfTest
                 bool onDeck = m.All(p => Mathf.Abs(p.x) <= width / 2f + 1e-4f);
                 Check(onDeck, $"mounted({n}) keeps every defender on the deck");
             }
-            Check(Formation.Mounted(4, 0f, 1.2f).All(p => Mathf.Abs(p.y) < 1e-6f),
-                  "fewer than 5 defenders stand in ONE rank");
-            Check(Formation.Mounted(6, 0f, 1.2f).Select(p => p.y).Distinct().Count() == 2,
-                  "5+ defenders pack into TWO ranks (reference: castle tiers)");
+            // ONE RANK UNTIL THE DECK RUNS OUT. This pair used to assert the inverse — "5+
+            // defenders pack into TWO ranks" — and passed for months over a layout that hid half
+            // of every garrison behind the other half. 1.2 of deck seats 8 at MountedMinSpacing.
+            Check(Formation.Mounted(8, 0f, 1.2f).Select(p => p.y).Distinct().Count() == 1,
+                  "a garrison the deck can HOLD stands in one rank, however many men");
+            Check(Formation.Mounted(2, 0f, 1.2f).All(p => Mathf.Abs(p.y) < 1e-6f),
+                  "so does a small one");
+            Check(Formation.Mounted(20, 0f, 1.2f).Select(p => p.y).Distinct().Count() > 1,
+                  "a garrison the deck CANNOT hold takes a second rank");
+
+            // ...and that second rank must not hide behind the first. Half a pitch of stagger,
+            // asserted as the OUTPUT: no man in rank 2 shares a rank-1 man's x.
+            {
+                var deep = Formation.Mounted(20, 0f, 1.2f);
+                float body = Formation.BodyWidth;
+                var front = deep.Where(p => p.y < deep.Average(q => q.y)).Select(p => p.x).ToList();
+                var back = deep.Where(p => p.y >= deep.Average(q => q.y)).Select(p => p.x).ToList();
+                float nearest = back.Min(b => front.Min(f => Mathf.Abs(f - b)));
+                Check(nearest > body * 0.3f,
+                      $"a second rank is STAGGERED, not hidden behind the first " +
+                      $"(nearest column {nearest:F3} vs body {body:F3})");
+            }
 
             // An anchor off the side of the deck must be pulled back onto it.
             var shoved = Formation.Mounted(5, anchorX: 4f, width: width, deckCenterX: 0f);
@@ -5236,6 +5254,7 @@ public static class PortSelfTest
         CheckL3OneSniper();
         CheckHeroStaging();
         CheckNobodyOverlaps();
+        CheckEveryGarrisonBodyReadsOnScreen();
         CheckNobodyStandsInAWall();
         CheckCrowdSplitKeptTheBalance();
         CheckAdvancingSquads();
@@ -5744,9 +5763,9 @@ public static class PortSelfTest
 
     static void CheckNobodyOverlaps()
     {
-        // A body is ~0.21 wide in legacy units. Half of that is the floor: closer than half a
-        // body on BOTH axes at once is one man standing in another, not a tight formation.
-        float body = 0.21f * UnitGeometry.LegacyScaleRatio;
+        // Half a body is the floor: closer than that on BOTH axes at once is one man standing in
+        // another, not a tight formation. The width comes from Formation, which lays them out.
+        float body = Formation.BodyWidth;
         float floor = body * 0.5f;
 
         var levels = AssetDatabase.FindAssets("t:LevelDefinitionSO")
@@ -5785,6 +5804,77 @@ public static class PortSelfTest
               $"no two units on a side stand in the same place — {pairs} co-located pairs over " +
               $"{measured} same-side pairs, tightest {tightest:F3} on {worst} " +
               $"(floor {floor:F3}, body {body:F3})");
+    }
+
+
+    /// <summary>
+    /// EVERY MAN ON A DECK CAN BE SEEN. `CheckNobodyOverlaps` asks whether two men occupy one
+    /// SPOT; this asks whether the player can COUNT them, which is a different question and the
+    /// one nothing was asking. A garrison laid in two ranks of equal size put every rear man at
+    /// exactly his front man's x, 0.16 behind him — distinct spots, Chebyshev-clean, and
+    /// invisible. L5's eight-man bunker deck was reported from the device as four bodies, and so
+    /// were L6's and L9's.
+    ///
+    /// X IS THE ONLY AXIS THAT CAN SEPARATE THEM, and the first assertion here is that claim
+    /// rather than a comment about it: a rank's 0.16 of depth is deliberately shallow (deeper and
+    /// the rear rank stands off the roof), and at the camera's real height it buys a few percent
+    /// of a body in screen rise. So two men on one deck read apart only if their x differs.
+    /// </summary>
+    static void CheckEveryGarrisonBodyReadsOnScreen()
+    {
+        float body = Formation.BodyWidth;
+        float floor = body * 0.3f;
+
+        // A representative resolve framing. Nearer is worse for the rear rank, so this is the
+        // generous end: any closer camera makes the rise smaller still.
+        const float rankDepth = 0.16f;
+        const float typicalCamZ = 8f;
+        float rise = rankDepth * Mathf.Sin(Mathf.Atan(BattleCamera.CameraY / typicalCamZ));
+        Check(rise < UnitGeometry.UnitScaleUnits * 0.1f,
+              $"a rank's DEPTH buys no screen separation — {rankDepth:F2} of depth is {rise:F3} " +
+              $"of rise at camY {BattleCamera.CameraY:F1}/camZ {typicalCamZ:F0}, " +
+              $"{100f * rise / UnitGeometry.UnitScaleUnits:F0}% of a body; x is the only axis a " +
+              "garrison can be counted on");
+
+        var levels = AssetDatabase.FindAssets("t:LevelDefinitionSO")
+            .Select(AssetDatabase.GUIDToAssetPath)
+            .Select(AssetDatabase.LoadAssetAtPath<LevelDefinitionSO>)
+            .Where(l => l != null && !l.isTestLevel)
+            .OrderBy(l => l.levelNumber)
+            .ToList();
+
+        int hidden = 0, garrisoned = 0, decks = 0;
+        float tightest = float.MaxValue;
+        string worst = "none";
+
+        foreach (var level in levels)
+        {
+            GameState state;
+            try { state = LevelBuilder.BuildInitialState(level, 1, 1, new System.Random(12345)); }
+            catch { continue; }
+
+            foreach (var deck in state.EnemyUnits
+                         .Where(u => u.StandingOnStructureId.HasValue)
+                         .GroupBy(u => u.StandingOnStructureId.Value))
+            {
+                var men = deck.ToList();
+                if (men.Count < 2) continue;
+                decks++;
+                garrisoned += men.Count;
+                for (int i = 0; i < men.Count; i++)
+                    for (int j = i + 1; j < men.Count; j++)
+                    {
+                        float dx = Mathf.Abs(men[i].X - men[j].X);
+                        if (dx < tightest) { tightest = dx; worst = $"L{level.levelNumber}"; }
+                        if (dx < floor) hidden++;
+                    }
+            }
+        }
+
+        Check(decks > 0 && hidden == 0,
+              $"every man on a deck can be COUNTED — {hidden} body/bodies hidden behind another " +
+              $"over {garrisoned} garrisoned on {decks} decks, tightest column gap {tightest:F3} " +
+              $"on {worst} (floor {floor:F3}, body {body:F3})");
     }
 
 

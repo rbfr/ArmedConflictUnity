@@ -170,6 +170,9 @@ places at once; it is a deliberate command now.
 - **The camera sits ~6° above the ground plane.** A decal lying flat is therefore seen nearly
   edge-on and its on-screen HEIGHT is its world depth times the sine of that angle — about a
   tenth. Size ground decals in DEPTH, never in width; width just makes a wider smear.
+  **The same angle makes anything BEHIND something else invisible**: a second rank 0.16 deep is
+  0.024 of screen rise, 5% of a body, so two ranks of four render as four men. That was half of
+  every garrison in the campaign until 2026-09-02. Separate bodies in X, never in Z.
 - Backdrop geometry is sized against the frustum AT ITS OWN DEPTH. Never read `Screen` in
   batchmode — it reports a placeholder desktop resolution.
 
