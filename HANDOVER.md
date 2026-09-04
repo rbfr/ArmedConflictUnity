@@ -70,17 +70,36 @@ escort *hittable after 2 marches*, from fired trajectories — and rule 8,
 measuring box geometry by a completely different method, independently
 says *2 turns to clear*. Two unrelated instruments on the same number.
 
-**The L10 fix is NOT a nudge, and it is Rob's call.** Moving the wave
-out trades the shadow for rule 7's range limit and the two nearly meet:
-anchorX 13.0 clears rule 9 and immediately raises a rule 7 back-rank
-warning. **Level data was trialled and REVERTED — nothing changed.**
-The cheaper answers are to place the group in FRONT of the depot
-(x < 6.125), or give it an advance so it walks clear, which is the state
-L12 is already in and accepted. Shortening the depot is the third.
+**FIXED 09-04: the depot moved x 8 -> x 7.** One structure, one unit
+left. The wave did not move, no count changed, separation is 16.5 and
+still inside the 14-20 band, and **all nine rules pass**.
 
-**Rule 9 is NOT wired into `PortSelfTest` yet, deliberately** — it would
-land the suite red on shipped content before the fix is chosen. Rule 8's
-precedent says it belongs there once L10 is settled.
+**The wave was never the thing to move, and the search proved it.**
+Behind the depot there is no good spot at all: the shadow reaches to
+about x 11.4 and rule 7's comfortable band ends right about there.
+anchorX 12.1 is still shadowed; 12.4 clears rule 9 and immediately
+raises rule 7's back-rank warning; 13.0 the same. **The two constraints
+close the gap between them.**
+
+**Giving it an advance does NOT work here, which is worth knowing.**
+Advancing moves a unit TOWARD the player — L12's escort clears because
+it starts INSIDE a box and walks out the near edge, but L10's heavy is
+behind the FAR edge, so a march walks him INTO the depot for several
+turns. The two cases look identical in a report and are opposites.
+
+Shortening the depot was rejected: `GarrisonPost` is shared with L2 and
+L8, so it would ripple. Moving the placement fixes the CAUSE — the
+shadow — without touching anything shared. x 7.4 still leaves a needle;
+7.0 is clean.
+
+**Rule 9 is now wired into `PortSelfTest`**, delegating to
+`BallisticShadowRule` exactly as rule 8 delegates to `CollisionBoxRule`
+— one implementation, not two. Wired AFTER the fix: landing a red suite
+on shipped content ahead of the fix teaches the next person to ignore
+it. **Red before green confirmed** — the depot put back at x 8 fails the
+suite with the L10 heavy named, exit 1.
+
+**Campaign now reports 4 warnings, 0 errors.**
 `LevelComposition.Report` now exits 1 on that error, which is the
 checker doing its job and not a regression.
 
@@ -422,10 +441,7 @@ unranked and none of them started:
    tall narrow face passes it while being a 2-point needle (L5's
    tower sniper) or unreachable outright. Offer again, do not
    build unasked.
-3. **L10's unhittable heavy — the one open ERROR.** Rule 9 found it
-   09-04 (block above); the fix is a placement call, not a nudge, and
-   is unmade. Wire rule 9 into `PortSelfTest` once it is settled.
-4. Anything else he names. Do not open tracer look, Kenney
+3. Anything else he names. Do not open tracer look, Kenney
    particles, or a new death clip unprompted.
 
 Leftover from the Kenney tracer try: untracked

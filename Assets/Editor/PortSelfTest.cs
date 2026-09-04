@@ -5259,6 +5259,7 @@ public static class PortSelfTest
         CheckAFallingBodyDoesNotWindUp();
         CheckNoBossArrivesUnannounced();
         CheckNobodyStandsInAWall();
+        CheckEveryEnemyCanBeHit();
         CheckCrowdSplitKeptTheBalance();
         CheckAdvancingSquads();
 
@@ -6048,6 +6049,46 @@ public static class PortSelfTest
               $"on {worst} (floor {floor:F3}, body {body:F3})");
     }
 
+
+    /// <summary>
+    /// RULE 9 — every enemy unit can be HIT by a real drag. DELEGATES to
+    /// `LevelComposition.BallisticShadowRule` for the same reason rule 8 delegates: two
+    /// implementations of one rule is the "second source of truth" failure this project has
+    /// already paid for.
+    ///
+    /// An ERROR here means a level ships a body no drag reaches, so the battle cannot be
+    /// finished — not a rule a level may bend, exactly as rule 8 is not. Warnings (needles, and
+    /// advancing units shadowed on arrival) are advisory and belong in `designNotes`.
+    ///
+    /// Wired in 2026-09-04, AFTER the error it found was fixed. Landing a red suite on shipped
+    /// content ahead of the fix would have taught the next person to ignore it.
+    /// </summary>
+    static void CheckEveryEnemyCanBeHit()
+    {
+        var levels = AssetDatabase.FindAssets("t:LevelDefinitionSO")
+            .Select(AssetDatabase.GUIDToAssetPath)
+            .Select(AssetDatabase.LoadAssetAtPath<LevelDefinitionSO>)
+            .Where(l => l != null && !l.isTestLevel)
+            .OrderBy(l => l.levelNumber)
+            .ToList();
+
+        var offenders = new List<string>();
+        int measured = 0;
+        foreach (var l in levels)
+        {
+            GameState state;
+            try { state = LevelBuilder.BuildInitialState(l, 1, 1, new System.Random(12345)); }
+            catch { continue; }
+            measured++;
+            var f = LevelComposition.BallisticShadowRule(l, state);
+            if (f.Level == LevelComposition.Severity.Error)
+                offenders.Add($"L{l.levelNumber}: {f.Text}");
+        }
+
+        Check(measured > 0 && offenders.Count == 0,
+              $"rule 9 — every enemy unit is reachable by a real drag across {measured} campaign " +
+              $"level(s){(offenders.Count > 0 ? ": " + string.Join(" | ", offenders) : "")}");
+    }
 
     /// <summary>
     /// RULE 8 — no ground unit stands inside a structure's collision box.

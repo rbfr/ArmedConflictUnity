@@ -58,7 +58,7 @@ MonoBehaviour:
     hpScale: 1
   - id: depot
     definition: {fileID: 11400000, guid: fbbfacb3df61fd8f492723bbb6150200, type: 2}
-    x: 8
+    x: 7
     y: 0
     z: 0
     collapseWith: 

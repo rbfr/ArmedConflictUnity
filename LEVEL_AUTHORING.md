@@ -213,9 +213,20 @@ condemn every boss in the game.
   measured from box geometry by a completely different method. Two unrelated instruments landing
   on the same number is the best evidence available that this one measures reality.
 
-**Moving a shadowed unit further out does not reliably fix it** — it trades the shadow for rule
-7's range limit, and on L10 the two constraints nearly meet. Placing the group in FRONT of the
-structure, or giving it an advance so it walks clear, are the cheaper answers.
+**FIXED 2026-09-04 by moving the DEPOT, x 8 -> x 7** — not the wave, and the search is the
+lesson. Behind that building there is no good spot: the shadow reaches ~x 11.4 and rule 7's
+comfortable band ends about there, so anchorX 12.4 clears rule 9 and immediately raises rule 7.
+**The two constraints close the gap between them.** Moving the structure fixes the CAUSE and cost
+one unit of separation (16.5, still inside 14-20).
+
+**An advance does not always rescue a shadowed unit, and the failure mode is a trap.** Advancing
+moves a unit TOWARD the player. L12's escort clears because it starts INSIDE a box and walks out
+the near edge; L10's heavy sits behind the FAR edge, so a march walks him further IN. The two read
+identically in a report and are opposites — check which side of the box the unit is on before
+reaching for an advance.
+
+Shortening the structure is usually wrong for a third reason: definitions are SHARED. `GarrisonPost`
+carries L2 and L8 as well, so trimming it to fix L10 would have moved two other levels.
 
 **It also cleared L6.** The 09-04 boss phase was played three times with nothing killed, and the
 standing suspicion was that the Sovereign was unreachable. Rule 9 says it is reachable. That was
