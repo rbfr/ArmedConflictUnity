@@ -15,9 +15,9 @@ for structures, ammo, or consumables. Android repo is RETIRED.
 The phone has a **09-04 APK** — L6's deck move plus the raised
 legibility floor, built and installed this sitting (clean
 uninstall/reinstall; coins survived and read **4113**, up 28 from a
-defeat, nothing spent). It was left on **L6's DEFEAT screen at turn
-9** — see the caveat in the 09-04 block: that defeat measures my
-blind drag, not the balance. DND, stay-awake and auto-rotate all
+defeat, nothing spent). It was left on **L6 at turn 12**, one unit
+against nine, in the boss phase — the second of two defeats that do
+NOT measure the balance (see the unsigned-balance block below). DND, stay-awake and auto-rotate all
 restored. RIGS off.
 
 Two things closed 09-02, both in the blocks below: L5's angle
@@ -69,13 +69,70 @@ the bunker is the whole story — four merged pairs, then six men.
 **WHAT THIS PLAY DID NOT ESTABLISH, and it matters.** I threw ten
 near-identical blind drags and lost at turn 9 with the **Mountain
 Bunker untouched at 118** — I never once aimed at it. That defeat
-measures the drag, not the level. **L6 has still never been played to
-a win, before the change or after**, so nothing here signs its
-balance. The case for neutrality is STRUCTURAL — same count, same
-definitions — with one honest caveat: the two men moved from a
-shorter structure at x=4 to a taller one at x=8, so they are
-marginally further out, and a shell on the keep now catches 16 where
-it caught 14. If the balance matters, L6 wants a real played win.
+measures the drag, not the level. The case for neutrality is
+STRUCTURAL — same count, same definitions — with one honest caveat:
+the two men moved from a shorter structure at x=4 to a taller one at
+x=8, so they are marginally further out, and a shell on the keep now
+catches 16 where it caught 14.
+
+### L6's BALANCE IS UNSIGNED — two defeats that do not count, 09-04
+
+**L6 has never been played to a win, before the deck move or after.**
+Two attempts, both defeats, and NEITHER is evidence about the level.
+Recorded here so the third attempt does not repeat them.
+
+**Attempt 1 — ten blind drags at 87-88%, defeat T9.** Never aimed at
+the bunker; it finished untouched at 118.
+
+**Attempt 2 — a real line, defeat T12, one unit against nine.**
+
+| turn | shot | result |
+|---|---|---|
+| 1-4 | 76%, at the bunker | bunker destroyed, 27 -> 21 |
+| 5 | 76% again | WASTED — empty ground where the bunker had been |
+| 6-8 | 88%, at the keep | 21 -> 12, keep to 5 hp |
+| 9-12 | keep falls, boss phase | 12 -> 9, mine 5 -> 1 |
+
+**The range arithmetic is exact and worth keeping**: `range =
+22.56 x power^2` (v = 9.5·power, g = 4), tank at x -9.5. So the
+**bunker (x 4, 13.5 out) wants 76-77%** and the **keep (x 8, 17.5
+out) wants 88%** — and a drag of 331 px on each axis reads as ~87%,
+so px ≈ 331 x (power / 0.875). Confirmed on the HUD's `Last:` line
+both times.
+
+**Why neither defeat counts.** Three things a real player has that
+neither attempt used:
+
+1. **Standard ammo on all twelve volleys.** Incendiary, AP and
+   Cluster sat unused in the HUD the whole battle.
+2. **No consumables** — RIGS was off, so spending would have cost
+   Rob's real inventory.
+3. **The stepper SKIPS the picker**, so both attempts fielded the
+   AUTHORED DEFAULT squad against a `deployBudget` of 14. A player
+   entering L6 through the picker fields a stronger army than either
+   attempt did.
+
+**Auto cannot close this** and was declined when offered: L6 is won
+or lost on STRUCTURES, and Auto targets the nearest enemy UNIT and
+builds its own volley — it would never put a round on the bunker,
+exactly the failure attempt 1 made by hand. An Auto win here is a
+green that cannot go red.
+
+**What the play DID establish: the beat lands.** Dropping the keep
+feels like winning, and then the Sovereign walks out of the breach.
+It caught me twice — once not knowing it was coming, once knowing.
+`PRODUCT_DIRECTION.md` asks beat 6 for a stage boss whose level does
+not end when the structure does; it delivers.
+
+**Owed: one picker entry with ammo in play.** Not another twelve
+mechanical drags.
+
+**Also learned, and it bit mid-session: the ◀ ▶ stepper is RELATIVE,
+and the app RESUMES AT THE LAST-PLAYED LEVEL.** Five ▶ taps from a
+fresh launch landed on **L11, not L6**, and a live volley went into
+L11 before the level indicator was read. Nothing persisted — a
+stepper reload discards it — but **read `L? (?/12)` before firing,
+never count taps from an assumed start.**
 
 ### Played 09-04 — L6 on the 09-02 APK. The fix holds; ONE deck still does not read
 
@@ -158,9 +215,10 @@ unranked and none of them started:
 1. ~~Play a level on the 09-02 APK and look at a deck.~~ **DONE
    09-04**, and the deck question it raised is CLOSED the same day
    (L6's two men moved to the keep, floor raised). What it leaves
-   owed is smaller and named: **L6 has never been played to a WIN,
-   before the change or after.** The count is preserved by
-   construction, but no play has signed the balance.
+   owed is smaller and named: **L6's BALANCE IS UNSIGNED** — two
+   defeats on 09-04, neither of which counts (block above). The
+   count is preserved by construction. What it wants is ONE picker
+   entry with ammo in play; Auto cannot do it and was declined.
 2. **The ballistic-shadow checker**, offered 09-02 and NOT taken:
    rule 7 checks flat range at 45° only, so a garrison behind a
    tall narrow face passes it while being a 2-point needle (L5's

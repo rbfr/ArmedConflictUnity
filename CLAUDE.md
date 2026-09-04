@@ -283,6 +283,12 @@ each level owes one beat.
   consumables and anything that depends on spread with REAL DRAGS.
   A drag that clears ~16 units — L1's geometry — is `adb shell input swipe 300 900 631 1231 600`:
   the pull is DOWN-and-across, 331 px on each axis gives v=8 at 45°, and range is v²/g with g=4.
+  **Generally: `range = 22.56 × power²` at 45° (v = 9.5·power), and 331 px on each axis reads as
+  ~87%, so `px ≈ 331 × power / 0.875`.** Solve for the TARGET's distance from the player tank
+  before dragging — on 2026-09-04 two L6 defeats were thrown at one fixed power, the first
+  missing the bunker entirely and the second still shooting the hole where it had been. **Read
+  the HUD's `Last: power N%` after each volley**; it is the only confirmation the drag landed
+  where the arithmetic said.
 - **Prefer a PROBE to a detector.** A one-build `Debug.Log` at both ends of a suspect path settles
   in one run what a pixel-search will get wrong three times — this session alone, detectors locked
   onto HUD text, tracers, a boot and a bunker window, and twice declared a working feature broken.
