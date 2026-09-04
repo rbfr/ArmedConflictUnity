@@ -133,6 +133,8 @@ MonoBehaviour:
       standingOnStructureId: 
       advancePerTurn: 0
     announcement: The Sovereign takes the field!
+    telegraphLabel: Something moves behind the keep
+    telegraphAtHealthFraction: 0.5
   windAccelZ: 0
   reinforcementWaves: []
   staticCamera: 0

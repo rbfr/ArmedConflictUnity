@@ -5257,6 +5257,7 @@ public static class PortSelfTest
         CheckNobodyOverlaps();
         CheckEveryGarrisonBodyReadsOnScreen();
         CheckAFallingBodyDoesNotWindUp();
+        CheckNoBossArrivesUnannounced();
         CheckNobodyStandsInAWall();
         CheckCrowdSplitKeptTheBalance();
         CheckAdvancingSquads();
@@ -5808,6 +5809,79 @@ public static class PortSelfTest
               $"(floor {floor:F3}, body {body:F3})");
     }
 
+
+    /// <summary>
+    /// NO BOSS ARRIVES UNANNOUNCED — pillar 7 applied to the one thing that was exempt from it.
+    ///
+    /// `ReinforcementWaveBeat` will not let a four-man squad skip its warning ("a wave is not
+    /// allowed to opt out of it"), and L10/L11 both carry two-turn leads. Meanwhile the Sovereign
+    /// — 260 hp plus a heavy escort — arrived on L6 and L12 with nothing at all, because a boss
+    /// fires on a structure falling rather than on a turn and so was never wired to the strip.
+    /// Found by PLAYING L6 to three defeats on 2026-09-04: the garrison half is comfortable and
+    /// the whole level is decided in the boss phase, which the player meets with a spent army
+    /// and no notice.
+    ///
+    /// This asserts the RULE across the campaign, not one level's data, because the gap was
+    /// never about L6 — it was every boss in the game, which is two of them.
+    /// </summary>
+    static void CheckNoBossArrivesUnannounced()
+    {
+        var levels = AssetDatabase.FindAssets("t:LevelDefinitionSO")
+            .Select(AssetDatabase.GUIDToAssetPath)
+            .Select(AssetDatabase.LoadAssetAtPath<LevelDefinitionSO>)
+            .Where(l => l != null && !l.isTestLevel)
+            .OrderBy(l => l.levelNumber)
+            .ToList();
+
+        var silent = new List<string>();
+        int phases = 0;
+        foreach (var l in levels)
+            for (int i = 0; i < l.bossPhases.Count; i++)
+            {
+                var b = l.bossPhases[i];
+                if (b == null || b.triggerStructureIds == null
+                    || b.triggerStructureIds.Count == 0) continue;
+                phases++;
+                if (string.IsNullOrWhiteSpace(b.telegraphLabel)) silent.Add($"L{l.levelNumber}");
+            }
+
+        Check(phases > 0 && silent.Count == 0,
+              $"no boss arrives unannounced — {silent.Count} of {phases} campaign boss phase(s) " +
+              $"have no telegraphLabel{(silent.Count > 0 ? ": " + string.Join(", ", silent) : "")}");
+
+        // The threshold has to leave a CHOICE. A warning that lands on the same tick as the
+        // arrival is not a telegraph, which is why 0 is excluded rather than clamped.
+        var trig = new BossPhaseTrigger
+        {
+            triggerStructureIds = { "keep" },
+            telegraphLabel = "x",
+            telegraphAtHealthFraction = 0.5f,
+        };
+        var none = new HashSet<int>();
+        Check(!EventSystems.ShouldTelegraphBossPhase(0, trig, none, 1f),
+              "boss telegraph: a full-health gate says nothing");
+        Check(EventSystems.ShouldTelegraphBossPhase(0, trig, none, 0.30f),
+              "boss telegraph: a gate under the threshold warns");
+        Check(!EventSystems.ShouldTelegraphBossPhase(0, trig, none, 0.80f),
+              "boss telegraph: a gate well above it still says nothing");
+        Check(!EventSystems.ShouldTelegraphBossPhase(0, trig, none, 0f),
+              "boss telegraph: a gate already down does NOT warn — the phase fires this tick, " +
+              "and a warning that arrives with the thing it warns about is not a telegraph");
+        Check(!EventSystems.ShouldTelegraphBossPhase(0, trig, new HashSet<int> { 0 }, 0.30f),
+              "boss telegraph: a phase that already fired says nothing");
+
+        // Every authored label reaches TMP, which renders a missing glyph as a silent box —
+        // the bug the one shipped wave telegraph had, with an em dash.
+        var font = TMP_Settings.defaultFontAsset;
+        var unrenderable = levels.SelectMany(l => l.bossPhases
+                .Where(b => b != null && !string.IsNullOrWhiteSpace(b.telegraphLabel))
+                .Select(b => (l.levelNumber, b.telegraphLabel)))
+            .Where(t => font != null && t.telegraphLabel.Any(c => !font.HasCharacter(c)))
+            .Select(t => $"L{t.levelNumber}")
+            .ToList();
+        Check(unrenderable.Count == 0,
+              $"every boss telegraph renders in the default TMP font ({unrenderable.Count} bad)");
+    }
 
     /// <summary>
     /// A FALLING BODY'S LIMBS DO NOT WIND UP. Drives the REAL `UnitAnim.LateUpdate` on a real

@@ -59,6 +59,41 @@ namespace ArmedConflict.Game
             return trigger.triggerStructureIds.All(id => isDefeated(id));
         }
 
+        /// <summary>
+        /// TELEGRAPH, DON'T BLINDSIDE — pillar 7, which until 2026-09-04 the biggest arrival in
+        /// the game was the only thing exempt from. A four-man reinforcement squad is not allowed
+        /// to opt out of a warning (see `ReinforcementWaveBeat`); a 260 hp Sovereign and a heavy
+        /// escort arrived with none.
+        ///
+        /// A boss cannot borrow the waves' countdown. A wave has `arrivesOnTurn`, so "2 turns"
+        /// is a fact; a boss fires when a STRUCTURE FALLS, and the player owns that clock. What
+        /// can honestly be warned is PROXIMITY TO THE TRIGGER: once the structure gating the
+        /// phase is nearly down, the arrival is imminent in the only sense that exists here. So
+        /// this is a health threshold and the line carries NO number.
+        ///
+        /// <paramref name="triggerHealthFraction"/> is the fraction of the phase's REMAINING
+        /// gate — the trigger that is furthest from dying, since the phase waits for the LAST of
+        /// them. At 0 the gate is already down and the phase fires this tick anyway, so a
+        /// warning would arrive with the thing it was warning about; that is not a telegraph and
+        /// is excluded rather than clamped.
+        /// </summary>
+        public const float DefaultBossTelegraphFraction = 0.5f;
+
+        public static bool ShouldTelegraphBossPhase(int index,
+                                                    BossPhaseTrigger trigger,
+                                                    ICollection<int> alreadyTriggered,
+                                                    float triggerHealthFraction)
+        {
+            if (alreadyTriggered.Contains(index)) return false;
+            if (trigger == null || string.IsNullOrEmpty(trigger.telegraphLabel)) return false;
+            if (trigger.triggerStructureIds == null || trigger.triggerStructureIds.Count == 0)
+                return false;
+            float at = trigger.telegraphAtHealthFraction <= 0f
+                ? DefaultBossTelegraphFraction
+                : trigger.telegraphAtHealthFraction;
+            return triggerHealthFraction > 0f && triggerHealthFraction <= at;
+        }
+
         // ---- reinforcement waves --------------------------------------------------------
 
         /// <summary>

@@ -12,11 +12,13 @@ supply (consumables, camo, classes, ammo). **Do not use Auto**
 for structures, ammo, or consumables. Android repo is RETIRED.
 `DISPLAY=:0` (not `:1`).
 
-The phone has the **latest 09-04 APK** — L6's deck move, the raised
-legibility floor, the ragdoll flail fix and the rebuilt snow pine.
-Clean uninstall/reinstall, coins **4085**, nothing spent. Left on
-**L7 at turn 1**, one volley thrown (17 -> 12). DND, stay-awake and
-auto-rotate all restored. RIGS off.
+The phone has a **09-04 APK carrying the boss telegraph at 0.35**;
+the committed value is **0.5** (measured — see that block), so a
+rebuild is owed before any further boss-phase play. Left mid-battle
+on **L6**, coins **4085**, nothing spent. DND, stay-awake and
+auto-rotate all restored. **RIGS off, verified on screen** — the
+clean install resets it, so it was OFF, turned ON for the L6 test,
+and toggled back.
 
 Two things closed 09-02, both in the blocks below: L5's angle
 claim (the notes moved, the level did not) and **the deck
@@ -30,6 +32,90 @@ Not pushed unless asked. Still untracked and deliberately NOT
 wired: `Assets/Models/Kenney/Particles/` and
 `Assets/Materials/TracerSprite.mat`, leftovers from the tracer try.
 Do not tidy unless he asks.
+
+### L6 TESTED PROPERLY 09-04 — three defeats, and the spike has a name
+
+The owed picker play, done: RETRY into L6's own picker, **RIGS test
+supply so nothing came off Rob's inventory**, 8/8 troops and 14/14
+points (3 Rifleman + 3 Grenadier + 1 Sniper + 1 Rocket), Airstrike
+and Early Reinforcements carried, Incendiary on decks and AP on the
+boss. **It still lost.** But the two halves of the level tell
+completely different stories, and that is the finding.
+
+**The garrison half is well tuned.** Four volleys — 77% on the
+bunker, 88% on the keep deck — took 27 -> 9, destroyed both
+structures, and cost two men. The grenadiers shred a packed deck
+exactly as the picker text promises. Nothing to do here.
+
+**The boss half is where the level is decided, and it is a cliff.**
+From 8-9 units the trade was roughly **1.5 losses per turn for 0.25
+kills**. Across two full boss phases I killed ONE thing.
+
+The mechanical reason: **the boss phase is a MOVING-TARGET problem in
+a game that has taught nothing but static ones.** Power had to walk
+`88 -> 77 -> 64 -> 54 -> 50 -> 45` as they closed, there is no
+distance readout, and each wrong guess is a wasted turn costing two
+men. In run 2 the band was found by RECORDING a volley and reading
+the impact off the screen — 54% landed on them — and by the next turn
+the band had moved again.
+
+And the trigger compounds it: **the keep falling spawns the Sovereign,
+so the level ambushes the player for doing the thing it just taught
+them to do.** That is the intended beat, but it lands when the army
+is spent.
+
+**Limits of this result, stated plainly.** One player, three
+attempts, and two of them had a clear aiming error. The pre-boss half
+is repeatable and easy; the post-boss half won even when aimed
+correctly with a saturated loadout. **The spike is real and it is
+entirely in the boss phase.** L6 has still never been won.
+
+### Closed 09-04 — pillar 7 reaches the boss at last
+
+Rob: *"it's worth fixing."*
+
+`ReinforcementWaveBeat` refuses to let a four-man squad skip its
+warning — *"a wave is not allowed to opt out of it"* — and L10/L11
+both carry two-turn leads. **Meanwhile the Sovereign, 260 hp and a
+heavy escort, arrived on L6 and L12 with nothing at all.** Not a
+decision: a boss fires on a STRUCTURE FALLING rather than on a turn,
+so it was never wired to the telegraph strip.
+
+**A boss cannot borrow the waves' countdown.** A wave has
+`arrivesOnTurn`, so "2 turns" is a fact; the player owns the boss's
+clock and a number would be a lie. What can honestly be warned is
+PROXIMITY TO THE TRIGGER, so it is a HEALTH THRESHOLD on the
+structure gating the phase, and the line carries no number.
+
+- `BossPhaseTrigger.telegraphLabel` + `telegraphAtHealthFraction`
+- `EventSystems.ShouldTelegraphBossPhase` — 0 is EXCLUDED, not
+  clamped: the gate is already down, the phase fires that tick, and a
+  warning arriving with the thing it warns about is not a telegraph
+- A wave keeps the strip when both want it. Its deadline is fixed and
+  the player cannot move it; the boss's stays true as long as they
+  leave the gate standing.
+- Both campaign bosses authored, ASCII only (the em-dash
+  missing-glyph trap is what bit the one shipped wave telegraph).
+
+**Red before green: `2 of 2 campaign boss phase(s) have no
+telegraphLabel: L6, L12`** — which is exactly the state the game
+shipped in. Device-verified on L6: **`Something moves behind the
+keep`** in the strip at Fortress Tier 33/139, phase not yet fired.
+
+**The threshold is 0.5, and 0.35 was wrong — measured.** One volley
+took the keep **137 -> 33, 75% of the structure in a single turn**. A
+narrow band is not crossed slowly, it is JUMPED: the first run of the
+day never showed the line at all because the keep passed straight
+through it. Widening does not buy more turns against a heavy volley,
+which can still clear the whole band at once — **it buys the warning a
+chance to fire against the lighter ones.** The strip was
+device-verified at 0.35; 0.5 only widens the band on the same code
+path and render.
+
+**NOT claimed: that this makes L6 winnable.** It removes the
+blindside, which is a pillar violation worth fixing on its own terms.
+Whether the boss phase is still too steep is unmeasured, and L6 has
+never been won.
 
 ### Closed 09-04 — the flail INTEGRATED, and the snow pine had no snow
 
@@ -273,10 +359,13 @@ unranked and none of them started:
 1. ~~Play a level on the 09-02 APK and look at a deck.~~ **DONE
    09-04**, and the deck question it raised is CLOSED the same day
    (L6's two men moved to the keep, floor raised). What it leaves
-   owed is smaller and named: **L6's BALANCE IS UNSIGNED** — two
-   defeats on 09-04, neither of which counts (block above). The
-   count is preserved by construction. What it wants is ONE picker
-   entry with ammo in play; Auto cannot do it and was declined.
+   owed is smaller and named: **L6's BALANCE IS UNSIGNED.** The
+   picker play was DONE 09-04 (block above) and lost — but it
+   located the spike precisely: the garrison half is well tuned,
+   and the whole level is decided in a boss phase that is a
+   MOVING-TARGET problem the campaign never teaches. The blindside
+   half of that is fixed (boss telegraph). **Whether the phase is
+   still too steep is unmeasured, and L6 has never been won.**
 2. **The ballistic-shadow checker**, offered 09-02 and NOT taken:
    rule 7 checks flat range at 45° only, so a garrison behind a
    tall narrow face passes it while being a 2-point needle (L5's

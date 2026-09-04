@@ -81,6 +81,34 @@ namespace ArmedConflict.Data
         public List<string> triggerStructureIds = new();
         public List<EnemyGroup> spawnGroups = new();
         public string announcement;
+
+        /// <summary>
+        /// WHAT is waiting behind the trigger, with no count and no countdown — "The bastion is
+        /// failing". A boss fires on a STRUCTURE FALLING rather than on a turn number, so it
+        /// cannot borrow the waves' countdown: the player owns that clock and a number would be
+        /// a lie. Empty means no warning, which is what every boss shipped with until 2026-09-04.
+        ///
+        /// ASCII ONLY. The default TMP font asset renders an em dash as a silent missing-glyph
+        /// box, which is exactly the bug the one shipped wave telegraph had.
+        /// </summary>
+        public string telegraphLabel;
+
+        /// <summary>
+        /// Warn once the trigger structure is at or below this fraction of ITS OWN starting hp
+        /// (`StructureEntity.MaxHp`, which already carries the level's hpScale — reading the
+        /// definition's maxHp instead is the hole that stopped 4x rigs ever shedding a chunk).
+        ///
+        /// It has to be worth a warning: the point is to leave the player a volley or two to
+        /// spend differently, so this wants to be far enough out that they can still choose.
+        ///
+        /// MEASURED on L6, 2026-09-04, and it is why the default is 0.5 rather than the 0.35 it
+        /// was first set to: one volley took the keep 137 -> 33, **75% of the structure in a
+        /// single turn**. A narrow band is not crossed slowly, it is JUMPED — the first run of
+        /// the day never showed the line at all because the keep passed straight through it.
+        /// Widening does not buy more turns against a heavy volley, which can still clear the
+        /// whole band at once; it buys the warning a chance to fire against the lighter ones.
+        /// </summary>
+        public float telegraphAtHealthFraction = Game.EventSystems.DefaultBossTelegraphFraction;
     }
 
     [Serializable]

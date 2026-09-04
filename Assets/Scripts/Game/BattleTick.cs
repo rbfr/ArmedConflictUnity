@@ -859,6 +859,40 @@ namespace ArmedConflict.Game
                     telegraph = EventSystems.TelegraphLine(w.telegraphLabel, away);
                 }
 
+                // A BOSS WARNS TOO, off the health of the structure gating it — see
+                // EventSystems.ShouldTelegraphBossPhase for why it cannot carry a countdown.
+                //
+                // A wave keeps the strip when both want it: the wave's deadline is FIXED and
+                // the player cannot move it, while the boss's is the player's own doing and
+                // stays true for as long as they leave the gate standing. Losing the countdown
+                // to an untimed line would be the worse trade.
+                if (telegraph == null)
+                {
+                    for (int i = 0; i < level.bossPhases.Count; i++)
+                    {
+                        var trigger = level.bossPhases[i];
+                        if (trigger == null) continue;
+
+                        // The phase waits for the LAST of its triggers, so how close it is =
+                        // the gate FURTHEST from dying. An already-dead trigger contributes
+                        // nothing; if every one is dead the phase fires this tick regardless.
+                        float gate = 0f;
+                        foreach (var lid in trigger.triggerStructureIds)
+                        {
+                            if (string.IsNullOrEmpty(lid)) continue;
+                            if (!runtimeIdByLevelId.TryGetValue(lid, out int rid)) continue;
+                            var st = structures.FirstOrDefault(x => x.Id == rid);
+                            if (st == null || st.MaxHp <= 0) continue;
+                            gate = Mathf.Max(gate, (float)st.Hp / st.MaxHp);
+                        }
+
+                        if (!EventSystems.ShouldTelegraphBossPhase(i, trigger, triggeredBoss, gate))
+                            continue;
+                        telegraph = trigger.telegraphLabel;
+                        break;
+                    }
+                }
+
                 for (int i = 0; i < level.reinforcementWaves.Count; i++)
                 {
                     var wave = level.reinforcementWaves[i];

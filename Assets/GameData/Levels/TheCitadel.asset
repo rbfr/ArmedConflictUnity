@@ -127,6 +127,8 @@ MonoBehaviour:
       standingOnStructureId: 
       advancePerTurn: 1.5
     announcement: The Sovereign will not yield!
+    telegraphLabel: The citadel is breaking - something waits inside
+    telegraphAtHealthFraction: 0.5
   windAccelZ: 0
   reinforcementWaves: []
   staticCamera: 0
