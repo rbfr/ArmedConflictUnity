@@ -33,6 +33,57 @@ wired: `Assets/Models/Kenney/Particles/` and
 `Assets/Materials/TracerSprite.mat`, leftovers from the tracer try.
 Do not tidy unless he asks.
 
+### Built 09-04 — RULE 9, the ballistic-shadow checker, and it found a shipped bug
+
+Offered twice, declined twice as theoretical, then earned. **L6's boss
+phase was played three times and nothing in it could be killed, at NINE
+distinct powers spanning the whole envelope (45 to 88%).** Difficulty
+does not look like that, so the standing suspicion was that the
+Sovereign was unreachable — `CLAUDE.md` had already written the hole
+down: *"rule 7 still reads turn 0 only; an arrival placed out of the
+ballistic envelope is caught by nothing."*
+
+**`LevelComposition.BallisticShadowRule` FIRES THE SHOT.** A sweep of
+real trajectories through `TrajectoryPhysics.Step` at the tick's own dt,
+against `CollisionSystem`'s own boxes and `SweptCollision.UnitHitRadius`,
+counting how many land on the man. Zero is an ERROR, a handful is a
+NEEDLE warning. Turn 0 and every arrival, via rule 8's `ArrivalSets` —
+`DeadByTrigger` included, or every boss in the game would be condemned
+for the rubble it bursts out of.
+
+**IT CLEARED L6.** The Sovereign IS reachable. **My hypothesis was
+wrong and the instrument said so** — three lost boss phases were aim,
+not a bug, which is exactly what the checker was built to settle.
+
+**It found a real one on L10.** The turn-4 heavy wave has **one man who
+cannot be hit by any drag**. The depot sits at x 8 with a `hitWidth` of
+3.75, so its box ends at **x 9.875** and stands 1.25 tall; the leftmost
+heavy lands at **x 10.2** — a third of a unit past the far edge.
+Clearing the box there and dropping to head height needs ~70° of
+descent, and 70° carries only 14.5 units when he is 17.4 out. **The
+other three, further out, ARE reachable**, which is the shadow behaving
+exactly as the geometry says and why nothing saw it by eye. The wave is
+`advancePerTurn: 0`, so he never walks clear.
+
+**Corroboration worth trusting.** On L12 rule 9 reports the boss shield
+escort *hittable after 2 marches*, from fired trajectories — and rule 8,
+measuring box geometry by a completely different method, independently
+says *2 turns to clear*. Two unrelated instruments on the same number.
+
+**The L10 fix is NOT a nudge, and it is Rob's call.** Moving the wave
+out trades the shadow for rule 7's range limit and the two nearly meet:
+anchorX 13.0 clears rule 9 and immediately raises a rule 7 back-rank
+warning. **Level data was trialled and REVERTED — nothing changed.**
+The cheaper answers are to place the group in FRONT of the depot
+(x < 6.125), or give it an advance so it walks clear, which is the state
+L12 is already in and accepted. Shortening the depot is the third.
+
+**Rule 9 is NOT wired into `PortSelfTest` yet, deliberately** — it would
+land the suite red on shipped content before the fix is chosen. Rule 8's
+precedent says it belongs there once L10 is settled.
+`LevelComposition.Report` now exits 1 on that error, which is the
+checker doing its job and not a regression.
+
 ### L6 TESTED PROPERLY 09-04 — three defeats, and the spike has a name
 
 The owed picker play, done: RETRY into L6's own picker, **RIGS test
@@ -371,7 +422,10 @@ unranked and none of them started:
    tall narrow face passes it while being a 2-point needle (L5's
    tower sniper) or unreachable outright. Offer again, do not
    build unasked.
-3. Anything else he names. Do not open tracer look, Kenney
+3. **L10's unhittable heavy — the one open ERROR.** Rule 9 found it
+   09-04 (block above); the fix is a placement call, not a nudge, and
+   is unmade. Wire rule 9 into `PortSelfTest` once it is settled.
+4. Anything else he names. Do not open tracer look, Kenney
    particles, or a new death clip unprompted.
 
 Leftover from the Kenney tracer try: untracked

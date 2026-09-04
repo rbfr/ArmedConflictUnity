@@ -24,7 +24,7 @@ exits 1 on it, as the suite always did.
 
 ---
 
-## The eight rules
+## The nine rules
 
 **1. Aiming zoom is set by the PLAYER LINE alone.**
 `camZ = (playerHalfWidth + FramePad) / 0.45`, and the visible half-width at that distance is exactly
@@ -176,6 +176,50 @@ and stay in front of it.
 This was not only the hero pass's bug. The check found **four static riflemen the campaign had
 already shipped** — two on L9 inside the mountain bunker (0.46 and 0.74 deep) and two on L10 inside
 the outpost (0.13 and 0.45) — every one a unit the player could not hit without the same plunge.
+
+### 9. Every enemy unit can be HIT by a real drag — 2026-09-04
+
+**ERROR** when no drag reaches a unit at all; **WARNING** when only a handful of the swept drags
+land (a NEEDLE), or when an advancing unit is shadowed on arrival and clears within a few marches.
+`LevelComposition.BallisticShadowRule`.
+
+Rules 7 and 8 both approach this and neither closes it. **Rule 7 asks whether the roster has the
+POWER** — flat range at 45°, turn 0 only, with nothing in the model about what is IN THE WAY.
+**Rule 8 asks whether a unit is standing INSIDE a box.** Neither asks the question the player
+asks, which is whether any throw they can make arrives. A man standing just PAST a wall is inside
+no box and within flat range, and can still be unhittable: to reach him a round must clear the box
+top and then fall to head height within the horizontal distance left, and past a certain depth no
+angle does both. Steep enough to drop that fast is too steep to carry that far.
+
+**This rule FIRES THE SHOT.** A sweep of real trajectories through `TrajectoryPhysics.Step` at the
+tick's own dt, against `CollisionSystem`'s own boxes and `SweptCollision.UnitHitRadius`, counting
+how many land on the man. It is not a model of the ballistics; it is the ballistics.
+
+It judges **turn 0 AND every arrival**, through the same `ArrivalSets` rule 8 uses. The
+`DeadByTrigger` half matters more here than anywhere: a boss bursts out of the structure whose
+destruction spawned it, so that structure is rubble and cannot shadow it — counting it would
+condemn every boss in the game.
+
+**What it found on the shipped campaign:**
+
+- **L10's turn-4 heavy wave has one man who cannot be hit by any drag.** The depot sits at x 8
+  with a `hitWidth` of 3.75, so its box ends at **x 9.875** and stands 1.25 tall; the leftmost
+  heavy lands at **x 10.2**, a third of a unit past the far edge. Clearing the box there and
+  dropping to head height needs about a 70° descent, and 70° only carries 14.5 units when he is
+  17.4 out. **The other three, further out, are reachable** — which is the shadow behaving exactly
+  as geometry says it should, and the reason this was never visible by eye.
+- **L12's boss shield escort** is shadowed on arrival and **hittable after 2 marches** — arrived
+  at by firing trajectories, and independently agreeing with rule 8's own "2 turns to clear",
+  measured from box geometry by a completely different method. Two unrelated instruments landing
+  on the same number is the best evidence available that this one measures reality.
+
+**Moving a shadowed unit further out does not reliably fix it** — it trades the shadow for rule
+7's range limit, and on L10 the two constraints nearly meet. Placing the group in FRONT of the
+structure, or giving it an advance so it walks clear, are the cheaper answers.
+
+**It also cleared L6.** The 09-04 boss phase was played three times with nothing killed, and the
+standing suspicion was that the Sovereign was unreachable. Rule 9 says it is reachable. That was
+aim, not a bug — which is what an instrument is for.
 
 ---
 

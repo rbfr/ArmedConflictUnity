@@ -225,6 +225,7 @@ public static class LevelComposition
 
         // --- rule 8: no ground unit stands inside a structure's collision box ---
         findings.Add(CollisionBoxRule(level, state));
+        findings.Add(BallisticShadowRule(level, state));
 
         // --- the locked roster scale: not a composition rule, but it bounds every level ---
         int playerTotal = level.playerGroups.Sum(g => g.count);
@@ -434,6 +435,176 @@ public static class LevelComposition
 
         return sets;
     }
+
+    /// <summary>
+    /// RULE 9: every enemy unit can actually be HIT by a real shot.
+    ///
+    /// Rule 7 asks whether the roster has the POWER to reach a unit — flat range at 45 degrees,
+    /// turn 0 only, with nothing in the model about what is in the way. Rule 8 asks whether a
+    /// unit is standing INSIDE a box. Neither asks the question a player asks, which is whether
+    /// any throw they can make arrives. A unit behind a tall face passes both while being a
+    /// two-point needle, or unreachable outright.
+    ///
+    /// THIS FIRES THE SHOT. A sweep of real trajectories through `TrajectoryPhysics.Step` at the
+    /// tick's own dt, against `CollisionSystem`'s own boxes and `SweptCollision.UnitHitRadius`,
+    /// and it counts how many of them land on the man. Zero is an ERROR: no drag the player can
+    /// perform reaches him, which is not a rule a level may bend. A handful is a WARNING — the
+    /// needle case, technically hittable and not a fight anyone can win on purpose.
+    ///
+    /// It judges TURN 0 AND EVERY ARRIVAL, through the same `ArrivalSets` rule 8 uses — and the
+    /// `DeadByTrigger` half matters more here than anywhere: a boss bursts out of the structure
+    /// whose destruction spawned it, so that structure is rubble and cannot shadow it. Counting
+    /// it would condemn every boss in the game.
+    ///
+    /// WHY IT EXISTS. Offered twice and declined twice as a theoretical gap, then earned on
+    /// 2026-09-04: L6's boss phase was played three times and NOTHING in it could be killed, at
+    /// nine distinct powers spanning the whole envelope (45 to 88%). Difficulty does not look
+    /// like that. `CLAUDE.md` had already written down the hole — "rule 7 still reads turn 0
+    /// only; an arrival placed out of the ballistic envelope is caught by nothing" — so this is
+    /// the instrument that says whether L6's Sovereign is hard or unhittable.
+    /// </summary>
+    public static Finding BallisticShadowRule(LevelDefinitionSO level, GameState state)
+    {
+        // The volley leaves the player line, not the origin. Same muzzle height the tick uses.
+        var line = state.PlayerUnits;
+        if (line == null || line.Count == 0)
+            return new Finding(Severity.Ok, "rule 9: no player line to fire from");
+        var origin = new Vector3(line.Average(u => u.X),
+                                 line.Average(u => u.Y) + BattleTick.InfantryMuzzleY, 0f);
+
+        const float Dt = 1f / 60f;
+        float radiusSq = SweptCollision.UnitHitRadiusSq;
+
+        var unreachable = new List<string>();
+        var needles = new List<string>();
+        int measured = 0, worstWindow = int.MaxValue;
+        string worstWho = "none";
+
+        foreach (var (label, units, deadByTrigger) in ArrivalSets(level, state))
+        {
+            // Boxes that are standing when THIS set is on the field.
+            var boxes = new List<(float MinX, float MaxX, float MinY, float MaxY)>();
+            foreach (var st in state.Structures)
+            {
+                var d = st.Definition;
+                if (d == null || d.isPlayerSide || deadByTrigger.Contains(d)) continue;
+                float halfW = (d.hasHitWidth ? d.hitWidth : d.size) / 2f;
+                float baseY = st.Y - d.size / 2f;
+                float top = d.hasDeckY ? d.deckY : d.size;
+                boxes.Add((st.X - halfW, st.X + halfW, baseY, baseY + top));
+            }
+
+            // An ADVANCING unit gets a second chance from where its first march puts it, the
+            // same exemption rule 8 makes and for the same reason: shadowed on arrival and
+            // walking clear is a WARNING, permanently unhittable is an ERROR. Enemies close on
+            // the player line, so a march is -x. Without this, L12's shield bearers — which
+            // rule 8 already reports as clearing in two marches — read as four unkillable men.
+            var probes = new List<(UnitEntity Unit, float X, int March)>();
+            foreach (var u in units)
+            {
+                probes.Add((u, u.X, 0));
+                for (int m = 1; m <= MaxMarchesProbed && u.AdvancePerTurn > 0f; m++)
+                    probes.Add((u, u.X - u.AdvancePerTurn * m, m));
+            }
+
+            var hits = new Dictionary<int, int>();
+            var clearsOnMarch = new Dictionary<int, int>();
+            foreach (var u in units) { hits[u.Id] = 0; clearsOnMarch[u.Id] = -1; }
+
+            // A coarse-but-real sweep of every drag the player can make. Angle at 2 degrees and
+            // power at 1% is finer than a thumb can resolve on glass, so a window this cannot
+            // find is not a window a player can hit.
+            for (float deg = 15f; deg <= 85f; deg += 2f)
+            {
+                float rad = deg * Mathf.Deg2Rad;
+                for (float power = 0.20f; power <= 1.0001f; power += 0.01f)
+                {
+                    float v = AimSystem.MaxAimMagnitude * power;
+                    var pos = origin;
+                    var vel = new Vector3(v * Mathf.Cos(rad), v * Mathf.Sin(rad), 0f);
+
+                    for (int step = 0; step < 2000; step++)
+                    {
+                        var prev = pos;
+                        TrajectoryPhysics.Step(ref pos, ref vel, Dt);
+                        if (pos.y < 0f) break;
+                        if (pos.x > 40f) break;
+
+                        bool blocked = false;
+                        foreach (var b in boxes)
+                            if (pos.x >= b.MinX && pos.x <= b.MaxX
+                                && pos.y >= b.MinY && pos.y <= b.MaxY) { blocked = true; break; }
+                        if (blocked) break;
+
+                        foreach (var pr in probes)
+                        {
+                            float dx = pos.x - pr.X;
+                            float dy = pos.y - (pr.Unit.Y + BattleTick.InfantryMuzzleY);
+                            if (dx * dx + dy * dy >= radiusSq) continue;
+                            if (pr.March == 0) { hits[pr.Unit.Id]++; continue; }
+                            int seen = clearsOnMarch[pr.Unit.Id];
+                            if (seen < 0 || pr.March < seen) clearsOnMarch[pr.Unit.Id] = pr.March;
+                        }
+                    }
+                }
+            }
+
+            foreach (var u in units)
+            {
+                measured++;
+                int window = hits[u.Id];
+                if (window < worstWindow)
+                {
+                    worstWindow = window;
+                    worstWho = $"{u.Definition.name} at x {u.X:F1} y {u.Y:F1} ({label})";
+                }
+                string who = $"{u.Definition.name} x {u.X:F1} ({label})";
+                if (window == 0)
+                {
+                    int clears = clearsOnMarch[u.Id];
+                    if (clears > 0)
+                        needles.Add($"{who} - shadowed on arrival, hittable after " +
+                                    $"{clears} march{(clears == 1 ? "" : "es")}");
+                    else
+                        unreachable.Add(who);
+                }
+                else if (window <= NeedleWindow) needles.Add(who);
+            }
+        }
+
+        if (unreachable.Count > 0)
+            return new Finding(Severity.Error,
+                $"rule 9: {unreachable.Count} of {measured} enemy unit(s) cannot be hit by ANY " +
+                $"drag - {string.Join("; ", unreachable.Take(4))}" +
+                (unreachable.Count > 4 ? " ..." : "") +
+                ". No angle and no power reaches them, so the level cannot be finished.");
+
+        if (needles.Count > 0)
+            return new Finding(Severity.Warn,
+                $"rule 9: {needles.Count} of {measured} enemy unit(s) are NEEDLES (<= " +
+                $"{NeedleWindow} of the swept drags land) - {string.Join("; ", needles.Take(3))}" +
+                (needles.Count > 3 ? " ..." : "") +
+                ". Hittable, but not on purpose.");
+
+        return new Finding(Severity.Ok,
+            $"rule 9: every one of {measured} enemy unit(s) is reachable by a real drag " +
+            $"(tightest window {worstWindow} on {worstWho})");
+    }
+
+    /// <summary>
+    /// At or below this many landing drags out of the sweep, a unit is a NEEDLE rather than a
+    /// target. The sweep sits far finer than a thumb, so a handful of hits across the whole
+    /// angle-power space is not something a player can aim for on purpose.
+    /// </summary>
+    const int NeedleWindow = 12;
+
+    /// <summary>
+    /// How many marches an advancing unit is followed for before it is called unreachable.
+    /// Shadowed-on-arrival-then-clear is rule 8's WARNING, taken deliberately; rule 9 does not
+    /// get to overrule it by measuring the same unit one turn earlier and calling it an error.
+    /// A unit that never clears in this many marches is not "walking out" by any reading.
+    /// </summary>
+    const int MaxMarchesProbed = 6;
 
     /// <summary>The label ArrivalSets gives the roster already on the field.</summary>
     const string Turn0 = "turn 0";
