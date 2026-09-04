@@ -12,13 +12,13 @@ supply (consumables, camo, classes, ammo). **Do not use Auto**
 for structures, ammo, or consumables. Android repo is RETIRED.
 `DISPLAY=:0` (not `:1`).
 
-The phone has a **09-04 APK carrying the boss telegraph at 0.35**;
-the committed value is **0.5** (measured — see that block), so a
-rebuild is owed before any further boss-phase play. Left mid-battle
-on **L6**, coins **4085**, nothing spent. DND, stay-awake and
-auto-rotate all restored. **RIGS off, verified on screen** — the
-clean install resets it, so it was OFF, turned ON for the L6 test,
-and toggled back.
+The phone has the **09-04 END-OF-DAY APK** — everything below,
+including the boss telegraph at its committed **0.5**, rule 9's L10
+depot move, and the L9/L12 placements. Clean uninstall/reinstall,
+boots to L1's picker, coins **4085**, RIGS off. Smoke-checked on L1
+and L9 only. **L12's boss phase is NOT verified on device** — its
+escort and Sovereign moved, and reaching that phase needs the
+citadel brought down. DND, stay-awake and auto-rotate all restored.
 
 Two things closed 09-02, both in the blocks below: L5's angle
 claim (the notes moved, the level did not) and **the deck
