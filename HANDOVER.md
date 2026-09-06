@@ -2,13 +2,150 @@
 
 ## Pick up here
 
+### THE 09-04 LATE SITTING — rule 10, and both bosses were INVISIBLE
+
+**Read this before the 09-04 block below it; it changes one of that block's
+conclusions.**
+
+Took the owed item 1 — *"L12's boss phase has never been seen on device"* —
+and it did not come back clean.
+
+**Verified on device first**, on the 09-04 end-of-day APK: L12's phase FIRES,
+the telegraph reads **"The citadel is breaking - something waits inside"** at
+citadel 45/165 (L12's half of the telegraph work, previously only seen on L6),
+and the escort's 5.5 -> 7.0 move is right — it stands at x ~2.5 by turn 7,
+exactly 3 marches of 1.5.
+
+**Then: nothing renders where the Sovereign stands.** Free camera parked at six
+positions around the breach, wreck geometry every time, while the same model at
+the same scale (the two heavy riflemen) renders perfectly 6 units away.
+
+**The cause. A structure's WRECK has no collider and nothing in
+`CollisionSystem`** — `LevelScenery` swaps the collapse model in at the
+building's own position and scale, and it is pure geometry. L12's citadel wreck
+spans **x 4.88-11.13, top y 1.23**; the Sovereign is a 0.91-tall body at x 8.92.
+It is reachable, hittable, inside no box, and 150% covered by rubble.
+
+**It was BOTH bosses — 8 of the campaign's 9 boss-phase bodies.** L6's entire
+phase (Sovereign + 3 heavies) sits inside the keep's wreck, x 5.75-10.25. None
+of them ever walks clear: a boss is authored `advancePerTurn: 0`.
+
+**This probably rewrites the 09-04 reading of L6.** That block concludes rule 9
+cleared the Sovereign so three lost boss phases at nine powers were *"aim, not a
+bug"*. Rule 9 is right about what it measures — the shots do land — but it
+measures REACHABILITY, NOT VISIBILITY. Nine powers and one kill is what firing
+at an invisible target looks like. **Not proven**: L6's phase has not been
+re-played since the fix.
+
+**Built: RULE 10**, `LevelComposition.WreckOcclusionRule`, delegated from
+`PortSelfTest.CheckNoBossArrivesInsideItsOwnRubble`. It reads the footprint the
+RENDERER uses — the wreck's own bounds scaled by the LIVE BUILDING's scale, which
+is what `LevelScenery` does — and models the camera's own elevation, because a
+wreck 1.2 above the ground hides more than its height when the camera looks
+nearly along the ground. **Red first: 4 offenders on L6, 5 on L12, suite exit 1**,
+then green. Deliberately NOT judged: a unit near a structure the PLAYER might
+destroy later — that wreck is not guaranteed and the net would indict half the
+campaign on a maybe.
+
+**Fixed in Z, not X.** L6 `anchorZ 0.9`, L12 `anchorZ 1.8`, both boss groups on
+each level. The x-axis carries reach, separation and every collision box, and on
+both levels the near side is blocked by another structure's box while the far
+side is out past 20 units where rule 7 starts warning — **the two constraints
+close the gap between them**, exactly as on L10. Z carries nothing but looks:
+collision is 2D in x and height, melee compares `attacker.X` alone, advance moves
+x, rule 7 reads dx/dy. A deliberate exception to "separate bodies in X, never in
+Z", which is a rule about counting BODIES, not about clearing a wreck 2.5 deep.
+
+**Also built: `LevelComposition.Arrivals`**, a probe, not a rule —
+`-executeMethod LevelComposition.Arrivals -probeLevels 12` prints where the
+simulation actually places every arrival, through the same `ArrivalSets` rules
+8-10 use. It is what settled the disagreement: the rules said x 8.92 and the
+screen said nothing. A rule reports a verdict; a probe reports what the verdict
+was reached from.
+
+**Campaign: 12 levels, 2 warnings, 0 errors** (the standing L3 rule 7 and L5
+separation). `PortSelfTest` ALL PASS.
+
+**DEVICE-VERIFIED, both bosses, on the APK now on the phone.**
+
+- **L12.** Free camera parked at x 8.46 z 8.79 — the same neighbourhood that
+  showed nothing but rubble on the previous build — and **the Sovereign is
+  there**, in front of the wreck, rifle up, grounded with a shadow. From the
+  PLAYER's own resolve camera the whole phase reads: 3 riflemen, 2 heavies, 5 on
+  the gate deck, **all four shield bearers countable**, and the Sovereign the
+  largest figure on the field. That is the finale's beat, seen for the first
+  time.
+- **L6.** Keep dropped in four volleys, phase fired, and **all four arrivals
+  stand in a legible line in front of the keep's rubble.** This is the level that
+  was played three times on 09-04 with nothing killable.
+- **The z offset does NOT look wrong.** They read as standing in front of the
+  ruin, which is the beat both design notes describe. No floating, no size jump
+  worth noting.
+- **Rounds still land.** A volley was thrown at L12's Sovereign at 91% and the
+  tracers arrive on him in frame; collision ignores z, as the code says. Nothing
+  was seen passing distractingly behind him — but no round was watched to a
+  CONFIRMED impact on the boss (260 hp, nothing died), so that specific worry is
+  eased rather than closed.
+
+**CORRECTION to something this file said earlier today: the uninstall/reinstall
+did NOT wipe the economy.** The picker came back at **4085 coins**, unchanged.
+The standing note that a clean install resets the test supply is about RIGS,
+which was indeed off.
+
+**Still owed on L6: a real balance run.** Visibility is fixed; DIFFICULTY is
+still unmeasured with a visible boss. My one volley there landed at 85% and short
+of the group, which measures the drag, not the level. It wants a picker entry
+with RIGS and ammo in play — not more of my mechanical drags.
+
+### THEN — hero scale walked back, and the boss got its own colour
+
+Rob, on seeing the newly-visible boss: *"he's too big. we want him to stand
+out but he's like twice as tall as the regular units."*
+
+| | was | now |
+|---|---|---|
+| `EnemyHeavyRifleman` / `HeavyRifleman` | 1.9 | **1.45** |
+| `CitadelSovereign` | 1.9 | **1.65** |
+
+**The boss was never uniquely big** — same `renderScale`, same `unit_hero.glb`,
+same trim as `EnemyHeavyRifleman`, which ships in FIVE campaign levels (L6, L7,
+L10, L11, L12) and stands beside it on L6. Shrinking only the boss would have
+made it shorter than its own escort, so the band moved together and the boss
+keeps a 1.14x edge to stay the largest figure on the field.
+
+**KNOWN RISK, on the record: 1.35 was tried once and rejected** for reading as
+"a slightly big soldier" — that is why the number was 1.9. 1.45 sits just above
+that mark. The bet is that STAGING changed underneath it: Tier 2.2 moved heroes
+off decks onto the ground, isolated, and isolation carries contrast that size
+used to carry alone. **If it reads as a big rifleman, the bet was wrong and the
+answer is colour, not height.**
+
+**The boss now carries its own trim** — the first per-DEFINITION tone in the
+project. `UnitDefinitionSO.hasTrimColor` / `trimColor`, applied per instance in
+`BattleRunner.ApplyTrim` through a **MaterialPropertyBlock**, because the slots
+of a class share one material. **It CLEARS on a recycled slot** — boss and heavy
+are the same model and draw from the same pool, so a slot that held the boss
+holds a mook next turn. Brass-gold `0.72, 0.58, 0.20`, picked against BOTH
+faction palettes (red on L6, blue on L12); the mg's brass is darker.
+`PortSelfTest.CheckATrimOverrideReachesARenderer` asserts the wiring and was run
+red first.
+
+**Full write-up in `UNIT_VARIETY_DESIGN.md`.**
+
+**One observation, NOT acted on: the Sovereign is indistinguishable from a heavy
+rifleman.** `CitadelSovereign` and `EnemyHeavyRifleman` both use
+`models/unit_hero.glb` at `renderScale 1.9`, so on L6 four identical figures
+stand in a row and one of them is the 260-hp boss. **ACTED ON later the same
+sitting — see the block above; the boss now wears brass-gold trim.**
+
+
 Last sitting **09-04**, a long one. **Everything is committed AND
 PUSHED** — seven commits on `session/2026-08-25-shell-art-ragdoll`,
 `c9b8d40..670c643`. The working tree is clean apart from the untracked
 tracer leftovers below. **Ask git anyway** — this file does not track
 commits, and Rob commits/pushes on an explicit ask.
 
-`PortSelfTest.Run` after every change; it now carries rules 8 AND 9.
+`PortSelfTest.Run` after every change; it now carries rules 8, 9 AND 10.
 **RIGS** is the test supply (consumables, camo, classes, ammo) — the
 clean install RESETS it, so check the button rather than assuming.
 **Do not use Auto** for structures, ammo, or consumables. Android repo

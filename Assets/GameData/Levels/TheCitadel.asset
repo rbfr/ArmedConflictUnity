@@ -117,13 +117,13 @@ MonoBehaviour:
     - definition: {fileID: 11400000, guid: e2f345bdab5634c49a5e289daed390f3, type: 2}
       count: 1
       anchorX: 9.0
-      anchorZ: 0
+      anchorZ: 1.8
       standingOnStructureId: 
       advancePerTurn: 0
     - definition: {fileID: 11400000, guid: aecf03c40cb9b8f4d85d97ef12b4289f, type: 2}
       count: 4
       anchorX: 7.0
-      anchorZ: 0
+      anchorZ: 1.8
       standingOnStructureId: 
       advancePerTurn: 1.5
     announcement: The Sovereign will not yield!

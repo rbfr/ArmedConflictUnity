@@ -5260,6 +5260,8 @@ public static class PortSelfTest
         CheckNoBossArrivesUnannounced();
         CheckNobodyStandsInAWall();
         CheckEveryEnemyCanBeHit();
+        CheckNoBossArrivesInsideItsOwnRubble();
+        CheckATrimOverrideReachesARenderer();
         CheckCrowdSplitKeptTheBalance();
         CheckAdvancingSquads();
 
@@ -6049,6 +6051,98 @@ public static class PortSelfTest
               $"on {worst} (floor {floor:F3}, body {body:F3})");
     }
 
+
+
+
+    /// <summary>
+    /// A `trimColor` override must have something to paint. The override is applied to renderers
+    /// carrying a `UnitTrim_*` material, so a definition that sets one on a model whose prefab
+    /// has NO trim renderer is a feature that silently does nothing — the exact shape of "assume
+    /// nothing is wired", which this project has paid for with audio, backgrounds and a hero
+    /// scale that spread units apart without resizing them.
+    ///
+    /// It asserts the WIRING, not the pixels: that the colour reaches a renderer at all. Whether
+    /// gold reads against a red or a blue faction uniform is a judgement for a device.
+    /// </summary>
+    static void CheckATrimOverrideReachesARenderer()
+    {
+        var defs = AssetDatabase.FindAssets("t:UnitDefinitionSO")
+            .Select(AssetDatabase.GUIDToAssetPath)
+            .Select(AssetDatabase.LoadAssetAtPath<UnitDefinitionSO>)
+            .Where(d => d != null && d.hasTrimColor)
+            .ToList();
+
+        var broken = new List<string>();
+        foreach (var d in defs)
+        {
+            string key = System.IO.Path.GetFileNameWithoutExtension(d.modelAsset);
+            int painted = 0;
+            foreach (var side in new[] { "EnemyUnit", "PlayerUnit" })
+            {
+                var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(
+                    $"Assets/Prefabs/{side}_{key}.prefab");
+                if (prefab == null) continue;
+                foreach (var r in prefab.GetComponentsInChildren<MeshRenderer>(true))
+                    if (r.sharedMaterial != null && r.sharedMaterial.name.StartsWith("UnitTrim_"))
+                        painted++;
+            }
+            if (painted == 0) broken.Add($"{d.name} ({key}) has no trim renderer to paint");
+        }
+
+        // defs.Count is inside the condition: with no override authored anywhere this is
+        // vacuously true, which is the empty-purse trap.
+        Check(defs.Count > 0 && broken.Count == 0,
+              $"every trimColor override lands on a real renderer — {defs.Count} override(s)" +
+              (broken.Count > 0 ? ": " + string.Join(" | ", broken) : ""));
+    }
+
+    /// <summary>
+    /// RULE 10 — no arrival stands inside the wreck of the structure that spawned it. DELEGATES
+    /// to `LevelComposition.WreckOcclusionRule`, for the third time and the same reason: one
+    /// rule, one implementation.
+    ///
+    /// This is the rule that says a body can be SEEN, and it exists because eight of the
+    /// campaign's nine boss-phase bodies shipped invisible — standing in the rubble of the very
+    /// structure whose fall spawned them, hittable and reachable and inside no collision box,
+    /// which is why rules 1-9 were all green over it. Found on device 2026-09-04 by flying the
+    /// free camera to the Sovereign's authored x on L12 and finding nothing there.
+    ///
+    /// Wired AFTER the two levels were fixed, exactly as rule 9 was: a red suite over shipped
+    /// content teaches the next person to ignore the suite. It was RUN red first — 4 offenders on
+    /// L6 and 5 on L12 — and that is the only evidence it reaches the code it claims to test.
+    /// </summary>
+    static void CheckNoBossArrivesInsideItsOwnRubble()
+    {
+        var levels = AssetDatabase.FindAssets("t:LevelDefinitionSO")
+            .Select(AssetDatabase.GUIDToAssetPath)
+            .Select(AssetDatabase.LoadAssetAtPath<LevelDefinitionSO>)
+            .Where(l => l != null && !l.isTestLevel)
+            .OrderBy(l => l.levelNumber)
+            .ToList();
+
+        var offenders = new List<string>();
+        int measured = 0, phases = 0;
+        foreach (var l in levels)
+        {
+            GameState state;
+            try { state = LevelBuilder.BuildInitialState(l, 1, 1, new System.Random(12345)); }
+            catch { continue; }
+            measured++;
+            phases += l.bossPhases != null ? l.bossPhases.Count : 0;
+
+            var f = LevelComposition.WreckOcclusionRule(l, state);
+            if (f.Level == LevelComposition.Severity.Error)
+                offenders.Add($"L{l.levelNumber}: {f.Text}");
+        }
+
+        // `phases > 0` is the empty-purse guard: with no boss phase in the campaign this rule
+        // judges nothing and would pass vacuously, which is the shape of a check that can never
+        // go red.
+        Check(measured > 0 && phases > 0 && offenders.Count == 0,
+              $"rule 10 — no arrival is hidden inside the wreck it emerges from, across " +
+              $"{phases} boss phase(s) on {measured} campaign level(s)" +
+              (offenders.Count > 0 ? ": " + string.Join(" | ", offenders) : ""));
+    }
 
     /// <summary>
     /// RULE 9 — every enemy unit can be HIT by a real drag. DELEGATES to

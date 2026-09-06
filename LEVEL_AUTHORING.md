@@ -1,4 +1,4 @@
-# LEVEL_AUTHORING.md — the nine composition rules
+# LEVEL_AUTHORING.md — the ten composition rules
 
 **Read this before authoring or editing a level.** These are the constraints that actually govern
 whether a level can be framed and read; they are derived, not taste, and each one was paid for.
@@ -10,7 +10,7 @@ rules at the top of the campaign block" — they mean this file now.
 `LevelDefinitionInspector` checks rules 1, 2, 3, 5, 6, 7 and 8 live in the inspector. Rule 4 is
 rule 6's measure. A warning there is a warning about the level, not about the tool.
 
-**Rule 8 moved into `LevelComposition.CollisionBoxRule` on 2026-08-12**, so all nine rules now
+**Rule 8 moved into `LevelComposition.CollisionBoxRule` on 2026-08-12**, so all ten rules now
 report in the same place. It used to live only in `PortSelfTest.CheckNobodyStandsInAWall`, which
 meant it failed the SUITE rather than showing up beside the level you were editing — an author saw
 seven rules where there are eight. The suite still asserts it and now DELEGATES to the same
@@ -24,7 +24,7 @@ exits 1 on it, as the suite always did.
 
 ---
 
-## The nine rules
+## The ten rules
 
 **1. Aiming zoom is set by the PLAYER LINE alone.**
 `camZ = (playerHalfWidth + FramePad) / 0.45`, and the visible half-width at that distance is exactly
@@ -246,6 +246,67 @@ carries L2 and L8 as well, so trimming it to fix L10 would have moved two other 
 **It also cleared L6.** The 09-04 boss phase was played three times with nothing killed, and the
 standing suspicion was that the Sovereign was unreachable. Rule 9 says it is reachable. That was
 aim, not a bug — which is what an instrument is for.
+
+---
+
+### 10. No unit ARRIVES INSIDE THE WRECK of the structure that spawned it — 2026-09-04
+
+**ERROR** when the rubble covers a body outright; **WARNING** at half.
+`LevelComposition.WreckOcclusionRule`.
+
+Rules 8 and 9 both ask whether a body can be **HIT**. This one asks whether it can be **SEEN**, and
+it is the first rule here that does. A boss nobody can see is not a fight — it is a row of drags
+into a patch of rubble.
+
+**It is the hole the `DeadByTrigger` exemption leaves, and that exemption is still right.** A boss
+bursts out of the structure whose fall spawned it, so counting that structure's COLLISION BOX
+would condemn every boss in the game; its box is genuinely gone. What is NOT gone is the WRECK the
+renderer swaps in. `LevelScenery` spawns the collapse model alongside the live building, at the
+building's own position and scale, and shows it the moment the building dies. It has **no
+collider and nothing in `CollisionSystem`** — pure geometry, invisible to every other rule. So a
+body standing in it is reachable, hittable, inside no box, and not on screen.
+
+**A wreck hides more than its own height**, because the camera sits ~1.2 above the ground and
+looks nearly along it: an occluder that far forward blocks the sightline for another
+`depth x tan(groundAngle)` of the body. Same 6° geometry that made a second rank invisible,
+working on rubble instead of shoulders. A body IN FRONT of the rubble's near face is seen; a body
+level with it or behind it is not.
+
+**What it found on the shipped campaign — both boss phases, eight of nine bodies:**
+
+- **L12's Sovereign** stands at x 8.92 inside a wreck spanning **x 4.88 to 11.13, top y 1.23**,
+  against a hero body 0.91 tall: 150% covered. Its four shield bearers, 290%.
+- **L6's entire boss phase** — the Sovereign and all three heavies — inside the keep's wreck
+  (**x 5.75 to 10.25**), 140% each.
+
+None of them ever walks clear, because a boss is authored `advancePerTurn: 0`.
+
+**Found on the DEVICE, not by the checker.** L12's phase was played to the arrival and the free
+camera parked on the Sovereign's authored x: wreck geometry, no body, while the same model at the
+same scale rendered correctly six units away. The probe `LevelComposition.Arrivals` then printed
+the position the simulation places it at, which is how a disagreement between the rules and the
+screen gets settled — a rule reports a verdict, a probe reports what the verdict was reached from.
+
+**This very likely rewrites 09-04's reading of L6.** Rule 9 cleared that boss and the conclusion
+recorded was *"that was aim, not a bug"*. Rule 9 was right about what it measures — the shots do
+land. But it measures REACHABILITY, NOT VISIBILITY, and three lost boss phases at nine distinct
+powers is what firing at an invisible target looks like.
+
+**FIXED by moving the arrivals FORWARD IN Z, not in X** — L6 `anchorZ 0.9`, L12 `anchorZ 1.8`,
+both boss groups on each. The x-axis carries reach, separation and every collision box, and on
+both levels the near side is blocked by another structure's box while the far side is out past
+20 units, where rule 7 starts warning: **the two constraints close the gap between them**, exactly
+as they did on L10. The z-axis carries nothing but looks — collision is 2D in x and height,
+melee compares `attacker.X` alone, advance moves x, rule 7 reads dx/dy — so it is both free and
+the only axis with room. Fixing a cosmetic bug on the cosmetic axis.
+
+**This is a deliberate exception to "separate bodies in X, never in Z."** That rule is about making
+two BODIES countable, where depth buys ~0.1 of screen rise. This is a body against a WRECK 2.5
+deep, where depth is the whole clearance and x has none.
+
+**Deliberately NOT judged: a unit standing near a structure the PLAYER may destroy later.** That
+wreck is not guaranteed to exist, the body is visible until it does, and casting that net would
+indict most of the campaign on a maybe. A trigger's wreck is certain the moment the phase fires.
 
 ---
 

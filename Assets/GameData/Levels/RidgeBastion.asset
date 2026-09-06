@@ -123,13 +123,13 @@ MonoBehaviour:
     - definition: {fileID: 11400000, guid: e2f345bdab5634c49a5e289daed390f3, type: 2}
       count: 1
       anchorX: 8.5
-      anchorZ: 0
+      anchorZ: 0.9
       standingOnStructureId: 
       advancePerTurn: 0
     - definition: {fileID: 11400000, guid: 75e1a253a474334eb8576862998ca8e1, type: 2}
       count: 3
       anchorX: 6.5
-      anchorZ: 0
+      anchorZ: 0.9
       standingOnStructureId: 
       advancePerTurn: 0
     announcement: The Sovereign takes the field!

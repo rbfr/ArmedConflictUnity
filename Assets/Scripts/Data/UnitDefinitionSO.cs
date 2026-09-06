@@ -58,11 +58,45 @@ namespace ArmedConflict.Data
         public float damageTakenMultiplier = 1f;
 
         /// <summary>
-        /// Hero-scale multiplier on the crowd unit size. 1.9 for heroes (was 1.35, which read as
-        /// "a slightly big soldier"). Formation spacing scales with this so a bigger unit gets
-        /// proportionally more room and does not overlap its neighbours.
+        /// Hero-scale multiplier on the crowd unit size. Formation spacing scales with this so a
+        /// bigger unit gets proportionally more room and does not overlap its neighbours.
+        ///
+        /// **1.45 for heroes, 1.65 for the Sovereign, since 2026-09-04.** It was 1.9 for both,
+        /// and Rob on seeing the boss for the first time: *"he's too big... we want him to stand
+        /// out but he's like twice as tall as the regular units."* Twice a man's height is a
+        /// giant, not a commander.
+        ///
+        /// **READ THIS BEFORE MOVING IT BACK: 1.35 was tried once and rejected** for reading as
+        /// "a slightly big soldier", which is why it went to 1.9 in the first place. 1.45 sits
+        /// deliberately just above that mark, and the reason it is expected to hold where 1.35
+        /// did not is that the STAGING changed underneath it: Tier 2.2 moved heroes off the decks
+        /// onto the ground, alone, 2.5 crowd-spacings clear of any crowd body. A hero is now
+        /// isolated rather than gridded among riflemen, and isolation carries contrast that size
+        /// used to have to carry by itself. If it reads as a big rifleman again, that hypothesis
+        /// was wrong and the answer is the trim colour below, not another 0.5 of height.
+        ///
+        /// The boss keeps a 1.14x edge over its own escort so it stays the largest figure on the
+        /// field; below about 1.1 that ordering stops reading at gameplay framing.
         /// </summary>
         public float renderScale = 1f;
+
+        /// <summary>
+        /// A per-DEFINITION override of the class trim colour — the fourth tone, `trim*`, which
+        /// otherwise binds by MODEL KEY in `RiggedUnits.TrimColor`.
+        ///
+        /// It exists because `CitadelSovereign` and `EnemyHeavyRifleman` are the same model at
+        /// the same trim, so the campaign's final boss was indistinguishable from the mooks
+        /// escorting it — four identical figures in a row on L6, one of them 260 hp. Size alone
+        /// cannot fix that without making the boss a giant again, which is the thing that was
+        /// just walked back.
+        ///
+        /// Applied per instance through a `MaterialPropertyBlock`, never by touching the shared
+        /// material: pooled units share one material per class and writing to it would repaint
+        /// every heavy rifleman in the level. It must also be CLEARED when a slot is recycled to
+        /// a unit without an override, because the boss and the heavy draw from the same pool.
+        /// </summary>
+        public bool hasTrimColor = false;
+        public Color trimColor = Color.white;
     }
 
     /// <summary>

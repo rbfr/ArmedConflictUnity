@@ -1254,3 +1254,61 @@ which would otherwise have been tuned into the game:
 It also applies `ReadyDrop` before judging, because the runtime always has it: the first tuning
 pass chose a 14-degree drop against a preview missing it, which would have shipped the arms ~16
 degrees too low.
+
+## Hero scale walked back, and the boss got its own colour — 2026-09-04
+
+**Rob, on seeing the Citadel Sovereign for the first time:** *"he's too big. we want him to stand
+out but he's like twice as tall as the regular units."*
+
+He was right, and the reason he had never said it before is that **the boss had never been
+visible** — it spawned inside its own citadel's wreck and rule 10 was written the same day to
+catch that. The first look at the finale's boss was also the first look at hero scale in the one
+place it matters most.
+
+| | was | now |
+|---|---|---|
+| `EnemyHeavyRifleman` / `HeavyRifleman` | 1.9 | **1.45** |
+| `CitadelSovereign` | 1.9 | **1.65** |
+
+**The boss was NOT the only thing at 1.9** — it is the same `renderScale`, the same
+`unit_hero.glb` and the same trim as `EnemyHeavyRifleman`, which ships in five campaign levels and
+stands beside it on L6. Shrinking only the boss would have made it shorter than its own escort, so
+the whole hero band moved and the boss keeps a **1.14x** edge to stay the largest figure on the
+field.
+
+### The history this walks back, stated plainly
+
+`renderScale`'s own comment recorded that **1.35 was tried and rejected** — it read as "a slightly
+big soldier" — which is why the number became 1.9. 1.45 sits just above that mark and is
+therefore, on the record, close to a number this document already threw away.
+
+**The bet is that the STAGING changed underneath it.** Tier 2.2 moved heroes off the decks onto
+the ground, 1-2 per level, at least 2.5 crowd-spacings clear of any crowd body. A hero is now
+ISOLATED rather than gridded among riflemen, and isolation carries contrast that size previously
+had to carry alone. **If it reads as a big rifleman again, that bet was wrong** — and the answer
+then is colour and silhouette, not another 0.5 of height.
+
+### The boss's own trim — the first per-DEFINITION tone
+
+Trim binds by MODEL KEY (`RiggedUnits.TrimColor`), so boss and heavy shared "armour plate steel"
+and four identical figures stood in a row on L6, one of them 260 hp. `UnitDefinitionSO` now
+carries `hasTrimColor` / `trimColor`, applied per instance in `BattleRunner.ApplyTrim` through a
+**MaterialPropertyBlock** — the slots of a class share one material, so painting the material
+would repaint every heavy in the level.
+
+**The clear half is the half that bites.** Boss and heavy are the same model and draw from the
+SAME POOL, so a slot that held the boss will hold a mook next turn; `ApplyTrim` clears the block
+when the new occupant has no override. That is the recycled-slot family this project has already
+paid for with poses, tints and animation state.
+
+**Brass-gold `0.72, 0.58, 0.20`, chosen against BOTH faction palettes** — the enemy uniform is red
+on L6 and blue on L12, so a crimson boss would vanish on one and a steel one on neither. Gold is
+also not in use: the machine gunner's brass is darker (`0.44, 0.35, 0.16`).
+
+`PortSelfTest.CheckATrimOverrideReachesARenderer` asserts the wiring — that an override lands on a
+renderer that actually carries a `UnitTrim_*` material — because an override on a model with no
+trim node is a feature that silently does nothing. Run red first by pointing it at a missing
+model: `[FAIL] ... CitadelSovereign (unit_nosuch) has no trim renderer to paint`.
+
+**Judgement still owed to the device and to Rob**, per this document's standing rule that every
+attempt which skipped that was wrong.

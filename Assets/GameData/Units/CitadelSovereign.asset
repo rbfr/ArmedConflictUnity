@@ -24,4 +24,6 @@ MonoBehaviour:
   splashRadius: 0
   structureDamageMultiplier: 0.25
   meleeDamage: 0
-  renderScale: 1.9
+  renderScale: 1.65
+  hasTrimColor: 1
+  trimColor: {r: 0.72, g: 0.58, b: 0.2, a: 1}

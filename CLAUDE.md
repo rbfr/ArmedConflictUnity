@@ -45,7 +45,7 @@ anywhere:
 
 | | |
 |---|---|
-| `LEVEL_AUTHORING.md` | the NINE COMPOSITION RULES. Read before authoring or editing any level; all nine checked by `LevelComposition.Report` |
+| `LEVEL_AUTHORING.md` | the TEN COMPOSITION RULES. Read before authoring or editing any level; all ten checked by `LevelComposition.Report` |
 | `PRODUCT_DIRECTION.md` | **what to build next** — retention, dopamine model, campaign packaging, priority stack. Plan product work against this |
 | `GAME_DESIGN_LOCKS.md` | decisions that are CLOSED — turn structure, win/loss, physics, scope |
 | `PROGRESSION_DESIGN.md` | coins, loadout, unlocks, consumables — phased spec + build status |
@@ -109,7 +109,7 @@ references. A code-only change does not need one; a new `[SerializeField]` does.
 **The ScriptableObjects in `Assets/GameData/` ARE the source of truth.** Edit them directly. The
 Kotlin export pipeline is retired; the old repo is reference only.
 
-**Read `LEVEL_AUTHORING.md` before authoring or editing a level** — the nine composition rules,
+**Read `LEVEL_AUTHORING.md` before authoring or editing a level** — the ten composition rules,
 moved here from the Kotlin. They are checked, not merely documented:
 
 ```bash
@@ -230,8 +230,8 @@ BEAT from `PRODUCT_DIRECTION.md`'s chart, and its `designNotes` says which and w
 
 Two stages of six (`ValleyFront` 1-6, `EnemyStronghold` 7-12), bosses on 6 and 12.
 
-The nine composition rules live in **`LEVEL_AUTHORING.md`** (moved out of the Kotlin 2026-08-06)
-and all nine are checked by `LevelComposition.Report`. Shortest form: the Aiming camera frames the
+The ten composition rules live in **`LEVEL_AUTHORING.md`** (moved out of the Kotlin 2026-08-06)
+and all ten are checked by `LevelComposition.Report`. Shortest form: the Aiming camera frames the
 PLAYER LINE ONLY (~6 wide), scout/resolve framing is set by the enemy cluster INCLUDING structure
 edges (under ~11), one dominant structure plus at most two small supports, 14-20 units of
 separation TANK→DOMINANT STRUCTURE (checker max 20 while L1 trials 18.5; was 14-18 at v=9),
@@ -262,6 +262,22 @@ man no drag reached. It judges turn 0 AND every arrival, honouring `DeadByTrigge
 out of the structure that spawned it, and counting that rubble would condemn every boss).
 `PortSelfTest` delegates to `LevelComposition.BallisticShadowRule` — one implementation, never
 two.
+
+**(Rule 10, added 2026-09-04) no unit may ARRIVE INSIDE THE WRECK of the structure that spawned
+it.** Rules 8 and 9 both ask whether a body can be HIT; this one asks whether it can be SEEN. The
+`DeadByTrigger` exemption that stops rules 8/9 condemning every boss for its own rubble is
+correct — the collision box really is gone — but the WRECK is not: `LevelScenery` swaps in the
+collapse model at the building's own position and scale, with **no collider and nothing in
+`CollisionSystem`**, so a body standing in it is reachable, hittable, inside no box, and not on
+screen. **Eight of the campaign's nine boss-phase bodies shipped that way**, on BOTH bosses.
+Found on the device by parking the free camera on L12's Sovereign and finding nothing there, then
+settled with the new `LevelComposition.Arrivals` probe, which prints where the simulation actually
+places every arrival. Note what this means about rule 9's L6 verdict: it measures REACHABILITY,
+NOT VISIBILITY, so "that was aim, not a bug" was very likely firing at an invisible target.
+**Fixed in Z, not X** — the x-axis carries reach, separation and every box, and on both levels the
+near side is blocked by another structure while the far side is past 20 units where rule 7 warns;
+z carries nothing but looks (collision is 2D in x and height, melee compares `attacker.X`, advance
+moves x). `PortSelfTest` delegates to `LevelComposition.WreckOcclusionRule`.
 
 **Test rigs no longer need renumbering when the campaign changes size** (2026-08-06). The scene
 builder orders CAMPAIGN-then-RIGS, so the campaign block leads and is indexed by position while a

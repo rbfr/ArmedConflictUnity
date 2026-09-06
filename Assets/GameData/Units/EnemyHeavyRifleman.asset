@@ -24,4 +24,4 @@ MonoBehaviour:
   splashRadius: 0
   structureDamageMultiplier: 0.25
   meleeDamage: 0
-  renderScale: 1.9
+  renderScale: 1.45

@@ -297,6 +297,20 @@ public class BattleRunner : MonoBehaviour
     /// <summary>One uniform+gear pair per PAID camo set. Olive is absent and always will be: it
     /// wears the build-time materials, so it has nothing to mint.</summary>
     readonly Dictionary<CosmeticSet, (Material Uniform, Material Gear)> camoMaterials = new();
+
+    /// <summary>
+    /// The `trim*` renderers of every pooled unit slot, so a DEFINITION can override the class
+    /// trim colour — see `UnitDefinitionSO.trimColor`. Classified by the MATERIAL a prefab was
+    /// toned with, exactly as `BuildFactionPalettes` classifies uniform and gear, rather than by
+    /// re-deriving the `trim*` node-name rule that lives in the art pipeline. Two copies of that
+    /// rule could disagree; one of them would then be wrong on a device only.
+    /// </summary>
+    readonly Dictionary<GameObject, MeshRenderer[]> trimRenderers = new();
+
+    /// <summary>What each slot's trim is currently painted, so a recycled slot is repainted only
+    /// when it actually changes hands. `null` means "the class colour, untouched".</summary>
+    readonly Dictionary<GameObject, Color?> trimApplied = new();
+    MaterialPropertyBlock trimProps;
     /// <summary>One uniform+gear pair per faction, minted with the pools. Minting a material the
     /// frame a level loads is a smaller sin than minting a render slot, but it is the same sin.</summary>
     readonly Dictionary<FactionDefinitionSO, (Material Uniform, Material Gear)> factionMaterials = new();
@@ -715,8 +729,56 @@ public class BattleRunner : MonoBehaviour
     /// re-deriving it here is a second copy of a rule that would then be able to disagree with the
     /// first. What matters at this end is only "which of the two enemy side-materials is this".
     /// </summary>
+    /// <summary>
+    /// Indexes the trim renderers once, with the pools. A trim material is the one minted per
+    /// class as `UnitTrim_<classKey>` (SpikeSceneBattle.TrimMat), which is what makes this a
+    /// material test rather than a name test.
+    /// </summary>
+    void BuildTrimRenderers()
+    {
+        foreach (var slots in new[] { playerUnits, enemyUnits })
+            foreach (var go in slots.All)
+            {
+                var hits = new List<MeshRenderer>();
+                foreach (var r in go.GetComponentsInChildren<MeshRenderer>(true))
+                {
+                    var m = r.sharedMaterial;
+                    if (m != null && m.name.StartsWith("UnitTrim_")) hits.Add(r);
+                }
+                if (hits.Count > 0) trimRenderers[go] = hits.ToArray();
+            }
+    }
+
+    /// <summary>
+    /// Paints one slot's trim for the unit now standing in it. Per instance, through a
+    /// MaterialPropertyBlock — the slots of a class share ONE material, so writing to the
+    /// material itself would repaint every heavy rifleman on the field.
+    ///
+    /// The CLEAR half is the half that bites: the Sovereign and the heavies are the same model,
+    /// so they draw from the same pool, and a slot that held the boss last turn will hold a mook
+    /// this one. Without the clear it would inherit the boss's colour — the recycled-slot family
+    /// of bug this project has already paid for with poses, tints and animation state.
+    /// </summary>
+    void ApplyTrim(GameObject go, UnitDefinitionSO def)
+    {
+        if (!trimRenderers.TryGetValue(go, out var rs)) return;
+
+        Color? want = def != null && def.hasTrimColor ? def.trimColor : (Color?)null;
+        if (trimApplied.TryGetValue(go, out var have) && have == want) return;
+        trimApplied[go] = want;
+
+        trimProps ??= new MaterialPropertyBlock();
+        foreach (var r in rs)
+        {
+            if (want == null) { r.SetPropertyBlock(null); continue; }
+            trimProps.SetColor(BaseColorId, want.Value);
+            r.SetPropertyBlock(trimProps);
+        }
+    }
+
     void BuildFactionPalettes()
     {
+        BuildTrimRenderers();
         FactionPaint.Classify(enemyUnits.All, enemyUniformMaterial, enemyGearMaterial,
                               enemyUniformRenderers, enemyGearRenderers);
 
@@ -1827,6 +1889,10 @@ public class BattleRunner : MonoBehaviour
                          (u.Definition != null ? u.Definition.renderScale : 1f);
             if (!Mathf.Approximately(go.transform.localScale.x, want))
                 go.transform.localScale = Vector3.one * want;
+
+            // A boss wears its own trim. Done here rather than at spawn because a slot is handed
+            // out fresh every frame and may have changed hands since the last one.
+            ApplyTrim(go, u.Definition);
             // Slots are recycled, so a slot that was last used by a CORPSE comes back still
             // holding the death pose. Re-arm it on hidden→visible, the same rule the Android
             // build's culling repair uses, and stagger the idle so the line is not a chorus line.
