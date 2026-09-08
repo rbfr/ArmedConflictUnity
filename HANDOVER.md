@@ -2,8 +2,8 @@
 
 ## Pick up here
 
-Branch `session/2026-08-25-shell-art-ragdoll`. Committed as `e12f995`
-on top of `7df7742`. **Not pushed.** Ask git before writing on top.
+Branch `session/2026-08-25-shell-art-ragdoll`. Sitting is on origin
+(`e12f995` L13/look). Ask git before writing on top.
 
 Rob signed 09-06 on device: muzzle *"ok that looks good."* Camera
 *"ok this looks much better."* Wrecks *"yeah that's better."* L6 at 160 hp
