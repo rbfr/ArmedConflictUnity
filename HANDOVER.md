@@ -2,8 +2,8 @@
 
 ## Pick up here
 
-Branch `session/2026-08-25-shell-art-ragdoll`. **THIS SITTING IS UNCOMMITTED**
-on top of `7df7742` (last push). Ask git before writing on top.
+Branch `session/2026-08-25-shell-art-ragdoll`. Committed as `e12f995`
+on top of `7df7742`. **Not pushed.** Ask git before writing on top.
 
 Rob signed 09-06 on device: muzzle *"ok that looks good."* Camera
 *"ok this looks much better."* Wrecks *"yeah that's better."* L6 at 160 hp
@@ -110,15 +110,9 @@ classes, ammo) — a clean install resets it. **Do not use Auto** for structures
 ammo, or consumables. Android repo is RETIRED. `DISPLAY=:0`. **Ask git.**
 Uninstall/reinstall does **not** wipe coins (Android backup); it does reset RIGS.
 
-Untracked that belongs with this sitting: `fx_muzzle.glb`, `MuzzleFlash.prefab`,
-`MuzzleFadeSource.mat` (and their `.meta`); **tank_tracks.wav** (+ `.meta`);
-**L13 kit:** `hangar.glb`, `hangar_collapse.glb`, `prop_wreck_fighter.glb`,
-`prop_wreck_transport.glb`, `prop_runway.glb`, `prop_control_tower.glb`,
-`AirportLevel.cs`, Hangar / ScorchedApron / Ashfield assets, plus
-`tools/blender/build_airport.py`, `wreck_from_real_planes.py`,
-`preview_airport.py`, `cc0_planes/`. Leftover and **not wired** — do not
-treat as product: `Assets/Models/Kenney/Particles/` and
-`Assets/Materials/TracerSprite.mat`.
+L13 kit, muzzle, and tank tracks are in `e12f995`. Leftover and **not
+wired** — still untracked, do not treat as product:
+`Assets/Models/Kenney/Particles/` and `Assets/Materials/TracerSprite.mat`.
 
 ### Owed
 
