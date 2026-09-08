@@ -1,0 +1,165 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5b0d9d07915ade0a58fba81655b19cb0, type: 3}
+  m_Name: ScorchedApron
+  m_EditorClassIdentifier: 
+  id: level_13
+  displayName: Scorched Apron
+  levelNumber: 13
+  levelGoal: Clear the hangar before they cross the tarmac
+  enemyGroups:
+  - definition: {fileID: 11400000, guid: b51688fb293b69e5cab2885bcaa975b8, type: 2}
+    count: 5
+    anchorX: 3
+    anchorZ: 0
+    standingOnStructureId: 
+    advancePerTurn: 1.4
+  - definition: {fileID: 11400000, guid: 0cc2a054cb1b0b38086ae4f985d09207, type: 2}
+    count: 2
+    anchorX: 4.4
+    anchorZ: 0
+    standingOnStructureId: 
+    advancePerTurn: 0
+  - definition: {fileID: 11400000, guid: 83aeca5cec8486eaf95c85703d65c4e7, type: 2}
+    count: 10
+    anchorX: 7.8
+    anchorZ: 0.12
+    standingOnStructureId: hangar
+    advancePerTurn: 0
+  - definition: {fileID: 11400000, guid: 4322cf73032452a0796c7d5fc72887e6, type: 2}
+    count: 4
+    anchorX: 7.8
+    anchorZ: 0.12
+    standingOnStructureId: hangar
+    advancePerTurn: 0
+  structures:
+  - id: player_tank
+    definition: {fileID: 11400000, guid: 5d4cd70c32b12f2429c5cbd2a376b2ba, type: 2}
+    x: -9.5
+    y: 0
+    z: 0
+    collapseWith: 
+    restsOn: 
+    standWidth: -1
+    hasStandWidth: 0
+    hpScale: 1
+    shellsOverride: 0
+    hasShellsOverride: 0
+  - id: hangar
+    definition: {fileID: 11400000, guid: cbcdeabc555d0aaedadc32fb3897887e, type: 2}
+    x: 7.8
+    y: 0
+    z: 0
+    collapseWith: 
+    restsOn: 
+    standWidth: -1
+    hasStandWidth: 0
+    hpScale: 1
+    shellsOverride: 0
+    hasShellsOverride: 0
+  playerGroups:
+  - definition: {fileID: 11400000, guid: 42221a45b5be3eb57b1b2bd28b9aaac0, type: 2}
+    count: 2
+    anchorX: -9.5
+    anchorZ: 0.12
+    standingOnStructureId: player_tank
+    advancePerTurn: 0
+  - definition: {fileID: 11400000, guid: 42221a45b5be3eb57b1b2bd28b9aaac0, type: 2}
+    count: 6
+    anchorX: -7.2
+    anchorZ: 0
+    standingOnStructureId: 
+    advancePerTurn: 0
+  - definition: {fileID: 11400000, guid: 5cd89868ef7ce0884a623d1199a379f2, type: 2}
+    count: 2
+    anchorX: -5.6
+    anchorZ: 0
+    standingOnStructureId: 
+    advancePerTurn: 0
+  background: {fileID: 11400000, guid: e189402158fef8374aba4dab97d743b2, type: 2}
+  heliChance: 0
+  props:
+  - modelAsset: models/prop_runway.glb
+    x: -1
+    z: -2.2
+    scale: 1
+    slowsAdvance: 0
+    halfWidth: 8
+    keepColors: 1
+    absoluteScale: 1
+    collapsesWith: 
+  - modelAsset: models/prop_wreck_fighter.glb
+    x: 2.4
+    z: -4.6
+    scale: 3.4
+    slowsAdvance: 0
+    halfWidth: 1.8
+    keepColors: 1
+    absoluteScale: 0
+    collapsesWith: 
+  - modelAsset: models/prop_wreck_fighter.glb
+    x: 5.2
+    z: -4
+    scale: 2.8
+    slowsAdvance: 0
+    halfWidth: 1.5
+    keepColors: 1
+    absoluteScale: 0
+    collapsesWith: 
+  - modelAsset: models/prop_wreck_fighter.glb
+    x: 7.8
+    z: 0.9
+    scale: 1.7
+    slowsAdvance: 0
+    halfWidth: 0.9
+    keepColors: 1
+    absoluteScale: 0
+    collapsesWith: hangar
+  - modelAsset: models/prop_wreck_transport.glb
+    x: 8.6
+    z: -6.8
+    scale: 3.8
+    slowsAdvance: 0
+    halfWidth: 2
+    keepColors: 1
+    absoluteScale: 0
+    collapsesWith: 
+  - modelAsset: models/prop_control_tower.glb
+    x: -6
+    z: -9.2
+    scale: 2.8
+    slowsAdvance: 0
+    halfWidth: 0.8
+    keepColors: 1
+    absoluteScale: 0
+    collapsesWith: 
+  levelBase: 180
+  deployBudget: 12
+  playerSpacingScale: 0.85
+  bossPhases: []
+  windAccelZ: 0
+  reinforcementWaves: []
+  staticCamera: 0
+  isTestLevel: 0
+  designNotes: "Beat 13: second melee shape. L4 taught the charge behind wire; this
+    is the same panic on OPEN tarmac \u2014 five riflemen sprint the apron with nothing
+    in front of them but air. The hangar is the dominant (and only) structure, majority
+    garrisoned, so dropping it is still the efficient kill. MG sit at the bay mouth,
+    not on the roof (class placement). Wrecked planes and the runway are keepColors
+    props \u2014 they do not collide. Desert reused (L5/L12); PRODUCT_DIRECTION after-12
+    expansion, not a new verb. 2026-09-07: hangar core (deck/walls) is not a chunk
+    \u2014 the first pass named every plate chunk_N, one shell hid the roof, garrison
+    floated. Hangar pulled 8.0 -> 7.2 (separation 16.7) and made taller so the 6\xB0
+    camera can see it; playerSpacingScale 0.85 so the aim frame is not a parade.
+    Ground units stay in front of hitWidth 3.40 (box edge 6.10). 2026-09-08: hanging
+    door chunk removed so the mouth is an open hole; a small wreck stays parked in
+    the bay and cooks off with the hangar."

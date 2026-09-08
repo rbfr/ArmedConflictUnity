@@ -30,12 +30,17 @@ public class BattleAudio : MonoBehaviour
     [SerializeField] AudioClip defeat;
     [SerializeField] AudioClip helicopterLoop;
     [SerializeField] AudioClip planePassby;
+    [SerializeField] AudioClip tankTracks;
 
     AudioClip uiDown, uiUp;
 
     const int Voices = 12;
     AudioSource[] voices;
     int nextVoice;
+    AudioSource tankSource;
+    const float TankTrackVolume = 0.55f;
+    const float TankTrackFadeSeconds = 0.55f;
+    float tankFade;
 
     float lastGroundImpact, lastUnitDeath, lastUnitHit, lastExplosion;
 
@@ -58,12 +63,30 @@ public class BattleAudio : MonoBehaviour
         // explosion and the first ground impact were all silent — the sound arrived only from
         // the second occurrence onward. Preloading at import covers this, and this call is the
         // belt-and-braces for any clip whose importer settings drift.
+        tankSource = gameObject.AddComponent<AudioSource>();
+        tankSource.playOnAwake = false;
+        tankSource.spatialBlend = 0f;
+        tankSource.loop = false;
+
         foreach (var c in new[] { volleyFire, groundImpact, unitDeath, unitHit, explosion,
-                                  victory, defeat, helicopterLoop, planePassby })
+                                  victory, defeat, helicopterLoop, planePassby, tankTracks })
             if (c != null && c.loadState != AudioDataLoadState.Loaded) c.LoadAudioData();
 
         uiDown = MakeTick("ui_down", 420f, 0.045f);
         uiUp = MakeTick("ui_up", 640f, 0.032f);
+    }
+
+    void Update()
+    {
+        if (tankFade <= 0f || tankSource == null || !tankSource.isPlaying) return;
+        tankFade -= Time.deltaTime;
+        float t = Mathf.Clamp01(tankFade / TankTrackFadeSeconds);
+        tankSource.volume = TankTrackVolume * t;
+        if (tankFade <= 0f)
+        {
+            tankSource.Stop();
+            tankSource.volume = TankTrackVolume;
+        }
     }
 
     static AudioClip MakeTick(string name, float hz, float seconds)
@@ -147,9 +170,9 @@ public class BattleAudio : MonoBehaviour
         Play(unitHit, 0.55f, Random.Range(0.95f, 1.05f));
     }
 
-    public void PlayExplosion()
+    public void PlayExplosion(bool ignoreInterval = false)
     {
-        if (Time.time - lastExplosion < ExplosionMinInterval) return;
+        if (!ignoreInterval && Time.time - lastExplosion < ExplosionMinInterval) return;
         lastExplosion = Time.time;
         Play(explosion, 0.75f, Random.Range(0.95f, 1.05f));
         Pulse();
@@ -190,4 +213,37 @@ public class BattleAudio : MonoBehaviour
 
     public void PlayVictory() => Play(victory, 0.8f);
     public void PlayDefeat() => Play(defeat, 0.8f);
+
+    /// <summary>
+    /// Tank roll-in only. Own source so Stop cannot kill a one-shot on the
+    /// voice pool. The clip is ~5s and the beat is 2s — play from the start
+    /// and fade when the hull parks, do not loop.
+    /// </summary>
+    public void StartTankTracks()
+    {
+        if (tankTracks == null || tankSource == null) return;
+        tankFade = 0f;
+        if (tankSource.isPlaying && tankSource.clip == tankTracks)
+        {
+            tankSource.volume = TankTrackVolume;
+            return;
+        }
+        tankSource.clip = tankTracks;
+        tankSource.volume = TankTrackVolume;
+        tankSource.pitch = 1f;
+        tankSource.Play();
+    }
+
+    public void StopTankTracks(bool immediate = false)
+    {
+        if (tankSource == null) return;
+        if (immediate || !tankSource.isPlaying)
+        {
+            tankFade = 0f;
+            tankSource.Stop();
+            tankSource.volume = TankTrackVolume;
+            return;
+        }
+        if (tankFade <= 0f) tankFade = TankTrackFadeSeconds;
+    }
 }

@@ -25,9 +25,10 @@ being unmerged is deliberate.
 
 **READ `HANDOVER.md` FIRST.** It carries the full trap list, every one of which cost a build or a
 device session to find. This file is the standing rules; that file is the accumulated scar tissue.
-Its closed entries live in `HANDOVER_ARCHIVE.md` — the 08-05/06 port (split 2026-08-11) and the
-08-07 → 08-11 builds and fixes (split 2026-08-25). History, never a statement about current
-behaviour, and one section there is marked STALE where later work overtook it.
+Its closed entries live in `HANDOVER_ARCHIVE.md` — the 08-05/06 port (split 2026-08-11), the
+08-07 → 08-11 builds and fixes (split 2026-08-25), and the 08-12 → 09-04 sitting logs
+(split 2026-09-05). History, never a statement about current behaviour, and one section
+there is marked STALE where later work overtook it.
 
 ## Where things are
 
@@ -45,7 +46,7 @@ anywhere:
 
 | | |
 |---|---|
-| `LEVEL_AUTHORING.md` | the TEN COMPOSITION RULES. Read before authoring or editing any level; all ten checked by `LevelComposition.Report` |
+| `LEVEL_AUTHORING.md` | the ELEVEN COMPOSITION RULES. Read before authoring or editing any level; all eleven checked by `LevelComposition.Report` |
 | `PRODUCT_DIRECTION.md` | **what to build next** — retention, dopamine model, campaign packaging, priority stack. Plan product work against this |
 | `GAME_DESIGN_LOCKS.md` | decisions that are CLOSED — turn structure, win/loss, physics, scope |
 | `PROGRESSION_DESIGN.md` | coins, loadout, unlocks, consumables — phased spec + build status |
@@ -109,7 +110,7 @@ references. A code-only change does not need one; a new `[SerializeField]` does.
 **The ScriptableObjects in `Assets/GameData/` ARE the source of truth.** Edit them directly. The
 Kotlin export pipeline is retired; the old repo is reference only.
 
-**Read `LEVEL_AUTHORING.md` before authoring or editing a level** — the ten composition rules,
+**Read `LEVEL_AUTHORING.md` before authoring or editing a level** — the eleven composition rules,
 moved here from the Kotlin. They are checked, not merely documented:
 
 ```bash
@@ -220,7 +221,7 @@ flat, vertex colours or small shared textures.
 
 ## Levels
 
-**TWELVE campaign levels plus 17 test rigs — 29 total** (2026-08-06). Every biome is used and
+**THIRTEEN campaign levels plus 17 test rigs — 30 total** (L13 Ashfield 2026-09-06). Every biome is used and
 five repeat: one level per biome was an ART constraint, never a content limit. Each level owes ONE
 BEAT from `PRODUCT_DIRECTION.md`'s chart, and its `designNotes` says which and why.
 
@@ -228,10 +229,11 @@ BEAT from `PRODUCT_DIRECTION.md`'s chart, and its `designNotes` says which and w
 `Level4.asset`. The ordering moves as the funnel is tuned, and a filename that disagrees with
 `levelNumber` is a trap. Test rigs keep their `Level*Test` names.
 
-Two stages of six (`ValleyFront` 1-6, `EnemyStronghold` 7-12), bosses on 6 and 12.
+Two stages of six (`ValleyFront` 1-6, `EnemyStronghold` 7-12), bosses on 6 and 12, then
+`Ashfield` (L13 Scorched Apron) — the after-12 expansion, same Ironclad army.
 
-The ten composition rules live in **`LEVEL_AUTHORING.md`** (moved out of the Kotlin 2026-08-06)
-and all ten are checked by `LevelComposition.Report`. Shortest form: the Aiming camera frames the
+The eleven composition rules live in **`LEVEL_AUTHORING.md`** (moved out of the Kotlin 2026-08-06)
+and all eleven are checked by `LevelComposition.Report`. Shortest form: the Aiming camera frames the
 PLAYER LINE ONLY (~6 wide), scout/resolve framing is set by the enemy cluster INCLUDING structure
 edges (under ~11), one dominant structure plus at most two small supports, 14-20 units of
 separation TANK→DOMINANT STRUCTURE (checker max 20 while L1 trials 18.5; was 14-18 at v=9),
@@ -277,7 +279,17 @@ NOT VISIBILITY, so "that was aim, not a bug" was very likely firing at an invisi
 **Fixed in Z, not X** — the x-axis carries reach, separation and every box, and on both levels the
 near side is blocked by another structure while the far side is past 20 units where rule 7 warns;
 z carries nothing but looks (collision is 2D in x and height, melee compares `attacker.X`, advance
-moves x). `PortSelfTest` delegates to `LevelComposition.WreckOcclusionRule`.
+moves x). **Widened 2026-09-05:** turn-0 units next to a building the player may destroy are
+judged too — the old skip was a man in the rubble. **2026-09-06: measure the collapse LAST
+FRAME, not rest.** Rest-pose keep MaxZ 0.51 made L6's bosses at 0.9 look clear; the held pile
+is z 1.68. L6 bosses stand on the keep's flanks at z 0.4 (z-forward made them
+look closer to camera). L12 3.4. `PortSelfTest` delegates to
+`LevelComposition.WreckOcclusionRule`.
+
+**(Rule 11, added 2026-09-05) no ground unit may MESH with a live building.** Rule 8 is the
+collision box; this is the rendered footprint. Found on the device on L6: a dirt rifleman
+standing in the Mountain Bunker's sloped wall, rule 8 green, mesh 0.17 past the box.
+`PortSelfTest` delegates to `LevelComposition.VisualMeshRule`.
 
 **Test rigs no longer need renumbering when the campaign changes size** (2026-08-06). The scene
 builder orders CAMPAIGN-then-RIGS, so the campaign block leads and is indexed by position while a
@@ -305,7 +317,11 @@ each level owes one beat.
   STANDARD rounds whatever ammo is selected** — `AutoFire` builds its own projectiles and never
   sets `Ammo`, so it cannot test an ammo type either. That one cost most of a session on
   2026-08-10: six "incendiary" Auto volleys, not one man alight, and nothing wrong with the code.
-  **And it never throws an ARMED AIRSTRIKE**, for the same reason and by the same mechanism: the
+  **Last: after Auto is the first shooter's 50° solve, not a drag.** It used to leave the previous
+  finger on the HUD, so Auto was read as 72/30 and a matching drag landed well short. Auto can
+  also exceed 100% (solver cap 12, drag cap 9.5); the readout is unclamped so that does not
+  hide as 100. Copying Last with a finger is still approximate — Auto has no jitter and aims
+  per unit. **And it never throws an ARMED AIRSTRIKE**, for the same reason and by the same mechanism: the
   consumable is consumed by `FireVolley`, which Auto does not call — so it never flies the
   aircraft or its `TurnPhase.AirstrikeRun` either. The list of what Auto cannot
   test is now THREE long — structures, ammo, consumables — and every entry is the same root cause:

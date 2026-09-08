@@ -75,6 +75,23 @@ namespace ArmedConflict.Game
         /// Rob, 2026-08-18, explicit ask against the camera lock: follow
         /// the fall to show the animation, then pan back to the live line.
         /// </summary>
+        /// <summary>
+        /// How long the camera stays on the people who just fired before it
+        /// chases the volley. Long enough to read the rifles kicking and the
+        /// tracers leaving THEIR muzzles; short enough that the impact is
+        /// still the payoff. L6 2026-09-06: a spread fight zoomed out to
+        /// contain everyone, and nobody could tell who shot.
+        /// </summary>
+        public const float ShooterHoldSeconds = 0.45f;
+
+        /// <summary>
+        /// Floor for a living-actor frame. One survivor must be a portrait, not a
+        /// plaza — EnemyFraming still includes structure edges, so a lone Sovereign
+        /// next to a bunker used to park the camera on the empty middle of their
+        /// side until he fired. L6 2026-09-06.
+        /// </summary>
+        public const float ActorHalfWidthMin = 2.0f;
+
         public const float CollapseHoldSeconds = 2.1f;
         public const float CollapseFollowSeconds = 1.25f;
         public const float CollapseHoldPad = 2.2f;
@@ -318,6 +335,39 @@ namespace ArmedConflict.Game
 
         public static float EnemyHalfWidth(IReadOnlyList<float> enemyXs, float shooterReach)
             => Mathf.Max(Span(enemyXs) / 2f, shooterReach);
+
+        /// <summary>
+        /// Tight frame on whoever is still standing. Scout keeps structure edges
+        /// (that is the layout beat). Windup and post-volley rest look at BODIES,
+        /// or the last man sits in a wide empty side until he happens to shoot.
+        /// </summary>
+        public static void LivingActors(IReadOnlyList<UnitEntity> units, bool shootersOnly,
+                                        float fallbackAnchor,
+                                        out float anchorX, out float halfWidth)
+        {
+            var xs = new List<float>();
+            if (units != null)
+            {
+                for (int i = 0; i < units.Count; i++)
+                {
+                    var u = units[i];
+                    if (u == null) continue;
+                    if (shootersOnly && u.Definition != null && u.Definition.meleeDamage > 0)
+                        continue;
+                    xs.Add(u.X);
+                }
+            }
+            if (xs.Count == 0)
+            {
+                anchorX = fallbackAnchor;
+                halfWidth = ActorHalfWidthMin;
+                return;
+            }
+            float sum = 0f;
+            for (int i = 0; i < xs.Count; i++) sum += xs[i];
+            anchorX = sum / xs.Count;
+            halfWidth = Mathf.Max(CameraFraming.HalfWidth(anchorX, xs), ActorHalfWidthMin);
+        }
 
         /// <summary>
         /// Reach of the SHOOTERS — melee units excluded. A melee unit that has marched deep into

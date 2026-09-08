@@ -16,7 +16,7 @@ MonoBehaviour:
   displayName: Citadel Sovereign
   modelAsset: models/unit_hero.glb
   gunModelAsset: models/placeholder_gun.glb
-  maxHp: 260
+  maxHp: 160
   damage: 14
   projectileType: 0
   bulletVariant: 0

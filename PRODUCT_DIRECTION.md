@@ -189,7 +189,7 @@ After spine is playable:
 
 ---
 
-## Soft-launch campaign beat chart (12 levels)
+## Soft-launch campaign beat chart (13 levels)
 
 Author/order the **player-facing** campaign against this chart. Biomes may repeat. Map each
 level to **one primary teach** so the list is a funnel, not a zoo.
@@ -208,9 +208,10 @@ level to **one primary teach** so the list is a funnel, not a zoo.
 | 10 | Reinforcement race | Kill priority vs clock ("armor in 2 turns") | Anticipation | Telegraphed `arrivesOnTurn` wave |
 | 11 | Optional premium threat | Heli **only if** framing stable; else heavy/rocket focus fire | Spectacle or skill exam | `heliChance` gated by readiness; else elite push |
 | 12 | Stage boss B / finale | Combine 2–3 prior twists | "I finished the arc" | Boss phases + one prior mechanic; completion coin/unlock |
+| 13 | Second melee shape | Open-tarmac sprint; hangar is the efficient kill | "They're coming across the apron" | `advancePerTurn` with no wire; one hangar; wrecked-plane props |
 
 **After 12:** expand toward 15–18 by splitting escalate/combine beats (second melee shape,
-second elevation, faction palette swap) — not by adding new verbs.
+second elevation, faction palette swap) — not by adding new verbs. L13 is the second melee.
 
 **Test / sandbox levels:** keep for dev (`PortSelfTest`, AUTO harness, composition experiments).
 They must **not** appear as the main campaign path or inflate "24 levels" marketing in UI.

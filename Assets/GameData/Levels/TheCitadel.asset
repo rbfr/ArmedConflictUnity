@@ -117,17 +117,17 @@ MonoBehaviour:
     - definition: {fileID: 11400000, guid: e2f345bdab5634c49a5e289daed390f3, type: 2}
       count: 1
       anchorX: 9.0
-      anchorZ: 1.8
+      anchorZ: 3.4
       standingOnStructureId: 
       advancePerTurn: 0
     - definition: {fileID: 11400000, guid: aecf03c40cb9b8f4d85d97ef12b4289f, type: 2}
       count: 4
       anchorX: 7.0
-      anchorZ: 1.8
+      anchorZ: 3.4
       standingOnStructureId: 
       advancePerTurn: 1.5
     announcement: The Sovereign will not yield!
-    telegraphLabel: The citadel is breaking - something waits inside
+    telegraphLabel: 
     telegraphAtHealthFraction: 0.5
   windAccelZ: 0
   reinforcementWaves: []
@@ -139,7 +139,11 @@ MonoBehaviour:
     The wide fortress tier is the largest structure in the game (6.0 wide, 250 hp)
     and its fall is the loudest moment the campaign has; the Sovereign and a shield
     escort walk out of the rubble, so the last volley of the arc is fired at something
-    that was not on the field when it started. Structure hp RETUNED 2026-08-07: gate
+    that was not on the field when it started. Telegraph withdrawn 2026-09-05 with
+    L6's \u2014 same strip, same dislike; difficulty on this level is untouched.
+    WRECK Z 2026-09-06: citadel collapse last frame MaxZ 2.49; bosses 1.8 -> 2.9 so they
+    stand in front of the held pile, same instrument as L6.
+    Structure hp RETUNED 2026-08-07: gate
     and citadel both hpScale 0.66 (175 -> 115, 250 -> 165; the 250 quoted above is
     the DEFINITION, not this placement), garrisoned total 425 -> 280. The tightest
     margin in the campaign against the 288 a stock squad can do, which is correct

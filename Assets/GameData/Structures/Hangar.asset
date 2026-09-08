@@ -1,0 +1,67 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d3e2303ed6015478fbc5210d418f8914, type: 3}
+  m_Name: Hangar
+  m_EditorClassIdentifier: 
+  id: hangar
+  displayName: Hangar
+  modelAsset: models/hangar.glb
+  wreckModelAsset: models/hangar_collapse.glb
+  maxHp: 200
+  size: 2.35
+  isPlayerSide: 0
+  modelAbsoluteScale: 1
+  modelScaleUnits: 2.5
+  standWidth: 2.8
+  deckStandZOffset: 1.45
+  hitWidth: 3.4
+  hasHitWidth: 1
+  deckY: 2.05
+  hasDeckY: 1
+  worldScale: 2.5
+  cannon:
+    damage: 0
+    splashRadius: 0
+    structureDamageMultiplier: 0
+    muzzleOffsetX: 0
+    muzzleOffsetY: 0
+    velocityBoost: 1.12
+    ammoPerBattle: 2
+  hasCannon: 0
+  flagMount:
+    offsetX: 0
+    offsetY: 0
+    model: models/flag.glb
+    scale: 1
+  hasFlagMount: 0
+  damageChunks:
+  - offsetX: -2.1
+    offsetY: 1.15
+    offsetZ: -0.29999998
+    sizeX: 0.25
+    sizeY: 0.5
+    sizeZ: 1.1999999
+    pieces: 1
+  - offsetX: 2.1
+    offsetY: 1.15
+    offsetZ: -0.29999998
+    sizeX: 0.25
+    sizeY: 0.5
+    sizeZ: 1.1999999
+    pieces: 1
+  - offsetX: 0.7
+    offsetY: 2.025
+    offsetZ: -0.19999999
+    sizeX: 0.90000004
+    sizeY: 0.125
+    sizeZ: 0.5
+    pieces: 1

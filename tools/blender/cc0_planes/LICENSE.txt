@@ -1,0 +1,9 @@
+CC0 sources for the L13 wrecked-aircraft props.
+
+- attack_plane.glb — this project's airstrike aircraft (ArmedConflict).
+- Jetliner.obj / Aircraft.blend — "Jumbo Jet, Wide Body" by NuclearOsmosis,
+  OpenGameArt, public domain / CC0.
+  https://opengameart.org/content/jumbo-jetwide-body
+- biplane.obj — "Low-Poly Biplane" by mfep, OpenGameArt, CC0.
+  https://opengameart.org/content/low-poly-biplane
+  (downloaded; not currently planted if the jetliner reads.)

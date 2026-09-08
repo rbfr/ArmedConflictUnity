@@ -41,6 +41,7 @@ SOURCES = [
     "tower_platform",
     "comms_tower",
     "cliff_outcrop",
+    "hangar",
 ]
 
 FPS = 60

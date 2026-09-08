@@ -60,10 +60,10 @@ namespace ArmedConflict.Game
         }
 
         /// <summary>
-        /// TELEGRAPH, DON'T BLINDSIDE — pillar 7, which until 2026-09-04 the biggest arrival in
-        /// the game was the only thing exempt from. A four-man reinforcement squad is not allowed
-        /// to opt out of a warning (see `ReinforcementWaveBeat`); a 260 hp Sovereign and a heavy
-        /// escort arrived with none.
+        /// A boss MAY warn off the health of the structure gating it. Empty `telegraphLabel` is
+        /// a no-op, and that is the campaign's choice as of 2026-09-05: Rob does not like the
+        /// banner, and a structure-fall reveal is not a wave. Waves still cannot opt out (see
+        /// `ReinforcementWaveBeat`) because those have a clock the player does not own.
         ///
         /// A boss cannot borrow the waves' countdown. A wave has `arrivesOnTurn`, so "2 turns"
         /// is a fact; a boss fires when a STRUCTURE FALLS, and the player owns that clock. What

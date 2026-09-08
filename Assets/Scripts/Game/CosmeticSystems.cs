@@ -129,6 +129,31 @@ namespace ArmedConflict.Game
         /// volume as it licks — it narrows as it stretches — and swinging both together just
         /// makes the whole tongue zoom in and out, which reads as a throbbing sticker.
         /// </summary>
+        // ---- muzzle flash ---------------------------------------------------------------
+        //
+        // A pop, not a linger. Long enough to read at 60fps (6 frames), short enough
+        // that a volley is a row of sparks not a wall of fire. Shells get a fatter,
+        // slightly longer one — it is the only round that leaves a cannon.
+
+        public const float MuzzleFlashSeconds = 0.10f;
+        public const float MuzzleFlashShellSeconds = 0.14f;
+        public const float MuzzleFlashRifle = 0.55f;
+        public const float MuzzleFlashShell = 1.15f;
+
+        public static float MuzzleFlashAlpha(float age, float duration)
+        {
+            if (age < 0f || duration <= 1e-4f || age >= duration) return 0f;
+            float t = age / duration;
+            return (1f - t) * (1f - t);
+        }
+
+        public static float MuzzleFlashScale(float age, float duration)
+        {
+            if (age < 0f || duration <= 1e-4f || age >= duration) return 0f;
+            float t = age / duration;
+            return 0.70f + 0.55f * (1f - t);
+        }
+
         public static Vector2 FlameScale(float time, float phase, bool inner)
         {
             float s = Mathf.Sin(time * (inner ? FlameInnerHz : FlameOuterHz) * Mathf.PI * 2f
@@ -625,6 +650,45 @@ namespace ArmedConflict.Game
         /// <summary>Growth is capped so a long bombardment cannot produce one enormous blot.</summary>
         public static float GrowScorch(float scale)
             => Mathf.Min(scale * ScorchMergeGrowth, ScorchMaxScale);
+
+        // ---- structure scars ------------------------------------------------------------
+        //
+        // Ground scorches have to stretch in DEPTH because the camera sits ~6° above the
+        // plane. A mark on a WALL is seen face-on. Each hit is TWO layers: a wide soot
+        // halo that darkens masonry near the impact, and a crater in the middle. Whole-
+        // building charcoal was tried and rejected — the mesh just turned dark.
+
+        public const float ScarMergeDistance = 0.32f;
+        public const float ScarMergeGrowth = 1.10f;
+        public const float ScarMaxScale = 1.8f;
+        // Bites, not blankets. A 1.35 halo on a 2.5-wide keep covered the face in two
+        // shells and read as the whole-building tint we just took off (L6, 2026-09-06).
+        public const float ScarSingeHaloW = 0.28f;
+        public const float ScarSingeHaloH = 0.34f;
+        public const float ScarSingePitW = 0.10f;
+        public const float ScarSingePitH = 0.12f;
+        public const float ScarHoleHaloW = 0.55f;
+        public const float ScarHoleHaloH = 0.66f;
+        public const float ScarHolePitW = 0.26f;
+        public const float ScarHolePitH = 0.32f;
+
+        public static int FindScarTarget(IReadOnlyList<StructureScar> scars,
+                                         int structureId, float x, float y)
+        {
+            float bestSq = ScarMergeDistance * ScarMergeDistance;
+            int best = -1;
+            for (int i = 0; i < scars.Count; i++)
+            {
+                if (scars[i].StructureId != structureId) continue;
+                float dx = scars[i].X - x, dy = scars[i].Y - y;
+                float d = dx * dx + dy * dy;
+                if (d <= bestSq) { bestSq = d; best = i; }
+            }
+            return best;
+        }
+
+        public static float GrowScar(float scale)
+            => Mathf.Min(scale * ScarMergeGrowth, ScarMaxScale);
 
         // ---- knockback ------------------------------------------------------------------
 

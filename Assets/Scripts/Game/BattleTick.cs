@@ -32,6 +32,7 @@ namespace ArmedConflict.Game
         /// battle were a real lag bug on Filament; the cap is what keeps a long level flat.
         /// </summary>
         public const int ScorchSlots = 36;
+        public const int ScarSlots = 48;
         public const int DebrisSlots = 96;
         /// <summary>Shared empty map, so clearing the enemy pose never allocates.</summary>
         // Shed-piece sizing band, shared with the destruction rubble so the two kinds of
@@ -212,6 +213,7 @@ namespace ArmedConflict.Game
                     // frozen at 1.5 on the victory screen is a value that never decays again —
                     // the exact failure the standing rule in CLAUDE.md is written about.
                     MeleeHold = Mathf.Max(0f, s.MeleeHold - dt),
+                    ShooterHold = Mathf.Max(0f, s.ShooterHold - dt),
                     CollapseHold = endCollapseHold,
                     CollapseHoldAnchorX = endCollapseAnchorX,
                     CollapseHoldHalfWidth = endCollapseHalf,
@@ -383,6 +385,62 @@ namespace ArmedConflict.Game
                     }
                 }
                 scorches = marks;
+            }
+
+            // Wall scars: the lock's missing half. Chunk shedding hides proud add-ons and
+            // never opens a hole; these stamp a singe or a puncture at the hit so a damaged
+            // building reads as damaged before it falls. Dropped when the building dies —
+            // the wreck is the read then.
+            IReadOnlyList<StructureScar> scars = s.StructureScars;
+            int nextScar = s.NextScarSlot;
+            var liveStructIds = new HashSet<int>(structures.Select(st => st.Id));
+            if (scars.Count > 0 && scars.Any(m => !liveStructIds.Contains(m.StructureId)))
+                scars = scars.Where(m => liveStructIds.Contains(m.StructureId)).ToList();
+            if (hits.Detonations.Count > 0)
+            {
+                var marks = new List<StructureScar>(scars);
+                foreach (var d in hits.Detonations)
+                {
+                    if (d.HitStructureId == null) continue;
+                    int sid = d.HitStructureId.Value;
+                    if (!liveStructIds.Contains(sid)) continue;
+                    StructureEntity st = null;
+                    for (int i = 0; i < structures.Count; i++)
+                        if (structures[i].Id == sid) { st = structures[i]; break; }
+                    if (st?.Definition == null) continue;
+
+                    var kind = d.Type == ProjectileType.Bullet
+                        ? StructureScarKind.Singe : StructureScarKind.Hole;
+                    float halfW = (st.Definition.hasHitWidth ? st.Definition.hitWidth
+                                                             : st.Definition.size) / 2f;
+                    float x = Mathf.Clamp(d.X, st.X - halfW + 0.12f, st.X + halfW - 0.12f);
+                    float baseY = st.Y - st.Definition.size / 2f;
+                    float roof = st.Definition.hasDeckY ? st.Definition.deckY : st.Definition.size;
+                    float y = Mathf.Clamp(d.Y, baseY + 0.18f, baseY + roof - 0.12f);
+
+                    int hit = CosmeticSystems.FindScarTarget(marks, sid, x, y);
+                    if (hit >= 0)
+                    {
+                        var had = marks[hit];
+                        marks[hit] = had with
+                        {
+                            Scale = CosmeticSystems.GrowScar(had.Scale),
+                            Kind = had.Kind == StructureScarKind.Hole || kind == StructureScarKind.Hole
+                                ? StructureScarKind.Hole : StructureScarKind.Singe,
+                        };
+                    }
+                    else if (marks.Count < ScarSlots)
+                    {
+                        marks.Add(new StructureScar(nextScar++, sid, x, y) { Kind = kind });
+                    }
+                    else
+                    {
+                        marks[nextScar % ScarSlots] = new StructureScar(nextScar, sid, x, y)
+                            { Kind = kind };
+                        nextScar++;
+                    }
+                }
+                scars = marks;
             }
 
             var debris = StepDebris(s.Debris, dt);
@@ -859,8 +917,9 @@ namespace ArmedConflict.Game
                     telegraph = EventSystems.TelegraphLine(w.telegraphLabel, away);
                 }
 
-                // A BOSS WARNS TOO, off the health of the structure gating it — see
-                // EventSystems.ShouldTelegraphBossPhase for why it cannot carry a countdown.
+                // A boss MAY warn off the health of the structure gating it. Campaign bosses
+                // currently carry an empty label (Rob 2026-09-05: the banner spoils the
+                // reveal). See EventSystems.ShouldTelegraphBossPhase.
                 //
                 // A wave keeps the strip when both want it: the wave's deadline is FIXED and
                 // the player cannot move it, while the boss's is the player's own doing and
@@ -990,10 +1049,24 @@ namespace ArmedConflict.Game
             // average to neither.
             bool watchingCollapse = phase == GamePhase.Playing && collapseHold > 0f;
 
-            bool chasing = !fighting && !watchingCollapse
+            float shooterHold = s.ShooterHold;
+            if (phase == GamePhase.Playing) shooterHold = Mathf.Max(0f, shooterHold - dt);
+            bool watchingShooters = phase == GamePhase.Playing
+                                    && turnPhase == TurnPhase.Resolving
+                                    && shooterHold > 0f;
+
+            bool chasing = !fighting && !watchingCollapse && !watchingShooters
                         && phase == GamePhase.Playing
                         && turnPhase == TurnPhase.Resolving
                         && groundVolley.Count > 0;
+
+            // Living bodies, not the captured side (which still includes structure
+            // edges). Scout keeps that wide frame; windup and post-volley rest look
+            // at whoever is still standing so a lone Sovereign is not a plaza shot.
+            CameraDirector.LivingActors(enemyUnits, shootersOnly: true, enemyCamX,
+                                        out float liveShootX, out float liveShootHalf);
+            CameraDirector.LivingActors(enemyUnits, shootersOnly: false, enemyCamX,
+                                        out float liveEnemyX, out float liveEnemyHalf);
 
             float followXVel = s.CameraFollowXVelocity;
             float followX;
@@ -1014,6 +1087,7 @@ namespace ArmedConflict.Game
                 float anchorTarget = fighting
                     ? (skirmishXs.Count > 0 ? assaultAnchorX : meleeHoldAnchorX)
                     : watchingCollapse ? collapseHoldAnchorX
+                    : watchingShooters ? s.ShooterHoldAnchorX
                     : turnPhase switch
                 {
                     TurnPhase.Aiming => s.PlayerCamXAnchor,
@@ -1034,9 +1108,9 @@ namespace ArmedConflict.Game
                                                     && u.Definition.meleeDamage == 0)
                                         .Select(u => u.X).ToList(),
                               enemyUnits.Select(u => u.X).ToList(),
-                              enemyCamX),
+                              liveShootX),
                     TurnPhase.Resolving => turnSide == TurnSide.Enemy ? s.PlayerCamXAnchor
-                                                                     : enemyCamX,
+                                                                     : liveEnemyX,
                     // Ride the aircraft from the player line across the
                     // enemy, then (plane gone) sit back on the player
                     // line so they fire from their own frame.
@@ -1050,6 +1124,7 @@ namespace ArmedConflict.Game
                 float arriveSmooth = watchingCollapse
                     && CameraDirector.CollapseIsFollowing(collapseHold)
                     ? CameraDirector.CollapseFollowSmoothTime
+                    : watchingShooters ? CameraDirector.VolleyFollowSmoothTime
                     : CameraDirector.MarchEscortSmoothTime;
                 SpringFollow.Step(ref followX, ref followXVel, anchorTarget, dt,
                                   arriveSmooth);
@@ -1061,7 +1136,7 @@ namespace ArmedConflict.Game
             // escort is readable for the banner's 2.5s.
             float halfWidth = CameraDirector.PhaseHalfWidth(
                 turnPhase, turnSide,
-                s.PlayerCamHalfWidth, enemyCamHalf, enemyCamHalf,
+                s.PlayerCamHalfWidth, enemyCamHalf, liveShootHalf,
                 assaultHalfWidth, marchersActive,
                 s.PlayerCamHalfWidth, false);
             if (turnPhase == TurnPhase.TankArrive)
@@ -1076,9 +1151,13 @@ namespace ArmedConflict.Game
                 halfWidth = skirmishXs.Count > 0 ? assaultHalfWidth : meleeHoldHalfWidth;
             else if (watchingCollapse)
                 halfWidth = collapseHoldHalfWidth;
+            else if (watchingShooters)
+                halfWidth = s.ShooterHoldHalfWidth;
             else if (turnPhase != TurnPhase.AirstrikeRun
                      && arrivalCamHalf > 0f && bossTimer > 0f)
                 halfWidth = arrivalCamHalf;
+            else if (turnPhase == TurnPhase.Resolving && turnSide == TurnSide.Player)
+                halfWidth = liveEnemyHalf;
 
             // Room for the aircraft. The camera rides it, so this is a
             // floor, not a frame of the whole rake.
@@ -1124,6 +1203,7 @@ namespace ArmedConflict.Game
                 MeleeHold = meleeHold,
                 MeleeHoldAnchorX = meleeHoldAnchorX,
                 MeleeHoldHalfWidth = meleeHoldHalfWidth,
+                ShooterHold = shooterHold,
                 CollapseHold = collapseHold,
                 CollapseHoldAnchorX = collapseHoldAnchorX,
                 CollapseHoldHalfWidth = collapseHoldHalfWidth,
@@ -1149,6 +1229,8 @@ namespace ArmedConflict.Game
                 BurningEnemyIds = burning,
                 Scorches = scorches,
                 NextScorchSlot = nextScorch,
+                StructureScars = scars,
+                NextScarSlot = nextScar,
                 Debris = debris,
                 NextDebrisSlot = nextDebris,
                 Wrecks = wrecks,
@@ -1645,7 +1727,7 @@ namespace ArmedConflict.Game
             // of the beat. Arriving here at all means either nothing was armed, or the run has
             // already finished and dropped.
 
-            return s with
+            return WithShooterHold(s with
             {
                 Projectiles = rounds,
                 NextBulletSlot = slot,
@@ -1655,7 +1737,7 @@ namespace ArmedConflict.Game
                 PendingVolleyAim = null,
                 TurnPhase = TurnPhase.Resolving,
                 TurnSide = TurnSide.Player,
-            };
+            }, playerSide: true);
         }
 
         // ---- the airstrike run ---------------------------------------------------------------
@@ -2313,8 +2395,21 @@ namespace ArmedConflict.Game
             return combined;
         }
 
-        public static GameState AutoFire(GameState s)
+        /// <summary>
+        /// Auto solves at a FIXED arc, speed computed, the same formula as the enemy AI minus
+        /// jitter. It is not a drag. The Last HUD used to keep showing the previous finger
+        /// because Auto never wrote it — so a 50° solve was read as "72/30" and a matching
+        /// drag fell well short. `reportedAim` is the FIRST shooter's launch, which is what
+        /// actually flew from someone; copy it knowing Auto still is not FireVolley (no jitter,
+        /// no ammo, per-unit targets, and the solve may exceed a max drag).
+        /// </summary>
+        public const float AutoLaunchAngleDegrees = 50f;
+
+        public static GameState AutoFire(GameState s) => AutoFire(s, out _);
+
+        public static GameState AutoFire(GameState s, out Vector3 reportedAim)
         {
+            reportedAim = Vector3.zero;
             if (s.Phase != GamePhase.Playing || s.TurnPhase != TurnPhase.Aiming) return s;
             if (s.PlayerUnits.Count == 0 || s.EnemyUnits.Count == 0) return s;
 
@@ -2337,7 +2432,8 @@ namespace ArmedConflict.Game
                 var v = TrajectoryPhysics.SolveVelocity(
                     new Vector3(u.X, muzzleY, u.Z),
                     new Vector3(target.X, target.Y, target.Z),
-                    angleDegrees: 50f);
+                    angleDegrees: AutoLaunchAngleDegrees);
+                if (reportedAim == Vector3.zero) reportedAim = v;
 
                 int shots = u.Definition != null ? Mathf.Max(u.Definition.projectilesPerVolley, 1) : 1;
                 for (int i = 0; i < shots; i++)
@@ -2375,11 +2471,12 @@ namespace ArmedConflict.Game
                 }
                 if (nearest == null) return Vector3.zero;
                 return TrajectoryPhysics.SolveVelocity(
-                    muzzle, new Vector3(nearest.X, nearest.Y, nearest.Z), angleDegrees: 50f);
+                    muzzle, new Vector3(nearest.X, nearest.Y, nearest.Z),
+                    angleDegrees: AutoLaunchAngleDegrees);
             });
             rounds.AddRange(shells);
 
-            return s with
+            return WithShooterHold(s with
             {
                 Projectiles = rounds,
                 NextBulletSlot = slot,
@@ -2387,7 +2484,7 @@ namespace ArmedConflict.Game
                 TankShellsRemaining = s.TankShellsRemaining - shells.Count,
                 TurnPhase = TurnPhase.Resolving,
                 TurnSide = TurnSide.Player,
-            };
+            }, playerSide: true);
         }
 
         /// <summary>
@@ -2484,7 +2581,7 @@ namespace ArmedConflict.Game
                 });
             }
 
-            return s with
+            return WithShooterHold(s with
             {
                 Projectiles = rounds,
                 NextBulletSlot = slot,
@@ -2496,6 +2593,37 @@ namespace ArmedConflict.Game
                     : s.LoadedConsumables,
                 TurnPhase = TurnPhase.Resolving,
                 TurnSide = TurnSide.Enemy,
+            }, playerSide: false);
+        }
+
+        /// <summary>
+        /// Arm the shooter-hold beat: keep the camera on the people who just fired
+        /// so the rifles kicking and the tracers leaving are readable, then let
+        /// the existing volley chase take the impact.
+        /// </summary>
+        static GameState WithShooterHold(GameState s, bool playerSide)
+        {
+            var xs = new List<float>();
+            if (playerSide)
+            {
+                foreach (var u in s.PlayerUnits) xs.Add(u.X);
+            }
+            else
+            {
+                foreach (var u in s.EnemyUnits)
+                    if (!IsPureMelee(u)) xs.Add(u.X);
+            }
+            float ax = xs.Count > 0
+                ? xs.Average()
+                : (playerSide ? s.PlayerCamXAnchor : s.EnemyCamXAnchor);
+            float hw = xs.Count > 0
+                ? Mathf.Max(CameraFraming.HalfWidth(ax, xs), CameraDirector.ActorHalfWidthMin)
+                : CameraDirector.ActorHalfWidthMin;
+            return s with
+            {
+                ShooterHold = CameraDirector.ShooterHoldSeconds,
+                ShooterHoldAnchorX = ax,
+                ShooterHoldHalfWidth = hw,
             };
         }
     }

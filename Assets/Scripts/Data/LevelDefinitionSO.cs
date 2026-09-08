@@ -73,6 +73,14 @@ namespace ArmedConflict.Data
         /// postage stamp.
         /// </summary>
         public bool absoluteScale = false;
+
+        /// <summary>
+        /// Placement id of the structure this prop dies with. Empty = it
+        /// stays after the building falls (runway, mid-ground wrecks).
+        /// L13's bay jet sits in the hangar; leaving it intact in the
+        /// rubble reads as the plane surviving the collapse.
+        /// </summary>
+        public string collapsesWith = "";
     }
 
     [Serializable]
@@ -83,13 +91,15 @@ namespace ArmedConflict.Data
         public string announcement;
 
         /// <summary>
-        /// WHAT is waiting behind the trigger, with no count and no countdown — "The bastion is
-        /// failing". A boss fires on a STRUCTURE FALLING rather than on a turn number, so it
-        /// cannot borrow the waves' countdown: the player owns that clock and a number would be
-        /// a lie. Empty means no warning, which is what every boss shipped with until 2026-09-04.
+        /// WHAT is waiting behind the trigger, with no count and no countdown. Empty means no
+        /// warning, which is the authored choice on both campaign bosses as of 2026-09-05: Rob
+        /// does not like the banner, and the keep falling IS the warning — a strip that spoils
+        /// that reveal is worse than a blindside. Wave telegraphs stay; those have a real clock.
+        /// A boss still cannot borrow a countdown: the player owns the trigger and a number
+        /// would be a lie.
         ///
-        /// ASCII ONLY. The default TMP font asset renders an em dash as a silent missing-glyph
-        /// box, which is exactly the bug the one shipped wave telegraph had.
+        /// ASCII ONLY if you fill it. The default TMP font asset renders an em dash as a silent
+        /// missing-glyph box, which is exactly the bug the one shipped wave telegraph had.
         /// </summary>
         public string telegraphLabel;
 

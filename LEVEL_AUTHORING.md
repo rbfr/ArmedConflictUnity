@@ -1,4 +1,4 @@
-# LEVEL_AUTHORING.md — the ten composition rules
+# LEVEL_AUTHORING.md — the eleven composition rules
 
 **Read this before authoring or editing a level.** These are the constraints that actually govern
 whether a level can be framed and read; they are derived, not taste, and each one was paid for.
@@ -10,7 +10,7 @@ rules at the top of the campaign block" — they mean this file now.
 `LevelDefinitionInspector` checks rules 1, 2, 3, 5, 6, 7 and 8 live in the inspector. Rule 4 is
 rule 6's measure. A warning there is a warning about the level, not about the tool.
 
-**Rule 8 moved into `LevelComposition.CollisionBoxRule` on 2026-08-12**, so all ten rules now
+**Rule 8 moved into `LevelComposition.CollisionBoxRule` on 2026-08-12**, so all eleven rules now
 report in the same place. It used to live only in `PortSelfTest.CheckNobodyStandsInAWall`, which
 meant it failed the SUITE rather than showing up beside the level you were editing — an author saw
 seven rules where there are eight. The suite still asserts it and now DELEGATES to the same
@@ -24,7 +24,7 @@ exits 1 on it, as the suite always did.
 
 ---
 
-## The ten rules
+## The eleven rules
 
 **1. Aiming zoom is set by the PLAYER LINE alone.**
 `camZ = (playerHalfWidth + FramePad) / 0.45`, and the visible half-width at that distance is exactly
@@ -292,21 +292,62 @@ recorded was *"that was aim, not a bug"*. Rule 9 was right about what it measure
 land. But it measures REACHABILITY, NOT VISIBILITY, and three lost boss phases at nine distinct
 powers is what firing at an invisible target looks like.
 
-**FIXED by moving the arrivals FORWARD IN Z, not in X** — L6 `anchorZ 0.9`, L12 `anchorZ 1.8`,
-both boss groups on each. The x-axis carries reach, separation and every collision box, and on
-both levels the near side is blocked by another structure's box while the far side is out past
-20 units, where rule 7 starts warning: **the two constraints close the gap between them**, exactly
-as they did on L10. The z-axis carries nothing but looks — collision is 2D in x and height,
-melee compares `attacker.X` alone, advance moves x, rule 7 reads dx/dy — so it is both free and
-the only axis with room. Fixing a cosmetic bug on the cosmetic axis.
+**FIXED by moving the arrivals FORWARD IN Z, not in X** — first to L6 `anchorZ 0.9`, L12 `1.8`.
+The x-axis carries reach, separation and every collision box, and on both levels the near side
+is blocked by another structure's box while the far side is out past 20 units, where rule 7
+starts warning: **the two constraints close the gap between them**, exactly as they did on L10.
+The z-axis carries nothing but looks — collision is 2D in x and height, melee compares
+`attacker.X` alone, advance moves x, rule 7 reads dx/dy — so it is both free and the only axis
+with room. Fixing a cosmetic bug on the cosmetic axis.
+
+**The 0.9 / 1.8 numbers were measured against the wreck's REST pose, and that is not what
+renders.** `WreckAnim` plays collapse and holds the last frame. On 2026-09-06 Rob still saw
+L6's two bosses behind rubble: rest-pose keep MaxZ was 0.51 (so 0.9 looked clear) while the
+held frame throws the pile to **z 1.68**. The citadel's held frame reaches **z 2.49**. Rule 10
+now samples that last frame, treats a body in the collapsed footprint as buried, and the
+arrivals moved again: L6 **2.1**, L12 **3.4**. Width and height stay on the rest pose — the
+fallen clip is a pancake that swallowed neighbouring garrisons. Two of L6's three dirt
+riflemen were inside the bunker's collapsed splat; they moved 2.25 → 1.70. L7's mast
+10.6 → 10.9 so a platform grenadier is not in the tower wreck.
 
 **This is a deliberate exception to "separate bodies in X, never in Z."** That rule is about making
 two BODIES countable, where depth buys ~0.1 of screen rise. This is a body against a WRECK 2.5
 deep, where depth is the whole clearance and x has none.
 
-**Deliberately NOT judged: a unit standing near a structure the PLAYER may destroy later.** That
-wreck is not guaranteed to exist, the body is visible until it does, and casting that net would
-indict most of the campaign on a maybe. A trigger's wreck is certain the moment the phase fires.
+**Also judged, as of 2026-09-05: a unit standing next to a building the PLAYER may destroy.**
+That used to be skipped as a maybe. Rob then destroyed the building and the maybe was a man in
+the rubble. Turn-0 ground units (and garrisons on a *different* building) are checked against
+every enemy wreck they do not ride. Arrivals still only face the trigger's wreck — a boss next
+to a still-standing gate is not in rubble yet.
+
+**What the neighbour half found:** L4's barracks garrison sat inside the outpost's wreck
+(x 7.58–10.82) the moment the checkpoint fell; L10's outpost garrison sat inside the depot's.
+The buildings were legal under rules 8 and 11 and still hid each other's men as rubble. Fixed
+by moving L4's checkpoint 9.2 → 9.6 and L10's outpost 4.5 → 4.2. L6's dirt trio, the live-mesh
+case from rule 11, was already clear of the bunker wreck.
+
+---
+
+### 11. No ground unit MESHES with a live building — 2026-09-05
+
+**ERROR** when a ground unit's body overlaps a structure's rendered footprint in X and Z.
+`LevelComposition.VisualMeshRule`.
+
+Rule 8 asks the collision box (`hitWidth`). This asks the **mesh the player sees**. They are
+not the same size, and that is the whole point of having both.
+
+**Found on device, L6, free camera at x 2.82 z 2.36:** three riflemen on the dirt, the
+right-hand man standing IN the Mountain Bunker's sloped wall. Rule 8 was green — the box ends
+at x 2.875 and his centre is at 2.81. The mesh spans **x 2.70–5.21**. Same family as rule 10,
+on the live building instead of the wreck.
+
+**What it found on the shipped campaign:** L6 (the rifleman in the screenshot) and L9 (a
+shield bearer in the same bunker's wall, the bunker sitting further out at x 4.5). The other
+ten levels were clean. Red first, then the two groups moved: L6 dirt trio 2.5 → 2.25
+(heavies 1.0 → 0.8 so they stay 2.5 crowd-spacings clear), L9 shields 2.8 → 2.55.
+
+Garrisoned bodies are exempt — they stand ON the deck. `DeadByTrigger` is exempt — rule 10
+owns that wreck. Player-side structures are skipped: the tank is stood on.
 
 ---
 

@@ -212,6 +212,21 @@ namespace ArmedConflict.Game
         public float Scale { get; init; } = 1f;
     }
 
+    /// <summary>Rifle chip vs explosive crater. Both sit on the wall at the hit, not as a
+    /// whole-building tint — that just turned the mesh dark (Rob, 2026-09-06).</summary>
+    public enum StructureScarKind { Singe, Hole }
+
+    /// <summary>
+    /// A lasting mark on a live structure: soot around the impact, and a crater for
+    /// rockets/grenades/shells. Stamped at the hit's X/Y; the renderer glues it to the
+    /// camera-facing face. Cleared when the building dies — the wreck is the read then.
+    /// </summary>
+    public record StructureScar(int Id, int StructureId, float X, float Y)
+    {
+        public StructureScarKind Kind { get; init; } = StructureScarKind.Singe;
+        public float Scale { get; init; } = 1f;
+    }
+
     public record ImpactEntity(int Id, float X)
     {
         public float Y { get; init; }

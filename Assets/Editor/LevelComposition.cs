@@ -6,7 +6,7 @@ using ArmedConflict.Data;
 using ArmedConflict.Game;
 
 /// <summary>
-/// Checks levels against the ten composition rules in LEVEL_AUTHORING.md.
+/// Checks levels against the eleven composition rules in LEVEL_AUTHORING.md.
 ///
 /// Run over the whole campaign, headless — which is how it will actually be used, because the
 /// editor GUI here runs over VNC on llvmpipe and nobody opens it:
@@ -75,7 +75,7 @@ public static class LevelComposition
 
             if (bad.Count == 0)
             {
-                Debug.Log($"[Composition] L{level.levelNumber} {level.displayName}: all ten rules ok");
+                Debug.Log($"[Composition] L{level.levelNumber} {level.displayName}: all eleven rules ok");
                 continue;
             }
             foreach (var f in bad)
@@ -88,8 +88,9 @@ public static class LevelComposition
 
         // Warnings do NOT fail the run. A level may bend a rule for a reason, and that reason
         // belongs in its designNotes; an author who cannot ship a deliberate exception will stop
-        // running the check at all. Errors are the locked roster scale and rule 8 — a unit that
-        // cannot be hit at all — neither of which is negotiable.
+        // running the check at all. Errors are the locked roster scale and rules 8-11 — a unit
+        // that cannot be hit, cannot be seen, or is standing in the mesh — none of which is
+        // negotiable.
         if (errors > 0 && Application.isBatchMode) EditorApplication.Exit(1);
     }
 
@@ -131,21 +132,45 @@ public static class LevelComposition
                 continue;
             }
 
+            foreach (var p in level.structures)
+            {
+                if (p.definition == null || p.definition.isPlayerSide) continue;
+                if (!TryWreckFootprint(p, out var w)) continue;
+                Debug.Log($"[Arrivals] L{level.levelNumber} wreck {w.Name}: " +
+                          $"x {w.MinX:F2}..{w.MaxX:F2}  z {w.MinZ:F2}..{w.MaxZ:F2}  topY {w.TopY:F2}");
+            }
+
+            float camZ = Mathf.Max(1f, state.EnemyCamHalfWidth / CameraDirector.ZHalfFovTan);
+            float groundTan = BattleCamera.CameraY / camZ;
+
             foreach (var (label, units, dead) in ArrivalSets(level, state))
             {
                 Debug.Log($"[Arrivals] L{level.levelNumber} {level.displayName} — {label}: " +
                           $"{units.Count} unit(s), {dead.Count} structure(s) dead by trigger");
                 foreach (var u in units)
+                {
+                    float height = UnitGeometry.UnitScaleUnits *
+                                   (u.Definition != null ? u.Definition.renderScale : 1f);
+                    string cover = "";
+                    foreach (var p in level.structures)
+                    {
+                        if (p.definition == null || p.definition.isPlayerSide) continue;
+                        if (!TryWreckFootprint(p, out var w)) continue;
+                        float c = WreckCover(u, w, height, groundTan);
+                        if (c >= 0.25f)
+                            cover += $"  {w.Name} {c * 100f:F0}%";
+                    }
                     Debug.Log($"[Arrivals]   {(u.Definition != null ? u.Definition.name : "null")} " +
                               $"x {u.X:F2}  y {u.Y:F2}  z {u.Z:F2}  hp {u.Hp}  " +
                               $"advance {u.AdvancePerTurn:F2}  scale " +
-                              $"{(u.Definition != null ? u.Definition.renderScale : 0f):F2}");
+                              $"{(u.Definition != null ? u.Definition.renderScale : 0f):F2}{cover}");
+                }
             }
         }
     }
 
     /// <summary>
-    /// The ten rules. A half-authored level legitimately fails to build (no background, a null
+    /// The eleven rules. A half-authored level legitimately fails to build (no background, a null
     /// unit reference) — that comes back as buildError, and must not read as a rule violation.
     /// </summary>
     public static List<Finding> Check(LevelDefinitionSO level, out string buildError)
@@ -278,6 +303,7 @@ public static class LevelComposition
         findings.Add(CollisionBoxRule(level, state));
         findings.Add(BallisticShadowRule(level, state));
         findings.Add(WreckOcclusionRule(level, state));
+        findings.Add(VisualMeshRule(level, state));
 
         // --- the locked roster scale: not a composition rule, but it bounds every level ---
         int playerTotal = level.playerGroups.Sum(g => g.count);
@@ -317,10 +343,15 @@ public static class LevelComposition
     /// bounds, scaled the way `LevelScenery` scales it, which is by the LIVE BUILDING's scale and
     /// not the wreck's. Get that wrong and the check measures a building nobody draws.
     ///
-    /// ERROR when the wreck covers the body outright, Warn at half. Deliberately NOT judged: a
-    /// unit standing next to a structure the PLAYER may destroy later. That wreck is not
-    /// guaranteed to exist, the body is visible until it does, and casting that net would indict
-    /// most of the campaign on a maybe. A trigger's wreck is certain the moment the phase fires.
+    /// ERROR when the wreck covers the body outright, Warn at half.
+    ///
+    /// ALSO judged, as of 2026-09-05: a ground unit standing next to a building the PLAYER
+    /// may destroy. That used to be skipped as a maybe — the wreck is not guaranteed. Rob
+    /// then destroyed the building and the maybe was a man in the rubble. Turn-0 ground
+    /// units are checked against every enemy wreck they do not ride; a garrison dies with
+    /// its own deck and is exempt from THAT wreck only. Arrivals still only face the wreck
+    /// that is certain (the trigger), because a boss next to a still-standing gate is not
+    /// in rubble yet.
     /// </summary>
     public static Finding WreckOcclusionRule(LevelDefinitionSO level, GameState state)
     {
@@ -335,23 +366,27 @@ public static class LevelComposition
         float camZ = Mathf.Max(1f, state.EnemyCamHalfWidth / CameraDirector.ZHalfFovTan);
         float groundTan = BattleCamera.CameraY / camZ;
 
+        var allWrecks = new List<(StructureDefinitionSO Def, int RuntimeId,
+            (string Name, float MinX, float MaxX, float MinZ, float MaxZ, float TopY) Fp)>();
+        foreach (var p in level.structures)
+        {
+            if (p.definition == null || p.definition.isPlayerSide) continue;
+            if (!TryWreckFootprint(p, out var fp)) continue;
+            var st = state.Structures.FirstOrDefault(s => s.Definition == p.definition
+                && Mathf.Abs(s.X - p.x) < 0.05f);
+            if (st == null) continue;
+            allWrecks.Add((p.definition, st.Id, fp));
+        }
+
         foreach (var (label, units, deadByTrigger) in ArrivalSets(level, state))
         {
-            if (deadByTrigger.Count == 0) continue;
-
-            var wrecks = new List<(string Name, float MinX, float MaxX,
-                                   float MinZ, float MaxZ, float TopY)>();
-            foreach (var p in level.structures)
-                if (p.definition != null && deadByTrigger.Contains(p.definition)
-                    && TryWreckFootprint(p, out var w))
-                    wrecks.Add(w);
-            if (wrecks.Count == 0) continue;
+            bool turn0 = label == Turn0;
+            if (!turn0 && deadByTrigger.Count == 0) continue;
 
             foreach (var u in units)
             {
-                // A garrison rides its own deck and dies with it; only bodies on the ground can
-                // end up standing in rubble.
-                if (u.StandingOnStructureId != null) continue;
+                // A garrison dies with its own deck. It is still judged against SOME OTHER
+                // building's wreck — rubble from the bunker can hide a man on the keep.
                 judged++;
 
                 float height = UnitGeometry.UnitScaleUnits *
@@ -360,57 +395,131 @@ public static class LevelComposition
 
                 float cover = 0f;
                 string under = null;
-                foreach (var w in wrecks)
+                foreach (var (def, runtimeId, w) in allWrecks)
                 {
-                    if (u.X < w.MinX || u.X > w.MaxX) continue;
+                    if (!turn0 && !deadByTrigger.Contains(def)) continue;
+                    if (u.StandingOnStructureId == runtimeId) continue;
 
-                    // IN FRONT OF the rubble's near face is SEEN, and it is the only place that
-                    // is. Behind it, the camera's own elevation makes the wreck hide MORE than
-                    // its height: it sits ~1.2 above the ground and looks nearly along it, so an
-                    // occluder that far forward blocks the sightline for another `depth * tan` of
-                    // the body. This is the same 6-degree geometry that makes a second rank
-                    // invisible, working on rubble instead of on shoulders.
-                    if (u.Z > w.MaxZ) continue;
-                    float lift = (w.MaxZ - u.Z) * groundTan;
-                    float c = (w.TopY + lift - u.Y) / height;
-                    // The SPAN is the number an author needs — a wreck's edge, like a
-                    // structure's, is nowhere near its anchor.
+                    float c = WreckCover(u, w, height, groundTan);
                     if (c > cover)
                     {
                         cover = c;
                         under = $"{w.Name}'s wreck (x {w.MinX:F2} to {w.MaxX:F2}, " +
-                                $"top y {w.TopY:F2})";
+                                $"z {w.MinZ:F2} to {w.MaxZ:F2}, top y {w.TopY:F2})";
                     }
                 }
-                if (cover <= 0f) continue;
+                if (cover < 0.5f) continue;
 
                 if (cover > worstCover) worstCover = cover;
                 if (cover >= 1f) buried++;
-                else if (cover >= 0.5f) halfBuried++;
-                else continue;
+                else halfBuried++;
 
-                if (named.Count < 4)
+                if (named.Count < 6)
                     named.Add($"{label} {(u.Definition != null ? u.Definition.name : "unit")} " +
-                              $"at x {u.X:F2} stands {cover * 100f:F0}% inside {under}");
+                              $"at x {u.X:F2} z {u.Z:F2} stands {cover * 100f:F0}% inside {under}");
             }
         }
 
         if (judged == 0)
-            return new Finding(Severity.Ok, "rule 10: no arrival lands on a razed structure");
+            return new Finding(Severity.Ok, "rule 10: no ground unit to hide in rubble");
 
         if (buried > 0)
             return new Finding(Severity.Error,
-                $"rule 10: {buried} arrival(s) are HIDDEN INSIDE the wreck of the structure that " +
-                $"spawned them, {halfBuried} half — {string.Join("; ", named)}. Hittable and " +
-                "invisible: the player is asked to aim at rubble.");
+                $"rule 10: {buried} unit(s) are HIDDEN INSIDE rubble when the building falls, " +
+                $"{halfBuried} half — {string.Join("; ", named)}. Hittable and invisible.");
 
         if (halfBuried > 0)
             return new Finding(Severity.Warn,
-                $"rule 10: {halfBuried} arrival(s) stand up to {worstCover * 100f:F0}% inside a " +
+                $"rule 10: {halfBuried} unit(s) stand up to {worstCover * 100f:F0}% inside a " +
                 $"wreck — {string.Join("; ", named)}");
 
         return new Finding(Severity.Ok,
-            $"rule 10: all {judged} arrival(s) stand clear of the rubble they emerge from");
+            $"rule 10: all {judged} unit(s) stay visible when neighbouring buildings fall");
+    }
+
+    /// <summary>
+    /// How much of the body a wreck hides, 0 = seen, 1 = fully covered. IN FRONT OF the rubble's
+    /// near face is seen. Behind it, the camera's elevation makes the wreck hide MORE than its
+    /// height: it sits ~1.2 above the ground and looks nearly along it, so an occluder that far
+    /// forward blocks the sightline for another `depth * tan` of the body. Same 6° geometry that
+    /// makes a second rank invisible, working on rubble instead of shoulders.
+    /// </summary>
+    static float WreckCover(UnitEntity u,
+        (string Name, float MinX, float MaxX, float MinZ, float MaxZ, float TopY) w,
+        float height, float groundTan)
+    {
+        if (u.X < w.MinX || u.X > w.MaxX) return 0f;
+        // In front of the collapsed near face (already including WreckBackZ) is seen.
+        // Do NOT keep applying TopY there — that buried L6's Sovereign at z 0.32
+        // in front of a pile whose face is at 0.08 (155% "cover" from a wall behind him).
+        if (u.Z > w.MaxZ) return 0f;
+        float lift = (w.MaxZ - u.Z) * groundTan;
+        return (w.TopY + lift - u.Y) / Mathf.Max(height, 0.0001f);
+    }
+
+    /// <summary>
+    /// RULE 11: no ground unit MESHES with a live building. Rule 8 asks the collision box
+    /// (`hitWidth`); this asks the RENDERED footprint, which is what the player sees.
+    ///
+    /// Found on device 2026-09-05 on L6: camera parked at x 2.82 z 2.36, three riflemen on
+    /// the dirt, the right-hand man standing IN the Mountain Bunker's sloped wall. Rule 8
+    /// was green — the box ends at x 2.875 and his centre is at 2.81 — because `hitWidth`
+    /// is not the width of the building you see. Same family as rule 10, on the live mesh
+    /// instead of the wreck.
+    ///
+    /// ERROR, not Warn. A man in masonry is not a pacing judgement. Garrisoned bodies are
+    /// exempt (they stand ON the deck). `DeadByTrigger` is exempt (rule 10 owns that
+    /// wreck). Player-side structures are skipped: the tank is stood on, and clipping a
+    /// hull is a different call.
+    /// </summary>
+    public static Finding VisualMeshRule(LevelDefinitionSO level, GameState state)
+    {
+        float halfBody = Formation.BodyWidth * 0.5f;
+        int judged = 0, meshed = 0;
+        float worstPen = 0f;
+        var named = new List<string>();
+
+        var footprints = new List<(StructureDefinitionSO Def,
+            (string Name, float MinX, float MaxX, float MinZ, float MaxZ, float TopY) Fp)>();
+        foreach (var p in level.structures)
+        {
+            if (p.definition == null || p.definition.isPlayerSide) continue;
+            if (!TryStructureFootprint(p, wreck: false, out var fp)) continue;
+            footprints.Add((p.definition, fp));
+        }
+
+        foreach (var (label, units, deadByTrigger) in ArrivalSets(level, state))
+        foreach (var u in units)
+        {
+            if (u.StandingOnStructureId != null) continue;
+            judged++;
+            foreach (var (def, fp) in footprints)
+            {
+                if (deadByTrigger.Contains(def)) continue;
+                float ox = Mathf.Min(u.X + halfBody, fp.MaxX) - Mathf.Max(u.X - halfBody, fp.MinX);
+                float oz = Mathf.Min(u.Z + halfBody, fp.MaxZ) - Mathf.Max(u.Z - halfBody, fp.MinZ);
+                if (ox <= 0f || oz <= 0f) continue;
+                if (u.Y > fp.TopY) continue;
+                meshed++;
+                float pen = Mathf.Min(ox, oz);
+                if (pen > worstPen) worstPen = pen;
+                if (named.Count < 6)
+                    named.Add($"{label} {u.Definition.name} at x {u.X:F2} z {u.Z:F2} in " +
+                              $"{fp.Name} x[{fp.MinX:F2},{fp.MaxX:F2}] z[{fp.MinZ:F2},{fp.MaxZ:F2}]");
+            }
+        }
+
+        if (judged == 0)
+            return new Finding(Severity.Ok, "rule 11: no ground units to place — nothing measured");
+
+        if (meshed > 0)
+            return new Finding(Severity.Error,
+                $"rule 11: {meshed} ground unit(s) MESH with a live building, worst overlap " +
+                $"{worstPen:F2} — {string.Join("; ", named)}. Rule 8's box is hitWidth; this " +
+                "is the mesh the player sees.");
+
+        return new Finding(Severity.Ok,
+            $"rule 11: all {judged} ground unit(s) stand clear of every live building mesh");
     }
 
     /// <summary>
@@ -420,11 +529,17 @@ public static class LevelComposition
     /// </summary>
     static bool TryWreckFootprint(StructurePlacement p,
         out (string Name, float MinX, float MaxX, float MinZ, float MaxZ, float TopY) w)
+        => TryStructureFootprint(p, wreck: true, out w);
+
+    static bool TryStructureFootprint(StructurePlacement p, bool wreck,
+        out (string Name, float MinX, float MaxX, float MinZ, float MaxZ, float TopY) w)
     {
         w = default;
         var def = p.definition;
-        if (def == null || string.IsNullOrEmpty(def.wreckModelAsset)) return false;
-        if (!TryModelBounds(def.wreckModelAsset, out var wb)) return false;
+        if (def == null) return false;
+        string asset = wreck ? def.wreckModelAsset : def.modelAsset;
+        if (string.IsNullOrEmpty(asset)) return false;
+        if (!TryModelBounds(asset, out var rest)) return false;
 
         float scale;
         if (def.modelAbsoluteScale) scale = def.worldScale;
@@ -439,10 +554,26 @@ public static class LevelComposition
         // `GameSpace.ToUnity` negates X, so the model's +x edge is the game-space -x one, and the
         // building sits `size / 2` low — the same offset the live model is given.
         float baseY = p.y - def.size / 2f;
+        float minZ = p.z + rest.min.z * scale;
+        float maxZ = p.z + rest.max.z * scale;
+        if (wreck && TryModelBounds(asset, out var fallen, sampleCollapse: true))
+        {
+            // Collapse throws the pile TOWARD THE CAMERA. Rest MaxZ on L6's keep was 0.51
+            // and bosses at 0.9 looked clear; the held frame is 1.68. X and TopY stay on
+            // rest — the fallen clip is a flat pancake that swallows neighbouring
+            // garrisons in X and has no height, which is not what hides a body.
+            minZ = Mathf.Min(minZ, p.z + fallen.min.z * scale);
+            maxZ = Mathf.Max(maxZ, p.z + fallen.max.z * scale);
+        }
+        if (wreck)
+        {
+            minZ += LevelScenery.WreckBackZ;
+            maxZ += LevelScenery.WreckBackZ;
+        }
         w = (string.IsNullOrEmpty(def.displayName) ? def.name : def.displayName,
-             p.x - wb.max.x * scale, p.x - wb.min.x * scale,
-             p.z + wb.min.z * scale, p.z + wb.max.z * scale,
-             baseY + wb.max.y * scale);
+             p.x - rest.max.x * scale, p.x - rest.min.x * scale,
+             minZ, maxZ,
+             baseY + rest.max.y * scale);
         return true;
     }
 
@@ -453,18 +584,19 @@ public static class LevelComposition
     /// instance, which is the only time a renderer reports them. Cached: the inspector calls this
     /// on every repaint.
     /// </summary>
-    static bool TryModelBounds(string modelAsset, out Bounds bounds)
+    static bool TryModelBounds(string modelAsset, out Bounds bounds, bool sampleCollapse = false)
     {
         bounds = default;
         if (string.IsNullOrEmpty(modelAsset)) return false;
 
-        string key = LevelScenery.ModelKey(modelAsset);
+        string key = LevelScenery.ModelKey(modelAsset) + (sampleCollapse ? ":collapse" : "");
         if (ModelBoundsCache.TryGetValue(key, out bounds)) return true;
 
-        var src = AssetDatabase.LoadAssetAtPath<GameObject>($"Assets/Models/{key}.glb");
+        var src = AssetDatabase.LoadAssetAtPath<GameObject>($"Assets/Models/{LevelScenery.ModelKey(modelAsset)}.glb");
         if (src == null) return false;
 
         var inst = Object.Instantiate(src);
+        if (sampleCollapse) SampleCollapseEnd(inst);
         var rs = inst.GetComponentsInChildren<MeshRenderer>();
         if (rs.Length == 0) { Object.DestroyImmediate(inst); return false; }
         var acc = rs[0].bounds;
@@ -474,6 +606,40 @@ public static class LevelComposition
         ModelBoundsCache[key] = acc;
         bounds = acc;
         return true;
+    }
+
+    /// <summary>
+    /// Pose a wreck at the held last frame of its collapse clip. Rest bounds are the
+    /// intact-looking start; the pile the player sees is this pose.
+    /// </summary>
+    static void SampleCollapseEnd(GameObject inst)
+    {
+        var body = inst.GetComponent<Animation>() ?? inst.GetComponentInChildren<Animation>(true);
+        if (body != null)
+        {
+            AnimationState state = body[WreckAnim.Collapse];
+            if (state == null)
+            {
+                foreach (AnimationState s in body) { state = s; break; }
+            }
+            if (state != null)
+            {
+                state.wrapMode = WrapMode.ClampForever;
+                state.enabled = true;
+                state.weight = 1f;
+                state.time = state.length;
+                body.Sample();
+                return;
+            }
+        }
+
+        var animator = inst.GetComponent<Animator>() ?? inst.GetComponentInChildren<Animator>(true);
+        if (animator == null) return;
+        animator.enabled = true;
+        animator.Update(0f);
+        if (animator.runtimeAnimatorController == null) return;
+        animator.Play(0, 0, 1f);
+        animator.Update(0f);
     }
 
     /// <summary>

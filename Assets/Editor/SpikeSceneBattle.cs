@@ -178,10 +178,13 @@ public static class SpikeSceneBattle
         Fill(so.FindProperty("playerUnitClassPrefabs"), playerClassPrefabs);
         Fill(so.FindProperty("enemyUnitClassPrefabs"), enemyClassPrefabs);
         so.FindProperty("projectilePrefab").objectReferenceValue = shotPrefab;
+        // 0.22 / 0.18, not the shell's 0.34. Rifle rounds shipped at tank-shell size and
+        // read as flying bricks at melee — Rob 2026-09-05. Rockets 0.30 was still too
+        // big. Grenade 0.16 and shell 0.34 stay.
         so.FindProperty("bulletPrefab").objectReferenceValue = MakeProjectilePrefab(
-            "Bullet", "projectile_bullet", 0.34f, mats.tracer, mats.tracerTail);
+            "Bullet", "projectile_bullet", 0.22f, mats.tracer, mats.tracerTail);
         so.FindProperty("rocketPrefab").objectReferenceValue = MakeProjectilePrefab(
-            "Rocket", "projectile_rocket", 0.42f, mats.rocketBody, mats.rocketGlow);
+            "Rocket", "projectile_rocket", 0.18f, mats.rocketBody, mats.rocketGlow);
         so.FindProperty("grenadePrefab").objectReferenceValue = MakeProjectilePrefab(
             "Grenade", "projectile_grenade", 0.16f, mats.grenade, mats.grenadeBand);
         so.FindProperty("gunPrefab").objectReferenceValue = gunPrefab;
@@ -189,6 +192,7 @@ public static class SpikeSceneBattle
         so.FindProperty("scorchPrefab").objectReferenceValue = scorchPrefab;
         so.FindProperty("shadowPrefab").objectReferenceValue = MakeShadowPrefab();
         so.FindProperty("flamePrefab").objectReferenceValue = MakeFlamePrefab();
+        so.FindProperty("muzzlePrefab").objectReferenceValue = MakeMuzzlePrefab();
         so.FindProperty("planePrefab").objectReferenceValue = MakePlanePrefab(mats);
         so.FindProperty("debrisPrefab").objectReferenceValue = MakeDebrisPrefab(mats);
         // UNLIT and TRANSPARENT. Unlit because a health bar is UI that happens to live in the
@@ -219,7 +223,7 @@ public static class SpikeSceneBattle
     /// Hands LevelScenery everything it needs to build a level without an AssetDatabase: every
     /// GLB in Assets/Models keyed by bare name, and the material assets it clones per level.
     ///
-    /// The whole models folder goes in rather than only what the 29 levels reference today —
+    /// The whole models folder goes in rather than only what the 30 levels reference today —
     /// the table costs a reference each, and a level authored in the Kotlin later should not
     /// need a scene rebuild to find its geometry.
     /// </summary>
@@ -398,6 +402,32 @@ public static class SpikeSceneBattle
     /// The blast. UNLIT fire-orange, shared by both sides regardless of who fired — a
     /// side-tinted explosion reads as a team colour rather than as fire.
     /// </summary>
+    /// <summary>
+    /// Low-poly muzzle burst from Blender (`fx_muzzle.glb`): a hot star facing the
+    /// camera plane and an orange cone along +X (the blast out of the barrel).
+    /// UNLIT additive — a gunshot is a light, and the same colour on every biome.
+    /// </summary>
+    static GameObject MakeMuzzlePrefab()
+    {
+        var src = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Models/fx_muzzle.glb");
+        if (src == null) { Debug.LogWarning("[Battle] missing fx_muzzle"); return null; }
+        var go = (GameObject)PrefabUtility.InstantiatePrefab(src);
+        go.name = "MuzzleFlash";
+        var fade = FadeSource("Muzzle");
+        fade.SetFloat("_SrcBlend", (float)UnityEngine.Rendering.BlendMode.One);
+        fade.SetFloat("_DstBlend", (float)UnityEngine.Rendering.BlendMode.One);
+        EditorUtility.SetDirty(fade);
+        foreach (var r in go.GetComponentsInChildren<MeshRenderer>())
+        {
+            var mat = new Material(fade) { color = Color.white };
+            r.sharedMaterial = mat;
+        }
+        System.IO.Directory.CreateDirectory("Assets/Prefabs");
+        var prefab = PrefabUtility.SaveAsPrefabAsset(go, "Assets/Prefabs/MuzzleFlash.prefab");
+        Object.DestroyImmediate(go);
+        return prefab;
+    }
+
     static GameObject MakeBlastPrefab()
     {
         var go = GameObject.CreatePrimitive(PrimitiveType.Sphere);
@@ -701,6 +731,7 @@ public static class SpikeSceneBattle
         Clip("defeat", "defeat_jingle");
         Clip("helicopterLoop", "helicopter_loop");
         Clip("planePassby", "plane_passby");
+        Clip("tankTracks", "tank_tracks");
         so.ApplyModifiedProperties();
         return fx;
     }

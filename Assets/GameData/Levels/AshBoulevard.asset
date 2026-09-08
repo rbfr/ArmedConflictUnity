@@ -37,7 +37,7 @@ MonoBehaviour:
     advancePerTurn: 0
   - definition: {fileID: 11400000, guid: 036d9a98cc0865381abf17644193b6cd, type: 2}
     count: 8
-    anchorX: 9.2
+    anchorX: 9.6
     anchorZ: 0.12
     standingOnStructureId: checkpoint
     advancePerTurn: 0
@@ -66,7 +66,7 @@ MonoBehaviour:
     hpScale: 1
   - id: checkpoint
     definition: {fileID: 11400000, guid: 9e4a843ea184e52d38fc6e753a77a825, type: 2}
-    x: 9.2
+    x: 9.6
     y: 0
     z: 0
     collapseWith: 

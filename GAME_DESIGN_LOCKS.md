@@ -173,9 +173,10 @@
   the original pass — see UnitDefinition.kt comment — so a single volley plus the tank's splash
   shell can't wipe a small roster outright; fights run several volleys of real attrition).
   Structure HP was raised alongside it by a similar factor. Damage accumulates across turns.
-  Units do NOT change color with damage; damage feedback lives on structures (walls blacken in
-  3 stages as HP drops, crack decals stamp at every hit point, plus chunk loss → charred
-  shell on destruction).
+  Units do NOT change color with damage; damage feedback lives on structures at the
+  IMPACT: soot darkens masonry around the hit, a crater punches the middle (shells/
+  rockets/grenades), plus chunk loss → wreck on destruction. Whole-building charcoal
+  was tried 2026-09-06 and rejected — the mesh just turned dark.
 
 ## Physics & World
 - `WORLD_FLOOR_Y = 0f`.
@@ -247,7 +248,8 @@
   stage is a theme + ONE signature mechanic: introduced gently in its early levels,
   escalated through the middle, combined with earlier stages' mechanics near the end; the
   final level is the stage's boss/climax. Current: Stage 1 "Valley Front" (L1-6),
-  Stage 2 "Enemy Stronghold" (L7-12); target shape is 7 levels with a purpose-built boss.
+  Stage 2 "Enemy Stronghold" (L7-12); Stage 3 "Ashfield" (L13) is the after-12 expansion,
+  not a third boss. Target shape is still ~7 levels with a purpose-built boss per stage.
 - Star results per victory, from roster survival: >=75% alive = 3 stars, >=40% = 2, any
   win = 1. Thresholds stay LEGIBLE ("lose a quarter / lose half") — the replay loop is
   chasing a cleaner win, not decoding a formula. Best result per level persists
@@ -277,7 +279,9 @@
   no tail. Signed 2026-08-28: mid-90s arcade, not realistic. A teardrop read as a
   rocket; Kenney Particle Pack streaks read as VFX, not rounds. Do not re-open as a
   mesh or sprite pass without an ask. Rockets, grenades, and the tank shell keep
-  their own meshes.
+  their own meshes. **Size is 0.22 (rocket 0.18), not the shell's 0.34.** The dash
+  shipped at tank-shell scale and read as flying bricks at melee (Rob 2026-09-05).
+  Shape is locked; that size is the one to keep unless he asks again.
 
 ## V1 Scope
 - Single-player campaign vs AI only. No networking or PvP.

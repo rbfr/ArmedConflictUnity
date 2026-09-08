@@ -19,7 +19,7 @@ MonoBehaviour:
   enemyGroups:
   - definition: {fileID: 11400000, guid: b51688fb293b69e5cab2885bcaa975b8, type: 2}
     count: 3
-    anchorX: 2.5
+    anchorX: 1.70
     anchorZ: 0
     standingOnStructureId: 
     advancePerTurn: 0
@@ -31,7 +31,7 @@ MonoBehaviour:
     advancePerTurn: 0
   - definition: {fileID: 11400000, guid: 75e1a253a474334eb8576862998ca8e1, type: 2}
     count: 2
-    anchorX: 1
+    anchorX: 0.28
     anchorZ: 0.4
     standingOnStructureId: 
     advancePerTurn: 0
@@ -123,17 +123,17 @@ MonoBehaviour:
     - definition: {fileID: 11400000, guid: e2f345bdab5634c49a5e289daed390f3, type: 2}
       count: 1
       anchorX: 8.5
-      anchorZ: 0.9
+      anchorZ: 0.4
       standingOnStructureId: 
       advancePerTurn: 0
     - definition: {fileID: 11400000, guid: 75e1a253a474334eb8576862998ca8e1, type: 2}
-      count: 3
+      count: 1
       anchorX: 6.5
-      anchorZ: 0.9
+      anchorZ: 0.4
       standingOnStructureId: 
       advancePerTurn: 0
     announcement: The Sovereign takes the field!
-    telegraphLabel: Something moves behind the keep
+    telegraphLabel: 
     telegraphAtHealthFraction: 0.5
   windAccelZ: 0
   reinforcementWaves: []
@@ -141,8 +141,8 @@ MonoBehaviour:
   isTestLevel: 0
   designNotes: "Beat 6: stage boss. Default squad is 6 rifle + 2 rocket — the keep
     is the first masonry the player is handed the tool for. The first BossPhaseTrigger the project has ever
-    fired \u2014 the keep falling spawns the Citadel Sovereign (260 hp) and a heavy
-    escort, so the level does not end when the structure does. Biome reuses Mountains
+    fired \u2014 the keep falling spawns the Citadel Sovereign (160 hp) and a heavy,
+    so the level does not end when the structure does. Biome reuses Mountains
     from beat 1 on purpose: same ground, a fortress instead of a hut, which is the
     clearest possible read on how far the player has come. Structure hp RETUNED 2026-08-07:
     bunker and keep both hpScale 0.66 (180 -> 118, 212 -> 139), garrisoned total
@@ -154,4 +154,17 @@ MonoBehaviour:
     land in the KEEP's footprint, which is rubble by definition at that moment - the keep is
     what triggers the phase - so they emerge from the breach, which is what the beat wanted
     anyway. Found because rule 8 was extended to mid-battle arrivals; it had only ever measured
-    turn 0."
+    turn 0. BOSS ESCORT 3->1 AND TELEGRAPH WITHDRAWN 2026-09-05: Rob, playing the now-visible
+    boss, said L6 is still hard and he does not like the banner. The garrison half is
+    untouched. The spike was 260 hp + 3x64 hp heavies shooting 38/turn into a spent army;
+    two of the three escorts were the lever that is both HP and outgoing damage. The
+    Sovereign stayed 260 until 2026-09-05: played L6, garrison half easy, then five AP
+    volleys into the boss phase with zero kills. 260 is four clean rifle volleys if they
+    all land on him; a spent army cannot trade that. HP 260 -> 160 (2.5x a heavy, two
+    volleys of eight rifles). Same definition on L12 \u2014 the finale still has the four
+    charging shields. Empty telegraphLabel is deliberate \u2014 the
+    keep falling IS the warning, and a strip that spoils that is worse than a blindside.
+    WRECK Z 2026-09-06: rule 10 had been measuring the collapse clip's REST pose (keep MaxZ 0.51).
+    The last frame of collapse throws the pile to z 1.68, so the bosses at 0.9 stood behind
+    the rubble on device. Sample the held frame; bosses 0.9 -> 2.1. Dirt trio 2.25 -> 1.70
+    (heavies 0.8 -> 0.35) so two of three are not inside the bunker's collapsed splat (minX 2.08)."

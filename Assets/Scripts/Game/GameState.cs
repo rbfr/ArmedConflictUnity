@@ -76,6 +76,7 @@ namespace ArmedConflict.Game
         public IReadOnlyList<ProjectileEntity> Projectiles { get; init; } = new List<ProjectileEntity>();
         public IReadOnlyList<ExplosionEntity> Explosions { get; init; } = new List<ExplosionEntity>();
         public IReadOnlyList<ScorchMark> Scorches { get; init; } = new List<ScorchMark>();
+        public IReadOnlyList<StructureScar> StructureScars { get; init; } = new List<StructureScar>();
         public IReadOnlyList<WreckEntity> Wrecks { get; init; } = new List<WreckEntity>();
         public IReadOnlyList<DebrisPiece> Debris { get; init; } = new List<DebrisPiece>();
         public IReadOnlyList<ImpactEntity> Impacts { get; init; } = new List<ImpactEntity>();
@@ -115,6 +116,7 @@ namespace ArmedConflict.Game
         // the port because the id BANDS also guarantee raw ids stay globally unique for
         // hit-tracking, which the tick depends on independently of any renderer.
         public int NextScorchSlot { get; init; }
+        public int NextScarSlot { get; init; }
         public int NextRubbleSlot { get; init; }
         public int NextDebrisSlot { get; init; }
         public int NextBulletSlot { get; init; }
@@ -164,6 +166,16 @@ namespace ArmedConflict.Game
         public float MeleeHold { get; init; }
         public float MeleeHoldAnchorX { get; init; }
         public float MeleeHoldHalfWidth { get; init; }
+
+        /// <summary>
+        /// Camera hold on the SHOOTERS the tick a volley leaves. Armed by FireVolley /
+        /// FireEnemyVolley. While it runs the frame stays on the firing line so the
+        /// player sees who shot; then the existing volley chase takes over for impact.
+        /// Same family as MeleeHold / CollapseHold.
+        /// </summary>
+        public float ShooterHold { get; init; }
+        public float ShooterHoldAnchorX { get; init; }
+        public float ShooterHoldHalfWidth { get; init; }
 
         /// <summary>
         /// Camera hold on a structure that just fell with its garrison. Armed the

@@ -50,6 +50,9 @@ public class BattleRunner : MonoBehaviour
     /// SyncFlames. Optional: with no prefab the burn still fires and is still logged, which is
     /// exactly the pre-2026-08-09 behaviour.</summary>
     [SerializeField] GameObject flamePrefab;
+    /// <summary>Low-poly muzzle burst from Blender (`fx_muzzle.glb`). Optional: with
+    /// no prefab the volley still fires, same as a missing flame prefab.</summary>
+    [SerializeField] GameObject muzzlePrefab;
     [SerializeField] GameObject planePrefab;
     [SerializeField] BattleAudio audioFx;
     [SerializeField] Transform poolRoot;
@@ -104,13 +107,43 @@ public class BattleRunner : MonoBehaviour
     readonly List<GameObject> playerGuns = new();
     readonly List<GameObject> enemyGuns = new();
     readonly List<GameObject> blastSlots = new();
+    /// <summary>Cosmetic cook-off when a prop dies with its building (L13 bay jet).
+    /// Separate from <see cref="blastSlots"/> so a busy volley cannot steal them.</summary>
+    const int PropBlastSlots = 4;
+    readonly List<GameObject> propBlastSlots = new();
+    struct PropBlast
+    {
+        public float X, Y, Z, Scale, Progress;
+        public bool Live;
+    }
+    readonly PropBlast[] propBlasts = new PropBlast[PropBlastSlots];
     // One pool PER TYPE. A shared pool would need the prefab swapped per frame, which
     // means destroying and recreating renderers mid-flight.
     readonly Dictionary<ProjectileType, List<GameObject>> shotPools = new();
     readonly Dictionary<ProjectileType, Vector3> shotBaseScale = new();
     readonly List<GameObject> scorchSlots = new();
+    readonly List<ScarSlot> scarSlots = new();
+    readonly List<MuzzleFlashSlot> flashSlots = new();
+    readonly HashSet<int> seenShotIds = new();
+    MaterialPropertyBlock flashProps;
     readonly List<GameObject> debrisSlots = new();
     readonly List<(int Id, GameObject Go)> structureObjects = new();
+    readonly Dictionary<int, float> structureFrontZ = new();
+
+    struct ScarSlot
+    {
+        public GameObject Root;
+        public Transform Halo, Crater;
+        public MeshRenderer HaloR, CraterR;
+    }
+
+    struct MuzzleFlashSlot
+    {
+        public GameObject Root;
+        public MeshRenderer[] Rends;
+        public float Age, Duration, Size;
+        public bool Live;
+    }
     float? lastTankX;
 
     LevelDefinitionSO level;
@@ -178,10 +211,16 @@ public class BattleRunner : MonoBehaviour
     Vector3 aimVel;
     readonly List<Vector3> arc = new();
     /// <summary>
-    /// Last fired drag, kept after the finger comes up so the next aim has a number
+    /// Last fired launch, kept after the finger comes up so the next aim has a number
     /// to adjust from. The Kotlin HUD showed this as "Last: Angle / Power"; the port
     /// dropped it and the live readout vanished with the drag. Cleared on LoadLevel,
     /// not on a cancelled micro-drag, and not on the enemy's turn.
+    ///
+    /// AUTO WRITES THIS TOO, as of 2026-09-05. It used to leave the previous drag sitting
+    /// there, so Auto's 50° solve was read as whatever the last finger had been — 72/30
+    /// on the HUD, a matching drag, well short of what Auto actually threw. Power is
+    /// unclamped: Auto's solver is allowed to 12, a drag only to 9.5, and a 100% readout
+    /// of a 118% Auto is the same lie in a new costume.
     /// </summary>
     bool hasLastAim;
     float lastAimPower, lastAimAngle;
@@ -388,7 +427,7 @@ public class BattleRunner : MonoBehaviour
     /// Opens the loadout picker for a level, then loads it with whatever squad comes back.
     ///
     /// This is the entry point for every PLAYER-facing level change. The ◀ ▶ debug stepper calls
-    /// LoadLevel directly and skips the picker on purpose — sweeping 29 levels for missing
+    /// LoadLevel directly and skips the picker on purpose — sweeping 30 levels for missing
     /// geometry should not stop to ask about troops twenty-nine times.
     /// </summary>
     void EnterLevel(int index)
@@ -454,11 +493,36 @@ public class BattleRunner : MonoBehaviour
         if (scenery.ScorchMaterial != null)
             foreach (var s in scorchSlots)
                 s.GetComponent<MeshRenderer>().sharedMaterial = scenery.ScorchMaterial;
+        if (scenery.ScarHaloMaterial != null)
+            foreach (var s in scarSlots)
+            {
+                s.HaloR.sharedMaterial = scenery.ScarHaloMaterial;
+                s.CraterR.sharedMaterial = scenery.ScarCraterMaterial;
+            }
+        if (scenery.FlashMaterial != null)
+            foreach (var f in flashSlots)
+                if (f.Rends != null)
+                    foreach (var r in f.Rends)
+                        if (r != null) r.sharedMaterial = scenery.FlashMaterial;
+        seenShotIds.Clear();
+        for (int i = 0; i < flashSlots.Count; i++)
+        {
+            var fl = flashSlots[i];
+            fl.Live = false;
+            fl.Root.SetActive(false);
+            flashSlots[i] = fl;
+        }
 
+        CacheStructureFronts();
         TintShadows();
         ApplyFaction();
         ApplyCamo();
         HideAll();
+        if (audioFx != null)
+        {
+            audioFx.StopTankTracks(immediate: true);
+            if (state.TurnPhase == TurnPhase.TankArrive) audioFx.StartTankTracks();
+        }
         // The end panel belongs to the battle that raised it. It must come down here rather than
         // on the button that caused the switch, because the ◀ ▶ stepper leaves a finished battle
         // too and would otherwise carry a stale VICTORY card onto the next level.
@@ -520,7 +584,18 @@ public class BattleRunner : MonoBehaviour
         foreach (var go in enemyGuns) go.SetActive(false);
         foreach (var kv in shotPools) foreach (var go in kv.Value) go.SetActive(false);
         foreach (var go in blastSlots) go.SetActive(false);
+        foreach (var go in propBlastSlots) go.SetActive(false);
+        for (int i = 0; i < propBlasts.Length; i++) propBlasts[i].Live = false;
         foreach (var go in scorchSlots) go.SetActive(false);
+        foreach (var s in scarSlots) s.Root.SetActive(false);
+        for (int i = 0; i < flashSlots.Count; i++)
+        {
+            var fl = flashSlots[i];
+            fl.Live = false;
+            fl.Root.SetActive(false);
+            flashSlots[i] = fl;
+        }
+        seenShotIds.Clear();
         foreach (var go in debrisSlots) go.SetActive(false);
         foreach (var b in healthBars) b.Root.SetActive(false);
         foreach (var sh in shadowSlots) sh.SetActive(false);
@@ -669,12 +744,16 @@ public class BattleRunner : MonoBehaviour
             for (int i = 0; i < ProjectilePoolSize; i++) pool.Add(Spawn(prefab, $"{type}{i}"));
             shotPools[type] = pool;
             // THE PREFAB'S OWN SCALE IS THE BASE, and it is not 1. Each projectile prefab is
-            // authored at its own size (the grenade at 0.16, the shell at 0.34), so anything that
-            // writes localScale per frame has to multiply THIS rather than reset to Vector3.one.
+            // authored at its own size (bullet 0.22, rocket 0.18, grenade 0.16, shell 0.34), so
+            // anything that writes localScale per frame has to multiply THIS rather than reset
+            // to Vector3.one. Bullet/rocket used to wear the shell's 0.34/0.42 and read as
+            // bricks at melee.
             // Resetting to one drew every round in the game at raw GLB size.
             shotBaseScale[type] = prefab != null ? prefab.transform.localScale : Vector3.one;
         }
         BuildHealthBars();
+        BuildScarSlots();
+        BuildMuzzleFlashes();
         BuildShadows();
         BuildFlames();
         if (planePrefab != null)
@@ -684,6 +763,8 @@ public class BattleRunner : MonoBehaviour
             plane.transform.localScale = Vector3.one * PlaneScale;
         }
         for (int i = 0; i < 32; i++) blastSlots.Add(Spawn(explosionPrefab, $"x{i}"));
+        for (int i = 0; i < PropBlastSlots; i++)
+            propBlastSlots.Add(Spawn(explosionPrefab, $"px{i}"));
         for (int i = 0; i < BattleTick.ScorchSlots; i++) scorchSlots.Add(Spawn(scorchPrefab, $"sc{i}"));
         for (int i = 0; i < BattleTick.DebrisSlots; i++) debrisSlots.Add(Spawn(debrisPrefab, $"db{i}"));
     }
@@ -888,6 +969,70 @@ public class BattleRunner : MonoBehaviour
             root.SetActive(false);
             healthBars.Add((root, fill.transform, fill.GetComponent<MeshRenderer>(),
                             back.GetComponent<MeshRenderer>()));
+        }
+    }
+
+    /// <summary>
+    /// Wall scars: a soot halo plus a crater. QuadMesh, never CreatePrimitive. Two
+    /// children so the puncture can sit in front of the char without a second pool.
+    /// Faces the camera the same way the bars do (180 about X, no X-mirror).
+    /// </summary>
+    void BuildScarSlots()
+    {
+        for (int i = 0; i < BattleTick.ScarSlots; i++)
+        {
+            var root = new GameObject($"scar{i}");
+            root.transform.SetParent(poolRoot, false);
+            root.transform.rotation = Quaternion.Euler(180f, 0f, 0f);
+            var halo = QuadMesh.Create("halo", root.transform, healthBarSource);
+            var crater = QuadMesh.Create("crater", root.transform, healthBarSource);
+            // After the X-flip, local -z is nearer the camera — crater in front of soot.
+            crater.transform.localPosition = new Vector3(0f, 0f, -0.004f);
+            root.SetActive(false);
+            scarSlots.Add(new ScarSlot
+            {
+                Root = root,
+                Halo = halo.transform,
+                Crater = crater.transform,
+                HaloR = halo.GetComponent<MeshRenderer>(),
+                CraterR = crater.GetComponent<MeshRenderer>(),
+            });
+        }
+    }
+
+    void CacheStructureFronts()
+    {
+        structureFrontZ.Clear();
+        foreach (var (id, go) in structureObjects)
+        {
+            if (go == null) continue;
+            float maxZ = float.NegativeInfinity;
+            var rs = go.GetComponentsInChildren<MeshRenderer>(true);
+            for (int i = 0; i < rs.Length; i++)
+                if (rs[i].bounds.max.z > maxZ) maxZ = rs[i].bounds.max.z;
+            if (maxZ > float.NegativeInfinity / 2f) structureFrontZ[id] = maxZ;
+        }
+    }
+
+    /// <summary>
+    /// Muzzle flashes. QuadMesh, never CreatePrimitive. Two quads (flare + core)
+    /// so a rifle spark and a tank blast share the pool. Additive material swapped
+    /// per level from the scenery kit.
+    /// </summary>
+    void BuildMuzzleFlashes()
+    {
+        if (muzzlePrefab == null) return;
+        const int n = 64;
+        for (int i = 0; i < n; i++)
+        {
+            var go = Spawn(muzzlePrefab, $"mz{i}");
+            go.SetActive(false);
+            flashSlots.Add(new MuzzleFlashSlot
+            {
+                Root = go,
+                Rends = go.GetComponentsInChildren<MeshRenderer>(true),
+                Age = -1f,
+            });
         }
     }
 
@@ -1406,6 +1551,7 @@ public class BattleRunner : MonoBehaviour
         ResolveBattleEnd();
 
         Render();
+        TickPropBlasts(dt);
         ApplyCamera();
         // AFTER the camera moves, and ONCE per frame — see shellPanelRect.
         shellPanelRect = ComputeShellToggleRect();
@@ -1459,9 +1605,7 @@ public class BattleRunner : MonoBehaviour
         arc.Clear();
         if (aimVel.sqrMagnitude < 0.01f) return;
         if (state.TurnPhase != TurnPhase.Aiming) return;
-        lastAimPower = AimSystem.StrengthPercent(aimVel);
-        lastAimAngle = AimSystem.AngleDegrees(aimVel);
-        hasLastAim = true;
+        RememberAim(aimVel);
         var beforeVolley = state;
         state = BattleTick.FireVolley(state, aimVel, random, ammoCatalog);
         SettleArmedSpend(beforeVolley, state);
@@ -1485,6 +1629,20 @@ public class BattleRunner : MonoBehaviour
                 : $"volley: {volleyRounds} rounds";
         Debug.Log($"[Battle] {what} at " +
                   $"{AimSystem.StrengthPercent(aimVel):F0}% / {AimSystem.AngleDegrees(aimVel):F1}deg");
+    }
+
+    /// <summary>
+    /// Power is unclamped. A drag never exceeds 100 because <see cref="AimSystem.AimVelocity"/>
+    /// already capped it; Auto's solver is allowed to 12 against a drag max of 9.5, and showing
+    /// 100 for that would tell you to copy a shot you cannot throw.
+    /// </summary>
+    void RememberAim(Vector3 vel)
+    {
+        float speed = Mathf.Sqrt(vel.x * vel.x + vel.y * vel.y);
+        lastAimPower = speed / AimSystem.MaxAimMagnitude * 100f;
+        lastAimAngle = AimSystem.AngleDegrees(vel);
+        hasLastAim = true;
+        aimPoseDegrees = lastAimAngle;
     }
 
     Vector3 MuzzleOrigin()
@@ -1575,6 +1733,11 @@ public class BattleRunner : MonoBehaviour
         if (before.Phase == GamePhase.Playing && after.Phase == GamePhase.Victory) audioFx.PlayVictory();
         if (before.Phase == GamePhase.Playing && after.Phase == GamePhase.Defeat) audioFx.PlayDefeat();
 
+        if (before.TurnPhase != TurnPhase.TankArrive && after.TurnPhase == TurnPhase.TankArrive)
+            audioFx.StartTankTracks();
+        if (before.TurnPhase == TurnPhase.TankArrive && after.TurnPhase != TurnPhase.TankArrive)
+            audioFx.StopTankTracks();
+
         // THE PASS-BY PLAYS WHEN THE AIRCRAFT IS ACTUALLY RELEASED, not when the player let go.
         //
         // It used to fire on the release, which was the same instant back when the aircraft went
@@ -1645,6 +1808,7 @@ public class BattleRunner : MonoBehaviour
         SyncHealthBars();
         SyncShadows();
         SyncFlames(Time.deltaTime);
+        SyncMuzzleFlashes(Time.deltaTime);
         SyncPlane();
         // Guns follow the LIVE roster only — a ragdoll drops its weapon rather than carrying
         // one through a tumble, which is also what the shipping build does.
@@ -1731,6 +1895,8 @@ public class BattleRunner : MonoBehaviour
             else scorchSlots[i].SetActive(false);
         }
 
+        SyncStructureScars();
+
         for (int i = 0; i < debrisSlots.Count; i++)
         {
             if (i < state.Debris.Count)
@@ -1754,6 +1920,7 @@ public class BattleRunner : MonoBehaviour
         foreach (var (id, go) in structureObjects)
         {
             bool live = liveIds.Contains(id);
+            if (go.activeSelf && !live) CookOffBoundProps(id);
             if (go.activeSelf != live) go.SetActive(live);
             var wreck = scenery.Wreck(id);
             if (wreck != null)
@@ -1764,7 +1931,10 @@ public class BattleRunner : MonoBehaviour
                     if (wreck.TryGetComponent<WreckAnim>(out var wa)) wa.Play();
                 }
                 else if (live && wreck.activeSelf)
+                {
                     wreck.SetActive(false);
+                    scenery.RestoreBoundProps(id);
+                }
             }
             var st = default(StructureEntity);
             for (int i = 0; i < state.Structures.Count; i++)
@@ -1801,10 +1971,167 @@ public class BattleRunner : MonoBehaviour
         }
     }
 
+    void CookOffBoundProps(int structureId)
+    {
+        var blasts = scenery.CollapseBoundProps(structureId);
+        if (blasts.Count == 0) return;
+        if (audioFx != null) audioFx.PlayExplosion(ignoreInterval: true);
+        int slot = 0;
+        for (int i = 0; i < blasts.Count && slot < PropBlastSlots; i++)
+        {
+            var b = blasts[i];
+            propBlasts[slot] = new PropBlast
+            {
+                X = b.X, Y = b.Y, Z = b.Z, Scale = b.Scale,
+                Progress = 0f, Live = true,
+            };
+            slot++;
+        }
+    }
+
+    void TickPropBlasts(float dt)
+    {
+        blastProps ??= new MaterialPropertyBlock();
+        float duration = ProjectileSystem.ExplosionDurationSeconds;
+        for (int i = 0; i < PropBlastSlots; i++)
+        {
+            var b = propBlasts[i];
+            if (!b.Live)
+            {
+                if (i < propBlastSlots.Count) propBlastSlots[i].SetActive(false);
+                continue;
+            }
+            b.Progress = Mathf.Min(b.Progress + dt / duration, 1f);
+            if (b.Progress >= 1f)
+            {
+                b.Live = false;
+                propBlasts[i] = b;
+                if (i < propBlastSlots.Count) propBlastSlots[i].SetActive(false);
+                continue;
+            }
+            propBlasts[i] = b;
+            if (i >= propBlastSlots.Count) continue;
+            var go = propBlastSlots[i];
+            go.SetActive(true);
+            go.transform.position = GameSpace.ToUnity(b.X, b.Y, b.Z);
+            float swell = 0.35f + 0.85f * Mathf.Sqrt(b.Progress);
+            go.transform.localScale = Vector3.one * b.Scale * swell;
+            float alpha = 1f - Mathf.Clamp01((b.Progress - 0.25f) / 0.75f);
+            var r = go.GetComponent<MeshRenderer>();
+            r.GetPropertyBlock(blastProps);
+            blastProps.SetColor("_BaseColor",
+                new Color(1f, 0.55f + 0.25f * (1f - b.Progress), 0.15f, alpha));
+            r.SetPropertyBlock(blastProps);
+        }
+    }
+
     /// <summary>
-    /// Fires the shoot one-shot on every unit of a side. The game throws FULL-ROSTER volleys, so
-    /// "the whole line fires at once" is not an approximation here — it is what happens.
+    /// Soot + crater on the camera-facing wall, at the hit. Ground scorches stretch in
+    /// depth because 6° sees them edge-on; a wall mark is face-on. The building itself
+    /// stays its own colour — only the impact neighbourhood darkens.
     /// </summary>
+    void SyncStructureScars()
+    {
+        var scars = state.StructureScars;
+        for (int i = 0; i < scarSlots.Count; i++)
+        {
+            var slot = scarSlots[i];
+            if (i < scars.Count)
+            {
+                var sc = scars[i];
+                if (!structureFrontZ.TryGetValue(sc.StructureId, out float frontZ))
+                {
+                    slot.Root.SetActive(false);
+                    continue;
+                }
+                bool hole = sc.Kind == StructureScarKind.Hole;
+                float hw = (hole ? CosmeticSystems.ScarHoleHaloW : CosmeticSystems.ScarSingeHaloW)
+                           * sc.Scale;
+                float hh = (hole ? CosmeticSystems.ScarHoleHaloH : CosmeticSystems.ScarSingeHaloH)
+                           * sc.Scale;
+                float pw = (hole ? CosmeticSystems.ScarHolePitW : CosmeticSystems.ScarSingePitW)
+                           * sc.Scale;
+                float ph = (hole ? CosmeticSystems.ScarHolePitH : CosmeticSystems.ScarSingePitH)
+                           * sc.Scale;
+                // Spin so a volley of identical hits does not stack as one circle.
+                float spin = (sc.Id * 47) % 80;
+                slot.Root.SetActive(true);
+                slot.Root.transform.position = GameSpace.ToUnity(sc.X, sc.Y, frontZ + 0.02f);
+                slot.Root.transform.rotation = Quaternion.Euler(180f, 0f, spin);
+                slot.Halo.localScale = new Vector3(hw, hh, 1f);
+                slot.Crater.localScale = new Vector3(pw, ph, 1f);
+            }
+            else slot.Root.SetActive(false);
+        }
+    }
+
+    /// <summary>
+    /// A spark at each NEW round's spawn. Driven off projectile ids so it cannot
+    /// disagree with who actually fired — Auto, drag, and the enemy volley all
+    /// mint rounds, and VolleyAnim only covers the infantry.
+    /// </summary>
+    void SyncMuzzleFlashes(float dt)
+    {
+        if (flashSlots.Count == 0) return;
+        flashProps ??= new MaterialPropertyBlock();
+
+        var liveIds = new HashSet<int>();
+        if (state?.Projectiles != null)
+        {
+            foreach (var pr in state.Projectiles)
+            {
+                liveIds.Add(pr.Id);
+                if (seenShotIds.Contains(pr.Id)) continue;
+                if (pr.IsHeliShot || pr.IsStrafe || pr.IsAirstrike) continue;
+                int free = -1;
+                for (int i = 0; i < flashSlots.Count; i++)
+                    if (!flashSlots[i].Live) { free = i; break; }
+                if (free < 0) continue;
+                var fl = flashSlots[free];
+                bool shell = pr.Type == ProjectileType.Shell;
+                fl.Live = true;
+                fl.Age = 0f;
+                fl.Duration = shell ? CosmeticSystems.MuzzleFlashShellSeconds
+                                    : CosmeticSystems.MuzzleFlashSeconds;
+                fl.Size = shell ? CosmeticSystems.MuzzleFlashShell
+                                : CosmeticSystems.MuzzleFlashRifle;
+                float along = pr.Vx >= 0f ? 0.12f : -0.12f;
+                fl.Root.transform.position = GameSpace.ToUnity(
+                    pr.X + along, pr.Y, pr.Z + 0.04f);
+                // Mesh cone is authored along +X. Game +X is Unity -X.
+                var shot = GameSpace.ToUnity(pr.Vx >= 0f ? 1f : -1f, 0f, 0f)
+                           - GameSpace.ToUnity(0f, 0f, 0f);
+                fl.Root.transform.rotation = Quaternion.FromToRotation(Vector3.right, shot);
+                fl.Root.SetActive(true);
+                flashSlots[free] = fl;
+            }
+        }
+        seenShotIds.Clear();
+        foreach (var id in liveIds) seenShotIds.Add(id);
+
+        for (int i = 0; i < flashSlots.Count; i++)
+        {
+            var fl = flashSlots[i];
+            if (!fl.Live) continue;
+            fl.Age += dt;
+            float a = CosmeticSystems.MuzzleFlashAlpha(fl.Age, fl.Duration);
+            if (a <= 1e-3f)
+            {
+                fl.Live = false;
+                fl.Root.SetActive(false);
+                flashSlots[i] = fl;
+                continue;
+            }
+            float s = CosmeticSystems.MuzzleFlashScale(fl.Age, fl.Duration) * fl.Size;
+            fl.Root.transform.localScale = Vector3.one * s;
+            flashProps.SetColor(BaseColorId, new Color(1f, 0.9f, 0.45f, a));
+            if (fl.Rends != null)
+                foreach (var r in fl.Rends)
+                    if (r != null) r.SetPropertyBlock(flashProps);
+            flashSlots[i] = fl;
+        }
+    }
+
     void VolleyAnim(bool playerSide)
     {
         // The LIVE list, not the first N of a pool: slots are per class now, so "the first N
@@ -2318,10 +2645,12 @@ public class BattleRunner : MonoBehaviour
         GUI.enabled = canAuto;
         if (GUI.Button(new Rect(30, Screen.height - 220, 300, 150), "AUTO"))
         {
-            state = BattleTick.AutoFire(state);
+            state = BattleTick.AutoFire(state, out var autoAim);
+            if (autoAim.sqrMagnitude > 0.01f) RememberAim(autoAim);
             if (audioFx != null) audioFx.PlayVolleyFire();
             VolleyAnim(playerSide: true);
-            Debug.Log($"[Battle] AUTO volley: {state.Projectiles.Count} rounds");
+            Debug.Log($"[Battle] AUTO volley: {state.Projectiles.Count} rounds at " +
+                      $"{lastAimPower:F0}% / {lastAimAngle:F1}deg");
         }
         GUI.enabled = true;
 

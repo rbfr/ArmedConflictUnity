@@ -107,6 +107,15 @@ public static class PortSelfTest
         Near(maxH - 1f, CosmeticSystems.FlameHeightSwing, 1e-3f,
              "and it swings by the authored amount");
 
+        Near(CosmeticSystems.MuzzleFlashAlpha(0f, 0.10f), 1f, 1e-4f,
+             "a muzzle flash is full on the frame it is born");
+        Check(CosmeticSystems.MuzzleFlashAlpha(0.10f, 0.10f) == 0f
+              && CosmeticSystems.MuzzleFlashAlpha(0.20f, 0.10f) == 0f,
+              "and is gone at its duration, never lingering");
+        Check(CosmeticSystems.MuzzleFlashScale(0.05f, 0.10f)
+              > CosmeticSystems.MuzzleFlashScale(0.09f, 0.10f),
+              "the flash pops then shrinks, it does not grow into a fireball");
+
         // --- the shape, asked of the texture itself ----------------------------------------
 
         var flame = SpikeSceneBattle.FlameTexture();
@@ -1929,6 +1938,44 @@ public static class PortSelfTest
             Check(r2.StructureDamage.TryGetValue(100, out int wd) && wd == 8,
                   "a shot hitting nothing but the wall damages it");
 
+            // Wall scars: soot + crater at the hit, not a whole-mesh tint. A shell stamps a
+            // HOLE, a bullet a SINGE. Persist on the live mesh until the building dies.
+            {
+                var dummy = ScriptableObject.CreateInstance<LevelDefinitionSO>();
+                var shellHit = new ProjectileEntity(70, 5f, 1.0f, 0f, 0f, -4f, 0f, 16, true)
+                {
+                    Type = ProjectileType.Shell, PrevX = 5f, PrevY = 1.2f, PrevZ = 0f,
+                    StructureDamageMultiplier = 1f,
+                };
+                var afterShell = BattleTick.Step(new GameState
+                {
+                    Phase = GamePhase.Playing,
+                    TurnPhase = TurnPhase.Resolving,
+                    Structures = new[] { wall },
+                    Projectiles = new[] { shellHit },
+                }, 1f / 60f, dummy, new System.Random(1));
+                Check(afterShell.StructureScars.Count == 1
+                      && afterShell.StructureScars[0].Kind == StructureScarKind.Hole
+                      && afterShell.StructureScars[0].StructureId == 100,
+                      $"a shell stamps a HOLE on the wall it hit " +
+                      $"(got {afterShell.StructureScars.Count} scar(s))");
+
+                var bulletHit = new ProjectileEntity(71, 5f, 1.0f, 0f, 0f, -4f, 0f, 8, true)
+                {
+                    Type = ProjectileType.Bullet, PrevX = 5f, PrevY = 1.2f, PrevZ = 0f,
+                };
+                var afterBullet = BattleTick.Step(new GameState
+                {
+                    Phase = GamePhase.Playing,
+                    TurnPhase = TurnPhase.Resolving,
+                    Structures = new[] { wall },
+                    Projectiles = new[] { bulletHit },
+                }, 1f / 60f, dummy, new System.Random(1));
+                Check(afterBullet.StructureScars.Count == 1
+                      && afterBullet.StructureScars[0].Kind == StructureScarKind.Singe,
+                      "a rifle round stamps a SINGE, not a hole");
+            }
+
             // OWN-SIDE structures never block — a garrison fires clean over its own fortress.
             var playerWallDef = ScriptableObject.CreateInstance<StructureDefinitionSO>();
             playerWallDef.id = "pw"; playerWallDef.size = 2f; playerWallDef.isPlayerSide = true;
@@ -2381,6 +2428,9 @@ public static class PortSelfTest
                     Check(arrive.TurnPhase == TurnPhase.TankArrive
                           && Mathf.Abs(tank0.X - (arrive.TankParkX - TurnFlow.TankArriveDistance)) < 0.001f,
                           $"L1 opens on the tank roll ({arrive.TurnPhase}, x {tank0.X:F2} vs park {arrive.TankParkX:F2})");
+                    var tracks = AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Audio/tank_tracks.wav");
+                    Check(tracks != null && tracks.length > 1.5f,
+                          "the tank roll-in has a track-rattle clip (else the beat is silent)");
                     Check(riders0.Count == 1 && riders0[0].X < arrive.TankParkX,
                           $"one operator rides the hull (starting left of the park)");
                     var arriveFired = BattleTick.FireVolley(arrive, new Vector3(8f, 8f, 0f),
@@ -2514,6 +2564,61 @@ public static class PortSelfTest
             float heldLeft = CameraDirector.FollowVolley(-2f, 0f, enemyRounds, pl, en, st, false,
                                                         1f / 60f, out _);
             Check(heldLeft <= -2f + 1e-4f, "a leftward enemy volley is monotonic the other way");
+
+            // Shooter hold: a volley keeps the camera on the firing line for a beat so
+            // the rifles kicking are readable, then the chase may run. L6 spread fights
+            // zoomed out to contain everyone and nobody could tell who shot.
+            {
+                var dummy = ScriptableObject.CreateInstance<LevelDefinitionSO>();
+                var lined = new GameState
+                {
+                    Phase = GamePhase.Playing,
+                    TurnPhase = TurnPhase.Aiming,
+                    PlayerUnits = pl,
+                    EnemyUnits = en,
+                    PlayerCamXAnchor = -8f,
+                    PlayerCamHalfWidth = 2.5f,
+                    EnemyCamXAnchor = 8f,
+                    EnemyCamHalfWidth = 2.5f,
+                };
+                var fired = BattleTick.AutoFire(lined);
+                Check(fired.TurnPhase == TurnPhase.Resolving
+                      && fired.ShooterHold > 0.4f
+                      && Mathf.Abs(fired.ShooterHoldAnchorX + 8f) < 0.05f,
+                      $"a volley HOLDS on the shooters first " +
+                      $"(hold {fired.ShooterHold:F2}s at {fired.ShooterHoldAnchorX:F2})");
+                var afterHold = fired;
+                for (int i = 0; i < 12; i++)
+                    afterHold = BattleTick.Step(afterHold, 1f / 60f, dummy, new System.Random(1));
+                Check(afterHold.ShooterHold > 0.15f,
+                      "a beat later the hold is still running (rifles still on screen)");
+                for (int i = 0; i < 40; i++)
+                    afterHold = BattleTick.Step(afterHold, 1f / 60f, dummy, new System.Random(1));
+                Check(afterHold.ShooterHold == 0f, "then the hold expires and the chase may run");
+
+                // A lone survivor must own the windup frame, not the empty middle of
+                // their side (structure edges still in EnemyFraming).
+                var bunkerDef = ScriptableObject.CreateInstance<StructureDefinitionSO>();
+                bunkerDef.id = "bunker"; bunkerDef.size = 2f; bunkerDef.isPlayerSide = false;
+                var bunker = new StructureEntity(10, bunkerDef, 4f, 1f, 0f, 100);
+                var solo = new GameState
+                {
+                    Phase = GamePhase.Playing,
+                    TurnPhase = TurnPhase.EnemyWindup,
+                    PlayerUnits = pl,
+                    EnemyUnits = new List<UnitEntity> { new(2, ud, 8.5f, 0f, 0f, 32, false) },
+                    Structures = new List<StructureEntity> { bunker },
+                    EnemyCamXAnchor = 6f,
+                    EnemyCamHalfWidth = 5f,
+                    CameraFollowX = 6f,
+                    CameraFollowZ = 12f,
+                };
+                for (int i = 0; i < 25; i++)
+                    solo = BattleTick.Step(solo, 1f / 60f, dummy, new System.Random(1));
+                Check(solo.CameraFollowX > 7.2f,
+                      $"windup on one survivor looks at HIM, not the empty side " +
+                      $"(cam {solo.CameraFollowX:F2}, side was 6)");
+            }
 
             // A melee reset drops the carried velocity, so the spring does not fling.
             CameraDirector.FollowVolley(5f, 99f, rounds, pl, en, st, true, 1f / 60f, out float vReset);
@@ -3645,10 +3750,10 @@ public static class PortSelfTest
                     .Where(p => p.EndsWith(".glb") && !p.Contains("/Kenney/"))
                     .Select(LevelScenery.ModelKey));
 
-            Check(levels.Count == 29, $"all 29 levels present ({levels.Count})");
+            Check(levels.Count == 30, $"all 30 levels present ({levels.Count})");
 
-            Check(levels.Count(l => !l.isTestLevel) == 12,
-                  "the campaign is 12 levels — PRODUCT_DIRECTION Tier 0.1's funnel, "
+            Check(levels.Count(l => !l.isTestLevel) == 13,
+                  "the campaign is 13 levels — PRODUCT_DIRECTION Tier 0.1's funnel, "
                   + $"one beat each ({levels.Count(l => !l.isTestLevel)})");
 
             // Mid-ground scenery is the emptiness lever. Aiming is the empty
@@ -4254,6 +4359,72 @@ public static class PortSelfTest
                   wreckMissing.Count == 0
                       ? "every destroyable structure has an imported collapse"
                       : $"WRECKS MISSING: {string.Join(", ", wreckMissing)}");
+
+            // Legacy Animation, not Mecanim. glTFast defaults new GLBs to
+            // Mecanim (animationMethod 2); WreckAnim plays Animation, so a
+            // Mecanim wreck sits at rest — the live mesh hides and an
+            // identical intact hut takes its place. Hangar, 2026-09-08.
+            var mecanimWrecks = new SortedSet<string>();
+            foreach (var path in AssetDatabase.FindAssets("t:StructureDefinitionSO")
+                         .Select(AssetDatabase.GUIDToAssetPath))
+            {
+                var def = AssetDatabase.LoadAssetAtPath<StructureDefinitionSO>(path);
+                if (def == null || string.IsNullOrEmpty(def.wreckModelAsset)) continue;
+                var wreckPath = $"Assets/Models/{LevelScenery.ModelKey(def.wreckModelAsset)}.glb";
+                var src = AssetDatabase.LoadAssetAtPath<GameObject>(wreckPath);
+                if (src == null) continue;
+                var inst = Object.Instantiate(src);
+                try
+                {
+                    bool legacy = inst.GetComponent<Animation>() != null
+                               || inst.GetComponentInChildren<Animation>(true) != null;
+                    if (!legacy) mecanimWrecks.Add(def.id);
+                }
+                finally { Object.DestroyImmediate(inst); }
+            }
+            Check(mecanimWrecks.Count == 0,
+                  mecanimWrecks.Count == 0
+                      ? "every collapse imports as Legacy Animation so the wreck actually falls"
+                      : $"COLLAPSE AT REST (Mecanim): {string.Join(", ", mecanimWrecks)}");
+
+            // Chunks are proud add-ons over an intact core (BattleRunner). A
+            // garrisoned building whose EVERY mesh is chunk_N loses the deck
+            // on the first shell and the men stand in the air — L13 hangar,
+            // 2026-09-07. The GLB must keep a node that shedding cannot hide.
+            var noCore = new SortedSet<string>();
+            var garrisoned = new HashSet<StructureDefinitionSO>(
+                campaign.SelectMany(l => l.enemyGroups)
+                    .Where(g => !string.IsNullOrEmpty(g.standingOnStructureId))
+                    .Select(g => campaign
+                        .SelectMany(l => l.structures)
+                        .FirstOrDefault(s => s.id == g.standingOnStructureId)
+                        .definition)
+                    .Where(d => d != null));
+            foreach (var def in garrisoned)
+            {
+                var go = AssetDatabase.LoadAssetAtPath<GameObject>(
+                    $"Assets/Models/{LevelScenery.ModelKey(def.modelAsset)}.glb");
+                if (go == null) continue;
+                bool core = go.GetComponentsInChildren<MeshRenderer>(true)
+                    .Any(r => r != null && r.gameObject.name.IndexOf("chunk",
+                        System.StringComparison.OrdinalIgnoreCase) < 0);
+                if (!core) noCore.Add(def.id);
+            }
+            Check(noCore.Count == 0,
+                  noCore.Count == 0
+                      ? "every garrisoned structure keeps a core mesh the chunks cannot hide"
+                      : $"NO DECK CORE (garrison would float): {string.Join(", ", noCore)}");
+
+            var l13 = campaign.FirstOrDefault(l => l.levelNumber == 13);
+            Check(l13 != null, "L13 Scorched Apron is in the campaign");
+            if (l13 != null)
+            {
+                var bay = l13.props.FirstOrDefault(p =>
+                    p.modelAsset != null && p.modelAsset.Contains("wreck_fighter")
+                    && Mathf.Abs(p.x - 7.8f) < 0.05f);
+                Check(bay != null && bay.collapsesWith == "hangar",
+                      "L13 bay jet dies with the hangar — otherwise it sits in the rubble");
+            }
 
             // OUTPUT: L8's wrecks ROTATE. Euler keys on a glTF-imported
             // QUATERNION object export location only — the hut drops 5cm
@@ -5228,11 +5399,24 @@ public static class PortSelfTest
                 // rediscovering it against a phone.
                 var autoState = st0 with { SelectedAmmo = AmmoType.Incendiary,
                                            TurnPhase = TurnPhase.Aiming };
-                var autoFired = BattleTick.AutoFire(autoState);
+                var autoFired = BattleTick.AutoFire(autoState, out var autoAim);
                 var autoRounds = autoFired.Projectiles.Where(p => p.OwnerIsPlayer).ToList();
                 Check(autoRounds.Count > 0 && autoRounds.All(p => p.Ammo == AmmoType.Standard),
                       $"AUTO fires STANDARD rounds whatever is selected — it cannot test ammo " +
                       $"({autoRounds.Count} rounds, state says {autoFired.SelectedAmmo})");
+
+                // Last: used to keep the previous DRAG after Auto, so a 50° solve was read as
+                // 72/30 and a matching finger fell well short. reportedAim is the first
+                // shooter's launch — the thing that actually flew — and it is 50°, always.
+                Check(autoAim.sqrMagnitude > 0.01f, "AUTO reports a launch for the Last HUD");
+                Check(Mathf.Abs(AimSystem.AngleDegrees(autoAim) - BattleTick.AutoLaunchAngleDegrees) < 0.05f,
+                      $"AUTO Last angle is the {BattleTick.AutoLaunchAngleDegrees}° it solves at, " +
+                      $"not a leftover drag (reported {AimSystem.AngleDegrees(autoAim):F1}°)");
+                var firstInf = autoRounds.FirstOrDefault(p => p.Type != ProjectileType.Shell);
+                Check(firstInf != null &&
+                      Mathf.Abs(Mathf.Atan2(firstInf.Vy, firstInf.Vx) * Mathf.Rad2Deg
+                                - AimSystem.AngleDegrees(autoAim)) < 0.05f,
+                      "AUTO Last is the first shooter's launch, which is what actually flew");
 
                 // The contrast, in the same breath: a real volley DOES carry it. Without this the
                 // check above would still pass if ammo were broken everywhere.
@@ -5257,8 +5441,10 @@ public static class PortSelfTest
         CheckNobodyOverlaps();
         CheckEveryGarrisonBodyReadsOnScreen();
         CheckAFallingBodyDoesNotWindUp();
+        CheckRifleRoundsAreNotTankShells();
         CheckNoBossArrivesUnannounced();
         CheckNobodyStandsInAWall();
+        CheckNobodyMeshesWithABuilding();
         CheckEveryEnemyCanBeHit();
         CheckNoBossArrivesInsideItsOwnRubble();
         CheckATrimOverrideReachesARenderer();
@@ -5814,18 +6000,18 @@ public static class PortSelfTest
 
 
     /// <summary>
-    /// NO BOSS ARRIVES UNANNOUNCED — pillar 7 applied to the one thing that was exempt from it.
+    /// BOSS TELEGRAPH THRESHOLD — the strip is optional, the rules if you fill it are not.
     ///
-    /// `ReinforcementWaveBeat` will not let a four-man squad skip its warning ("a wave is not
-    /// allowed to opt out of it"), and L10/L11 both carry two-turn leads. Meanwhile the Sovereign
-    /// — 260 hp plus a heavy escort — arrived on L6 and L12 with nothing at all, because a boss
-    /// fires on a structure falling rather than on a turn and so was never wired to the strip.
-    /// Found by PLAYING L6 to three defeats on 2026-09-04: the garrison half is comfortable and
-    /// the whole level is decided in the boss phase, which the player meets with a spent army
-    /// and no notice.
+    /// Campaign bosses currently carry an empty `telegraphLabel` on purpose. Rob 2026-09-05,
+    /// on L6's "Something moves behind the keep": he does not like the banner. The keep
+    /// falling IS the warning; a strip that spoils that reveal is worse than a blindside.
+    /// Wave telegraphs stay — those have a real clock. This check used to demand a label on
+    /// every campaign boss (pillar 7 applied to the one thing that was exempt from it). That
+    /// demand is withdrawn; empty is the authored choice.
     ///
-    /// This asserts the RULE across the campaign, not one level's data, because the gap was
-    /// never about L6 — it was every boss in the game, which is two of them.
+    /// What this still asserts: a FUTURE label cannot warn at full health or on the arrival
+    /// tick, and any label that IS authored still reaches TMP. The function is live, the
+    /// campaign just does not use it.
     /// </summary>
     static void CheckNoBossArrivesUnannounced()
     {
@@ -5835,22 +6021,6 @@ public static class PortSelfTest
             .Where(l => l != null && !l.isTestLevel)
             .OrderBy(l => l.levelNumber)
             .ToList();
-
-        var silent = new List<string>();
-        int phases = 0;
-        foreach (var l in levels)
-            for (int i = 0; i < l.bossPhases.Count; i++)
-            {
-                var b = l.bossPhases[i];
-                if (b == null || b.triggerStructureIds == null
-                    || b.triggerStructureIds.Count == 0) continue;
-                phases++;
-                if (string.IsNullOrWhiteSpace(b.telegraphLabel)) silent.Add($"L{l.levelNumber}");
-            }
-
-        Check(phases > 0 && silent.Count == 0,
-              $"no boss arrives unannounced — {silent.Count} of {phases} campaign boss phase(s) " +
-              $"have no telegraphLabel{(silent.Count > 0 ? ": " + string.Join(", ", silent) : "")}");
 
         // The threshold has to leave a CHOICE. A warning that lands on the same tick as the
         // arrival is not a telegraph, which is why 0 is excluded rather than clamped.
@@ -5872,6 +6042,14 @@ public static class PortSelfTest
               "and a warning that arrives with the thing it warns about is not a telegraph");
         Check(!EventSystems.ShouldTelegraphBossPhase(0, trig, new HashSet<int> { 0 }, 0.30f),
               "boss telegraph: a phase that already fired says nothing");
+        var silent = new BossPhaseTrigger
+        {
+            triggerStructureIds = { "keep" },
+            telegraphLabel = "",
+            telegraphAtHealthFraction = 0.5f,
+        };
+        Check(!EventSystems.ShouldTelegraphBossPhase(0, silent, none, 0.30f),
+              "boss telegraph: an empty label never warns, even under the threshold");
 
         // Every authored label reaches TMP, which renders a missing glyph as a silent box —
         // the bug the one shipped wave telegraph had, with an em dash.
@@ -5884,6 +6062,30 @@ public static class PortSelfTest
             .ToList();
         Check(unrenderable.Count == 0,
               $"every boss telegraph renders in the default TMP font ({unrenderable.Count} bad)");
+    }
+
+    /// <summary>
+    /// Rifle tracers shipped at the tank shell's 0.34 and rockets at 0.42. At melee that is
+    /// a flying brick next to a 0.48-tall soldier. Rob 2026-09-05: the rounds are too big,
+    /// most obvious into a charge; rockets still too big at 0.30. Shape stays the signed
+    /// dash; size is 0.22 / 0.18.
+    /// </summary>
+    static void CheckRifleRoundsAreNotTankShells()
+    {
+        var bullet = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/Bullet.prefab");
+        var rocket = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/Rocket.prefab");
+        var shell  = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/Shell.prefab");
+        Check(bullet != null && rocket != null && shell != null, "projectile prefabs exist");
+        float b = bullet.transform.localScale.x;
+        float r = rocket.transform.localScale.x;
+        float s = shell.transform.localScale.x;
+        Check(Mathf.Abs(b - 0.22f) < 0.001f,
+              $"rifle tracer is 0.22, not tank-shell size (is {b:F2})");
+        Check(Mathf.Abs(r - 0.18f) < 0.001f,
+              $"rocket is 0.18, not a shell (is {r:F2})");
+        Check(Mathf.Abs(s - 0.34f) < 0.001f,
+              $"tank shell stays 0.34 (is {s:F2})");
+        Check(b < s, "a rifle round is smaller than the shell");
     }
 
     /// <summary>
@@ -6097,8 +6299,9 @@ public static class PortSelfTest
     }
 
     /// <summary>
-    /// RULE 10 — no arrival stands inside the wreck of the structure that spawned it. DELEGATES
-    /// to `LevelComposition.WreckOcclusionRule`, for the third time and the same reason: one
+    /// RULE 10 — no unit stands inside rubble, whether they burst out of it or were standing
+    /// next to the building the player just dropped. DELEGATES to
+    /// `LevelComposition.WreckOcclusionRule`, for the third time and the same reason: one
     /// rule, one implementation.
     ///
     /// This is the rule that says a body can be SEEN, and it exists because eight of the
@@ -6135,12 +6338,12 @@ public static class PortSelfTest
                 offenders.Add($"L{l.levelNumber}: {f.Text}");
         }
 
-        // `phases > 0` is the empty-purse guard: with no boss phase in the campaign this rule
-        // judges nothing and would pass vacuously, which is the shape of a check that can never
-        // go red.
-        Check(measured > 0 && phases > 0 && offenders.Count == 0,
-              $"rule 10 — no arrival is hidden inside the wreck it emerges from, across " +
-              $"{phases} boss phase(s) on {measured} campaign level(s)" +
+        // measured > 0 is the empty-purse guard. Boss phases used to be the only thing this
+        // judged; it now also covers turn-0 neighbours of a building the player may raze, so
+        // a campaign with no boss is still a real test.
+        Check(measured > 0 && offenders.Count == 0,
+              $"rule 10 — no unit is hidden in rubble, {phases} boss phase(s) on " +
+              $"{measured} campaign level(s)" +
               (offenders.Count > 0 ? ": " + string.Join(" | ", offenders) : ""));
     }
 
@@ -6240,6 +6443,43 @@ public static class PortSelfTest
         // Surfaced, never asserted: a warning a level may bend still has to be READABLE, or the
         // next session rediscovers it by hand.
         foreach (var a in advisories) Debug.Log($"[PortSelfTest] rule 8 advisory — {a}");
+    }
+
+    /// <summary>
+    /// RULE 11 — no ground unit MESHES with a live building. DELEGATES to
+    /// `LevelComposition.VisualMeshRule`. Rule 8 is the collision box; this is the mesh the
+    /// player sees. Found on device 2026-09-05: L6's right-hand dirt rifleman standing in
+    /// the Mountain Bunker's sloped wall, rule 8 green, camera at x 2.82 z 2.36.
+    ///
+    /// Wired AFTER the two levels were moved, same as rule 9: a red suite over shipped
+    /// content teaches the next person to ignore it. Run red first — L6 and L9 named.
+    /// </summary>
+    static void CheckNobodyMeshesWithABuilding()
+    {
+        var levels = AssetDatabase.FindAssets("t:LevelDefinitionSO")
+            .Select(AssetDatabase.GUIDToAssetPath)
+            .Select(AssetDatabase.LoadAssetAtPath<LevelDefinitionSO>)
+            .Where(l => l != null && !l.isTestLevel)
+            .OrderBy(l => l.levelNumber)
+            .ToList();
+
+        int measured = 0;
+        var offenders = new List<string>();
+        foreach (var level in levels)
+        {
+            GameState state;
+            try { state = LevelBuilder.BuildInitialState(level, 1, 1, new System.Random(12345)); }
+            catch { continue; }
+            measured++;
+            var f = LevelComposition.VisualMeshRule(level, state);
+            if (f.Level == LevelComposition.Severity.Error)
+                offenders.Add($"L{level.levelNumber}: {f.Text}");
+        }
+
+        Check(measured > 0 && offenders.Count == 0,
+              $"rule 11 — no ground unit meshes with a live building, {measured} campaign " +
+              $"level(s)" +
+              (offenders.Count > 0 ? ": " + string.Join(" | ", offenders) : ""));
     }
 
     /// <summary>
