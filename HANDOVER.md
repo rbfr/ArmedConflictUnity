@@ -1,41 +1,82 @@
-# Handover — Unity, as of 2026-09-08
+# Handover — Unity, as of 2026-09-09
 
 ## Pick up here
 
-Branch `session/2026-08-25-shell-art-ragdoll`. Sitting is on origin
-(`e12f995` L13/look). Ask git before writing on top.
+Branch `session/2026-08-25-shell-art-ragdoll`. Ask git before writing
+on top.
 
 Rob signed 09-06 on device: muzzle *"ok that looks good."* Camera
 *"ok this looks much better."* Wrecks *"yeah that's better."* L6 at 160 hp
 *"looks more reasonable."*
 
-**This sitting (09-08):** L13 **Scorched Apron** (Ashfield, starsToUnlock 16)
-plus tank roll-in audio. On the phone, iterated, **not signed as a set**.
-USB `57121FDCQ005LC`. `PortSelfTest` ALL PASS. Scene 30 levels / 91 models.
-`Builds/Step1.apk` ~633MB.
+**This sitting (09-08 → 09-09):** L13 look-pass on USB `57121FDCQ005LC`.
+Sky, melee charge, bay olive, broken-in-half apron wreck with hull
+fire on both halves, billowing smoke, control tower + spinning radar.
+Scene 30 levels / **92** models. Last APK is the billow smoke.
+
+`PortSelfTest`: new L13/hull/smoke/radar checks green. One standing
+FAIL remains — **NO MID-GROUND SCENERY: Scorched Apron** (rule wants
+two `keepColors` at `z <= -6`; only the tower qualifies after the
+extra apron wrecks were pulled). Do not "fix" that by duplicating a
+tree.
+
+### Signed on device this sitting
+
+- **Apron wreck:** one CC0 airliner **broken in half**, charred snap,
+  tail yawed off. Rob: *"yes, that's looking better."* Then the
+  floating burn disc was pulled off the hull; after the cap sat on
+  the fuselage end: *"looks good."*
+- **Sky:** bluer horizons, played on L13. *"ok good."* Not a tour of
+  all seven biomes.
+- **Apron fire/smoke:** hull sit (not AABB-top / tail), both halves,
+  billows that keep rising. Rob: *"ok that works."*
 
 ### L13 as it stands
 
 Open-mouth hangar at **x 7.8**, worldScale **2.5**, hitWidth **3.40**,
-deckY **2.05**, catwalk `deckStandZOffset` **1.45** (no parapet — helmets
-only at 6°). CORE mesh is `Hangar` + trim/accent; chunks are skin + a
-roof scar. Collapse is **Legacy Animation** (`hangar_collapse.glb.meta`
-`animationMethod: 1`).
+deckY **2.05**, catwalk `deckStandZOffset` **1.45** (no parapet). CORE
+is `Hangar` + trim/accent; chunks are skin + a roof scar. Collapse is
+**Legacy Animation** (`animationMethod: 1`).
 
-In-bay jet: `prop_wreck_fighter.glb` at **(7.8, 0.90) scale 1.7**,
-`collapsesWith: hangar` — hides and throws two blasts when the hangar
-dies. Apron wrecks stay. Charge 5 rifle at x 3.0 advance 1.4; 2 MG at
-4.4; garrison 10 rifle + 4 grenadier crowd on the hangar.
+Charge **5 shield bearers** at x 3.0 advance 1.4 — pure melee, they
+do not volley (they shipped as riflemen and still fired). 2 MG at
+4.4. Garrison 10 rifle + 4 grenadier crowd on the hangar.
 
-Wrecks are the **CC0 Jetliner** (`tools/blender/wreck_from_real_planes.py`,
-`tools/blender/cc0_planes/`). Fighter yaw **+0.55** longest **3.8**;
-transport yaw **−0.50** longest **4.4**. `build_airport.py` must **not**
-overwrite those glbs — it only exports hangar / runway / tower.
+**Apron wreck:** `prop_wreck_fighter.glb` at **x 3.6 z -4.5 scale 4.6**,
+`onFire`. One plane, bisected, burn faces are the fuselage cut (not a
+separate cylinder). Same wreck fire/smoke kit as collapse heaps, but
+**hull sit** — SitOnPile uses the AABB top and that is the tail, so
+the tongues floated. Vertex percentiles on the fuselage; fire on
+**both halves** of the snap. Smoke is overlapping billows (no
+dark foot — the old column texture stacked as slabs). Rises and
+recycles; city too.
+Builder:
+`tools/blender/build_wreck_planes.py`. The extra apron fighters +
+transport were removed so this one can read.
 
-**Tank tracks:** `Assets/Audio/tank_tracks.wav` (converted from the MP3,
-mono 44.1 PCM, DecompressOnLoad). Plays on `TurnPhase.TankArrive`,
-**0.55s fade** when the hull parks. Hard-stop on `LoadLevel`. Own
-`AudioSource` so Stop cannot kill a one-shot.
+**Bay jet:** `prop_wreck_fighter_bay.glb` at **(7.8, 0.90) scale 1.7**,
+olive tint, `collapsesWith: hangar`. Parked airframe from
+`wreck_from_real_planes.py` (CC0 Jetliner). Do not use the apron
+crash mesh in the mouth.
+
+**Control tower:** slim octagon shaft + wraparound glass cab
+(`build_airport.py` `build_control_tower`), x **-6** z **-15.5**
+scale **5.6**, `trim_radar` child spinning 48°/s. On the APK;
+**not verbally signed**. Do not join the radar into the body.
+
+**Wreck fire:** tongues ON the pile, proud of the camera lip. Smoke
+is overlapping billows (city too). Hangar cookoff still owed.
+
+**Tank tracks:** `tank_tracks.wav` on `TurnPhase.TankArrive`, 0.55s
+fade on park. Hard-stop on `LoadLevel`. Own `AudioSource`.
+
+`build_airport.py` exports hangar / runway / **tower** only. Do not
+let it overwrite the wreck glbs.
+
+**Re-export of a planted glb MUST rebuild the scene.** Root fileID
+moves; the name stays in `modelNames` and `Spawn` returns null. That
+is why the apron wrecks vanished after the crash mesh shipped —
+`PortSelfTest` now fails if any scene model slot is `{fileID: 0}`.
 
 ### Tried and rejected this sitting — do not reopen
 
@@ -47,14 +88,24 @@ mono 44.1 PCM, DecompressOnLoad). Plays on `TurnPhase.TankArrive`,
   hangar; it was pulled forward to z 0.90 instead.
 - Box-built wreck planes; fighter on its side (~80° roll); nose-plant;
   Jetliner +90° X (stood on its tail). Rest on tarmac, yaw only.
+- Deleting faces off the airliner — *"just looks like pieces are missing."*
+- Primitive hull "crashed fighter" — *"you can't tell what that is."*
+- Standing-wing airliner as the wreck read (still not a crash).
+- A separate cylinder as the burn cap — floated off the fuselage.
 - `hangar_collapse.glb` Mecanim (`animationMethod: 2`) — wreck sat at
   rest, still standing. All other `*_collapse.glb` are method **1**.
+- SitOnPile AABB-top on the apron hull — the tail is that top, tongues
+  floated. Hull sit uses vertex percentiles.
+- Column smoke texture (opaque foot, faded tip) — every puff read as a
+  dark slab. Billows, fade on all edges.
 
 ### Next session, if playing on device
 
-Phone is on the loadout of this APK. Campaign run L1→L6 through the
-picker is still owed. L13 is playable — ask him to sign the hangar,
-the planes, the collapse+jet cookoff, and the tank rattle fade.
+Phone has this APK. Open L13: sign the **control tower + radar**, the
+hangar **collapse + bay-jet cookoff**, tank-track fade, and the melee
+charge (shields, no shooting). Apron wreck mesh, hull fire, and
+billowing smoke are signed. Then a campaign run **L1→L6 through the
+picker**.
 
 ### Signed 09-06 — do not reopen
 
@@ -103,15 +154,17 @@ Rules **8–11**. Wrecks sit back (`WreckBackZ` -1.6). L6 bosses at the keep, z 
 L12 `anchorZ` 3.4. Volley holds **0.45s** on shooters, then chases; windup looks
 at living actors. Heroes 1.45 / Sovereign 1.65 with brass-gold trim. Sovereign
 **160 hp**. Campaign: 13 levels (L13 Scorched Apron / Ashfield), 2 warnings
-(L3 rule 7, L5 separation 11.6), 0 errors. `PortSelfTest` ALL PASS after authoring.
+(L3 rule 7, L5 separation 11.6), 0 errors. L13 charge is melee. Skies
+are a notch bluer. Apron wreck burns on both halves; smoke billows and
+rises. Tower at z -15.5 scale 5.6 with spinning radar. Scene 92 models.
+`PortSelfTest` has one standing FAIL: L13 mid-ground count (see pickup).
 
 `PortSelfTest.Run` after every change. **RIGS** is the test supply (consumables,
 classes, ammo) — a clean install resets it. **Do not use Auto** for structures,
 ammo, or consumables. Android repo is RETIRED. `DISPLAY=:0`. **Ask git.**
 Uninstall/reinstall does **not** wipe coins (Android backup); it does reset RIGS.
 
-L13 kit, muzzle, and tank tracks are in `e12f995`. Leftover and **not
-wired** — still untracked, do not treat as product:
+Leftover and **not wired** — still untracked, do not treat as product:
 `Assets/Models/Kenney/Particles/` and `Assets/Materials/TracerSprite.mat`.
 
 ### Owed
@@ -120,9 +173,12 @@ wired** — still untracked, do not treat as product:
 2. Rocket **0.18** at melee, if it has not been signed on a charge.
 3. Optional, ask first: pull L12 bosses back now that wrecks sit behind the
    ground line.
-4. **Sign L13 on device** — hangar, apron wrecks, collapse + bay-jet
-   cookoff, tank-track fade. Composition green, APK current; the look
-   has not been signed as a set.
+4. **Sign the rest of L13 on device** — control tower + radar, hangar
+   collapse + bay-jet cookoff, tank-track fade, melee charge. Apron wreck
+   mesh + hull fire + billowing smoke are signed.
+5. **Winter / Dusk skies** on a real volley — Desert L13 was *"ok good."*
+6. Optional: a second mid-ground prop on L13 at `z <= -6` so the scenery
+   check goes green. Do not plant a twin of the tower.
 
 ### Do not open unprompted
 
@@ -133,7 +189,9 @@ widen the aim frame — analysed 2026-08-17, recommendation is no; camera is
 locked. Whole-building charcoal — tried 09-06, rejected. Z-forward bosses —
 tried 09-06, rejected (looked closer to the camera). Hangar as a warehouse
 lid, a closed-door mouth, or Mecanim collapse — tried 09-08, rejected.
-Do not re-export the CC0 wrecks from `build_airport.py`.
+Do not re-export wreck glbs from `build_airport.py`. Do not delete faces
+off the airliner, box-build wreck planes, or cap a snap with a floating
+disc. After any planted-glb re-export, rebuild the scene.
 
 ### Closed 08-27 → 08-28 — do not reopen as taste
 

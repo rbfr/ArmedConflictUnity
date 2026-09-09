@@ -1600,8 +1600,8 @@ public static class PortSelfTest
                         {
                             var kit = RuinFx.MakeKit(fade, ownedFx);
                             var sess = RuinFx.AttachWreck(inst.transform, kit, 1);
-                            Check(sess.Fires.Length == 3 && sess.Smokes.Length == 1,
-                                  $"wreck plants city-style fire+smoke "
+                            Check(sess.Fires.Length == 3 && sess.Smokes.Length == 3,
+                                  $"wreck plants fire+smoke on the heap "
                                   + $"({sess.Fires.Length} fires, {sess.Smokes.Length} plumes)");
                             sess.BornAt = 0f;
                             sess.Tick(0f);
@@ -1611,7 +1611,7 @@ public static class PortSelfTest
                             Check(h1 > h0 + 0.05f,
                                   $"wreck fire fades IN (h {h0:F2} -> {h1:F2})");
                             var fp = sess.Fires[0].Outer.parent.localPosition;
-                            float mz0 = 1e9f, mz1 = -1e9f;
+                            float mz0 = 1e9f, mz1 = -1e9f, my0 = 1e9f, my1 = -1e9f;
                             foreach (var r in inst.GetComponentsInChildren<MeshRenderer>(true))
                             {
                                 if (!r.enabled || r.name == "outer" || r.name == "inner"
@@ -1622,10 +1622,18 @@ public static class PortSelfTest
                                 var c = inst.transform.InverseTransformPoint(b.max);
                                 mz0 = Mathf.Min(mz0, a.z, c.z);
                                 mz1 = Mathf.Max(mz1, a.z, c.z);
+                                my0 = Mathf.Min(my0, a.y, c.y);
+                                my1 = Mathf.Max(my1, a.y, c.y);
                             }
-                            Check(fp.y > 0.02f && fp.z < mz1 - 0.03f && fp.z > mz0 - 0.05f,
-                                  $"wreck fire sits IN the pile (y={fp.y:F2} z={fp.z:F2} "
-                                  + $"in [{mz0:F2},{mz1:F2}]), not proud of the front");
+                            Check(fp.y > (my0 + my1) * 0.5f,
+                                  $"wreck fire sits ON the pile (y={fp.y:F2} mid={(my0+my1)*0.5f:F2}), "
+                                  + "not in the dirt under the rubble");
+                            Check(fp.z >= mz1 - 0.04f,
+                                  $"wreck fire is at/proud of the camera lip "
+                                  + $"(z={fp.z:F2} lip={mz1:F2}) so rubble cannot hide it");
+                            float smokeWorld = sess.Smokes[0].H * inst.transform.lossyScale.x;
+                            Check(smokeWorld > 3.5f,
+                                  $"wreck smoke is a column ({smokeWorld:F1}), not a puff");
                         }
                         finally
                         {
@@ -1638,6 +1646,86 @@ public static class PortSelfTest
                         Object.DestroyImmediate(inst);
                     }
                 }
+
+            // OUTPUT: L13 apron fire sat ABOVE the airliner. SitOnPile uses
+            // the AABB top; the tail is that top. Hull mode must sit on the
+            // fuselage, well below the fin.
+            {
+                const string ApronPath = "Assets/Models/prop_wreck_fighter.glb";
+                var go = AssetDatabase.LoadAssetAtPath<GameObject>(ApronPath);
+                Check(go != null, $"{ApronPath} is imported");
+                if (go != null)
+                {
+                    var inst = (GameObject)PrefabUtility.InstantiatePrefab(go);
+                    try
+                    {
+                        var fade = AssetDatabase.LoadAssetAtPath<Material>(
+                            "Assets/Materials/BackdropFadeSource.mat");
+                        var ownedFx = new List<Object>();
+                        try
+                        {
+                            var kit = RuinFx.MakeKit(fade, ownedFx);
+                            var sess = RuinFx.AttachWreck(inst.transform, kit, 2, hull: true);
+                            Check(sess.Fires.Length == 4 && sess.Smokes.Length == 4,
+                                  $"hull fire covers both halves ({sess.Fires.Length} tongues, "
+                                  + $"{sess.Smokes.Length} plumes)");
+                            sess.Tick(0f);
+                            var fp = sess.Fires[0].Outer.parent.localPosition;
+                            float my0 = 1e9f, my1 = -1e9f, mx0 = 1e9f, mx1 = -1e9f;
+                            foreach (var r in inst.GetComponentsInChildren<MeshRenderer>(true))
+                            {
+                                if (!r.enabled || r.name == "outer" || r.name == "inner"
+                                    || r.name.StartsWith("WreckFire") || r.name.StartsWith("WreckSmoke"))
+                                    continue;
+                                var b = r.bounds;
+                                var a = inst.transform.InverseTransformPoint(b.min);
+                                var c = inst.transform.InverseTransformPoint(b.max);
+                                my0 = Mathf.Min(my0, a.y, c.y);
+                                my1 = Mathf.Max(my1, a.y, c.y);
+                                mx0 = Mathf.Min(mx0, a.x, c.x);
+                                mx1 = Mathf.Max(mx1, a.x, c.x);
+                            }
+                            float span = my1 - my0;
+                            float fromBelly = (fp.y - my0) / Mathf.Max(0.01f, span);
+                            Check(fromBelly > 0.12f && fromBelly < 0.62f,
+                                  $"apron fire sits ON the hull (y={fp.y:F2} belly={my0:F2} "
+                                  + $"tail={my1:F2} frac={fromBelly:F2}), not above the tail");
+                            float fireLo = 1e9f, fireHi = -1e9f;
+                            for (int i = 0; i < sess.Fires.Length; i++)
+                            {
+                                var p = sess.Fires[i].Outer.parent.localPosition;
+                                fireLo = Mathf.Min(fireLo, p.x);
+                                fireHi = Mathf.Max(fireHi, p.x);
+                            }
+                            float fireSpan = fireHi - fireLo;
+                            float hullSpan = mx1 - mx0;
+                            Check(fireSpan > hullSpan * 0.35f,
+                                  $"apron fire is on BOTH halves (fire span {fireSpan:F2} vs hull {hullSpan:F2})");
+                            float yMin = 1e9f, yMax = -1e9f;
+                            for (float t = 0f; t <= 6f; t += 0.5f)
+                            {
+                                sess.Tick(t);
+                                float y = sess.Smokes[0].Quad.localPosition.y;
+                                if (y < yMin) yMin = y;
+                                if (y > yMax) yMax = y;
+                            }
+                            Check(yMax > yMin + 0.40f,
+                                  $"smoke RISE (y {yMin:F2} -> {yMax:F2}), not a parked column");
+                            Check(sess.Smokes[0].Quad2 != null,
+                                  "each plume has a second puff so the column never holds still");
+                        }
+                        finally
+                        {
+                            foreach (var o in ownedFx)
+                                if (o != null) Object.DestroyImmediate(o);
+                        }
+                    }
+                    finally
+                    {
+                        Object.DestroyImmediate(inst);
+                    }
+                }
+            }
                 var killed = st with
                 {
                     Phase = GamePhase.Playing,
@@ -3488,15 +3576,22 @@ public static class PortSelfTest
                     var prefs = so.FindProperty("modelPrefabs");
                     bool farOk = false, nearOk = false;
                     int n = Mathf.Min(names.arraySize, prefs.arraySize);
+                    var missing = new System.Collections.Generic.List<string>();
                     for (int i = 0; i < n; i++)
                     {
                         string key = names.GetArrayElementAtIndex(i).stringValue;
                         var pref = prefs.GetArrayElementAtIndex(i).objectReferenceValue;
+                        if (pref == null) missing.Add(key);
                         if (key == ArmedConflict.Render.BackdropRuntime.CityFarModel)
                             farOk = pref != null;
                         if (key == ArmedConflict.Render.BackdropRuntime.CityNearModel)
                             nearOk = pref != null;
                     }
+                    Check(missing.Count == 0,
+                          missing.Count == 0
+                              ? "every scene model slot is wired"
+                              : "MISSING PREFABS after glb re-export: "
+                                + string.Join(", ", missing));
                     Check(farOk && nearOk,
                           $"Battle.unity still references both city GLBs (far={farOk}, near={nearOk})");
                     bool fFar = false, fNear = false;
@@ -3639,10 +3734,17 @@ public static class PortSelfTest
                   $"ruin tongue licks ({flame0:F2} -> {flame1:F2})");
 
             var smokeTex = ArmedConflict.Render.RuinFx.SmokeTex();
-            var foot = smokeTex.GetPixel(smokeTex.width / 2, 2);
-            var tip = smokeTex.GetPixel(smokeTex.width / 2, smokeTex.height - 2);
-            Check(foot.a > 0.08f && foot.a < 0.70f && tip.a < foot.a * 0.45f,
-                  $"smoke is a soft column, not a slab (foot a={foot.a:F2}, tip a={tip.a:F2})");
+            int sw = smokeTex.width, sh = smokeTex.height;
+            var mid = smokeTex.GetPixel(sw / 2, sh / 2);
+            var foot = smokeTex.GetPixel(sw / 2, 2);
+            var tip = smokeTex.GetPixel(sw / 2, sh - 2);
+            var side = smokeTex.GetPixel(2, sh / 2);
+            Check(mid.a > 0.18f
+                  && foot.a < mid.a * 0.45f && tip.a < mid.a * 0.45f
+                  && side.a < mid.a * 0.45f
+                  && Mathf.Abs(foot.a - tip.a) < 0.12f,
+                  $"smoke is a billow, not a dark-footed column "
+                  + $"(mid a={mid.a:F2} foot={foot.a:F2} tip={tip.a:F2})");
             Object.DestroyImmediate(smokeTex);
             Object.DestroyImmediate(host);
             foreach (var o in owned) if (o != null) Object.DestroyImmediate(o);
@@ -4419,11 +4521,41 @@ public static class PortSelfTest
             Check(l13 != null, "L13 Scorched Apron is in the campaign");
             if (l13 != null)
             {
-                var bay = l13.props.FirstOrDefault(p =>
+                var apron = l13.props.FirstOrDefault(p =>
                     p.modelAsset != null && p.modelAsset.Contains("wreck_fighter")
+                    && !p.modelAsset.Contains("bay")
+                    && Mathf.Abs(p.x - 3.6f) < 0.05f);
+                Check(apron != null && apron.onFire,
+                      "L13 apron wreck burns — smoke+flames on the snapped hull");
+                var towerGlb = AssetDatabase.LoadAssetAtPath<GameObject>(
+                    "Assets/Models/prop_control_tower.glb");
+                Check(towerGlb != null, "prop_control_tower.glb is imported");
+                if (towerGlb != null)
+                {
+                    bool radar = false;
+                    foreach (var t in towerGlb.GetComponentsInChildren<Transform>(true))
+                        if (t.name.IndexOf("radar", System.StringComparison.OrdinalIgnoreCase) >= 0)
+                            radar = true;
+                    Check(radar, "control tower carries a radar child to spin");
+                }
+                var bay = l13.props.FirstOrDefault(p =>
+                    p.modelAsset != null && p.modelAsset.Contains("wreck_fighter_bay")
                     && Mathf.Abs(p.x - 7.8f) < 0.05f);
                 Check(bay != null && bay.collapsesWith == "hangar",
                       "L13 bay jet dies with the hangar — otherwise it sits in the rubble");
+                Check(bay != null && bay.tint.a > 0.5f && bay.tint.g > bay.tint.r,
+                      "L13 bay jet is olive, not the same charcoal as the apron wrecks");
+                Check(bay == null || !bay.onFire,
+                      "L13 bay jet is parked, not already alight — cookoff is the hangar fall");
+                var tower = l13.props.FirstOrDefault(p =>
+                    p.modelAsset != null && p.modelAsset.Contains("control_tower"));
+                Check(tower != null && tower.z <= -14f && tower.scale >= 5f,
+                      "L13 control tower sits back and large "
+                      + (tower == null ? "(missing)" : $"(z={tower.z:F1} scale={tower.scale:F1})"));
+                var charge = l13.enemyGroups.Where(g => g.advancePerTurn > 0f).ToList();
+                Check(charge.Count > 0 && charge.All(g =>
+                          g.definition != null && g.definition.meleeDamage > 0),
+                      "L13 charge is melee — riflemen on that sprint still fired");
             }
 
             // OUTPUT: L8's wrecks ROTATE. Euler keys on a glTF-imported

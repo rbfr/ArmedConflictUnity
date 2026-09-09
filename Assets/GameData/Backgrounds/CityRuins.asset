@@ -12,8 +12,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 681e574a89dae229290ce66a4e95ac2d, type: 3}
   m_Name: CityRuins
   m_EditorClassIdentifier: 
-  skyTop: {r: 0.3647059, g: 0.5411765, b: 0.7254902, a: 1}
-  skyHorizon: {r: 0.8745098, g: 0.8, b: 0.69803923, a: 1}
+  skyTop: {r: 0.27450982, g: 0.43137255, b: 0.6784314, a: 1}
+  skyHorizon: {r: 0.54901963, g: 0.65882355, b: 0.8117647, a: 1}
   groundColor: {r: 0.42, g: 0.40, b: 0.385, a: 1}
   groundNear: {r: 0.50, g: 0.48, b: 0.46, a: 1}
   horizonAccent: {r: 0.40, g: 0.38, b: 0.36, a: 1}

@@ -81,6 +81,20 @@ namespace ArmedConflict.Data
         /// rubble reads as the plane surviving the collapse.
         /// </summary>
         public string collapsesWith = "";
+
+        /// <summary>
+        /// Optional keepColors recolor. a = 0 means unset (do not paint).
+        /// L13's bay jet uses this so it is not the same charcoal hulk as
+        /// the apron wrecks — a parked airframe, not another burned one.
+        /// </summary>
+        public Color tint = new Color(0f, 0f, 0f, 0f);
+
+        /// <summary>
+        /// Plant the same wreck fire/smoke kit used on collapse heaps.
+        /// L13's apron airliner is already burned out — tongues and plumes
+        /// from the first frame, no fade-in.
+        /// </summary>
+        public bool onFire = false;
     }
 
     [Serializable]

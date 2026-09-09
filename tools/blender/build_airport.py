@@ -383,57 +383,78 @@ def build_runway():
 # Burned control tower — keepColors mid-ground prop, not a structure.
 # ---------------------------------------------------------------------------
 def build_control_tower():
-    char = mat("ct_char", (0.20, 0.19, 0.16))
-    rust = mat("ct_rust", (0.46, 0.24, 0.11))
-    hole = mat("ct_hole", (0.05, 0.04, 0.04))
-    glass = mat("ct_glass", (0.08, 0.10, 0.12))
-    pale = mat("ct_pale", (0.32, 0.30, 0.26))
+    """Slim octagon shaft + wraparound glass cab. The old T of crates
+    did not read as a tower at 6°."""
+    conc = mat("ct_conc", (0.38, 0.36, 0.32))
+    shaft = mat("ct_shaft", (0.28, 0.27, 0.24))
+    cab = mat("ct_cab", (0.42, 0.40, 0.36))
+    glass = mat("ct_glass", (0.10, 0.16, 0.20))
+    dark = mat("ct_dark", (0.06, 0.07, 0.08))
+    rust = mat("ct_rust", (0.50, 0.26, 0.10))
+    soot = mat("ct_soot", (0.08, 0.07, 0.06))
 
-    # Stalk, slightly leaned.
     join([
-        box((0.55, 0.55, 1.80), (0.00, 0.00, 0.90), (0.08, 0, 0.06)),
-        box((0.62, 0.62, 0.12), (0.00, 0.00, 0.08)),          # plinth
-    ], "body_stalk", char)
-
-    # Cab, bigger than the stalk — that is the silhouette.
+        box((0.78, 0.78, 0.14), (0.00, 0.00, 0.07)),
+        box((1.42, 1.22, 0.07), (0.00, 0.00, 2.28)),
+        box((1.38, 1.18, 0.10), (0.00, 0.00, 2.98)),
+    ], "body_conc", conc)
     join([
-        box((1.15, 1.00, 0.55), (0.08, -0.05, 2.05), (0.10, 0.05, 0.08)),
-        box((1.25, 1.10, 0.08), (0.08, -0.05, 2.36), (0.10, 0.05, 0.08)),  # roof
-    ], "body_cab", pale)
-
-    # Dark glass band.
+        cyl(0.28, 2.15, (0.00, 0.00, 1.20), verts=8),
+    ], "body_shaft", shaft)
     join([
-        box((1.05, 0.12, 0.32), (0.08, -0.52, 2.08), (0.10, 0.05, 0.08)),
-        box((0.12, 0.90, 0.32), (0.62, -0.05, 2.08), (0.10, 0.05, 0.08)),
-        box((0.12, 0.90, 0.32), (-0.46, -0.05, 2.08), (0.10, 0.05, 0.08)),
+        box((1.22, 1.05, 0.62), (0.00, 0.00, 2.62)),
+        box((1.42, 1.22, 0.04), (0.00, 0.00, 3.05)),
+    ], "body_cab", cab)
+    join([
+        box((1.18, 0.06, 0.38), (0.00, -0.54, 2.62)),
+        box((1.18, 0.06, 0.38), (0.00, 0.54, 2.62)),
+        box((0.06, 1.01, 0.38), (0.63, 0.00, 2.62)),
+        box((0.06, 1.01, 0.38), (-0.63, 0.00, 2.62)),
     ], "accent_glass", glass)
-
-    # Snapped aerial.
     join([
-        cyl(0.04, 0.85, (0.35, 0.20, 2.70), rot=(0.6, 0.2, 0.4), verts=6),
-        box((0.18, 0.08, 0.08), (0.55, 0.40, 2.95), (0.4, 0.3, 0.5)),
+        box((0.22, 0.06, 0.42), (0.00, -0.28, 0.38)),
+        box((0.28, 0.07, 0.28), (0.22, -0.56, 2.58)),
+    ], "accent_dark", dark)
+    join([
+        box((0.12, 0.08, 0.55), (0.18, -0.24, 1.05)),
+    ], "accent_soot", soot)
+    join([
+        cyl(0.025, 0.95, (0.28, 0.18, 3.52), rot=(0.15, 0.08, 0.2), verts=6),
+        cyl(0.018, 0.45, (-0.22, -0.10, 3.28), rot=(0.4, -0.2, 0.3), verts=6),
+        cyl(0.12, 0.03, (0.28, 0.18, 3.95), rot=(1.1, 0.2, 0), verts=8),
     ], "trim_aerial", rust)
 
-    # Burn scar on the stalk.
-    join([
-        box((0.20, 0.18, 0.70), (0.22, -0.22, 1.10)),
-        box((0.28, 0.16, 0.22), (0.18, -0.48, 2.00)),
-    ], "accent_burn", hole)
-
+    # Body only — the radar stays a child so Unity can spin it.
     bpy.ops.object.select_all(action="SELECT")
     bpy.ops.object.join()
     t = bpy.context.active_object
-    t.name = "control_tower_wreck"
-    t.rotation_euler = (0.0, 0.0, 0.22)
+    t.name = "control_tower"
+    t.rotation_euler = (0.0, 0.0, 0.28)
     bpy.ops.object.transform_apply(location=False, rotation=True, scale=True)
-    origin_base()
+    bpy.context.scene.cursor.location = (0.0, 0.0, 0.0)
+    bpy.ops.object.select_all(action="DESELECT")
+    t.select_set(True)
+    bpy.context.view_layer.objects.active = t
+    bpy.ops.object.origin_set(type="ORIGIN_CURSOR")
+
+    # Airport surveillance radar: mast + bar on the cab. Origin on the
+    # mast so a Y-spin (Blender Z, Unity Y after glTF) reads as a sweep.
+    rust_r = mat("ct_radar", (0.46, 0.40, 0.32))
+    mast = cyl(0.038, 0.40, (0.00, 0.00, 3.28), verts=8)
+    bar = box((1.12, 0.11, 0.08), (0.00, 0.00, 3.50))
+    head = box((0.18, 0.18, 0.14), (0.00, 0.00, 3.44))
+    radar = join([mast, bar, head], "trim_radar", rust_r, origin=(0.0, 0.0, 3.28))
+    radar.parent = t
+    radar.matrix_parent_inverse = t.matrix_world.inverted()
 
 
 def main():
     os.makedirs(OUT_DIR, exist_ok=True)
     builders = (
         ("hangar", build_hangar),
-        # Wreck planes are CC0 airliners from wreck_from_real_planes.py.
+        # Wreck planes: modeled hulls in build_wreck_planes.py (apron)
+        # and parked CC0 in wreck_from_real_planes.py (bay). Do not export
+        # the box builders below.
         # The box builders stay as reference; do not overwrite the glbs.
         ("prop_runway", build_runway),
         ("prop_control_tower", build_control_tower),

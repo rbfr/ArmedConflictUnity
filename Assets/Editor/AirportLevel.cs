@@ -111,7 +111,8 @@ public static class AirportLevel
 
     static PropPlacement Prop(string model, float x, float z, float scale,
                               bool keep = true, bool abs = false, float half = 1f,
-                              string diesWith = "")
+                              string diesWith = "", Color tint = default,
+                              bool onFire = false)
         => new PropPlacement
         {
             modelAsset = model,
@@ -120,6 +121,8 @@ public static class AirportLevel
             absoluteScale = abs,
             halfWidth = half,
             collapsesWith = diesWith,
+            tint = tint,
+            onFire = onFire,
         };
 
     static LevelDefinitionSO Level(HangarDef hangar)
@@ -151,8 +154,8 @@ public static class AirportLevel
         so.playerSpacingScale = 0.85f;
         so.designNotes =
             "Beat 13: second melee shape. L4 taught the charge behind wire; this is the " +
-            "same panic on OPEN tarmac — five riflemen sprint the apron with nothing in " +
-            "front of them but air. The hangar is the dominant (and only) structure, " +
+            "same panic on OPEN tarmac — five shield bearers sprint the apron with nothing in " +
+            "front of them but air. They do not fire; they close and melee. The hangar is the dominant (and only) structure, " +
             "majority garrisoned, so dropping it is still the efficient kill. MG sit at " +
             "the bay mouth, not on the roof (class placement). Wrecked planes and the " +
             "runway are keepColors props — they do not collide. Desert reused (L5/L12); " +
@@ -167,7 +170,7 @@ public static class AirportLevel
 
         so.enemyGroups = new List<EnemyGroup>
         {
-            Group($"{U}/EnemyRifleman.asset", 5, 3.0f, 0f, "", 1.4f),
+            Group($"{U}/EnemyShieldBearer.asset", 5, 3.0f, 0f, "", 1.4f),
             Group($"{U}/EnemyMachineGunner.asset", 2, 4.4f, 0f),
             Group($"{U}/EnemyRiflemanCrowd.asset", 10, 7.8f, 0.12f, "hangar"),
             Group($"{U}/EnemyGrenadierCrowd.asset", 4, 7.8f, 0.12f, "hangar"),
@@ -186,14 +189,18 @@ public static class AirportLevel
         so.props = new List<PropPlacement>
         {
             Prop("models/prop_runway.glb", -1.0f, -2.2f, 1f, keep: true, abs: true, half: 8f),
-            Prop("models/prop_wreck_fighter.glb", 2.4f, -4.6f, 3.4f, half: 1.8f),
-            Prop("models/prop_wreck_fighter.glb", 5.2f, -4.0f, 2.8f, half: 1.5f),
+            // One airliner, snapped in half. The 6° camera has to see a plane
+            // that crashed — not a graveyard of unreadable bits. onFire: the
+            // snap is the burn face; tongues + smoke sit on the hull.
+            Prop("models/prop_wreck_fighter.glb", 3.6f, -4.5f, 4.6f, half: 2.4f,
+                onFire: true),
             // Smaller jet IN the bay, pulled toward the mouth (larger z = nearer
             // camera). Scale 1.7 so it reads as parked inside, not an apron wreck.
-            Prop("models/prop_wreck_fighter.glb", 7.8f, 0.90f, 1.7f, half: 0.9f,
-                diesWith: "hangar"),
-            Prop("models/prop_wreck_transport.glb", 8.6f, -6.8f, 3.8f, half: 2.0f),
-            Prop("models/prop_control_tower.glb", -6.0f, -9.2f, 2.8f, half: 0.8f),
+            Prop("models/prop_wreck_fighter_bay.glb", 7.8f, 0.90f, 1.7f, half: 0.9f,
+                diesWith: "hangar", tint: new Color(0.36f, 0.44f, 0.28f, 1f)),
+            // Further back and bigger so it reads as the field's tower, not a
+            // hut next to the apron. Radar child spins at runtime.
+            Prop("models/prop_control_tower.glb", -6.0f, -15.5f, 5.6f, half: 1.2f),
         };
 
         EditorUtility.SetDirty(so);

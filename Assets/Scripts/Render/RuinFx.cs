@@ -26,6 +26,10 @@ namespace ArmedConflict.Render
 
         public const float SmokeHz = 0.21f;
         public const float SmokeLeanHz = 0.13f;
+        /// <summary>Puff cycle. ~6s to rise and fade; a second puff is 180° out of phase so the column never holds still.</summary>
+        public const float SmokeRiseHz = 0.17f;
+        /// <summary>Travel as a multiple of authored H. The old quad sat at a fixed height and read as a cap.</summary>
+        public const float SmokeRise = 1.75f;
         public const float GlowHz = 0.16f;
         public const float GlowAlphaMid = 0.58f;
         public const float GlowAlphaSwing = 0.14f;
@@ -55,7 +59,8 @@ namespace ArmedConflict.Render
             }
             public struct Smoke
             {
-                public Transform Quad;
+                public Transform Quad, Quad2, Quad3;
+                public MeshRenderer Rend, Rend2, Rend3;
                 public float H, W, X, Y, Z;
                 public int Id;
             }
@@ -70,13 +75,25 @@ namespace ArmedConflict.Render
             /// (front, toward camera) so a leftover block cannot swallow them.
             /// City sessions leave this null.</summary>
             public Transform Host;
+            /// <summary>
+            /// A burned-out hull (L13 apron), not a collapse pancake. SitOnPile
+            /// uses the AABB top so a leftover block cannot hide the tongue —
+            /// on an airliner that top is the tail, and the fire floats.
+            /// Hull sits on the fuselage from mesh verts, once.
+            /// </summary>
+            public bool Hull;
+            bool hullPosed;
             MaterialPropertyBlock props;
 
             public void Restart() => BornAt = Time.time;
 
             public void Tick(float time)
             {
-                if (Host != null) SitOnPile();
+                if (Host != null)
+                {
+                    if (Hull) SitInHull();
+                    else SitOnPile();
+                }
                 if (BornAt < 0f) BornAt = time;
                 float fade = FadeSeconds <= 1e-4f
                     ? 1f
@@ -103,14 +120,39 @@ namespace ArmedConflict.Render
                 for (int i = 0; i < Smokes.Length; i++)
                 {
                     var sm = Smokes[i];
-                    float phase = CosmeticSystems.FlamePhase(sm.Id + 90);
-                    float wiggle = Mathf.Sin(time * SmokeHz * Mathf.PI * 2f + phase);
-                    float lean = Mathf.Sin(time * SmokeLeanHz * Mathf.PI * 2f + phase * 1.3f);
-                    float h = sm.H * fade * (1f + 0.08f * wiggle);
-                    float w = sm.W * fade * (1f + 0.10f * wiggle);
-                    sm.Quad.localScale = new Vector3(w, h, 1f);
-                    sm.Quad.localPosition = new Vector3(sm.X + lean * sm.H * 0.05f, sm.Y + h * 0.45f, sm.Z);
+                    PosePuff(sm.Quad, sm.Rend, sm, time, fade, 0f, 0f);
+                    if (sm.Quad2 != null)
+                        PosePuff(sm.Quad2, sm.Rend2, sm, time, fade, 1f / 3f, 0.012f);
+                    if (sm.Quad3 != null)
+                        PosePuff(sm.Quad3, sm.Rend3, sm, time, fade, 2f / 3f, -0.012f);
                 }
+            }
+
+            void PosePuff(Transform t, MeshRenderer r, Smoke sm, float time, float fade,
+                          float cycleOff, float zBias)
+            {
+                if (t == null) return;
+                float phase = CosmeticSystems.FlamePhase(sm.Id + 90);
+                float cycle = Mathf.Repeat(time * SmokeRiseHz + phase * 0.159f + cycleOff, 1f);
+                float wiggle = Mathf.Sin(time * SmokeHz * Mathf.PI * 2f + phase + cycleOff * 4f);
+                float lean = Mathf.Sin(time * SmokeLeanHz * Mathf.PI * 2f + phase * 1.3f + cycleOff);
+                float rise = cycle * sm.H * SmokeRise * fade;
+                // Cloud, not a pillar: size stays near-even so a stack of
+                // puffs reads as one billow, not dark feet under pale tops.
+                float puff = sm.W * (0.92f + 0.28f * cycle);
+                float w = puff * (1f + 0.14f * wiggle);
+                float h = puff * 0.90f * (1f - 0.10f * wiggle);
+                float a = Mathf.Sin(cycle * Mathf.PI) * fade;
+                t.localScale = new Vector3(w, h, 1f);
+                t.localRotation = Quaternion.Euler(0f, 180f, wiggle * 11f);
+                t.localPosition = new Vector3(
+                    sm.X + lean * (0.05f + rise * 0.07f),
+                    sm.Y + rise + h * 0.20f,
+                    sm.Z + zBias);
+                if (r == null) return;
+                var c = r.sharedMaterial != null ? r.sharedMaterial.color : Color.white;
+                props.SetColor(BaseColorId, new Color(c.r, c.g, c.b, c.a * a));
+                r.SetPropertyBlock(props);
             }
 
             static bool IsFx(Transform t, Transform host)
@@ -125,11 +167,12 @@ namespace ArmedConflict.Render
             }
 
             /// <summary>
-            /// GarrisonPost's leftover mass sits on the origin and ate the
-            /// old feet-of-the-wreck tongues. Sample the masonry (not the
-            /// FX) and nestle fire IN the live pile — follows the collapse
-            /// down. Proud of the camera-facing lip is a row of candles
-            /// in the street; the leftover origin swallows them.
+            /// Fire on TOP of the live pile, proud of the camera lip.
+            /// Nested in the rubble (the first pass) is invisible at 6° —
+            /// the hangar's pancake hid every tongue. Proud at the FEET is
+            /// a row of candles in the street. Proud at the TOP is the
+            /// destruction read: tongues licking out of the heap, smoke
+            /// clearing the roofline. Follows the collapse down.
             /// </summary>
             void SitOnPile()
             {
@@ -163,43 +206,162 @@ namespace ArmedConflict.Render
                     }
                 }
                 if (!any) return;
-                // +Z is toward the camera (GameSpace). Pull the tongue INTO
-                // the front band so rubble frames it, the way the city
-                // facade frames a window fire. Do not go deep: the leftover
-                // cube will swallow anything near the origin.
-                float depth = Mathf.Max(0.01f, z1 - z0);
-                float z = z1 - Mathf.Clamp(depth * 0.18f, 0.06f, 0.16f);
-                float y = Mathf.Max(0.06f, y0 + (y1 - y0) * 0.08f);
+                float worldS = Mathf.Max(Host.lossyScale.x, 0.01f);
+                float pileH = Mathf.Max(0.12f, y1 - y0);
+                float pileWorld = pileH * worldS;
+                // World sizes, then /scale so a 2.5x hangar is not a candle.
+                float flameH = Mathf.Clamp(Mathf.Max(0.95f, pileWorld * 0.55f), 0.95f, 1.90f) / worldS;
+                float flameW = Mathf.Clamp(Mathf.Max(0.50f, pileWorld * 0.28f), 0.50f, 1.05f) / worldS;
+                float smokeH = Mathf.Clamp(Mathf.Max(4.2f, pileWorld * 2.6f), 4.2f, 8.5f) / worldS;
+                float smokeW = Mathf.Clamp(Mathf.Max(1.8f, pileWorld * 1.05f), 1.8f, 3.6f) / worldS;
+                // +Z toward camera. A few centimetres proud of the lip so
+                // a leftover block cannot cover the tongue.
+                float z = z1 + 0.14f / worldS;
+                float yTop = y1 - 0.04f / worldS;
+                if (yTop < y0 + 0.08f) yTop = y0 + 0.08f;
                 float mid = (x0 + x1) * 0.5f;
-                float half = Mathf.Max(0.10f, (x1 - x0) * 0.20f);
-                // Stagger so two wrecks do not draw a picket of six.
+                float half = Mathf.Max(0.12f, (x1 - x0) * 0.22f);
                 var xs = Fires.Length >= 3
-                    ? new[] { mid - half, mid + half * 0.15f, mid + half }
+                    ? new[] { mid - half, mid + half * 0.10f, mid + half }
                     : new[] { mid - half, mid + half };
                 var ys = Fires.Length >= 3
-                    ? new[] { y, y + 0.05f, y - 0.02f }
-                    : new[] { y, y + 0.03f };
+                    ? new[] { yTop, yTop - 0.04f / worldS, yTop - 0.02f / worldS }
+                    : new[] { yTop, yTop - 0.03f / worldS };
                 var zs = Fires.Length >= 3
-                    ? new[] { z + 0.03f, z - 0.05f, z + 0.01f }
-                    : new[] { z, z - 0.03f };
+                    ? new[] { z, z + 0.03f / worldS, z - 0.02f / worldS }
+                    : new[] { z, z + 0.02f / worldS };
                 int n = Mathf.Min(Fires.Length, xs.Length);
                 for (int i = 0; i < n; i++)
                 {
-                    var root = Fires[i].Outer;
+                    var f = Fires[i];
+                    f.FlameH = flameH;
+                    f.FlameW = flameW;
+                    Fires[i] = f;
+                    var root = f.Outer;
                     if (root == null) continue;
                     root = root.parent;
                     if (root == null) continue;
                     root.localPosition = new Vector3(xs[i], ys[i], zs[i]);
                 }
-                if (Smokes.Length > 0)
+                var smokeXs = Smokes.Length >= 3
+                    ? new[] { mid - half * 0.85f, mid + 0.04f / worldS, mid + half * 0.90f }
+                    : new[] { mid };
+                var smokeScale = Smokes.Length >= 3
+                    ? new[] { 1.00f, 1.22f, 0.88f }
+                    : new[] { 1f };
+                int sn = Mathf.Min(Smokes.Length, smokeXs.Length);
+                for (int i = 0; i < sn; i++)
                 {
-                    var sm = Smokes[0];
-                    sm.X = mid;
-                    sm.Y = y;
-                    // Smoke rises from inside the pile, not in front of it.
-                    sm.Z = z0 + depth * 0.40f;
-                    Smokes[0] = sm;
+                    var sm = Smokes[i];
+                    sm.X = smokeXs[i];
+                    sm.Y = yTop;
+                    sm.Z = z - 0.04f / worldS;
+                    sm.H = smokeH * smokeScale[i];
+                    sm.W = smokeW * (0.90f + 0.12f * i);
+                    Smokes[i] = sm;
                 }
+            }
+
+            /// <summary>
+            /// Tongues ON the fuselage. Vertex percentiles ignore the tail
+            /// spike and the wing tips that inflate the AABB.
+            /// </summary>
+            void SitInHull()
+            {
+                if (hullPosed || Host == null) return;
+                var xs = new List<float>(512);
+                var ys = new List<float>(512);
+                var zs = new List<float>(512);
+                var filters = Host.GetComponentsInChildren<MeshFilter>(true);
+                for (int i = 0; i < filters.Length; i++)
+                {
+                    var mf = filters[i];
+                    if (mf.sharedMesh == null || IsFx(mf.transform, Host)) continue;
+                    var verts = mf.sharedMesh.vertices;
+                    int step = Mathf.Max(1, verts.Length / 500);
+                    for (int v = 0; v < verts.Length; v += step)
+                    {
+                        var p = Host.InverseTransformPoint(mf.transform.TransformPoint(verts[v]));
+                        xs.Add(p.x); ys.Add(p.y); zs.Add(p.z);
+                    }
+                }
+                if (ys.Count < 8) return;
+                float yBelly = Percentile(ys, 0.08f);
+                float yRoof = Percentile(ys, 0.72f);
+                float zLip = Percentile(zs, 0.62f);
+                float worldS = Mathf.Max(Host.lossyScale.x, 0.01f);
+                float hullWorld = Mathf.Max(0.20f, (yRoof - yBelly) * worldS);
+                float flameH = Mathf.Clamp(Mathf.Max(0.70f, hullWorld * 1.10f), 0.70f, 1.15f) / worldS;
+                float flameW = Mathf.Clamp(Mathf.Max(0.38f, hullWorld * 0.55f), 0.38f, 0.72f) / worldS;
+                float smokeH = Mathf.Clamp(Mathf.Max(3.4f, hullWorld * 6.5f), 3.4f, 6.8f) / worldS;
+                float smokeW = Mathf.Clamp(Mathf.Max(1.4f, hullWorld * 2.4f), 1.4f, 2.8f) / worldS;
+                float z = zLip + 0.06f / worldS;
+                float y = yRoof;
+                // Two halves of the snapped hull. A single mid-span row sat
+                // on the nose and left the tail cold.
+                SplitHalves(xs, out float a0, out float a1, out float b0, out float b1);
+                float da = Mathf.Max(0.04f, (a1 - a0) * 0.18f);
+                float db = Mathf.Max(0.04f, (b1 - b0) * 0.18f);
+                float am = (a0 + a1) * 0.5f;
+                float bm = (b0 + b1) * 0.5f;
+                var fxs = Fires.Length >= 4
+                    ? new[] { am - da, am + da, bm - db, bm + db }
+                    : new[] { am, bm };
+                int n = Mathf.Min(Fires.Length, fxs.Length);
+                for (int i = 0; i < n; i++)
+                {
+                    var f = Fires[i];
+                    f.FlameH = flameH;
+                    f.FlameW = flameW;
+                    Fires[i] = f;
+                    var root = f.Outer;
+                    if (root == null) continue;
+                    root = root.parent;
+                    if (root == null) continue;
+                    root.localPosition = new Vector3(fxs[i], y, z);
+                }
+                var smokeXs = Smokes.Length >= 4
+                    ? new[] { am - da * 0.4f, am + da * 0.5f, bm - db * 0.5f, bm + db * 0.4f }
+                    : new[] { am, bm };
+                int sn = Mathf.Min(Smokes.Length, smokeXs.Length);
+                for (int i = 0; i < sn; i++)
+                {
+                    var sm = Smokes[i];
+                    sm.X = smokeXs[i];
+                    sm.Y = y;
+                    sm.Z = z - 0.03f / worldS;
+                    sm.H = smokeH * (i % 2 == 1 ? 1.12f : 0.92f);
+                    sm.W = smokeW * (0.90f + 0.08f * (i % 2));
+                    Smokes[i] = sm;
+                }
+                hullPosed = true;
+            }
+
+            static void SplitHalves(List<float> xs, out float a0, out float a1, out float b0, out float b1)
+            {
+                var s = new List<float>(xs);
+                s.Sort();
+                int gapAt = s.Count / 2;
+                float best = -1f;
+                for (int i = 1; i < s.Count; i++)
+                {
+                    float g = s[i] - s[i - 1];
+                    if (g > best) { best = g; gapAt = i; }
+                }
+                float span = s[s.Count - 1] - s[0];
+                if (best < span * 0.12f)
+                    gapAt = s.Count / 2;
+                a0 = s[0]; a1 = s[Mathf.Max(0, gapAt - 1)];
+                b0 = s[gapAt]; b1 = s[s.Count - 1];
+            }
+
+            static float Percentile(List<float> v, float p)
+            {
+                v.Sort();
+                float i = (v.Count - 1) * Mathf.Clamp01(p);
+                int lo = (int)i;
+                int hi = Mathf.Min(lo + 1, v.Count - 1);
+                return Mathf.Lerp(v[lo], v[hi], i - lo);
             }
 
             static void PoseTongue(Transform t, Vector2 flicker, float w, float h, float tongue)
@@ -298,14 +460,8 @@ namespace ArmedConflict.Render
                 // Smoke rises from the rubble IN the block, then clears the roofline.
                 float smokeY = 0.6f;
                 float smokeZ = site.Z * 0.45f;
-                var plume = QuadMesh.Create($"RuinSmoke_{site.Id}", cityNear, smokeMat);
-                plume.transform.localRotation = Quaternion.Euler(0f, 180f, 0f);
-                plume.transform.localPosition = new Vector3(site.X, smokeY, smokeZ);
-                smokes.Add(new Session.Smoke
-                {
-                    Quad = plume.transform, H = site.SmokeH, W = site.SmokeW,
-                    X = site.X, Y = smokeY, Z = smokeZ, Id = site.Id,
-                });
+                smokes.Add(MakeSmoke($"RuinSmoke_{site.Id}", cityNear, smokeMat,
+                    site.SmokeH, site.SmokeW, site.X, smokeY, smokeZ, site.Id));
             }
 
             session.Fires = fires.ToArray();
@@ -334,8 +490,8 @@ namespace ArmedConflict.Render
             var smokeTex = SmokeTex();
             // Ember, not a hero VFX. City tongues stay white — this kit
             // is wrecks only, so a mute here cannot flatten the strip.
-            var fireMat = new Material(fadeSource) { color = new Color(0.72f, 0.42f, 0.22f, 0.62f) };
-            var smokeMat = new Material(fadeSource) { color = new Color(0.85f, 0.82f, 0.78f, 0.70f) };
+            var fireMat = new Material(fadeSource) { color = new Color(0.95f, 0.48f, 0.16f, 0.90f) };
+            var smokeMat = new Material(fadeSource) { color = new Color(0.58f, 0.55f, 0.52f, 0.62f) };
             fireMat.mainTexture = fireTex;
             smokeMat.mainTexture = smokeTex;
             fireMat.SetTexture("_BaseMap", fireTex);
@@ -348,32 +504,33 @@ namespace ArmedConflict.Render
         }
 
         /// <summary>
-        /// Two tongues and a plume in the wreck pile. Same art as the city strip
-        /// (L4), sized against the wreck's world scale so a 2.5x outpost does
-        /// not get a city-block fire. Z is toward the camera — the 6° trap is
-        /// the same as the street: fire at the feet with +z reads as a square
-        /// on the dirt if it is too far forward.
+        /// Three tongues and three plumes on the wreck. SitOnPile moves them
+        /// onto the live heap each tick (top, camera-proud) so a hangar
+        /// pancake cannot bury them. Sizes are world-constant floors, then
+        /// divided by lossyScale — a 2.5x hangar used to get a 0.40 candle.
         /// </summary>
-        public static Session AttachWreck(Transform wreck, Kit kit, int seed)
+        public static Session AttachWreck(Transform wreck, Kit kit, int seed,
+                                         bool hull = false)
         {
-            var session = new Session { FadeSeconds = 0.40f };
+            var session = new Session { FadeSeconds = hull ? 0f : 0.40f, Hull = hull };
             if (wreck == null || kit.Fire == null) return session;
 
             float s = Mathf.Max(wreck.lossyScale.x, 0.01f);
-            // Half the first pass. Six 0.78 tongues on the lip read as a
-            // foreground row; these nestle in the rubble.
-            float flameH = 0.40f / s;
-            float flameW = 0.26f / s;
-            float smokeH = 1.70f / s;
-            float smokeW = 0.70f / s;
-            float y = 0.12f / s;
-            float z = 0.12f / s;
-            float spread = 0.28f / s;
+            float flameH = 0.95f / s;
+            float flameW = 0.50f / s;
+            float smokeH = 4.2f / s;
+            float smokeW = 1.8f / s;
+            float y = 0.40f / s;
+            float z = 0.20f / s;
+            float spread = 0.40f / s;
 
             var fires = new List<Session.Fire>();
             var smokes = new List<Session.Smoke>();
-            var xs = new[] { -spread, 0f, spread };
-            for (int i = 0; i < xs.Length; i++)
+            int nFx = hull ? 4 : 3;
+            var xs = hull
+                ? new[] { -spread, -spread * 0.35f, spread * 0.35f, spread }
+                : new[] { -spread, 0f, spread };
+            for (int i = 0; i < nFx; i++)
             {
                 int id = 900 + seed * 3 + i;
                 var root = new GameObject($"WreckFire_{id}");
@@ -390,15 +547,12 @@ namespace ArmedConflict.Render
                 });
             }
 
-            int smokeId = 900 + seed * 3 + 2;
-            var plume = QuadMesh.Create($"WreckSmoke_{smokeId}", wreck, kit.Smoke);
-            plume.transform.localRotation = Quaternion.Euler(0f, 180f, 0f);
-            plume.transform.localPosition = new Vector3(0.04f / s, y, z * 0.5f);
-            smokes.Add(new Session.Smoke
+            for (int i = 0; i < nFx; i++)
             {
-                Quad = plume.transform, H = smokeH, W = smokeW,
-                X = 0.04f / s, Y = y, Z = z * 0.5f, Id = smokeId,
-            });
+                int smokeId = 960 + seed * 3 + i;
+                smokes.Add(MakeSmoke($"WreckSmoke_{smokeId}", wreck, kit.Smoke,
+                    smokeH, smokeW, xs[i], y, z, smokeId));
+            }
 
             session.Fires = fires.ToArray();
             session.Smokes = smokes.ToArray();
@@ -406,6 +560,28 @@ namespace ArmedConflict.Render
             var driver = wreck.gameObject.AddComponent<RuinFxDriver>();
             driver.Session = session;
             return session;
+        }
+
+        static Session.Smoke MakeSmoke(string name, Transform parent, Material mat,
+                                       float h, float w, float x, float y, float z, int id)
+        {
+            GameObject Puff(string n)
+            {
+                var go = QuadMesh.Create(n, parent, mat);
+                go.transform.localRotation = Quaternion.Euler(0f, 180f, 0f);
+                return go;
+            }
+            var a = Puff(name);
+            var b = Puff(name + "_b");
+            var c = Puff(name + "_c");
+            return new Session.Smoke
+            {
+                Quad = a.transform, Quad2 = b.transform, Quad3 = c.transform,
+                Rend = a.GetComponent<MeshRenderer>(),
+                Rend2 = b.GetComponent<MeshRenderer>(),
+                Rend3 = c.GetComponent<MeshRenderer>(),
+                H = h, W = w, X = x, Y = y, Z = z, Id = id,
+            };
         }
 
         /// <summary>The incendiary tongue. Same formula as the soldier flame so
@@ -476,26 +652,35 @@ namespace ArmedConflict.Render
 
         public static Texture2D SmokeTex()
         {
-            const int Size = 48;
+            const int Size = 64;
             var tex = new Texture2D(Size, Size, TextureFormat.RGBA32, false)
             { wrapMode = TextureWrapMode.Clamp, filterMode = FilterMode.Bilinear };
-            var ash = new Color(0.42f, 0.38f, 0.34f);
+            var ash = new Color(0.62f, 0.60f, 0.57f);
             for (int y = 0; y < Size; y++)
+            for (int x = 0; x < Size; x++)
             {
-                float t = (y + 0.5f) / Size;
-                float half = 0.26f + 0.34f * t;
-                float dens = 0.55f * Mathf.Pow(1f - t, 0.95f);
-                float drift = 0.10f * t * Mathf.Sin(t * 7.3f);
-                for (int x = 0; x < Size; x++)
-                {
-                    float dx = Mathf.Abs((x + 0.5f) / Size - 0.5f - drift) / half;
-                    float edge = dx >= 1f ? 0f : dx < 0.45f ? 1f
-                        : 1f - (dx - 0.45f) / 0.55f;
-                    tex.SetPixel(x, y, new Color(ash.r, ash.g, ash.b, dens * edge));
-                }
+                float u = (x + 0.5f) / Size;
+                float v = (y + 0.5f) / Size;
+                // Overlapping blobs, no vertical density bias — a column
+                // texture was opaque at the foot, so every puff read as a
+                // dark slab with a pale top.
+                float a = Blob(u, v, 0.50f, 0.50f, 0.44f, 0.42f);
+                a = Mathf.Max(a, Blob(u, v, 0.36f, 0.56f, 0.28f, 0.26f) * 0.82f);
+                a = Mathf.Max(a, Blob(u, v, 0.64f, 0.42f, 0.26f, 0.28f) * 0.78f);
+                a = Mathf.Max(a, Blob(u, v, 0.48f, 0.34f, 0.24f, 0.22f) * 0.70f);
+                tex.SetPixel(x, y, new Color(ash.r, ash.g, ash.b, a * 0.55f));
             }
             tex.Apply();
             return tex;
+        }
+
+        static float Blob(float x, float y, float cx, float cy, float rx, float ry)
+        {
+            float u = (x - cx) / rx;
+            float v = (y - cy) / ry;
+            float d = Mathf.Sqrt(u * u + v * v);
+            if (d >= 1f) return 0f;
+            return 1f - Threshold(0.12f, 1f, d);
         }
     }
 

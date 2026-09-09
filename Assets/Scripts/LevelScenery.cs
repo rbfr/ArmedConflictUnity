@@ -237,6 +237,8 @@ public class LevelScenery : MonoBehaviour
 
         // Props are authored at z=0 like every campaign prop, and are cosmetic — nothing collides
         // with them. collapsesWith hides the mesh when that structure dies (L13 bay jet).
+        // onFire plants the collapse wreck kit on a prop that is already a burn (L13 apron).
+        int propFireSeed = 100;
         foreach (var prop in level.props)
         {
             var pg = Spawn(prop.modelAsset, root);
@@ -249,6 +251,8 @@ public class LevelScenery : MonoBehaviour
                 Normalize(pg, prop.scale);
             if (!prop.keepColors)
                 Tone(pg, structPlayer, structPlayerAccent, null);
+            else if (prop.tint.a > 0.5f)
+                Recolor(pg, prop.tint, owned);
             if (!string.IsNullOrEmpty(prop.collapsesWith)
                 && idByPlacement.TryGetValue(prop.collapsesWith, out int sid))
             {
@@ -258,6 +262,15 @@ public class LevelScenery : MonoBehaviour
                     X = prop.x, Y = 0.55f, Z = prop.z,
                 });
             }
+            if (prop.onFire)
+            {
+                if (wreckKit.Fire == null)
+                    wreckKit = RuinFx.MakeKit(unlitFadeSource, owned);
+                RuinFx.AttachWreck(pg.transform, wreckKit, propFireSeed++, hull: true);
+            }
+            if (prop.modelAsset != null
+                && prop.modelAsset.IndexOf("control_tower", System.StringComparison.OrdinalIgnoreCase) >= 0)
+                ArmRadar(pg);
         }
 
         var g = bg != null ? bg.groundColor : Color.gray;
@@ -335,6 +348,19 @@ public class LevelScenery : MonoBehaviour
 
     /// <summary>Scales a model so its longest axis measures `units`. Bounds are read AFTER the
     /// instance is live, which is the only time a renderer reports them.</summary>
+    static void ArmRadar(GameObject go)
+    {
+        foreach (var t in go.GetComponentsInChildren<Transform>(true))
+        {
+            if (t == go.transform) continue;
+            if (t.name.IndexOf("radar", System.StringComparison.OrdinalIgnoreCase) < 0)
+                continue;
+            if (t.GetComponent<PropSpin>() != null) continue;
+            var spin = t.gameObject.AddComponent<PropSpin>();
+            spin.DegreesPerSecond = 48f;
+        }
+    }
+
     static void Normalize(GameObject go, float units)
     {
         var rs = go.GetComponentsInChildren<MeshRenderer>();
@@ -420,6 +446,35 @@ public class LevelScenery : MonoBehaviour
             if (skin != null && n.StartsWith("skin")) r.sharedMaterial = skin;
             else if (n.StartsWith("accent")) r.sharedMaterial = accent;
             else r.sharedMaterial = body;
+        }
+    }
+
+    /// <summary>
+    /// Clone imported slots and paint them. Shared GLB materials would
+    /// recolor every wreck of that model (apron + bay). Holes stay black;
+    /// rust (redder than green) stays warm; the body takes <paramref name="body"/>.
+    /// </summary>
+    static void Recolor(GameObject go, Color body, List<Object> owned)
+    {
+        var rust = new Color(
+            Mathf.Min(1f, body.r * 1.25f + 0.18f),
+            body.g * 0.62f,
+            body.b * 0.38f);
+        foreach (var r in go.GetComponentsInChildren<MeshRenderer>())
+        {
+            var mats = r.materials;
+            for (int i = 0; i < mats.Length; i++)
+            {
+                var m = mats[i];
+                if (m == null) continue;
+                owned.Add(m);
+                Color c = m.HasProperty("_BaseColor") ? m.GetColor("_BaseColor") : m.color;
+                float lum = c.r * 0.30f + c.g * 0.59f + c.b * 0.11f;
+                Color next = lum < 0.09f ? c : (c.r > c.g + 0.08f ? rust : body);
+                if (m.HasProperty("_BaseColor")) m.SetColor("_BaseColor", next);
+                m.color = next;
+            }
+            r.materials = mats;
         }
     }
 }

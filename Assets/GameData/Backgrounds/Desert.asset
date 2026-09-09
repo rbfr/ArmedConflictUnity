@@ -12,8 +12,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 681e574a89dae229290ce66a4e95ac2d, type: 3}
   m_Name: Desert
   m_EditorClassIdentifier: 
-  skyTop: {r: 0.30588236, g: 0.6039216, b: 0.8392157, a: 1}
-  skyHorizon: {r: 0.95686275, g: 0.8784314, b: 0.72156864, a: 1}
+  skyTop: {r: 0.23529412, g: 0.5294118, b: 0.8235294, a: 1}
+  skyHorizon: {r: 0.5882353, g: 0.7607843, b: 0.8901961, a: 1}
   groundColor: {r: 0.79607844, g: 0.654902, b: 0.41568628, a: 1}
   groundNear: {r: 0.8784314, g: 0.7529412, b: 0.53333336, a: 1}
   horizonAccent: {r: 1, g: 0.9490196, b: 0.8156863, a: 1}

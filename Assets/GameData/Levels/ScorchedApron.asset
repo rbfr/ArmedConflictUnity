@@ -17,7 +17,7 @@ MonoBehaviour:
   levelNumber: 13
   levelGoal: Clear the hangar before they cross the tarmac
   enemyGroups:
-  - definition: {fileID: 11400000, guid: b51688fb293b69e5cab2885bcaa975b8, type: 2}
+  - definition: {fileID: 11400000, guid: aecf03c40cb9b8f4d85d97ef12b4289f, type: 2}
     count: 5
     anchorX: 3
     anchorZ: 0
@@ -98,24 +98,16 @@ MonoBehaviour:
     absoluteScale: 1
     collapsesWith: 
   - modelAsset: models/prop_wreck_fighter.glb
-    x: 2.4
-    z: -4.6
-    scale: 3.4
+    x: 3.6
+    z: -4.5
+    scale: 4.6
     slowsAdvance: 0
-    halfWidth: 1.8
+    halfWidth: 2.4
     keepColors: 1
     absoluteScale: 0
     collapsesWith: 
-  - modelAsset: models/prop_wreck_fighter.glb
-    x: 5.2
-    z: -4
-    scale: 2.8
-    slowsAdvance: 0
-    halfWidth: 1.5
-    keepColors: 1
-    absoluteScale: 0
-    collapsesWith: 
-  - modelAsset: models/prop_wreck_fighter.glb
+    onFire: 1
+  - modelAsset: models/prop_wreck_fighter_bay.glb
     x: 7.8
     z: 0.9
     scale: 1.7
@@ -124,21 +116,13 @@ MonoBehaviour:
     keepColors: 1
     absoluteScale: 0
     collapsesWith: hangar
-  - modelAsset: models/prop_wreck_transport.glb
-    x: 8.6
-    z: -6.8
-    scale: 3.8
-    slowsAdvance: 0
-    halfWidth: 2
-    keepColors: 1
-    absoluteScale: 0
-    collapsesWith: 
+    tint: {r: 0.36, g: 0.44, b: 0.28, a: 1}
   - modelAsset: models/prop_control_tower.glb
     x: -6
-    z: -9.2
-    scale: 2.8
+    z: -15.5
+    scale: 5.6
     slowsAdvance: 0
-    halfWidth: 0.8
+    halfWidth: 1.2
     keepColors: 1
     absoluteScale: 0
     collapsesWith: 
@@ -151,8 +135,8 @@ MonoBehaviour:
   staticCamera: 0
   isTestLevel: 0
   designNotes: "Beat 13: second melee shape. L4 taught the charge behind wire; this
-    is the same panic on OPEN tarmac \u2014 five riflemen sprint the apron with nothing
-    in front of them but air. The hangar is the dominant (and only) structure, majority
+    is the same panic on OPEN tarmac \u2014 five shield bearers sprint the apron with nothing
+    in front of them but air. They do not fire; they close and melee. The hangar is the dominant (and only) structure, majority
     garrisoned, so dropping it is still the efficient kill. MG sit at the bay mouth,
     not on the roof (class placement). Wrecked planes and the runway are keepColors
     props \u2014 they do not collide. Desert reused (L5/L12); PRODUCT_DIRECTION after-12
