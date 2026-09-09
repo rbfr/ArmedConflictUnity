@@ -2,8 +2,9 @@
 
 ## Pick up here
 
-Branch `session/2026-08-25-shell-art-ragdoll`. Ask git before writing
-on top.
+Branch `session/2026-08-25-shell-art-ragdoll`. Last push `857c5f6`
+(L13 wreck / hull fire / billows / tower radar). On origin. Ask git
+before writing on top.
 
 Rob signed 09-06 on device: muzzle *"ok that looks good."* Camera
 *"ok this looks much better."* Wrecks *"yeah that's better."* L6 at 160 hp
