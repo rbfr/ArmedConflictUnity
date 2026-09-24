@@ -2,11 +2,10 @@
 
 ## Pick up here
 
-On local `main`. Fast-forwarded from `session/2026-08-25-shell-art-ragdoll`.
-Origin still has that branch at `fc5e155` until this is pushed. Crew
-portrait, opening scout, the 12-then-13 campaign, Loaded Post, the status
-HUD, and this file are in that commit. A new branch has not been cut.
-Ask git before writing on top.
+On `main`. Tip on origin is `9834a58`, fast-forwarded from
+`session/2026-08-25-shell-art-ragdoll`. Crew portrait, opening scout, the
+12-then-13 campaign, Loaded Post, the status HUD, and this file are in
+that commit. A new branch has not been cut. Ask git before writing on top.
 
 Phone USB `57121FDCQ005LC`. Last APK is this sitting (09-23): Loaded Post
 spill runs out of the post, no banner. Scene **31** levels / **92** models.
@@ -84,7 +83,7 @@ The 09-14 → 09-16 diary (hangar shape, rejected wrecks, cookoff) is in `HANDOV
 
 Rules **8–11**. Wrecks sit back. Melee claims at **2.5**. Aim frame stays the player line. Scout looks at the men and pans. Crew portrait only after the ground line is gone. Volley holds **0.45s** on shooters, then chases, except a close volley. Windup looks at living bodies.
 
-Campaign **13**. Citadel is a rig. Scorched Apron is level 12 (`level_13`). Loaded Post is level 13 (`level_14`), spill runs out, no banner, not signed. Scene 31 / 92. One `PortSelfTest` failure: Scorched Apron mid-ground. This sitting is **committed on local main**. Not pushed.
+Campaign **13**. Citadel is a rig. Scorched Apron is level 12 (`level_13`). Loaded Post is level 13 (`level_14`), spill runs out, no banner, not signed. Scene 31 / 92. One `PortSelfTest` failure: Scorched Apron mid-ground. This sitting is **on origin** at `9834a58`.
 
 `PortSelfTest.Run` after every change. **RIGS** is the free test supply. **Do not use Auto** for structures, ammo, or consumables. Android repo is RETIRED. `DISPLAY=:0`. **Ask git.**
 
