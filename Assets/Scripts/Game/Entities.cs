@@ -219,7 +219,8 @@ namespace ArmedConflict.Game
     /// <summary>
     /// A lasting mark on a live structure: soot around the impact, and a crater for
     /// rockets/grenades/shells. Stamped at the hit's X/Y; the renderer glues it to the
-    /// camera-facing face. Cleared when the building dies — the wreck is the read then.
+    /// mesh at that X/Y (not the AABB front — a porch floated every stamp). Cleared
+    /// when the building dies — the wreck is the read then.
     /// </summary>
     public record StructureScar(int Id, int StructureId, float X, float Y)
     {

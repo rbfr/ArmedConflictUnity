@@ -128,7 +128,6 @@ public class BattleRunner : MonoBehaviour
     MaterialPropertyBlock flashProps;
     readonly List<GameObject> debrisSlots = new();
     readonly List<(int Id, GameObject Go)> structureObjects = new();
-    readonly Dictionary<int, float> structureFrontZ = new();
 
     struct ScarSlot
     {
@@ -224,6 +223,14 @@ public class BattleRunner : MonoBehaviour
     /// </summary>
     bool hasLastAim;
     float lastAimPower, lastAimAngle;
+
+    // Status rows pulse when their number changes. Decayed in Update, not OnGUI,
+    // because OnGUI can run more than once a frame and would eat the pulse.
+    float flashPlayers, flashEnemies, flashShells;
+    int hudPlayers = -1, hudEnemies = -1, hudShells = -1;
+    readonly Dictionary<int, int> hudStructHp = new();
+    readonly Dictionary<int, float> hudStructFlash = new();
+    Texture2D hudPlate;
 
     // The elevation the player's line is HOLDING. Live while dragging, then held through the
     // volley — the rounds are still in the air, so dropping the arms at release would have the
@@ -465,6 +472,10 @@ public class BattleRunner : MonoBehaviour
         // battleId advances per load so nothing keyed on it can collide with the level before it.
         state = LevelBuilder.BuildInitialState(level, ++battleId, campaignCount, random,
                                               playerGroupsOverride: loadoutGroups);
+        hudPlayers = hudEnemies = hudShells = -1;
+        flashPlayers = flashEnemies = flashShells = 0f;
+        hudStructHp.Clear();
+        hudStructFlash.Clear();
         // The ammo choice is a STANDING preference, so it survives a level change and a restart.
         // Read through ProgressStore, which downgrades a selection the player no longer owns to
         // Standard — a reset wipes unlocks, and a state pointing at a locked type would fire an
@@ -513,7 +524,6 @@ public class BattleRunner : MonoBehaviour
             flashSlots[i] = fl;
         }
 
-        CacheStructureFronts();
         TintShadows();
         ApplyFaction();
         ApplyCamo();
@@ -1000,18 +1010,11 @@ public class BattleRunner : MonoBehaviour
         }
     }
 
-    void CacheStructureFronts()
+    GameObject StructureGo(int id)
     {
-        structureFrontZ.Clear();
-        foreach (var (id, go) in structureObjects)
-        {
-            if (go == null) continue;
-            float maxZ = float.NegativeInfinity;
-            var rs = go.GetComponentsInChildren<MeshRenderer>(true);
-            for (int i = 0; i < rs.Length; i++)
-                if (rs[i].bounds.max.z > maxZ) maxZ = rs[i].bounds.max.z;
-            if (maxZ > float.NegativeInfinity / 2f) structureFrontZ[id] = maxZ;
-        }
+        for (int i = 0; i < structureObjects.Count; i++)
+            if (structureObjects[i].Id == id) return structureObjects[i].Go;
+        return null;
     }
 
     /// <summary>
@@ -1414,6 +1417,15 @@ public class BattleRunner : MonoBehaviour
     const float BulletStreak = 1.0f;
     const float BulletStreakWidth = 1.0f;
 
+    /// <summary>
+    /// Draw the round a hair toward the camera. Collision is X/Y; z is
+    /// parallax. A close melee sits 0.55 in front of the line, so a back-rank
+    /// tracer never leaves the body forest and the volley reads as missing.
+    /// Half a formation row — enough to clear the man who fired, not a
+    /// second lane in the street. Size stays 0.22.
+    /// </summary>
+    const float ShotTowardCamera = 0.20f;
+
     static Vector3 ShotScale(ProjectileEntity pr, Vector3 baseScale)
     {
         if (pr.IsStrafe)
@@ -1491,6 +1503,22 @@ public class BattleRunner : MonoBehaviour
         if (state == null) return;
 
         float dt = Time.deltaTime;
+        flashPlayers = Mathf.Max(0f, flashPlayers - dt / 0.45f);
+        flashEnemies = Mathf.Max(0f, flashEnemies - dt / 0.45f);
+        flashShells = Mathf.Max(0f, flashShells - dt / 0.45f);
+        if (hudStructFlash.Count > 0)
+        {
+            var ids = expiredFlames;
+            ids.Clear();
+            foreach (var kv in hudStructFlash) ids.Add(kv.Key);
+            for (int i = 0; i < ids.Count; i++)
+            {
+                int id = ids[i];
+                float left = hudStructFlash[id] - dt / 0.45f;
+                if (left <= 0f) hudStructFlash.Remove(id);
+                else hudStructFlash[id] = left;
+            }
+        }
         smoothedDt += (Time.unscaledDeltaTime - smoothedDt) * 0.05f;
 
         HandleInput();
@@ -1827,7 +1855,7 @@ public class BattleRunner : MonoBehaviour
 
             var go = pool[n];
             go.SetActive(true);
-            go.transform.position = GameSpace.ToUnity(pr.X, pr.Y, pr.Z);
+            go.transform.position = GameSpace.ToUnity(pr.X, pr.Y, pr.Z + ShotTowardCamera);
             float deg = Mathf.Atan2(pr.Vy, -pr.Vx) * Mathf.Rad2Deg;
             go.transform.rotation = Quaternion.Euler(0f, 0f, deg);
             // The airstrike's bomb is a BULLET so it is bright enough to follow, and scaled up so
@@ -2029,6 +2057,10 @@ public class BattleRunner : MonoBehaviour
     /// Soot + crater on the camera-facing wall, at the hit. Ground scorches stretch in
     /// depth because 6° sees them edge-on; a wall mark is face-on. The building itself
     /// stays its own colour — only the impact neighbourhood darkens.
+    ///
+    /// Z comes from the mesh at the hit X/Y, not the structure's AABB front. The box
+    /// is the porch, the eave, the proudest chunk — a stamp there floats in the
+    /// street in front of the wall that was actually hit.
     /// </summary>
     void SyncStructureScars()
     {
@@ -2039,7 +2071,14 @@ public class BattleRunner : MonoBehaviour
             if (i < scars.Count)
             {
                 var sc = scars[i];
-                if (!structureFrontZ.TryGetValue(sc.StructureId, out float frontZ))
+                var go = StructureGo(sc.StructureId);
+                if (go == null || !go.activeInHierarchy)
+                {
+                    slot.Root.SetActive(false);
+                    continue;
+                }
+                var u = GameSpace.ToUnity(sc.X, sc.Y, 0f);
+                if (!MeshSit.TryFrontZ(go.transform, u.x, u.y, out float frontZ))
                 {
                     slot.Root.SetActive(false);
                     continue;
@@ -2056,7 +2095,7 @@ public class BattleRunner : MonoBehaviour
                 // Spin so a volley of identical hits does not stack as one circle.
                 float spin = (sc.Id * 47) % 80;
                 slot.Root.SetActive(true);
-                slot.Root.transform.position = GameSpace.ToUnity(sc.X, sc.Y, frontZ + 0.02f);
+                slot.Root.transform.position = new Vector3(u.x, u.y, frontZ + 0.02f);
                 slot.Root.transform.rotation = Quaternion.Euler(180f, 0f, spin);
                 slot.Halo.localScale = new Vector3(hw, hh, 1f);
                 slot.Crater.localScale = new Vector3(pw, ph, 1f);
@@ -2522,12 +2561,40 @@ public class BattleRunner : MonoBehaviour
         foreach (var st in state.Structures)
             if (!st.Definition.isPlayerSide) enemyStructures.Add(st);
 
-        var big = new GUIStyle(style) { fontSize = 40 };
+        var big = new GUIStyle(style) { fontSize = 34, fontStyle = FontStyle.Bold };
         var small = new GUIStyle(style) { fontSize = 28, normal = { textColor = new Color(0.8f, 0.8f, 0.85f) } };
+        var aimCaption = new GUIStyle(style)
+        {
+            fontSize = 28,
+            fontStyle = FontStyle.Bold,
+            normal = { textColor = new Color(1f, 0.86f, 0.3f) },
+        };
+        var aimNum = new GUIStyle(style)
+        {
+            fontSize = 64,
+            fontStyle = FontStyle.Bold,
+            normal = { textColor = Color.white },
+        };
 
-        float y = 24f;
-        GUI.Label(new Rect(28, y, 900, 60), $"Your units: {state.PlayerUnits.Count}", big); y += 46;
-        GUI.Label(new Rect(28, y, 900, 60), $"Enemy units: {state.EnemyUnits.Count}", big); y += 46;
+        bool showAim = dragging || (hasLastAim && state.Phase == GamePhase.Playing);
+        int cannonRow = (state.TankShellsRemaining > 0 || HasCannon()) ? 1 : 0;
+        float blockH = 48f + (2 + enemyStructures.Count + cannonRow) * 50f + 64f
+                       + (showAim ? 180f : 16f);
+        if (hudPlate == null)
+        {
+            hudPlate = new Texture2D(1, 1);
+            hudPlate.SetPixel(0, 0, Color.white);
+            hudPlate.Apply();
+        }
+        var plate = GUI.color;
+        GUI.color = new Color(0.02f, 0.03f, 0.05f, 0.55f);
+        // Ends left of the coin badge (~x 448). Wider and the plate sits on it.
+        GUI.DrawTexture(new Rect(12, 12, 400, blockH), hudPlate);
+        GUI.color = plate;
+
+        float y = 28f;
+        y = HudRow(y, "Your units", state.PlayerUnits.Count, ref hudPlayers, ref flashPlayers, big);
+        y = HudRow(y, "Enemy units", state.EnemyUnits.Count, ref hudEnemies, ref flashEnemies, big);
         // Nearest first, which is also left-to-right on screen, so the list reads in the order
         // the structures appear on the field.
         enemyStructures.Sort((a, b) => a.X.CompareTo(b.X));
@@ -2553,18 +2620,28 @@ public class BattleRunner : MonoBehaviour
             }
             if (same > 1) name += same == 2 ? (rank == 0 ? " (near)" : " (far)") : $" #{rank + 1}";
 
-            GUI.Label(new Rect(28, y, 900, 60), $"{name}: {st.Hp}", big);
-            y += 46;
+            if (!hudStructHp.TryGetValue(st.Id, out int prevHp)) hudStructHp[st.Id] = st.Hp;
+            else if (prevHp != st.Hp)
+            {
+                hudStructHp[st.Id] = st.Hp;
+                hudStructFlash[st.Id] = 1f;
+            }
+            float structFlash = 0f;
+            hudStructFlash.TryGetValue(st.Id, out structFlash);
+            var tint = GUI.color;
+            if (structFlash > 0f)
+                GUI.color = Color.Lerp(Color.white, new Color(1f, 0.92f, 0.45f), structFlash);
+            GUI.Label(new Rect(28, y, 250, 52), name, big);
+            GUI.Label(new Rect(270, y, 120, 52), st.Hp.ToString(), big);
+            GUI.color = tint;
+            y += 50f;
         }
 
         // The tank's ammo is FINITE and there is no other way to know it is running out — the
         // shell just stops appearing in the volley, which reads as the gun having broken. Shown
         // only on levels that field a cannon at all.
         if (state.TankShellsRemaining > 0 || HasCannon())
-        {
-            GUI.Label(new Rect(28, y, 900, 60), $"Tank shells: {state.TankShellsRemaining}", big);
-            y += 46;
-        }
+            y = HudRow(y, "Tank shells", state.TankShellsRemaining, ref hudShells, ref flashShells, big);
 
         string turn = state.Phase switch
         {
@@ -2584,31 +2661,59 @@ public class BattleRunner : MonoBehaviour
         };
         if (turn != null)
         {
-            GUI.Label(new Rect(28, y, 900, 60), turn, turnStyle);
-            y += 52;
+            GUI.Label(new Rect(28, y, 370, 60), turn, turnStyle);
+            y += 56;
         }
 
-        if (dragging)
+        // The live drag and the last shot share one readout. It used to be a 28px
+        // grey line under the counts, which is the number the next aim is judged
+        // against and the one nobody could read. Big, two columns, gold captions.
+        if (showAim)
         {
-            GUI.Label(new Rect(28, y, 900, 50),
-                $"power {AimSystem.StrengthPercent(aimVel):F0}%    angle {AimSystem.AngleDegrees(aimVel):F0}°",
-                small);
+            float power = dragging ? AimSystem.StrengthPercent(aimVel) : lastAimPower;
+            float angle = dragging ? AimSystem.AngleDegrees(aimVel) : lastAimAngle;
+            GUI.Label(new Rect(28, y, 360, 34), dragging ? "AIM" : "LAST SHOT", aimCaption);
+            y += 32f;
+            GUI.Label(new Rect(28, y, 230, 78), $"{power:F0}%", aimNum);
+            GUI.Label(new Rect(250, y, 140, 78), "POWER", aimCaption);
+            y += 72f;
+            GUI.Label(new Rect(28, y, 230, 78), $"{angle:F0}\u00b0", aimNum);
+            GUI.Label(new Rect(250, y, 140, 78), "ANGLE", aimCaption);
         }
-        else if (hasLastAim && state.Phase == GamePhase.Playing)
+
+    float HudRow(float y, string label, int value, ref int prev, ref float flash, GUIStyle big)
+    {
+        if (prev < 0) prev = value;
+        else if (prev != value)
         {
-            // Same numbers as the live drag, prefixed so it is the last shot and not a
-            // stuck finger. Kotlin kept this through the enemy turn; wiping it with the
-            // drag is what made the next aim a guess from memory.
-            GUI.Label(new Rect(28, y, 900, 50),
-                $"Last:  power {lastAimPower:F0}%    angle {lastAimAngle:F0}°",
-                small);
+            prev = value;
+            flash = 1f;
         }
+        var tint = GUI.color;
+        if (flash > 0f)
+            GUI.color = Color.Lerp(Color.white, new Color(1f, 0.92f, 0.45f), flash);
+        GUI.Label(new Rect(28, y, 250, 52), label, big);
+        GUI.Label(new Rect(270, y, 120, 52), value.ToString(), big);
+        GUI.color = tint;
+        return y + 50f;
+    }
 
         // Diagnostics, deliberately bottom-right and dim — useful while porting, not part of
         // the game's own presentation.
         GUI.Label(new Rect(Screen.width - 430, Screen.height - 90, 420, 80),
             $"{1f / Mathf.Max(smoothedDt, 0.0001f):F0} fps   drag {worstDragDt * 1000f:F0}ms   " +
             $"turn {state.TurnNumber}", small);
+    }
+
+    static void GuiSegment(Vector2 a, Vector2 b, float thickness, Texture2D tex)
+    {
+        var d = b - a;
+        float len = d.magnitude;
+        if (len < 0.5f || tex == null) return;
+        var matrix = GUI.matrix;
+        GUIUtility.RotateAroundPivot(Mathf.Atan2(d.y, d.x) * Mathf.Rad2Deg, a);
+        GUI.DrawTexture(new Rect(a.x, a.y - thickness * 0.5f, len, thickness), tex);
+        GUI.matrix = matrix;
     }
 
     void OnGUI()
@@ -2629,11 +2734,23 @@ public class BattleRunner : MonoBehaviour
 
         if (dragging && arc.Count > 1)
         {
+            // Short direction hint, not the landing. Close melee is IN the
+            // aiming frame (stop-gap 0.55), and a 10px pebble vanished in
+            // the crowd on a dense phone. Size with the screen; stitch the
+            // samples so a 0.35s hint still reads as a path.
+            float r = Mathf.Clamp(Screen.height * 0.016f, 16f, 36f);
+            float thick = Mathf.Clamp(Screen.height * 0.0035f, 4f, 8f);
+            Vector2? prev = null;
             foreach (var a in arc)
             {
-                var sp = cam.WorldToScreenPoint(GameSpace.ToUnity(a));
+                var world = a;
+                world.z += ShotTowardCamera;
+                var sp = cam.WorldToScreenPoint(GameSpace.ToUnity(world));
                 if (sp.z <= 0f) continue;
-                GUI.DrawTexture(new Rect(sp.x - 5f, Screen.height - sp.y - 5f, 10f, 10f), dot);
+                var p = new Vector2(sp.x, Screen.height - sp.y);
+                if (prev.HasValue) GuiSegment(prev.Value, p, thick, dot);
+                GUI.DrawTexture(new Rect(p.x - r * 0.5f, p.y - r * 0.5f, r, r), dot);
+                prev = p;
             }
         }
 

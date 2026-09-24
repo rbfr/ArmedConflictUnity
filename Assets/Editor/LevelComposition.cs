@@ -201,12 +201,13 @@ public static class LevelComposition
                 + "compensate."
                 : "")));
 
-        // --- rule 2: the enemy cluster sets the scout/resolve zoom ---
+        // --- rule 2: the enemy cluster sets the RESOLVE zoom. The opening
+        // scout looks closer and pans; it does not use this width. ---
         float enemyWidth = state.EnemyCamHalfWidth * 2f;
         findings.Add(new Finding(
             enemyWidth > EnemyClusterMaxWidth ? Severity.Warn : Severity.Ok,
             $"rule 2: enemy cluster {enemyWidth:F1} wide incl. structure edges " +
-            $"(<={EnemyClusterMaxWidth})" +
+            $"(<={EnemyClusterMaxWidth}, the resolve frame)" +
             (enemyWidth > EnemyClusterMaxWidth
                 ? ". Past this the scout camera hits its clamp and everything shrinks."
                 : "")));

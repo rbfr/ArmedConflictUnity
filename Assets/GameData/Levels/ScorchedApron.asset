@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   id: level_13
   displayName: Scorched Apron
-  levelNumber: 13
+  levelNumber: 12
   levelGoal: Clear the hangar before they cross the tarmac
   enemyGroups:
   - definition: {fileID: 11400000, guid: aecf03c40cb9b8f4d85d97ef12b4289f, type: 2}

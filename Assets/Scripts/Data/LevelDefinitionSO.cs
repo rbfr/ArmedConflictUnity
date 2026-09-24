@@ -13,6 +13,13 @@ namespace ArmedConflict.Data
         public float anchorZ = 0f;
         public string standingOnStructureId;
         public float advancePerTurn = 0f;
+
+        /// <summary>
+        /// On a boss-phase spawn, these men start at that structure's near
+        /// face and run to <see cref="anchorX"/>. Empty for a normal group.
+        /// The run is the notice — a banner saying they were inside is not.
+        /// </summary>
+        public string emergeFromStructureId;
     }
 
     [Serializable]

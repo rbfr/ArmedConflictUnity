@@ -38,13 +38,20 @@ namespace ArmedConflict.Game
 
         /// <summary>
         /// How close to the player's front line an advance is allowed to press before it holds.
-        /// Just short of <see cref="MeleeRange"/> on purpose: chargers close to arm's length and
-        /// then fight, rather than walking through the line and out the other side.
+        /// Inside <see cref="MeleeRange"/> on purpose: chargers that still have budget walk
+        /// to arm's length; the fight itself starts earlier, as soon as they are in the
+        /// aiming street. Do not raise this above MeleeRange or they park outside claim.
         /// </summary>
         public const float AdvanceStopGap = 0.55f;
 
-        /// <summary>How near the front line a melee unit must be before it claims a victim.</summary>
-        public const float MeleeRange = 0.7f;
+        /// <summary>
+        /// How near the front line a melee unit must be before it claims a victim.
+        /// 0.7 left a 1–2 unit standoff after a 1.4 march: in the aiming frame,
+        /// on top of the line, still a shooting gallery. Rob, 2026-09-16, zoomed
+        /// in: if they are that close, start the melee. Sized to the aiming
+        /// street (~3) so a leftover step cannot sit on your toes unsigned.
+        /// </summary>
+        public const float MeleeRange = 2.5f;
 
         /// <summary>
         /// How long a locked pair scuffles before both fall. Long enough to read as a fight and
@@ -54,11 +61,11 @@ namespace ArmedConflict.Game
         public const float SkirmishDuration = 1.05f;
 
         /// <summary>
-        /// How far from itself an arrived fighter may claim a soldier. Generous on purpose: the
-        /// whole front cluster is reachable, so N arrivals really do cost N soldiers rather than
-        /// the two that happen to stand closest.
+        /// How far from itself an arrived fighter may claim a soldier. Must cover
+        /// <see cref="MeleeRange"/> plus a body or two of formation depth, or a
+        /// claim at 2.5 finds nobody (the front man is 2.5 away).
         /// </summary>
-        public const float SkirmishEngageRange = 1.8f;
+        public const float SkirmishEngageRange = 3.2f;
 
         /// <summary>Sprint speed over the last gap once a victim is claimed. Faster than the
         /// march — the arrival should read as a lunge, not as more walking.</summary>

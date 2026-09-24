@@ -17,14 +17,14 @@ namespace ArmedConflict.Game
         public const float EnemyWindupSeconds = 1.5f;
 
         /// <summary>
-        /// How long the camera holds on the enemy cluster after BEGIN, before the first aim.
+        /// How long the opening look stays on the enemy before the first aim.
         ///
-        /// The Kotlin preview showed the field before you shot. LoadLevel used to jump straight
-        /// to Aiming, so the player never saw the layout — Rob, 2026-08-13. PlayerScout already
-        /// framed that cluster; nothing ever entered the phase. First battle only; later turns
-        /// have already seen the enemy windup.
+        /// Was 2.2s, which was a glance at the whole side. The scout now arrives
+        /// on the near flank, pans to the far one when the men do not fit, and
+        /// holds there long enough to read who is standing. First battle only;
+        /// later turns have already seen the enemy windup.
         /// </summary>
-        public const float PlayerScoutSeconds = 2.2f;
+        public const float PlayerScoutSeconds = 3.6f;
 
         /// <summary>
         /// How long the tank takes to roll from off the left edge into its authored slot.

@@ -189,7 +189,11 @@ After spine is playable:
 
 ---
 
-## Soft-launch campaign beat chart (13 levels)
+## Soft-launch campaign beat chart (12 levels)
+
+The Citadel, the old row 12 (stage boss B), was scrapped 2026-09-22. It
+remains a test rig. Scorched Apron, the old row 13, is now level 12 and
+closes the campaign. The rows below keep their original beat numbers.
 
 Author/order the **player-facing** campaign against this chart. Biomes may repeat. Map each
 level to **one primary teach** so the list is a funnel, not a zoo.

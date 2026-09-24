@@ -132,8 +132,10 @@ MonoBehaviour:
   windAccelZ: 0
   reinforcementWaves: []
   staticCamera: 0
-  isTestLevel: 0
-  designNotes: "Beat 12: finale. Default is 6 rifle + 2 rocket \u2014 last masonry
+  isTestLevel: 1
+  designNotes: "SCRAPPED from the campaign 2026-09-22. Kept as a test rig
+    so the citadel-fall framing check still has this level. Not in The Citadel Road.
+    Beat 12: finale. Default is 6 rifle + 2 rocket \u2014 last masonry
     in the campaign, same tool L6 introduced. Combines beat 6's boss phase with beat 4's charge,
     on beat 5's biome \u2014 three things the player already knows, arriving together.
     The wide fortress tier is the largest structure in the game (6.0 wide, 250 hp)

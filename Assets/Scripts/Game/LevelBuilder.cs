@@ -363,9 +363,12 @@ namespace ArmedConflict.Game
         }
 
         /// <summary>
-        /// Aiming / player-resolve frame. Ground troops only — a garrisoned tank crew is
-        /// part of the vehicle, not the line rule 1 measures. Falls back to the whole
-        /// roster when a level has no ground troops.
+        /// Aiming / player-resolve frame, captured once at load. Ground troops only —
+        /// a garrisoned tank crew is part of the vehicle, not the line rule 1 measures.
+        /// Falls back to the whole roster when a level has no ground troops.
+        /// Once that line is wiped, the tick stops using this capture and frames the
+        /// crew (<see cref="CameraDirector.TankCrewPortrait"/>). Casualties short of
+        /// a wipe do not move it.
         /// </summary>
         public static void PlayerLineFraming(IReadOnlyList<UnitEntity> playerUnits,
                                              out float anchorX, out float halfWidth)

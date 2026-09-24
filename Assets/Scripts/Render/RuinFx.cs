@@ -76,14 +76,17 @@ namespace ArmedConflict.Render
             /// City sessions leave this null.</summary>
             public Transform Host;
             /// <summary>
-            /// A burned-out hull (L13 apron), not a collapse pancake. SitOnPile
-            /// uses the AABB top so a leftover block cannot hide the tongue —
-            /// on an airliner that top is the tail, and the fire floats.
-            /// Hull sits on the fuselage from mesh verts, once.
+            /// A burned-out hull (L13 apron), not a collapse pancake. Collapse
+            /// heaps sit on vertex percentiles; hull does the same but once,
+            /// and ignores the tail spike that used to float the tongues.
             /// </summary>
             public bool Hull;
             bool hullPosed;
             MaterialPropertyBlock props;
+            readonly List<float> sitXs = new List<float>(512);
+            readonly List<float> sitYs = new List<float>(512);
+            readonly List<float> sitZs = new List<float>(512);
+            (Transform t, MeshRenderer r, Vector3[] verts)[] hostMesh;
 
             public void Restart() => BornAt = Time.time;
 
@@ -155,69 +158,34 @@ namespace ArmedConflict.Render
                 r.SetPropertyBlock(props);
             }
 
-            static bool IsFx(Transform t, Transform host)
-            {
-                while (t != null && t != host)
-                {
-                    if (t.name.StartsWith("WreckFire") || t.name.StartsWith("WreckSmoke"))
-                        return true;
-                    t = t.parent;
-                }
-                return false;
-            }
-
             /// <summary>
-            /// Fire on TOP of the live pile, proud of the camera lip.
-            /// Nested in the rubble (the first pass) is invisible at 6° —
-            /// the hangar's pancake hid every tongue. Proud at the FEET is
-            /// a row of candles in the street. Proud at the TOP is the
-            /// destruction read: tongues licking out of the heap, smoke
-            /// clearing the roofline. Follows the collapse down.
+            /// Fire ON the live heap, slightly proud of the camera-facing
+            /// rubble. AABB-top was the airliner-tail bug again: a rotated
+            /// collapse slab inflates the box and the tongues float above
+            /// the pile (L1 outpost, zoomed in). Vertex percentiles sit on
+            /// the mass. Nested in the volume is invisible at 6°; proud at
+            /// the feet is a row of street candles. Follows the clip down.
             /// </summary>
             void SitOnPile()
             {
-                float x0 = 1e9f, y0 = 1e9f, z0 = 1e9f;
-                float x1 = -1e9f, y1 = -1e9f, z1 = -1e9f;
-                bool any = false;
-                var rends = Host.GetComponentsInChildren<MeshRenderer>(true);
-                for (int i = 0; i < rends.Length; i++)
-                {
-                    var r = rends[i];
-                    if (!r.enabled || IsFx(r.transform, Host)) continue;
-                    var b = r.bounds;
-                    for (int c = 0; c < 8; c++)
-                    {
-                        var w = new Vector3(
-                            (c & 1) == 0 ? b.min.x : b.max.x,
-                            (c & 2) == 0 ? b.min.y : b.max.y,
-                            (c & 4) == 0 ? b.min.z : b.max.z);
-                        var p = Host.InverseTransformPoint(w);
-                        if (!any)
-                        {
-                            x0 = x1 = p.x; y0 = y1 = p.y; z0 = z1 = p.z;
-                            any = true;
-                        }
-                        else
-                        {
-                            if (p.x < x0) x0 = p.x; if (p.x > x1) x1 = p.x;
-                            if (p.y < y0) y0 = p.y; if (p.y > y1) y1 = p.y;
-                            if (p.z < z0) z0 = p.z; if (p.z > z1) z1 = p.z;
-                        }
-                    }
-                }
-                if (!any) return;
+                SampleHost();
+                if (sitYs.Count < 8) return;
+                float x0 = MeshSit.Percentile(sitXs, 0.08f);
+                float x1 = MeshSit.Percentile(sitXs, 0.92f);
+                float y0 = MeshSit.Percentile(sitYs, 0.08f);
+                float yTop = MeshSit.Percentile(sitYs, 0.70f);
+                float zLip = MeshSit.Percentile(sitZs, 0.78f);
                 float worldS = Mathf.Max(Host.lossyScale.x, 0.01f);
-                float pileH = Mathf.Max(0.12f, y1 - y0);
+                float pileH = Mathf.Max(0.12f, yTop - y0);
                 float pileWorld = pileH * worldS;
                 // World sizes, then /scale so a 2.5x hangar is not a candle.
                 float flameH = Mathf.Clamp(Mathf.Max(0.95f, pileWorld * 0.55f), 0.95f, 1.90f) / worldS;
                 float flameW = Mathf.Clamp(Mathf.Max(0.50f, pileWorld * 0.28f), 0.50f, 1.05f) / worldS;
                 float smokeH = Mathf.Clamp(Mathf.Max(4.2f, pileWorld * 2.6f), 4.2f, 8.5f) / worldS;
                 float smokeW = Mathf.Clamp(Mathf.Max(1.8f, pileWorld * 1.05f), 1.8f, 3.6f) / worldS;
-                // +Z toward camera. A few centimetres proud of the lip so
-                // a leftover block cannot cover the tongue.
-                float z = z1 + 0.14f / worldS;
-                float yTop = y1 - 0.04f / worldS;
+                // +Z toward camera, centimetres proud of the VISUAL lip so
+                // a leftover block cannot cover the tongue — not the AABB.
+                float z = zLip + 0.05f / worldS;
                 if (yTop < y0 + 0.08f) yTop = y0 + 0.08f;
                 float mid = (x0 + x1) * 0.5f;
                 float half = Mathf.Max(0.12f, (x1 - x0) * 0.22f);
@@ -269,26 +237,11 @@ namespace ArmedConflict.Render
             void SitInHull()
             {
                 if (hullPosed || Host == null) return;
-                var xs = new List<float>(512);
-                var ys = new List<float>(512);
-                var zs = new List<float>(512);
-                var filters = Host.GetComponentsInChildren<MeshFilter>(true);
-                for (int i = 0; i < filters.Length; i++)
-                {
-                    var mf = filters[i];
-                    if (mf.sharedMesh == null || IsFx(mf.transform, Host)) continue;
-                    var verts = mf.sharedMesh.vertices;
-                    int step = Mathf.Max(1, verts.Length / 500);
-                    for (int v = 0; v < verts.Length; v += step)
-                    {
-                        var p = Host.InverseTransformPoint(mf.transform.TransformPoint(verts[v]));
-                        xs.Add(p.x); ys.Add(p.y); zs.Add(p.z);
-                    }
-                }
-                if (ys.Count < 8) return;
-                float yBelly = Percentile(ys, 0.08f);
-                float yRoof = Percentile(ys, 0.72f);
-                float zLip = Percentile(zs, 0.62f);
+                SampleHost();
+                if (sitYs.Count < 8) return;
+                float yBelly = MeshSit.Percentile(sitYs, 0.08f);
+                float yRoof = MeshSit.Percentile(sitYs, 0.72f);
+                float zLip = MeshSit.Percentile(sitZs, 0.62f);
                 float worldS = Mathf.Max(Host.lossyScale.x, 0.01f);
                 float hullWorld = Mathf.Max(0.20f, (yRoof - yBelly) * worldS);
                 float flameH = Mathf.Clamp(Mathf.Max(0.70f, hullWorld * 1.10f), 0.70f, 1.15f) / worldS;
@@ -299,7 +252,7 @@ namespace ArmedConflict.Render
                 float y = yRoof;
                 // Two halves of the snapped hull. A single mid-span row sat
                 // on the nose and left the tail cold.
-                SplitHalves(xs, out float a0, out float a1, out float b0, out float b1);
+                SplitHalves(sitXs, out float a0, out float a1, out float b0, out float b1);
                 float da = Mathf.Max(0.04f, (a1 - a0) * 0.18f);
                 float db = Mathf.Max(0.04f, (b1 - b0) * 0.18f);
                 float am = (a0 + a1) * 0.5f;
@@ -337,6 +290,37 @@ namespace ArmedConflict.Render
                 hullPosed = true;
             }
 
+            void SampleHost()
+            {
+                sitXs.Clear(); sitYs.Clear(); sitZs.Clear();
+                if (Host == null) return;
+                if (hostMesh == null)
+                {
+                    var list = new List<(Transform, MeshRenderer, Vector3[])>(8);
+                    var filters = Host.GetComponentsInChildren<MeshFilter>(true);
+                    for (int i = 0; i < filters.Length; i++)
+                    {
+                        var mf = filters[i];
+                        if (mf.sharedMesh == null || MeshSit.IsFx(mf.transform, Host)) continue;
+                        var verts = mf.sharedMesh.vertices;
+                        if (verts == null || verts.Length == 0) continue;
+                        list.Add((mf.transform, mf.GetComponent<MeshRenderer>(), verts));
+                    }
+                    hostMesh = list.ToArray();
+                }
+                for (int i = 0; i < hostMesh.Length; i++)
+                {
+                    var (t, r, verts) = hostMesh[i];
+                    if (t == null || (r != null && !r.enabled)) continue;
+                    int step = Mathf.Max(1, verts.Length / 500);
+                    for (int v = 0; v < verts.Length; v += step)
+                    {
+                        var p = Host.InverseTransformPoint(t.TransformPoint(verts[v]));
+                        sitXs.Add(p.x); sitYs.Add(p.y); sitZs.Add(p.z);
+                    }
+                }
+            }
+
             static void SplitHalves(List<float> xs, out float a0, out float a1, out float b0, out float b1)
             {
                 var s = new List<float>(xs);
@@ -353,15 +337,6 @@ namespace ArmedConflict.Render
                     gapAt = s.Count / 2;
                 a0 = s[0]; a1 = s[Mathf.Max(0, gapAt - 1)];
                 b0 = s[gapAt]; b1 = s[s.Count - 1];
-            }
-
-            static float Percentile(List<float> v, float p)
-            {
-                v.Sort();
-                float i = (v.Count - 1) * Mathf.Clamp01(p);
-                int lo = (int)i;
-                int hi = Mathf.Min(lo + 1, v.Count - 1);
-                return Mathf.Lerp(v[lo], v[hi], i - lo);
             }
 
             static void PoseTongue(Transform t, Vector2 flicker, float w, float h, float tongue)
@@ -505,9 +480,10 @@ namespace ArmedConflict.Render
 
         /// <summary>
         /// Three tongues and three plumes on the wreck. SitOnPile moves them
-        /// onto the live heap each tick (top, camera-proud) so a hangar
-        /// pancake cannot bury them. Sizes are world-constant floors, then
-        /// divided by lossyScale — a 2.5x hangar used to get a 0.40 candle.
+        /// onto the live heap each tick (vertex sit, slightly camera-proud)
+        /// so a hangar pancake cannot bury them and an AABB cannot float
+        /// them. Sizes are world-constant floors, then divided by lossyScale
+        /// — a 2.5x hangar used to get a 0.40 candle.
         /// </summary>
         public static Session AttachWreck(Transform wreck, Kit kit, int seed,
                                          bool hull = false)
@@ -560,6 +536,41 @@ namespace ArmedConflict.Render
             var driver = wreck.gameObject.AddComponent<RuinFxDriver>();
             driver.Session = session;
             return session;
+        }
+
+        /// <summary>
+        /// Hide wreck fire without destroying it. L13's bay jet carries a
+        /// cold hull kit until the hangar falls — planting on the bang
+        /// would mint FX mid-session.
+        /// </summary>
+        public static void Douse(Transform host)
+        {
+            if (host == null) return;
+            var d = host.GetComponent<RuinFxDriver>();
+            if (d != null) d.enabled = false;
+            SetFxActive(host, false);
+        }
+
+        /// <summary>Start the parked kit. Fade-in is the session's own.</summary>
+        public static void Ignite(Transform host)
+        {
+            if (host == null) return;
+            SetFxActive(host, true);
+            var d = host.GetComponent<RuinFxDriver>();
+            if (d == null) return;
+            d.enabled = true;
+            if (d.Session != null) d.Session.Restart();
+        }
+
+        static void SetFxActive(Transform host, bool on)
+        {
+            var ts = host.GetComponentsInChildren<Transform>(true);
+            for (int i = 0; i < ts.Length; i++)
+            {
+                var n = ts[i].name;
+                if (n.StartsWith("WreckFire") || n.StartsWith("WreckSmoke"))
+                    ts[i].gameObject.SetActive(on);
+            }
         }
 
         static Session.Smoke MakeSmoke(string name, Transform parent, Material mat,

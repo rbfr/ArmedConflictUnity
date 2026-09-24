@@ -94,8 +94,9 @@
   (the phase where the camera watches the enemy side), consuming a per-turn budget.
 - Advancers close to `ADVANCE_STOP_GAP` (arm's length) of the front-most GROUND unit.
 - Units with `meleeDamage > 0` (Shield Bearer) are PURE melee — they never fire ranged
-  shots, not even while closing. When one reaches the front line (within `MELEE_RANGE`
-  as the enemy volley fires) it CLAIMS a unique soldier and locks into a SKIRMISH
+  shots, not even while closing. When one closes to within `MELEE_RANGE` of the front
+  (the aiming street, not arm's length — a leftover 1.4 march used to park them on
+  your toes as a shooting gallery) it CLAIMS a unique soldier and locks into a SKIRMISH
   (`SkirmishEntity`): it lunges to grapple distance, two blood-beat blows land (shove +
   spray + wound scream), and after ~1s BOTH fall as mutual kills. One fighter through =
   one soldier lost, guaranteed — legible maths; the counter-play is killing the charge

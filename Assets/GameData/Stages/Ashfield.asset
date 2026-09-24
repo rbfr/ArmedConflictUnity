@@ -17,6 +17,7 @@ MonoBehaviour:
   tagline: Their last strip is already burning.
   levels:
   - {fileID: 11400000, guid: ce46c69abe35a2565a2201c49f84a094, type: 2}
+  - {fileID: 11400000, guid: e7c4a91b6d204f8e9a3b5c1d0e6f7a82, type: 2}
   starsToUnlock: 16
   unlockRewardId: 
   completionCoinBonus: 150

@@ -140,7 +140,9 @@ public static class AirportLevel
 
         so.id = "level_13";
         so.displayName = "Scorched Apron";
-        so.levelNumber = 13;
+        // Was 13. The Citadel (old L12) left the campaign 2026-09-22, so this
+        // closes it. The id stays level_13 — progress is keyed on that.
+        so.levelNumber = 12;
         so.levelGoal = "Clear the hangar before they cross the tarmac";
         so.background = desert;
         so.heliChance = 0f;

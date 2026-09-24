@@ -38,6 +38,7 @@ public class LevelScenery : MonoBehaviour
         public GameObject Go;
         public int StructureId;
         public float X, Y, Z;
+        public bool Cooked;
     }
 
     public struct CollapseBlast
@@ -85,9 +86,9 @@ public class LevelScenery : MonoBehaviour
     public GameObject Wreck(int id) => wrecks.TryGetValue(id, out var go) ? go : null;
 
     /// <summary>
-    /// Hide every prop bound to this structure and return the blasts that
-    /// should cook it off. No-op if the prop is already hidden (restart
-    /// must not re-fire the bang).
+    /// Cook off every prop bound to this structure: bang + hull fire, mesh
+    /// stays. Blinking it out left a hole in the bay (L13). No-op if already
+    /// cooked — restart must not re-fire the bang.
     /// </summary>
     public List<CollapseBlast> CollapseBoundProps(int structureId)
     {
@@ -95,8 +96,10 @@ public class LevelScenery : MonoBehaviour
         for (int i = 0; i < boundProps.Count; i++)
         {
             var p = boundProps[i];
-            if (p.StructureId != structureId || p.Go == null || !p.Go.activeSelf) continue;
-            p.Go.SetActive(false);
+            if (p.StructureId != structureId || p.Go == null || p.Cooked) continue;
+            p.Cooked = true;
+            boundProps[i] = p;
+            RuinFx.Ignite(p.Go.transform);
             blasts.Add(new CollapseBlast { X = p.X, Y = p.Y, Z = p.Z, Scale = 1.85f });
             blasts.Add(new CollapseBlast { X = p.X + 0.55f, Y = p.Y * 0.7f, Z = p.Z, Scale = 1.25f });
         }
@@ -108,7 +111,11 @@ public class LevelScenery : MonoBehaviour
         for (int i = 0; i < boundProps.Count; i++)
         {
             var p = boundProps[i];
-            if (p.StructureId == structureId && p.Go != null) p.Go.SetActive(true);
+            if (p.StructureId != structureId || p.Go == null) continue;
+            p.Cooked = false;
+            boundProps[i] = p;
+            RuinFx.Douse(p.Go.transform);
+            p.Go.SetActive(true);
         }
     }
 
@@ -236,8 +243,8 @@ public class LevelScenery : MonoBehaviour
                 idByPlacement[level.structures[i].id] = placed[i].Id;
 
         // Props are authored at z=0 like every campaign prop, and are cosmetic — nothing collides
-        // with them. collapsesWith hides the mesh when that structure dies (L13 bay jet).
-        // onFire plants the collapse wreck kit on a prop that is already a burn (L13 apron).
+        // with them. collapsesWith cooks the prop off when that structure dies (L13 bay jet:
+        // bang + hull fire, mesh stays). onFire plants the kit already lit (L13 apron).
         int propFireSeed = 100;
         foreach (var prop in level.props)
         {
@@ -261,8 +268,14 @@ public class LevelScenery : MonoBehaviour
                     Go = pg, StructureId = sid,
                     X = prop.x, Y = 0.55f, Z = prop.z,
                 });
+                if (wreckKit.Fire == null)
+                    wreckKit = RuinFx.MakeKit(unlitFadeSource, owned);
+                // Cold kit. Ignite on the hangar fall — minting fire mid-volley
+                // is the slot the Filament build paid for.
+                RuinFx.AttachWreck(pg.transform, wreckKit, propFireSeed++, hull: true);
+                RuinFx.Douse(pg.transform);
             }
-            if (prop.onFire)
+            else if (prop.onFire)
             {
                 if (wreckKit.Fire == null)
                     wreckKit = RuinFx.MakeKit(unlitFadeSource, owned);

@@ -1611,7 +1611,15 @@ public static class PortSelfTest
                             Check(h1 > h0 + 0.05f,
                                   $"wreck fire fades IN (h {h0:F2} -> {h1:F2})");
                             var fp = sess.Fires[0].Outer.parent.localPosition;
-                            float mz0 = 1e9f, mz1 = -1e9f, my0 = 1e9f, my1 = -1e9f;
+                            var xs = new List<float>();
+                            var ys = new List<float>();
+                            var zs = new List<float>();
+                            MeshSit.SampleLocal(inst.transform, xs, ys, zs);
+                            float yMid = MeshSit.Percentile(ys, 0.50f);
+                            float yHeap = MeshSit.Percentile(ys, 0.70f);
+                            float yHigh = MeshSit.Percentile(ys, 0.92f);
+                            float zLip = MeshSit.Percentile(zs, 0.78f);
+                            float aabbY1 = -1e9f, aabbZ1 = -1e9f;
                             foreach (var r in inst.GetComponentsInChildren<MeshRenderer>(true))
                             {
                                 if (!r.enabled || r.name == "outer" || r.name == "inner"
@@ -1620,17 +1628,18 @@ public static class PortSelfTest
                                 var b = r.bounds;
                                 var a = inst.transform.InverseTransformPoint(b.min);
                                 var c = inst.transform.InverseTransformPoint(b.max);
-                                mz0 = Mathf.Min(mz0, a.z, c.z);
-                                mz1 = Mathf.Max(mz1, a.z, c.z);
-                                my0 = Mathf.Min(my0, a.y, c.y);
-                                my1 = Mathf.Max(my1, a.y, c.y);
+                                aabbY1 = Mathf.Max(aabbY1, a.y, c.y);
+                                aabbZ1 = Mathf.Max(aabbZ1, a.z, c.z);
                             }
-                            Check(fp.y > (my0 + my1) * 0.5f,
-                                  $"wreck fire sits ON the pile (y={fp.y:F2} mid={(my0+my1)*0.5f:F2}), "
+                            Check(fp.y > yMid,
+                                  $"wreck fire sits ON the pile (y={fp.y:F2} mid={yMid:F2}), "
                                   + "not in the dirt under the rubble");
-                            Check(fp.z >= mz1 - 0.04f,
-                                  $"wreck fire is at/proud of the camera lip "
-                                  + $"(z={fp.z:F2} lip={mz1:F2}) so rubble cannot hide it");
+                            Check(fp.y <= yHigh + 0.08f,
+                                  $"wreck fire is ON the rubble, not floating above it "
+                                  + $"(y={fp.y:F2} heap={yHeap:F2} vert92={yHigh:F2} aabb={aabbY1:F2})");
+                            Check(fp.z >= zLip - 0.02f && fp.z <= zLip + 0.14f,
+                                  $"wreck fire is a few cm proud of the visual lip "
+                                  + $"(z={fp.z:F2} lip={zLip:F2} aabb={aabbZ1:F2})");
                             float smokeWorld = sess.Smokes[0].H * inst.transform.lossyScale.x;
                             Check(smokeWorld > 3.5f,
                                   $"wreck smoke is a column ({smokeWorld:F1}), not a puff");
@@ -2062,6 +2071,39 @@ public static class PortSelfTest
                 Check(afterBullet.StructureScars.Count == 1
                       && afterBullet.StructureScars[0].Kind == StructureScarKind.Singe,
                       "a rifle round stamps a SINGE, not a hole");
+            }
+
+            // OUTPUT: scars used the structure AABB's max Z, so a porch or eave
+            // pulled every stamp into the street in front of the wall.
+            {
+                var root = new GameObject("scarSitProbe");
+                try
+                {
+                    var face = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                    face.name = "face";
+                    face.transform.SetParent(root.transform, false);
+                    face.transform.localPosition = new Vector3(0f, 1f, 0f);
+                    face.transform.localScale = new Vector3(2.0f, 2.0f, 0.40f);
+                    var porch = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                    porch.name = "porch";
+                    porch.transform.SetParent(root.transform, false);
+                    porch.transform.localPosition = new Vector3(-0.85f, 0.25f, 0.85f);
+                    porch.transform.localScale = new Vector3(0.50f, 0.50f, 0.80f);
+                    float aabbZ = float.NegativeInfinity;
+                    foreach (var r in root.GetComponentsInChildren<MeshRenderer>())
+                        if (r.bounds.max.z > aabbZ) aabbZ = r.bounds.max.z;
+                    bool faceHit = MeshSit.TryFrontZ(root.transform, 0.40f, 1.00f, out float faceZ);
+                    bool porchHit = MeshSit.TryFrontZ(root.transform, -0.85f, 0.25f, out float porchZ);
+                    Check(faceHit && faceZ < aabbZ - 0.40f,
+                          $"a wall hit sits on the wall, not the AABB porch "
+                          + $"(faceZ={faceZ:F2} aabb={aabbZ:F2})");
+                    Check(porchHit && porchZ > faceZ + 0.40f,
+                          $"a porch hit sits on the porch (porchZ={porchZ:F2} faceZ={faceZ:F2})");
+                }
+                finally
+                {
+                    Object.DestroyImmediate(root);
+                }
             }
 
             // OWN-SIDE structures never block — a garrison fires clean over its own fortress.
@@ -2500,7 +2542,8 @@ public static class PortSelfTest
                         scout = BattleTick.Step(scout, 1f / 60f, l1, new System.Random(1));
                     Check(scout.TurnPhase == TurnPhase.PlayerScout && scout.ScoutTimer > 1f,
                           $"the scout still holds at 1s ({scout.ScoutTimer:F2}s left)");
-                    for (int i = 0; i < 90; i++)
+                    int rest = Mathf.CeilToInt(scout.ScoutTimer * 60f) + 3;
+                    for (int i = 0; i < rest; i++)
                         scout = BattleTick.Step(scout, 1f / 60f, l1, new System.Random(1));
                     Check(scout.TurnPhase == TurnPhase.Aiming && scout.ScoutTimer <= 0f,
                           "then the first aim is handed over");
@@ -2684,6 +2727,67 @@ public static class PortSelfTest
                     afterHold = BattleTick.Step(afterHold, 1f / 60f, dummy, new System.Random(1));
                 Check(afterHold.ShooterHold == 0f, "then the hold expires and the chase may run");
 
+                // Close melee: skip the rifle hold and frame the volley, not the
+                // hangar. A 0.45s hold ate the flight, then liveEnemyHalf opened
+                // to the whole enemy cluster (Rob 2026-09-16).
+                var meleeDef = ScriptableObject.CreateInstance<UnitDefinitionSO>();
+                meleeDef.id = "shield"; meleeDef.maxHp = 32; meleeDef.meleeDamage = 8;
+                var closeEnemy = new UnitEntity(20, meleeDef, -6.2f, 0f, 0f, 32, false);
+                var farGarrison = new UnitEntity(21, ud, 8f, 0f, 0f, 32, false);
+                var closeState = new GameState
+                {
+                    Phase = GamePhase.Playing,
+                    TurnPhase = TurnPhase.Aiming,
+                    PlayerUnits = pl,
+                    EnemyUnits = new List<UnitEntity> { closeEnemy, farGarrison },
+                    PlayerCamXAnchor = -8f,
+                    PlayerCamHalfWidth = 2.5f,
+                    EnemyCamXAnchor = 4f,
+                    EnemyCamHalfWidth = 8f,
+                };
+                Check(CameraDirector.CloseToPlayerFront(closeState.PlayerUnits, closeState.EnemyUnits),
+                      "a charger in the aiming street is CloseToPlayerFront");
+                var closeFired = BattleTick.FireVolley(closeState, new Vector3(4f, 4f, 0f),
+                                                       new System.Random(1));
+                Check(closeFired.ShooterHold == 0f,
+                      $"a close volley skips the shooter hold (hold {closeFired.ShooterHold:F2})");
+
+                // Zoom test: in the street but NOT yet a skirmish — melee outranks
+                // the volley camera, which is the other half of the ask.
+                var street = new GameState
+                {
+                    Phase = GamePhase.Playing,
+                    TurnPhase = TurnPhase.Aiming,
+                    PlayerUnits = pl,
+                    EnemyUnits = new List<UnitEntity>
+                    {
+                        new(20, ud, -5.3f, 0f, 0f, 32, false),
+                        farGarrison,
+                    },
+                    PlayerCamXAnchor = -8f,
+                    PlayerCamHalfWidth = 2.5f,
+                    EnemyCamXAnchor = 4f,
+                    EnemyCamHalfWidth = 8f,
+                };
+                Check(CameraDirector.CloseToPlayerFront(street.PlayerUnits, street.EnemyUnits)
+                      && street.EnemyUnits[0].X + 8f > AdvanceSystems.MeleeRange,
+                      "a street target skips the hold without starting a skirmish");
+                var streetFired = BattleTick.FireVolley(street, new Vector3(4f, 4f, 0f),
+                                                        new System.Random(1));
+                var streetTick = streetFired;
+                for (int i = 0; i < 8; i++)
+                    streetTick = BattleTick.Step(streetTick, 1f / 60f, dummy, new System.Random(1));
+                Check(streetTick.Skirmishes.Count == 0
+                      && streetTick.VolleyLookHalf > 0.01f
+                      && streetTick.VolleyLookHalf < street.EnemyCamHalfWidth - 1f,
+                      $"close volley zooms to the landing "
+                      + $"(lookHalf={streetTick.VolleyLookHalf:F2} vs enemy {street.EnemyCamHalfWidth:F1})");
+                float plazaZ = CameraDirector.TargetZ(
+                    street.EnemyCamHalfWidth + CameraDirector.FramePad, false, 0f);
+                Check(streetTick.CameraFollowZ < plazaZ - 1f,
+                      $"close volley cam is tighter than the enemy plaza "
+                      + $"(z={streetTick.CameraFollowZ:F1} vs plaza {plazaZ:F1})");
+
                 // A lone survivor must own the windup frame, not the empty middle of
                 // their side (structure edges still in EnemyFraming).
                 var bunkerDef = ScriptableObject.CreateInstance<StructureDefinitionSO>();
@@ -2706,6 +2810,171 @@ public static class PortSelfTest
                 Check(solo.CameraFollowX > 7.2f,
                       $"windup on one survivor looks at HIM, not the empty side " +
                       $"(cam {solo.CameraFollowX:F2}, side was 6)");
+            }
+
+            // THE FRONT LINE IS GONE. L4's tank sits at −9.5 and the ground line
+            // mean is near −6.4, so the captured aiming frame is the empty street
+            // and the crew are a sliver of hull at the left edge. Rob, 2026-09-22,
+            // with that exact battle on screen: frame whoever is left.
+            //
+            // Two outputs, both able to fail. With the line still up the camera
+            // LEAVES the tank and goes back to the street — the crew must not set
+            // the aim zoom. With the line removed it LEAVES the street and sits
+            // on the crew.
+            {
+                var l4 = AssetDatabase.LoadAssetAtPath<LevelDefinitionSO>(
+                    "Assets/GameData/Levels/AshBoulevard.asset");
+                Check(l4 != null && l4.levelNumber == 4, "L4 is Ash Boulevard");
+                if (l4 != null)
+                {
+                    var built = LevelBuilder.BuildInitialState(l4, 4, 30, new System.Random(1));
+                    var crew = built.PlayerUnits.Where(u => u.StandingOnStructureId != null).ToList();
+                    var ground = built.PlayerUnits.Where(u => u.StandingOnStructureId == null).ToList();
+                    float crewMean = crew.Count > 0 ? crew.Average(u => u.X) : 0f;
+                    Check(ground.Count > 0 && crew.Count > 0
+                          && Mathf.Abs(crewMean - built.PlayerCamXAnchor) > 2f,
+                          $"L4's crew are off the ground-line frame "
+                          + $"(crew {crewMean:F2}, line {built.PlayerCamXAnchor:F2}, "
+                          + $"{crew.Count} on the tank, {ground.Count} on the street)");
+
+                    var onTheLine = built with
+                    {
+                        Phase = GamePhase.Playing,
+                        TurnPhase = TurnPhase.Aiming,
+                        CameraFollowX = crewMean,
+                        CameraFollowXVelocity = 0f,
+                        CameraFollowZ = 14f,
+                    };
+                    for (int i = 0; i < 90; i++)
+                        onTheLine = BattleTick.Step(onTheLine, 1f / 60f, l4, new System.Random(1));
+                    float lineCam = onTheLine.CameraFollowX ?? 0f;
+                    Check(Mathf.Abs(lineCam - built.PlayerCamXAnchor) < 0.6f
+                          && Mathf.Abs(lineCam - crewMean) > 1.5f,
+                          $"with the line still up the aim camera stays on the STREET "
+                          + $"(cam {lineCam:F2}, line {built.PlayerCamXAnchor:F2}, "
+                          + $"crew {crewMean:F2})");
+
+                    var crewOnly = built with
+                    {
+                        Phase = GamePhase.Playing,
+                        TurnPhase = TurnPhase.Aiming,
+                        PlayerUnits = crew,
+                        CameraFollowX = built.PlayerCamXAnchor,
+                        CameraFollowXVelocity = 0f,
+                        CameraFollowZ = 14f,
+                    };
+                    for (int i = 0; i < 90; i++)
+                        crewOnly = BattleTick.Step(crewOnly, 1f / 60f, l4, new System.Random(1));
+                    float crewCam = crewOnly.CameraFollowX ?? 0f;
+                    Check(Mathf.Abs(crewCam - crewMean) < 0.8f
+                          && Mathf.Abs(crewCam - built.PlayerCamXAnchor) > 2f,
+                          $"with only the tank crew left the aim camera sits on THEM "
+                          + $"(cam {crewCam:F2}, crew {crewMean:F2}, "
+                          + $"empty street was {built.PlayerCamXAnchor:F2})");
+
+                    // The beat after the enemy volley lands is still their turn.
+                    // That pause used to rest on the same empty street.
+                    var pause = crewOnly with
+                    {
+                        TurnPhase = TurnPhase.Resolving,
+                        TurnSide = TurnSide.Enemy,
+                        TurnHandoverDelay = 3f,
+                        CameraFollowX = built.PlayerCamXAnchor,
+                        CameraFollowXVelocity = 0f,
+                        Projectiles = new List<ProjectileEntity>(),
+                        Explosions = new List<ExplosionEntity>(),
+                    };
+                    for (int i = 0; i < 90; i++)
+                        pause = BattleTick.Step(pause, 1f / 60f, l4, new System.Random(1));
+                    float pauseCam = pause.CameraFollowX ?? 0f;
+                    Check(pause.TurnSide == TurnSide.Enemy
+                          && pause.TurnPhase == TurnPhase.Resolving
+                          && Mathf.Abs(pauseCam - crewMean) < 0.8f,
+                          $"after the enemy volley the rest frame is the crew, not the street "
+                          + $"(cam {pauseCam:F2}, phase {pause.TurnPhase}, side {pause.TurnSide})");
+                }
+            }
+
+            // OPENING SCOUT. The resolve frame includes structure edges and pulls
+            // back until the men are a speck. The scout looks closer, at the units.
+            // A force that fits is held. A force that does not is travelled, near
+            // flank to far flank, so the width is still legible.
+            {
+                var rifle = ScriptableObject.CreateInstance<UnitDefinitionSO>();
+                rifle.id = "scout-rifle"; rifle.maxHp = 32;
+                var packed = new List<UnitEntity>
+                {
+                    new(1, rifle, 4.0f, 0f, 0f, 32, false),
+                    new(2, rifle, 4.4f, 0f, 0f, 32, false),
+                    new(3, rifle, 4.8f, 0f, 0f, 32, false),
+                };
+                var packedLook = new GameState
+                {
+                    Phase = GamePhase.Playing,
+                    TurnPhase = TurnPhase.PlayerScout,
+                    ScoutTimer = TurnFlow.PlayerScoutSeconds,
+                    EnemyUnits = packed,
+                    PlayerUnits = new List<UnitEntity>
+                        { new(9, rifle, -8f, 0f, 0f, 32, true) },
+                    EnemyCamXAnchor = 9f,
+                    EnemyCamHalfWidth = 6f,
+                    CameraFollowX = 4.4f,
+                    CameraFollowXVelocity = 0f,
+                    CameraFollowZ = 16f,
+                };
+                float plazaZ = CameraDirector.TargetZ(
+                    packedLook.EnemyCamHalfWidth + CameraDirector.FramePad, false, 0f);
+                var scoutLevel = ScriptableObject.CreateInstance<LevelDefinitionSO>();
+                for (int i = 0; i < 45; i++)
+                    packedLook = BattleTick.Step(packedLook, 1f / 60f, scoutLevel, new System.Random(1));
+                float heldX = packedLook.CameraFollowX ?? 0f;
+                Check(packedLook.TurnPhase == TurnPhase.PlayerScout
+                      && Mathf.Abs(heldX - 4.4f) < 0.4f
+                      && packedLook.CameraFollowZ < plazaZ - 3f,
+                      $"a packed enemy is held close, not pulled out to the plaza "
+                      + $"(cam {heldX:F2} z {packedLook.CameraFollowZ:F1}, plaza z {plazaZ:F1})");
+
+                var l4 = AssetDatabase.LoadAssetAtPath<LevelDefinitionSO>(
+                    "Assets/GameData/Levels/AshBoulevard.asset");
+                if (l4 != null)
+                {
+                    var built = LevelBuilder.BuildInitialState(l4, 4, 30, new System.Random(2));
+                    float lo = built.EnemyUnits.Min(u => u.X);
+                    float hi = built.EnemyUnits.Max(u => u.X);
+                    Check((hi - lo) / 2f > CameraDirector.ScoutLookHalf,
+                          $"L4's enemy does not fit the close scout "
+                          + $"({lo:F2}..{hi:F2}, look ±{CameraDirector.ScoutLookHalf:F1})");
+                    var sweep = built with
+                    {
+                        Phase = GamePhase.Playing,
+                        TurnPhase = TurnPhase.PlayerScout,
+                        ScoutTimer = TurnFlow.PlayerScoutSeconds,
+                        CameraFollowX = lo,
+                        CameraFollowXVelocity = 0f,
+                        CameraFollowZ = 16f,
+                    };
+                    int holdTicks = Mathf.FloorToInt(TurnFlow.PlayerScoutSeconds * 0.28f * 60f);
+                    for (int i = 0; i < holdTicks; i++)
+                        sweep = BattleTick.Step(sweep, 1f / 60f, l4, new System.Random(2));
+                    float nearCam = sweep.CameraFollowX ?? 0f;
+                    Check(sweep.TurnPhase == TurnPhase.PlayerScout
+                          && Mathf.Abs(nearCam - lo) < 0.6f,
+                          $"the scout opens on the near flank "
+                          + $"(cam {nearCam:F2}, near {lo:F2}, far {hi:F2})");
+                    int farTicks = Mathf.CeilToInt(sweep.ScoutTimer * 60f) - 8;
+                    for (int i = 0; i < farTicks; i++)
+                        sweep = BattleTick.Step(sweep, 1f / 60f, l4, new System.Random(2));
+                    float farCam = sweep.CameraFollowX ?? 0f;
+                    float wideZ = CameraDirector.TargetZ(
+                        built.EnemyCamHalfWidth + CameraDirector.FramePad, false, built.StaticCamZ);
+                    Check(sweep.TurnPhase == TurnPhase.PlayerScout
+                          && Mathf.Abs(farCam - hi) < 1.2f
+                          && farCam > lo + (hi - lo) * 0.6f
+                          && sweep.CameraFollowZ < wideZ - 1f,
+                          $"the scout finishes on the far flank, closer than the resolve frame "
+                          + $"(cam {farCam:F2} z {sweep.CameraFollowZ:F1}, "
+                          + $"far {hi:F2}, resolve z {wideZ:F1})");
+                }
             }
 
             // A melee reset drops the carried velocity, so the spring does not fling.
@@ -3852,11 +4121,11 @@ public static class PortSelfTest
                     .Where(p => p.EndsWith(".glb") && !p.Contains("/Kenney/"))
                     .Select(LevelScenery.ModelKey));
 
-            Check(levels.Count == 30, $"all 30 levels present ({levels.Count})");
+            Check(levels.Count == 31, $"all 31 levels present ({levels.Count})");
 
             Check(levels.Count(l => !l.isTestLevel) == 13,
-                  "the campaign is 13 levels — PRODUCT_DIRECTION Tier 0.1's funnel, "
-                  + $"one beat each ({levels.Count(l => !l.isTestLevel)})");
+                  "the campaign is 13 levels — Loaded Post joined 2026-09-22 "
+                  + $"({levels.Count(l => !l.isTestLevel)})");
 
             // Mid-ground scenery is the emptiness lever. Aiming is the empty
             // beat; backdrop strips sit at z=-30. Every campaign level owes
@@ -3919,6 +4188,48 @@ public static class PortSelfTest
                   $"campaign levelNumbers are contiguous from 1 ({campaign.Count} levels)" +
                   (misnumbered.Count == 0 ? "" : $" (first bad: {misnumbered[0].displayName} " +
                                                  $"is L{misnumbered[0].levelNumber})"));
+
+            var loadedPost = campaign.FirstOrDefault(l => l.id == "level_14");
+            Check(loadedPost != null && loadedPost.levelNumber == 13
+                  && loadedPost.enemyGroups.Count > 0
+                  && loadedPost.enemyGroups.All(g => string.IsNullOrEmpty(g.standingOnStructureId))
+                  && loadedPost.bossPhases.Count == 1
+                  && string.IsNullOrEmpty(loadedPost.bossPhases[0].telegraphLabel)
+                  && loadedPost.bossPhases[0].spawnGroups.Count > 0
+                  && loadedPost.bossPhases[0].spawnGroups.All(
+                      g => g.emergeFromStructureId == "post"),
+                  "Loaded Post garrisons nobody and carries no banner; the spill runs out");
+            if (loadedPost != null)
+            {
+                var stood = LevelBuilder.BuildInitialState(loadedPost, 13, 13, new System.Random(1));
+                float zLo = stood.EnemyUnits.Min(u => u.Z);
+                float zHi = stood.EnemyUnits.Max(u => u.Z);
+                Check(stood.EnemyUnits.Count == 6 && zHi - zLo < 0.25f,
+                      $"Loaded Post's six rifles are one rank "
+                      + $"({stood.EnemyUnits.Count} men, z {zLo:F2}..{zHi:F2})");
+
+                var post = stood.Structures.First(s => s.Definition != null
+                                                       && !s.Definition.isPlayerSide);
+                var razed = stood with
+                {
+                    Phase = GamePhase.Playing,
+                    TurnPhase = TurnPhase.Aiming,
+                    Structures = stood.Structures.Where(s => s.Id != post.Id).ToList(),
+                };
+                var spilled = BattleTick.Step(razed, 1f / 60f, loadedPost, new System.Random(1));
+                var running = spilled.EnemyUnits.Where(u => u.MarchTargetX != null).ToList();
+                Check(running.Count == 4
+                      && running.All(u => u.X > u.MarchTargetX.Value + 1f)
+                      && string.IsNullOrEmpty(spilled.TelegraphText),
+                      $"four men leave the post's near face, no banner "
+                      + $"({running.Count} running)");
+                var done = spilled;
+                for (int i = 0; i < 120; i++)
+                    done = BattleTick.Step(done, 1f / 60f, loadedPost, new System.Random(1));
+                Check(done.EnemyUnits.Count == 10
+                      && done.EnemyUnits.All(u => u.MarchTargetX == null),
+                      $"the spill finishes in the open ({done.EnemyUnits.Count} men)");
+            }
 
             // Ids are the PlayerPrefs keys the star results are stored under, so a duplicate
             // silently makes two levels share a best-star record. The rigs are excluded from
@@ -4028,8 +4339,8 @@ public static class PortSelfTest
                           "L7 rocket, L8 combines L5's mix");
                     Check(Has(9, "shield_bearer") && Has(10, "machine_gunner")
                           && Has(11, "sniper") && Has(11, "rocket_trooper")
-                          && Has(12, "rocket_trooper"),
-                          "L9–L12 each carry a specialist the all-rifle default used to hide");
+                          && Has(12, "grenadier"),
+                          "L9–L11 keep their specialists; Scorched Apron fields grenadiers");
 
                     // Garrisons are level geometry and must survive any loadout.
                     var withTank = levels.First(l2 => !l2.isTestLevel
@@ -4517,8 +4828,9 @@ public static class PortSelfTest
                       ? "every garrisoned structure keeps a core mesh the chunks cannot hide"
                       : $"NO DECK CORE (garrison would float): {string.Join(", ", noCore)}");
 
-            var l13 = campaign.FirstOrDefault(l => l.levelNumber == 13);
-            Check(l13 != null, "L13 Scorched Apron is in the campaign");
+            var l13 = campaign.FirstOrDefault(l => l.id == "level_13");
+            Check(l13 != null && l13.levelNumber == 12,
+                  "Scorched Apron closes the campaign at level 12");
             if (l13 != null)
             {
                 var apron = l13.props.FirstOrDefault(p =>
@@ -4547,6 +4859,39 @@ public static class PortSelfTest
                       "L13 bay jet is olive, not the same charcoal as the apron wrecks");
                 Check(bay == null || !bay.onFire,
                       "L13 bay jet is parked, not already alight — cookoff is the hangar fall");
+                {
+                    var fade = AssetDatabase.LoadAssetAtPath<Material>(
+                        "Assets/Materials/BackdropFadeSource.mat");
+                    var dummy = new GameObject("cookoffProbe");
+                    var ownedFx = new List<Object>();
+                    try
+                    {
+                        dummy.AddComponent<MeshFilter>().sharedMesh = QuadMesh.Shared;
+                        dummy.AddComponent<MeshRenderer>();
+                        var kit = RuinFx.MakeKit(fade, ownedFx);
+                        var sess = RuinFx.AttachWreck(dummy.transform, kit, 9, hull: true);
+                        Check(sess != null && dummy.GetComponent<RuinFxDriver>() != null
+                              && dummy.GetComponent<RuinFxDriver>().enabled,
+                              "cookoff kit plants on the parked hull");
+                        RuinFx.Douse(dummy.transform);
+                        Check(!dummy.GetComponent<RuinFxDriver>().enabled,
+                              "a parked jet is cold until the hangar falls");
+                        bool fxOff = true;
+                        foreach (var t in dummy.GetComponentsInChildren<Transform>(true))
+                            if ((t.name.StartsWith("WreckFire") || t.name.StartsWith("WreckSmoke"))
+                                && t.gameObject.activeSelf) fxOff = false;
+                        Check(fxOff, "doused cookoff fire is hidden, not deleted");
+                        RuinFx.Ignite(dummy.transform);
+                        Check(dummy.GetComponent<RuinFxDriver>().enabled
+                              && dummy.activeSelf,
+                              "hangar fall IGNITES the jet — it does not blink out");
+                    }
+                    finally
+                    {
+                        Object.DestroyImmediate(dummy);
+                        foreach (var o in ownedFx) if (o != null) Object.DestroyImmediate(o);
+                    }
+                }
                 var tower = l13.props.FirstOrDefault(p =>
                     p.modelAsset != null && p.modelAsset.Contains("control_tower"));
                 Check(tower != null && tower.z <= -14f && tower.scale >= 5f,
@@ -5565,6 +5910,7 @@ public static class PortSelfTest
         CheckConsumables();
         CheckFactions();
         CheckCosmetics();
+        CheckCloseMeleeAimHint();
         CheckL1RangeTrial();
         CheckL4ThreeShells();
         CheckL5NoTank();
@@ -5585,6 +5931,27 @@ public static class PortSelfTest
 
         Debug.Log($"[PortSelfTest] {(failed == 0 ? "ALL PASS" : $"{failed} FAILURES")}\n{Log}");
         if (failed > 0 && Application.isBatchMode) EditorApplication.Exit(1);
+    }
+
+    /// <summary>
+    /// Close melee sits 0.55 in front of the line. The aim preview is a
+    /// short direction hint, never arc-to-ground; a "fix" that sampled
+    /// until y=0 would draw the landing on the chargers' boots.
+    /// </summary>
+    static void CheckCloseMeleeAimHint()
+    {
+        Near(AdvanceSystems.AdvanceStopGap, 0.55f, 1e-4f,
+             "chargers hold at arm's length (0.55) of the front line");
+        var origin = new Vector3(-8f, 0.9f, 0f);
+        float vx = 3f * 0.70710678f;
+        var arc = new List<Vector3>();
+        TrajectoryPhysics.SampleArc(origin, new Vector3(vx, vx, 0f), 7, 0.05f, arc);
+        Check(arc.Count >= 3, $"close-melee hint has samples ({arc.Count})");
+        float travel = arc[arc.Count - 1].x - origin.x;
+        Check(travel > 0.35f && travel < 3.5f,
+              $"close-melee aim hint is a short path ({travel:F2} u), not arc-to-ground");
+        Check(arc.All(p => p.y > 0.25f),
+              "the hint never draws the landing on the dirt");
     }
 
     /// <summary>
@@ -5975,6 +6342,11 @@ public static class PortSelfTest
     /// So this goes red if anyone edits a crowd variant's stats, changes a garrison count, or
     /// adds a class to CrowdSplit.Factors whose HP or damage does not divide exactly.
     ///
+    /// Row 12 was The Citadel's pre-split numbers. That level left the campaign on
+    /// 2026-09-22, and the row is Scorched Apron's measured totals instead — the
+    /// apron was authored after the split, so it has no pre-split column. Rows
+    /// 1–11 are untouched.
+    ///
     /// It also pins the frailest crowd body ABOVE the incendiary burn, which is the constraint
     /// that picked the factors: the first version of the table split the sniper x2 and the
     /// grenadier x3, landing both on exactly 8 hp, and the burn stopped chipping and started
@@ -5989,7 +6361,8 @@ public static class PortSelfTest
             (1,   9, 288,  72, 18f), (2,  11, 352,  88, 22f), (3,   9, 272,  84, 26f),
             (4,  17, 616, 132, 33f), (5,   8, 264,  88, 27f), (6,  16, 616, 148, 37f),
             (7,  11, 392,  82, 52f), (8,  13, 400, 124, 46f), (9,  15, 536, 116, 29f),
-            (10, 13, 448, 120, 30f), (11, 10, 352,  80, 89f), (12, 18, 680, 164, 41f),
+            (10, 13, 448, 120, 30f), (11, 10, 352,  80, 89f), (12, 21, 488,  96, 45f),
+            (13,  6, 192,  48, 12f),
         };
 
         var levels = AssetDatabase.FindAssets("t:LevelDefinitionSO")
@@ -6686,6 +7059,8 @@ public static class PortSelfTest
         float frontline = marching.PlayerUnits.Where(u => u.StandingOnStructureId == null)
                                   .Max(u => u.X);
 
+        Near(AdvanceSystems.MeleeRange, 2.5f, 1e-4f,
+             "melee claims in the aiming street (2.5), not at arm's length 0.7");
         Check(toX < fromX - 0.05f
               && toX >= frontline + AdvanceSystems.AdvanceStopGap - 0.01f
               && marching.EnemyUnits.All(u => u.AdvanceRemaining == 0f),

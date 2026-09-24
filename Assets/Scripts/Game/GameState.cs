@@ -20,7 +20,7 @@ namespace ArmedConflict.Game
         /// BEGIN, only on levels that field a cannon. Hands over to PlayerScout.
         /// </summary>
         TankArrive,
-        PlayerScout,   // camera pans to the enemy side so the player sees the layout before aiming
+        PlayerScout,   // close look at the enemy men, panning the line when it does not fit, before aiming
         Aiming,
         EnemyWindup,
         Resolving,
@@ -176,6 +176,15 @@ namespace ArmedConflict.Game
         public float ShooterHold { get; init; }
         public float ShooterHoldAnchorX { get; init; }
         public float ShooterHoldHalfWidth { get; init; }
+
+        /// <summary>
+        /// Where the live volley (and its blasts) actually is. Carried through
+        /// the post-volley pause so the camera stays on the impact after the
+        /// last round is gone — Resolving used to reopen to the whole enemy
+        /// cluster the same tick the shots landed.
+        /// </summary>
+        public float VolleyLookX { get; init; }
+        public float VolleyLookHalf { get; init; }
 
         /// <summary>
         /// Camera hold on a structure that just fell with its garrison. Armed the

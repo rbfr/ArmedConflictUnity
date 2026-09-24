@@ -21,7 +21,6 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 0b0c87abd627d97f5a3433803d8fa9b2, type: 2}
   - {fileID: 11400000, guid: b5a3723b7947bd402815d14614961146, type: 2}
   - {fileID: 11400000, guid: be68ea60b193003d297578e849e6cdae, type: 2}
-  - {fileID: 11400000, guid: dc1074de96bbddaebb7d2a5ae361534d, type: 2}
   starsToUnlock: 8
   unlockRewardId: rocket_trooper
   completionCoinBonus: 300

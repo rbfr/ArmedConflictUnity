@@ -36,10 +36,11 @@ the player spends most of their time in, they see their own line and 0.6 units o
 camera near 8 and renders a soldier around 150px. A wide player line is a zoomed-out level,
 and nothing else about the layout can compensate.
 
-**2. Scout / resolving zoom is set by the ENEMY CLUSTER, structure edges included.**
+**2. Resolving zoom is set by the ENEMY CLUSTER, structure edges included.**
 Keep the whole enemy side inside **~11 world units** so that framing stays near `camZ` 15. This is
 the rule the old levels broke hardest — two fortresses 20 units apart forced the camera to its
-clamp and shrank everything.
+clamp and shrank everything. The opening scout does not use this frame: it looks closer, at the
+units, and pans from the near flank to the far one when they do not fit (`CameraDirector.ScoutLook`).
 
 **3. One dominant structure per level, at most two small supports.**
 At 2.5x a fortress tier is 6.0 wide and the stack is 6.0 tall; a garrison post is 3.75 wide. Three

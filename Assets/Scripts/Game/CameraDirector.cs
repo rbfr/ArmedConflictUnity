@@ -85,12 +85,29 @@ namespace ArmedConflict.Game
         public const float ShooterHoldSeconds = 0.45f;
 
         /// <summary>
+        /// Skip the shooter hold when the nearest enemy is this close to the
+        /// player front. A 0.45s hold on the rifles eats a 0.2s close volley,
+        /// then Resolving opens to the whole enemy cluster — hangar, garrison,
+        /// the lot — and the player cannot tell if they hit the men at their
+        /// feet. Rob, 2026-09-16: zoom to where the volley lands.
+        /// </summary>
+        public const float CloseVolleyGap = 3.2f;
+
+        /// <summary>
         /// Floor for a living-actor frame. One survivor must be a portrait, not a
         /// plaza — EnemyFraming still includes structure edges, so a lone Sovereign
         /// next to a bunker used to park the camera on the empty middle of their
         /// side until he fired. L6 2026-09-06.
         /// </summary>
         public const float ActorHalfWidthMin = 2.0f;
+
+        /// <summary>
+        /// How close the opening scout looks. Wider than a one-man portrait,
+        /// tighter than the structure-edge cluster (that frame is the resolve
+        /// shot, and it shrinks the men until a rifle and a shield read the
+        /// same). A force that does not fit is panned, not zoomed back out.
+        /// </summary>
+        public const float ScoutLookHalf = 2.6f;
 
         public const float CollapseHoldSeconds = 2.1f;
         public const float CollapseFollowSeconds = 1.25f;
@@ -264,8 +281,9 @@ namespace ArmedConflict.Game
         ///
         ///  Aiming      — the PLAYER LINE ONLY. Keeping it tight is what makes the aim readable;
         ///                the campaign composition rules are written against this (~6 wide).
-        ///  PlayerScout — the enemy cluster, INCLUDING structure edges, so the player sees what
-        ///                they are shooting at before they aim.
+        ///  PlayerScout — fallback only. The tick replaces this with
+        ///                <see cref="ScoutLook"/>: closer, on the men, panning
+        ///                when they do not fit. Resolving still uses the cluster.
         ///  EnemyWindup — the marchers if any are moving, otherwise the SHOOTERS. Melee units
         ///                are excluded from the shooter set: a settled melee unit far up the
         ///                field would otherwise widen the frame for no reason.
@@ -337,10 +355,171 @@ namespace ArmedConflict.Game
             => Mathf.Max(Span(enemyXs) / 2f, shooterReach);
 
         /// <summary>
+        /// Opening look at the enemy. Units only — structure edges are what
+        /// make the resolve frame a plaza. When the men fit in
+        /// <see cref="ScoutLookHalf"/>, hold their mean. When they do not,
+        /// travel from the near flank (closest to the player) to the far one.
+        /// The first slice of the scout holds still so the camera can arrive;
+        /// the last slice holds so the far end can be read.
+        /// <paramref name="progress"/> is 0 at the start and 1 at the end.
+        /// </summary>
+        public static void ScoutLook(IReadOnlyList<UnitEntity> enemyUnits, float progress,
+                                     out float anchorX, out float halfWidth)
+        {
+            anchorX = 6f;
+            halfWidth = ScoutLookHalf;
+            if (enemyUnits == null || enemyUnits.Count == 0) return;
+            float lo = float.MaxValue, hi = float.MinValue, sum = 0f;
+            int n = 0;
+            for (int i = 0; i < enemyUnits.Count; i++)
+            {
+                var u = enemyUnits[i];
+                if (u == null || u.Hp <= 0) continue;
+                lo = Mathf.Min(lo, u.X);
+                hi = Mathf.Max(hi, u.X);
+                sum += u.X;
+                n++;
+            }
+            if (n == 0) return;
+            float spanHalf = Mathf.Max((hi - lo) / 2f, ActorHalfWidthMin);
+            if (spanHalf <= ScoutLookHalf)
+            {
+                anchorX = sum / n;
+                halfWidth = spanHalf;
+                return;
+            }
+            halfWidth = ScoutLookHalf;
+            anchorX = Mathf.Lerp(lo, hi, ScoutPan(progress));
+        }
+
+        /// <summary>
+        /// 0 through the arrival, then a hermite sweep, then 1 while the far
+        /// flank is held. Not <c>Mathf.SmoothStep</c> across the whole scout —
+        /// that eases the ends but never actually stops, so the near rank is
+        /// already leaving as the camera arrives.
+        /// </summary>
+        public static float ScoutPan(float progress)
+        {
+            const float holdNear = 0.28f;
+            const float holdFar = 0.22f;
+            float t = Mathf.Clamp01(progress);
+            if (t <= holdNear) return 0f;
+            if (t >= 1f - holdFar) return 1f;
+            float u = (t - holdNear) / (1f - holdNear - holdFar);
+            return u * u * (3f - 2f * u);
+        }
+
+        /// <summary>
+        /// The ground line is dead and only the tank crew are left. The captured
+        /// aiming anchor is the empty street they used to occupy, and the crew
+        /// sit off the left edge of it — L4's tank is at −9.5 and the line mean
+        /// is near −6.4, which is the sliver of hull in the corner.
+        ///
+        /// Returns a portrait on the crew and the tank they stand on. While any
+        /// ground troop is still up, returns false: thinning the line must not
+        /// twitch the aim zoom. That capture is deliberate.
+        /// </summary>
+        public static bool TankCrewPortrait(IReadOnlyList<UnitEntity> playerUnits,
+                                            IReadOnlyList<StructureEntity> structures,
+                                            out float anchorX, out float halfWidth)
+        {
+            anchorX = 0f;
+            halfWidth = 0f;
+            if (playerUnits == null) return false;
+            var xs = new List<float>();
+            var stoodOn = new HashSet<int>();
+            for (int i = 0; i < playerUnits.Count; i++)
+            {
+                var u = playerUnits[i];
+                if (u == null || u.Hp <= 0) continue;
+                // One rifleman still on the street owns the frame. The crew
+                // must not pull the aim camera back while he is there.
+                if (u.StandingOnStructureId == null) return false;
+                xs.Add(u.X);
+                stoodOn.Add(u.StandingOnStructureId.Value);
+            }
+            if (xs.Count == 0) return false;
+            if (structures != null)
+            {
+                for (int i = 0; i < structures.Count; i++)
+                {
+                    var st = structures[i];
+                    if (st == null || !stoodOn.Contains(st.Id)) continue;
+                    xs.Add(st.X);
+                }
+            }
+            float sum = 0f;
+            for (int i = 0; i < xs.Count; i++) sum += xs[i];
+            anchorX = sum / xs.Count;
+            halfWidth = Mathf.Max(CameraFraming.HalfWidth(anchorX, xs), ActorHalfWidthMin);
+            return true;
+        }
+
+        /// <summary>
         /// Tight frame on whoever is still standing. Scout keeps structure edges
         /// (that is the layout beat). Windup and post-volley rest look at BODIES,
         /// or the last man sits in a wide empty side until he happens to shoot.
         /// </summary>
+        /// <summary>
+        /// Frame the live rounds (and the blasts they just became). This is the
+        /// impact portrait — not the enemy side's captured half-width, which on
+        /// a charge level is the hangar at 8 and the melee at -6 in one plaza.
+        /// </summary>
+        public static void VolleyLook(IReadOnlyList<ProjectileEntity> rounds,
+                                      IReadOnlyList<ExplosionEntity> blasts,
+                                      float fallbackAnchor,
+                                      out float anchorX, out float halfWidth)
+        {
+            var xs = new List<float>();
+            if (rounds != null)
+            {
+                for (int i = 0; i < rounds.Count; i++)
+                {
+                    var p = rounds[i];
+                    if (p == null || p.IsHeliShot) continue;
+                    xs.Add(p.X);
+                }
+            }
+            if (blasts != null)
+            {
+                for (int i = 0; i < blasts.Count; i++)
+                    if (blasts[i] != null) xs.Add(blasts[i].X);
+            }
+            if (xs.Count == 0)
+            {
+                anchorX = fallbackAnchor;
+                halfWidth = ActorHalfWidthMin;
+                return;
+            }
+            float sum = 0f;
+            for (int i = 0; i < xs.Count; i++) sum += xs[i];
+            anchorX = sum / xs.Count;
+            halfWidth = Mathf.Max(CameraFraming.HalfWidth(anchorX, xs), ActorHalfWidthMin);
+        }
+
+        public static bool CloseToPlayerFront(IReadOnlyList<UnitEntity> playerUnits,
+                                              IReadOnlyList<UnitEntity> enemyUnits)
+        {
+            float? front = null;
+            if (playerUnits != null)
+            {
+                for (int i = 0; i < playerUnits.Count; i++)
+                {
+                    var u = playerUnits[i];
+                    if (u == null || !AdvanceSystems.Reachable(u)) continue;
+                    if (front == null || u.X > front.Value) front = u.X;
+                }
+            }
+            if (front == null || enemyUnits == null) return false;
+            for (int i = 0; i < enemyUnits.Count; i++)
+            {
+                var e = enemyUnits[i];
+                if (e == null) continue;
+                if (e.X - front.Value <= CloseVolleyGap) return true;
+            }
+            return false;
+        }
+
         public static void LivingActors(IReadOnlyList<UnitEntity> units, bool shootersOnly,
                                         float fallbackAnchor,
                                         out float anchorX, out float halfWidth)

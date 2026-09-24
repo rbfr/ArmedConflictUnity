@@ -246,8 +246,10 @@ namespace ArmedConflict.Game
 
             // The relief squad jogs in from the player's edge to its formation slots. They are
             // full roster members from the moment they spawn — a volley fired mid-march simply
-            // launches from wherever each man has got to.
+            // launches from wherever each man has got to. The same walk carries a boss spill
+            // the other way: out of a fallen building, toward the field.
             playerUnits = StepMarch(playerUnits, dt, out bool marching);
+            enemyUnits = StepMarch(enemyUnits, dt, out _);
 
             // INCENDIARY: mark the SURVIVORS of an incendiary hit. CollisionSystem has populated
             // IncendiaryHitUnitIds since the port and nothing has ever read it. The dead are
@@ -892,8 +894,10 @@ namespace ArmedConflict.Game
                                                                  destroyedEver, level, enemyUnits)))
                         continue;
 
+                    int beforeSpill = enemyUnits.Count;
                     enemyUnits = Spawn(enemyUnits, level, trigger.spawnGroups,
                                        EventSystems.BossWaveIdBase + i * 100, random);
+                    enemyUnits = Emerge(enemyUnits, beforeSpill, level, trigger.spawnGroups);
                     triggeredBoss.Add(i);
                     // Timer only: the flavor banner is gone. ArrivalCam still uses this
                     // window to hold on the arrived group.
@@ -1060,6 +1064,26 @@ namespace ArmedConflict.Game
                         && turnPhase == TurnPhase.Resolving
                         && groundVolley.Count > 0;
 
+            float volleyLookX = s.VolleyLookX;
+            float volleyLookHalf = s.VolleyLookHalf;
+            bool seeingImpact = chasing
+                || (phase == GamePhase.Playing
+                    && turnPhase == TurnPhase.Resolving
+                    && !fighting && !watchingCollapse && !watchingShooters
+                    && volleyLookHalf > 0.01f
+                    && (groundVolley.Count > 0 || explosions.Count > 0 || handover > 0f));
+            if (chasing || (seeingImpact && (groundVolley.Count > 0 || explosions.Count > 0)))
+            {
+                CameraDirector.VolleyLook(groundVolley, explosions,
+                    s.CameraFollowX ?? s.VolleyLookX,
+                    out volleyLookX, out volleyLookHalf);
+            }
+            if (turnPhase != TurnPhase.Resolving)
+            {
+                volleyLookX = 0f;
+                volleyLookHalf = 0f;
+            }
+
             // Living bodies, not the captured side (which still includes structure
             // edges). Scout keeps that wide frame; windup and post-volley rest look
             // at whoever is still standing so a lone Sovereign is not a plaza shot.
@@ -1068,6 +1092,18 @@ namespace ArmedConflict.Game
             CameraDirector.LivingActors(enemyUnits, shootersOnly: false, enemyCamX,
                                         out float liveEnemyX, out float liveEnemyHalf);
 
+            // The captured player anchor is the GROUND LINE at load. Once
+            // that line is gone it is an empty street, and the crew — the
+            // only players left — sit off the left edge of it.
+            bool crewPortrait = CameraDirector.TankCrewPortrait(
+                playerUnits, structures, out float crewX, out float crewHalf);
+            float playerAnchor = crewPortrait ? crewX : s.PlayerCamXAnchor;
+            float scoutProgress = TurnFlow.PlayerScoutSeconds <= 0f
+                ? 1f
+                : 1f - Mathf.Clamp01(scoutTimer / TurnFlow.PlayerScoutSeconds);
+            CameraDirector.ScoutLook(enemyUnits, scoutProgress,
+                                     out float scoutX, out float scoutHalf);
+
             float followXVel = s.CameraFollowXVelocity;
             float followX;
             if (chasing)
@@ -1075,6 +1111,12 @@ namespace ArmedConflict.Game
                 followX = CameraDirector.FollowVolley(s.CameraFollowX, followXVel, groundVolley,
                                                       playerUnits, enemyUnits, structures,
                                                       false, dt, out followXVel);
+            }
+            else if (seeingImpact)
+            {
+                followX = s.CameraFollowX ?? volleyLookX;
+                SpringFollow.Step(ref followX, ref followXVel, volleyLookX, dt,
+                                  CameraDirector.VolleyFollowSmoothTime);
             }
             else
             {
@@ -1090,9 +1132,9 @@ namespace ArmedConflict.Game
                     : watchingShooters ? s.ShooterHoldAnchorX
                     : turnPhase switch
                 {
-                    TurnPhase.Aiming => s.PlayerCamXAnchor,
+                    TurnPhase.Aiming => playerAnchor,
                     TurnPhase.TankArrive => arriveAnchor,
-                    TurnPhase.PlayerScout => enemyCamX,
+                    TurnPhase.PlayerScout => scoutX,
                     // THE WINDUP ANCHOR MOVES WITH THE ASSAULT when there is one. A fixed
                     // per-level enemy anchor is correct for a shooting line that stands still and
                     // wrong for a force that walks the width of the field — see
@@ -1109,13 +1151,13 @@ namespace ArmedConflict.Game
                                         .Select(u => u.X).ToList(),
                               enemyUnits.Select(u => u.X).ToList(),
                               liveShootX),
-                    TurnPhase.Resolving => turnSide == TurnSide.Enemy ? s.PlayerCamXAnchor
+                    TurnPhase.Resolving => turnSide == TurnSide.Enemy ? playerAnchor
                                                                      : liveEnemyX,
                     // Ride the aircraft from the player line across the
                     // enemy, then (plane gone) sit back on the player
                     // line so they fire from their own frame.
                     TurnPhase.AirstrikeRun => AirstrikeCameraAnchorFor(s),
-                    _ => s.PlayerCamXAnchor,
+                    _ => playerAnchor,
                 };
                 if (!fighting && !watchingCollapse && turnPhase != TurnPhase.AirstrikeRun
                     && arrivalCamHalf > 0f && bossTimer > 0f)
@@ -1153,9 +1195,17 @@ namespace ArmedConflict.Game
                 halfWidth = collapseHoldHalfWidth;
             else if (watchingShooters)
                 halfWidth = s.ShooterHoldHalfWidth;
+            else if (seeingImpact)
+                halfWidth = volleyLookHalf;
             else if (turnPhase != TurnPhase.AirstrikeRun
                      && arrivalCamHalf > 0f && bossTimer > 0f)
                 halfWidth = arrivalCamHalf;
+            else if (turnPhase == TurnPhase.PlayerScout)
+                halfWidth = scoutHalf;
+            else if (crewPortrait
+                     && (turnPhase == TurnPhase.Aiming
+                         || (turnPhase == TurnPhase.Resolving && turnSide == TurnSide.Enemy)))
+                halfWidth = crewHalf;
             else if (turnPhase == TurnPhase.Resolving && turnSide == TurnSide.Player)
                 halfWidth = liveEnemyHalf;
 
@@ -1204,6 +1254,8 @@ namespace ArmedConflict.Game
                 MeleeHoldAnchorX = meleeHoldAnchorX,
                 MeleeHoldHalfWidth = meleeHoldHalfWidth,
                 ShooterHold = shooterHold,
+                VolleyLookX = volleyLookX,
+                VolleyLookHalf = volleyLookHalf,
                 CollapseHold = collapseHold,
                 CollapseHoldAnchorX = collapseHoldAnchorX,
                 CollapseHoldHalfWidth = collapseHoldHalfWidth,
@@ -2256,9 +2308,15 @@ namespace ArmedConflict.Game
             foreach (var u in list)
             {
                 if (u.MarchTargetX is not float target) { stepped.Add(u); continue; }
-                float x = u.X + MarchSpeed * dt;
-                if (x >= target) stepped.Add(u with { X = target, MarchTargetX = null });
-                else { stepped.Add(u with { X = x }); marching = true; }
+                float dx = target - u.X;
+                float step = MarchSpeed * dt;
+                if (Mathf.Abs(dx) <= step)
+                    stepped.Add(u with { X = target, MarchTargetX = null });
+                else
+                {
+                    stepped.Add(u with { X = u.X + Mathf.Sign(dx) * step });
+                    marching = true;
+                }
             }
             return stepped;
         }
@@ -2383,6 +2441,46 @@ namespace ArmedConflict.Game
         /// unit and structure ids never overlap, and a reused id would retarget an existing unit's
         /// damage onto the newcomer.
         /// </summary>
+        /// <summary>
+        /// A spill starts on the fallen structure's near face and runs to the
+        /// spot BuildUnits gave it. The face, not the middle: a man who
+        /// appears inside the pile is a man the player does not see leave.
+        /// </summary>
+        static List<UnitEntity> Emerge(List<UnitEntity> units, int before,
+                                       LevelDefinitionSO level, List<EnemyGroup> groups)
+        {
+            if (groups == null || before >= units.Count) return units;
+            int cursor = before;
+            foreach (var g in groups)
+            {
+                int n = g.definition != null ? g.count : 0;
+                if (string.IsNullOrEmpty(g.emergeFromStructureId))
+                {
+                    cursor += n;
+                    continue;
+                }
+                float door = float.NaN;
+                foreach (var p in level.structures)
+                {
+                    if (p.id != g.emergeFromStructureId || p.definition == null) continue;
+                    float half = (p.definition.hasHitWidth ? p.definition.hitWidth
+                                                           : p.definition.size) / 2f;
+                    // Just on the player's side of where the wall was. The box
+                    // is already gone — this is the threshold they come through.
+                    door = p.x - half - 0.2f;
+                    break;
+                }
+                for (int i = 0; i < n && cursor < units.Count; i++, cursor++)
+                {
+                    if (float.IsNaN(door)) continue;
+                    var u = units[cursor];
+                    if (door <= u.X + 0.3f) continue;
+                    units[cursor] = u with { X = door, MarchTargetX = u.X };
+                }
+            }
+            return units;
+        }
+
         static List<UnitEntity> Spawn(List<UnitEntity> enemyUnits, LevelDefinitionSO level,
                                       List<EnemyGroup> groups, int idBase, System.Random random)
         {
@@ -2619,9 +2717,12 @@ namespace ArmedConflict.Game
             float hw = xs.Count > 0
                 ? Mathf.Max(CameraFraming.HalfWidth(ax, xs), CameraDirector.ActorHalfWidthMin)
                 : CameraDirector.ActorHalfWidthMin;
+            // Close contact: the 0.45s rifle hold eats the whole flight, then
+            // Resolving opens to the hangar. Skip it and let the impact portrait run.
+            bool close = playerSide && CameraDirector.CloseToPlayerFront(s.PlayerUnits, s.EnemyUnits);
             return s with
             {
-                ShooterHold = CameraDirector.ShooterHoldSeconds,
+                ShooterHold = close ? 0f : CameraDirector.ShooterHoldSeconds,
                 ShooterHoldAnchorX = ax,
                 ShooterHoldHalfWidth = hw,
             };

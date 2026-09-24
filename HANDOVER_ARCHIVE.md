@@ -1,12 +1,13 @@
 # HANDOVER_ARCHIVE.md — closed sections
 
-Split out of `HANDOVER.md` in THREE passes:
+Split out of `HANDOVER.md` in four passes:
 
 | when | what moved |
 |---|---|
 | 2026-08-11 | the port's first two days, 08-05/06 |
 | 2026-08-25 | the 08-07 → 08-11 build-and-fix entries |
 | 2026-09-05 | 08-12 → 09-04 sitting logs, plus the resolved 08-07 siege write-up |
+| 2026-09-23 | the 09-16 pickup: hangar, cookoff, wreck fire, close melee, and the stale Loaded Post banner note |
 
 Each time the live file had grown past the point where the current state was findable.
 
@@ -29,6 +30,290 @@ If you are reading an entry here to understand current behaviour, stop and check
 file first: an archived entry is accurate about the day it was written and about nothing else.
 
 ---
+
+
+---
+
+## Split 2026-09-23 — the 09-16 pickup
+
+Moved out of `HANDOVER.md` when that file's opening was still 09-16 and the
+campaign, scout, crew portrait, Loaded Post, and HUD had all moved. This is
+how that sitting stood. It is not a statement about Loaded Post or the HUD
+after 09-22. The live file is the 09-23 pickup.
+
+# Handover — Unity, as of 2026-09-16
+
+## Pick up here
+
+Branch `session/2026-08-25-shell-art-ragdoll`. Origin is still `857c5f6`
+(L13 wreck / hull fire / billows / tower radar). **This sitting is
+not committed** — MeshSit, close-melee cam, cookoff, and this file
+are dirty. Ask git before writing on top.
+
+Phone USB `57121FDCQ005LC`. Last APK is the 12-level campaign
+(09-22): The Citadel is out, Scorched Apron closes it, plus the
+opening scout and the crew portrait. Scout and crew portrait are
+not signed. Scene 30 levels / **92** models.
+
+**This sitting (09-14 → 09-16), all signed on device:**
+
+- **Wreck fire + wall scars.** AABB-top / AABB-front floated tongues
+  above L1 rubble and stamped scars in the street. Same trap as the
+  apron tail. Collapse heaps sit on vertex percentiles (`MeshSit`);
+  scars ray the live mesh at the hit X/Y. Rob: *"looks better."*
+- **Close-melee hint.** 10px IMGUI pebbles, lost in the crowd. Now
+  screen-scaled + stitched; rounds draw 0.20 toward camera. Aim
+  frame, tracer size 0.22, no landing marker — still locked. Rob:
+  *"the hint is good."*
+- **Close melee + impact cam (explicit ask).** `MeleeRange` 0.7 →
+  **2.5**, engage 1.8 → **3.2**. A leftover 1.4 march parked them on
+  your toes as a shooting gallery. Close volley skips the 0.45s
+  shooter hold and frames `VolleyLook` (live rounds / blasts), not
+  the hangar. Rob: *"looks good."*
+- **L13 hangar cookoff.** Bay jet used to blink out. Bang + hull
+  fire, mesh stays (`Douse` at build, `Ignite` on hangar fall).
+  Rob: *"ok looks good."*
+
+Do not reopen as AABB sit, 10px hint, plaza-zoom, 0.7 claim, or a
+vanishing jet.
+
+**Opening scout (09-22, on the phone, not signed).** No longer the wide
+structure frame. Looks closer at the men (`ScoutLookHalf` 2.6). A line
+that fits is held; one that does not pans from the near flank to the
+far one over 3.6s. Resolve framing is unchanged.
+
+**Crew portrait (09-22, on the phone, not signed).** Aiming keeps the captured
+ground line while anyone is standing on it. Once that line is dead, the
+anchor is an empty street and the tank crew sit off the left edge (L4:
+tank −9.5, line mean near −6.4). `CameraDirector.TankCrewPortrait` frames
+the crew and the tank they stand on — aiming, and the pause after an
+enemy volley. Casualties short of a wipe do not move the aim zoom.
+
+Prior L13 look-pass (09-08 → 09-09) is also signed: apron wreck
+(broken-half airliner), hull fire both halves, billows, bluer sky.
+Tower + radar shipped with that pass.
+
+`PortSelfTest`: one standing FAIL — **NO MID-GROUND SCENERY: Scorched
+Apron** (rule wants two `keepColors` at `z <= -6`; only the tower
+qualifies). Do not "fix" that by duplicating a tree.
+
+Rob signed 09-06: muzzle *"ok that looks good."* Camera *"ok this
+looks much better."* Wrecks *"yeah that's better."* L6 at 160 hp
+*"looks more reasonable."*
+
+### Signed on device this sitting
+
+- **L13 hangar collapse + bay-jet cookoff (09-16):** bang + hull fire
+  on the parked jet, mesh stays. Rob: *"ok looks good."*
+- **Close melee + impact cam (09-16):** claim at 2.5 in the aiming
+  street; close volley skips shooter hold and pinches to the landing.
+  Hint already *"is good."* Rob: *"looks good."*
+- **L1 wreck fire + wall scars (09-14):** tongues on the rubble, not
+  above it; stamps on the wall, not in the street. Vertex sit / mesh
+  ray. Rob: *"looks better."*
+- **Apron wreck:** one CC0 airliner **broken in half**, charred snap,
+  tail yawed off. Rob: *"yes, that's looking better."* Then the
+  floating burn disc was pulled off the hull; after the cap sat on
+  the fuselage end: *"looks good."*
+- **Sky:** bluer horizons, played on L13. *"ok good."* Not a tour of
+  all seven biomes.
+- **Apron fire/smoke:** hull sit (not AABB-top / tail), both halves,
+  billows that keep rising. Rob: *"ok that works."*
+
+### L13 as it stands
+
+Open-mouth hangar at **x 7.8**, worldScale **2.5**, hitWidth **3.40**,
+deckY **2.05**, catwalk `deckStandZOffset` **1.45** (no parapet). CORE
+is `Hangar` + trim/accent; chunks are skin + a roof scar. Collapse is
+**Legacy Animation** (`animationMethod: 1`).
+
+Charge **5 shield bearers** at x 3.0 advance 1.4 — pure melee, they
+do not volley (they shipped as riflemen and still fired). 2 MG at
+4.4. Garrison 10 rifle + 4 grenadier crowd on the hangar.
+
+**Apron wreck:** `prop_wreck_fighter.glb` at **x 3.6 z -4.5 scale 4.6**,
+`onFire`. One plane, bisected, burn faces are the fuselage cut (not a
+separate cylinder). Hull sit (vertex percentiles, both halves). Smoke
+is overlapping billows. Builder: `tools/blender/build_wreck_planes.py`.
+The extra apron fighters + transport were removed so this one can read.
+
+**Bay jet:** `prop_wreck_fighter_bay.glb` at **(7.8, 0.90) scale 1.7**,
+olive tint, `collapsesWith: hangar`. Parked airframe from
+`wreck_from_real_planes.py` (CC0 Jetliner). Do not use the apron
+crash mesh in the mouth. Cookoff is bang + hull fire on the parked
+jet — it used to blink out and leave a hole in the bay. Cold kit
+planted at build; `Ignite` on the hangar fall. Signed 09-16
+*"ok looks good."*
+
+**Control tower:** slim octagon shaft + wraparound glass cab
+(`build_airport.py` `build_control_tower`), x **-6** z **-15.5**
+scale **5.6**, `trim_radar` child spinning 48°/s. On the APK with
+the rest of L13. Do not join the radar into the body.
+
+**Wreck fire:** tongues ON the pile (vertex sit, not AABB-top). Signed
+L1 09-14 *"looks better."* Smoke is overlapping billows (city too).
+Hangar cookoff: bang + hull fire on the bay jet (mesh stays). Signed
+09-16 *"ok looks good."*
+
+**Tank tracks:** `tank_tracks.wav` on `TurnPhase.TankArrive`, 0.55s
+fade on park. Hard-stop on `LoadLevel`. Own `AudioSource`.
+
+`build_airport.py` exports hangar / runway / **tower** only. Do not
+let it overwrite the wreck glbs.
+
+**Re-export of a planted glb MUST rebuild the scene.** Root fileID
+moves; the name stays in `modelNames` and `Spawn` returns null. That
+is why the apron wrecks vanished after the crash mesh shipped —
+`PortSelfTest` now fails if any scene model slot is `{fileID: 0}`.
+
+### Tried and rejected this sitting — do not reopen
+
+- Hangar every plate `chunk_N` — one shell hid the roof, garrison floated.
+- Thick lid (0.42) — warehouse. *"that's not what we want."*
+- Front-facing dark slab in the mouth — reads as a closed garage door.
+- Hanging door chunk in the mouth (stripped after a zoom-in).
+- Stripping the in-bay jet with the door — Rob wanted the jet **in** the
+  hangar; it was pulled forward to z 0.90 instead.
+- Blinking the bay jet out on hangar fall — a hole in the bay, not a
+  cookoff. Ignite in place.
+- Box-built wreck planes; fighter on its side (~80° roll); nose-plant;
+  Jetliner +90° X (stood on its tail). Rest on tarmac, yaw only.
+- Deleting faces off the airliner — *"just looks like pieces are missing."*
+- Primitive hull "crashed fighter" — *"you can't tell what that is."*
+- Standing-wing airliner as the wreck read (still not a crash).
+- A separate cylinder as the burn cap — floated off the fuselage.
+- `hangar_collapse.glb` Mecanim (`animationMethod: 2`) — wreck sat at
+  rest, still standing. All other `*_collapse.glb` are method **1**.
+- SitOnPile AABB-top on the apron hull — the tail is that top, tongues
+  floated. Same AABB on collapse heaps floated L1 fire. Vertex
+  percentiles for both; scars ray the mesh, never the box front.
+- Column smoke texture (opaque foot, faded tip) — every puff read as a
+  dark slab. Billows, fade on all edges.
+
+### Next session, if playing on device
+
+Phone has the cookoff APK. L13 look-pass is signed. A campaign run
+**L1→L6 through the picker** is still owed. Winter / Dusk skies on a
+real volley if the run gets that far (Desert L13 was *"ok good."*).
+
+### Signed 09-06 — do not reopen
+
+**Wrecks sit back, bosses stay on the ground line.** `LevelScenery.WreckBackZ`
+**-1.6**. L6 Sovereign **8.5** / heavy **6.5**, z **0.4**. Tried and rejected:
+z-forward (Sovereign looked closer to the camera), near-flank (behind the
+still-standing bunker), past-the-wreck (still in the collapsed splat).
+
+Rule 10 samples collapse **last frame** for MaxZ, rest pose for width/height
+(the fallen clip is a pancake that swallowed neighbouring garrisons in X).
+L6 dirt trio 2.25 → **1.70** (heavies 0.28). L7 mast 10.6 → **10.9**. L12
+bosses still `anchorZ` **3.4** — wreck-back is global, they may now sit
+further forward than they need; do not pull them without an ask.
+
+**Structure hits:** whole-building charcoal was tried and rejected (the mesh
+just turned dark). Live buildings stamp **soot + crater at the impact**
+(shells/rockets/grenades a hole; rifle a chip). Chunk shedding and the death
+wreck stay.
+
+**Camera:** `CameraDirector.ShooterHoldSeconds` **0.45s** on the people who
+fired, then the volley chase — **except** a close volley (enemy within
+`CloseVolleyGap` 3.2) skips the hold and frames `VolleyLook` (live rounds
++ blasts), signed 09-16 *"looks good."* Windup and post-volley rest frame
+**living bodies** (`LivingActors`), not the captured side (structure edges
+stay on scout). A lone Sovereign is a portrait, not the empty middle of
+their half. Aim frame is still locked — do not widen it. Melee claims at
+**2.5** in the aiming street, not 0.7.
+
+**Muzzle flash:** Blender low-poly `Assets/Models/fx_muzzle.glb` (star + cone
+along +X), `Assets/Prefabs/MuzzleFlash.prefab`, 64-slot pool in
+`BattleRunner`. Additive, infantry and tank. Skip heli / strafe / airstrike.
+`GameSpace.FromToRotation` so the cone follows the shot (game +X = Unity -X).
+Built over Blender MCP; addon protocol is a version behind,
+`execute_blender_code` still works. Never `read_factory_settings` (kills the
+session and drops port 9876). Splash/`window_close` also killed Blender —
+relaunch stock so auto-start works.
+
+### Closed 09-05 — do not reopen as open work
+
+- Sovereign **160 hp** (was 260). L6 escort **3 → 1**. Boss telegraph banners
+  gone (empty `telegraphLabel` is authored). Wave telegraphs stay.
+- Rifle tracer **0.22**, rocket **0.18**, grenade 0.16, shell 0.34.
+- Auto writes `Last:` from the first shooter's launch (unclamped).
+- Rules 10 (wreck neighbours) and 11 (live mesh) are standing.
+
+## Standing
+
+Rules **8–11**. Wrecks sit back (`WreckBackZ` -1.6). L6 bosses at the keep, z 0.4.
+L12 `anchorZ` 3.4. Volley holds **0.45s** on shooters, then chases — except a
+close volley, which pinches to `VolleyLook`. Windup looks at living actors.
+Heroes 1.45 / Sovereign 1.65 with brass-gold trim. Sovereign **160 hp**.
+Campaign: 13 levels. The Citadel (old L12) is a rig. Scorched Apron is
+level 12. **Loaded Post** (level 13, id `level_14`) is the inversion:
+six rifles in front of an empty garrison post, four more walk out only
+if it falls. Telegraph `Men inside` after the first hit. Not signed.
+2 warnings (L3 rule 7,
+L5 separation 11.6), 0 errors. L13 charge is melee; cookoff signed.
+Melee claims at **2.5**. Scene 92 models. `PortSelfTest` has one standing
+FAIL: L13 mid-ground count (see pickup). This sitting is **not committed**.
+
+`PortSelfTest.Run` after every change. **RIGS** is the test supply (consumables,
+classes, ammo) — a clean install resets it. **Do not use Auto** for structures,
+ammo, or consumables. Android repo is RETIRED. `DISPLAY=:0`. **Ask git.**
+Uninstall/reinstall does **not** wipe coins (Android backup); it does reset RIGS.
+
+Leftover and **not wired** — still untracked, do not treat as product:
+`Assets/Models/Kenney/Particles/` and `Assets/Materials/TracerSprite.mat`.
+
+### Owed
+
+1. A campaign run **L1 → L6 through the picker**.
+2. Rocket **0.18** at melee, if it has not been signed on a charge.
+3. Optional, ask first: pull the Citadel rig's bosses back now that wrecks
+   sit behind the ground line. It is not in the campaign.
+4. **Winter / Dusk skies** on a real volley — Desert L13 was *"ok good."*
+5. Optional: a second mid-ground prop on L13 at `z <= -6` so the scenery
+   check goes green. Do not plant a twin of the tower.
+
+### Do not open unprompted
+
+Tracer look, Kenney particles, a new death clip. Leftover files above.
+
+Wind is cosmetic and parked (collision is X/Y). Heli stays shut. Do not
+widen the aim frame — analysed 2026-08-17, recommendation is no; camera is
+locked. Whole-building charcoal — tried 09-06, rejected. Z-forward bosses —
+tried 09-06, rejected (looked closer to the camera). Hangar as a warehouse
+lid, a closed-door mouth, or Mecanim collapse — tried 09-08, rejected.
+Do not re-export wreck glbs from `build_airport.py`. Do not delete faces
+off the airliner, box-build wreck planes, or cap a snap with a floating
+disc. After any planted-glb re-export, rebuild the scene. Do not sit
+fire or scars on a renderer AABB. Do not blink bound props out on
+collapse — ignite them.
+
+### Closed 08-27 → 08-28 — do not reopen as taste
+
+- **L4 shellsOverride = 3.** Played HOLD-then-ARM, defeat T12. 2 of 3
+  shells missed walls — does **not** ask to bump. Leave it. Do not
+  widen the aim frame. PlayerTank stays at 5.
+- **L5 walk-back is on the APK** (riflemen 10→7, budget 16→13,
+  packing **0.8** kept). Authored mix 7 rifle + 2 grenadier + 1
+  sniper = 13/13. Tank stays off. **Played through the picker
+  09-01, won 2★** — the walk-back is signed. Do not walk it
+  back further.
+- **Elbow kept.** All seven classes. Aiming is still the
+  hold-the-gun read. Rob: *"elbow is fine, let's keep it."*
+- **Last-aim HUD.** `Last: power N%    angle N°` under Your turn.
+- **Rifle tracer signed.** Un-tapered flat orange dash, opaque, no
+  tail. Rob: *"ok, we can use this. kind of goes with the theme...
+  not super realistic, maybe mid-90s feel."* Teardrop = rocket;
+  Kenney `trace_01` = glow streak; both rejected. Rockets /
+  grenades / shells keep their meshes. `GAME_DESIGN_LOCKS.md`.
+- **L1 tank operator.** One rider on the hull, nine on the ground,
+  `deployBudget` 9. If he dies: panel `NO GUNNER`, no shell, ammo
+  unspent. Loadout cannot replace him. **Other campaign tanks still
+  field two** until asked.
+- **Dirt deaths skid.** Stay on the dirt, slide backwards, flop
+  over. No hop (that bounced), no log-roll, no Kenney `die`. Rob:
+  *"ok this is fine."* A crumple clip is not the next move unless
+  he asks. Deck falls unchanged.
 
 ## Level navigation — DONE, 2026-08-05
 
